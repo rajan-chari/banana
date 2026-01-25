@@ -1,0 +1,6 @@
+{
+  "to_handles": ["bob"],
+  "subject": "Test Message",
+  "body": "Hello Bob, this is a test message from the REST API!",
+  "tags": ["test"]
+}
