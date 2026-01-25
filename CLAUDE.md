@@ -4,99 +4,69 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a **workspace repository** containing multiple independent projects. Each project has its own directory with complete source code, documentation, and CLAUDE.md file.
+This is a **local-first LLM assistant** project with a language-based folder structure. Python code lives in `python/`, containing two packages: `agcom` (communication library) and `assistant` (LLM assistant with script-to-tool promotion).
 
 ## Workspace Structure
 
 ```
-banana/                  (workspace root)
-├── CLAUDE.md           (this file - workspace-level guidance)
-├── agcom2/             (Agent Communication library and REST API)
-│   ├── CLAUDE.md       (project-specific guidance)
-│   ├── agcom/          (Python library)
-│   ├── app/            (REST API)
-│   └── ...
-└── [future projects]/  (additional projects will be added here)
+banana/
+├── instructions.md     # Workflow guide - READ THIS FIRST
+├── plan.md             # Implementation plan
+├── progress.md         # Execution tracker
+├── specs.md            # Requirements (source of truth)
+├── CLAUDE.md           # This file - AI guidance
+├── README.md           # Project overview
+└── python/             # All Python code
+    ├── agcom/          # Agent communication library
+    ├── assistant/      # LLM assistant package
+    ├── config/         # Configuration files
+    ├── scripts/        # Generated scripts
+    ├── tests/          # Test suite
+    ├── data/           # Data files
+    ├── appPackage/     # Teams app package
+    └── pyproject.toml  # Python project config
 ```
 
-## Working with This Workspace
+## Workflow
 
-### When Starting Work
+1. **Start here** — Read `instructions.md`
+2. **Check progress** — Open `progress.md` to see current state
+3. **Consult the plan** — Open `plan.md` to understand next steps
+4. **Do the work** — Implement the next incomplete task
+5. **Update progress** — Mark completed items in `progress.md`
 
-1. **Identify the target project** - Each subdirectory is an independent project
-2. **Navigate to the project directory** - `cd <project-name>`
-3. **Read the project's CLAUDE.md** - Each project has its own detailed guidance
-4. **Follow project-specific setup** - Build, test, and run commands are project-specific
+## Python Packages
 
-### Project Independence
-
-- Each project is **self-contained** with its own:
-  - Dependencies and virtual environments
-  - Build and test commands
-  - Documentation
-  - Configuration files
-  - Version control practices (potentially)
-
-- Projects **do not share code** unless explicitly designed to do so
-- Each project should be treated as a separate codebase
-
-## Current Projects
-
-### agcom2
-**Type:** Python Library + REST API
+### agcom
 **Purpose:** Multi-agent communication system with email-like messaging, threading, and address book
-**Tech Stack:** Python 3.10+, SQLite, FastAPI, JWT authentication
-**Entry Point:** `cd agcom2 && cat CLAUDE.md`
+**Tech Stack:** Python 3.10+, SQLite
+**CLI:** Full-featured console interface with numbered indices and smart formatting
+**Quick Start:** `agcom init --store db.db --me alice`
 
-**Quick Commands:**
+### assistant
+**Purpose:** Local-first LLM assistant with script-to-tool promotion
+**Tech Stack:** Python 3.10+, Teams SDK, LLM integration
+
+## Quick Commands
+
 ```bash
-cd agcom2
-pip install -e .
-pytest agcom/tests/ -v
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+cd python
+
+# Setup
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/ -v
+
+# Run assistant
+my-assist
 ```
 
-## Adding New Projects
+## Guidelines
 
-When adding a new project to this workspace:
-
-1. Create a new directory at the workspace root: `mkdir <project-name>`
-2. Add a `CLAUDE.md` file in the project directory with project-specific guidance
-3. Include project setup, build, test, and run commands
-4. Document the project's purpose, architecture, and key constraints
-5. Update this workspace-level CLAUDE.md to list the new project
-
-## Navigation
-
-To work on a specific project:
-
-1. Navigate to project directory: `cd <project-name>`
-2. Read project documentation: `cat CLAUDE.md` or `cat README.md`
-3. Follow project-specific setup instructions
-
-## Workspace-Level Guidelines
-
-- **No shared dependencies** - Each project manages its own dependencies
-- **No workspace-level build** - Build each project independently
-- **Independent testing** - Each project has its own test suite
-- **Project-specific documentation** - Always read the project's CLAUDE.md first
-- **Isolation** - Changes in one project should not affect others
-
-## Common Patterns
-
-When working across multiple projects in this workspace:
-
-1. **Always check which directory you're in** before running commands
-2. **Use project-specific virtual environments** (e.g., `agcom2/venv/`)
-3. **Read project documentation first** - don't assume commands work across projects
-4. **Test in isolation** - test one project at a time
-5. **Document cross-project dependencies** if they exist (currently none)
-
-## Future Expansion
-
-As this workspace grows:
-
-- Keep projects logically separated
-- Consider adding a workspace README.md with project index
-- Document any cross-project relationships or shared infrastructure
-- Maintain independent versioning per project
+- **Follow the workflow** - Use instructions.md, plan.md, progress.md
+- **Specs are source of truth** - Check specs.md for requirements
+- **Python code in python/** - All code lives under the python/ directory
+- **Update progress** - Mark tasks complete after finishing work

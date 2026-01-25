@@ -1,0 +1,55 @@
+{
+    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+    "manifestVersion": "1.19",
+    "version": "1.0.0",
+    "id": "00000000-0000-0000-0000-000000000000",
+    "packageName": "com.myassist.localassistant",
+    "developer": {
+        "name": "My Assist",
+        "websiteUrl": "https://localhost:3978",
+        "privacyUrl": "https://localhost:3978/privacy",
+        "termsOfUseUrl": "https://localhost:3978/termsofuse"
+    },
+    "name": {
+        "short": "My Assist",
+        "full": "My Assist - Local LLM Assistant"
+    },
+    "description": {
+        "short": "Local-first LLM assistant with script-to-tool promotion",
+        "full": "A local-first LLM-based assistant that runs on your computer, generates scripts, executes them locally, and promotes reliable scripts into reusable tools."
+    },
+    "icons": {
+        "outline": "outline.png",
+        "color": "color.png"
+    },
+    "accentColor": "#4F6BED",
+    "bots": [
+        {
+            "botId": "${{BOT_ID}}",
+            "scopes": ["personal", "team", "groupChat"],
+            "supportsFiles": false,
+            "isNotificationOnly": false,
+            "commandLists": [
+                {
+                    "scopes": ["personal"],
+                    "commands": [
+                        {
+                            "title": "help",
+                            "description": "Show available commands and capabilities"
+                        },
+                        {
+                            "title": "tools",
+                            "description": "List registered tools"
+                        },
+                        {
+                            "title": "run",
+                            "description": "Execute a script or tool"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "permissions": ["identity", "messageTeamMembers"],
+    "validDomains": ["localhost"]
+}
