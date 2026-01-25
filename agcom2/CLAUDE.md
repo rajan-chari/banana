@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Context
+
+This project is part of the **banana workspace** - a multi-project repository.
+
+- **Workspace root:** `../` (one level up)
+- **Project location:** `banana/agcom2/`
+- **Git repository:** Managed at workspace level (`../git`)
+- **Working directory:** All commands below assume you're in the `agcom2/` directory
+
 ## Project Overview
 
 **AgCom** (Agent Communication) is a Python library and REST API for multi-agent communication that emulates email-like messaging. It provides threading, address book management, audit logging, and SQLite persistence with concurrent access support.
@@ -206,3 +215,86 @@ REST API tests:
 - `REST_API_SPEC.md` - Complete REST API specification
 - `REST_API_QUICKSTART.md` - Quick start guide for REST API
 - `DOCS.md`, `TOUR.md` - Additional documentation
+
+## Git Workflow
+
+This project is under git version control as part of the banana workspace.
+
+### Making Changes
+
+```bash
+# Check status (run from workspace root or here)
+git status
+
+# View changes
+git diff
+
+# Stage specific files
+git add agcom/session.py app/main.py
+
+# Stage all changes in agcom2
+git add .
+
+# Create commit (always include Co-Authored-By line)
+git commit -m "$(cat <<'EOF'
+Add feature description here
+
+Detailed explanation of changes.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+EOF
+)"
+
+# Push to GitHub
+git push
+```
+
+### Common Git Commands
+
+```bash
+# View recent commits
+git log --oneline -10
+
+# View commit history for specific file
+git log --oneline agcom/session.py
+
+# See what changed in last commit
+git show
+
+# Undo unstaged changes to a file
+git checkout -- agcom/session.py
+
+# View remote repository
+git remote -v
+```
+
+### Important Notes
+
+- **Commit from anywhere:** Git commands work from agcom2/ or workspace root
+- **Always include Co-Authored-By:** Required for all commits
+- **Test before committing:** Run `pytest agcom/tests/ -v` first
+- **Descriptive messages:** Explain why, not just what changed
+- **Stage selectively:** Use `git add <specific-files>` rather than `git add .` when working on multiple features
+
+## Project Structure in Workspace
+
+```
+banana/                          # Workspace root (git repository)
+├── README.md                    # Workspace overview
+├── CLAUDE.md                    # Workspace guidance
+├── .gitignore                   # Git ignore rules
+└── agcom2/                      # This project
+    ├── CLAUDE.md                # This file
+    ├── README.md                # Project documentation
+    ├── agcom/                   # Python library
+    │   ├── __init__.py
+    │   ├── session.py           # Main API
+    │   ├── storage.py           # Database layer
+    │   ├── models.py            # Data models
+    │   └── tests/               # Test suite
+    ├── app/                     # REST API
+    │   ├── main.py              # FastAPI app
+    │   ├── routers/             # API endpoints
+    │   └── models/              # Request/response models
+    └── scripts/                 # Utility scripts
+```
