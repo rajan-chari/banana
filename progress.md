@@ -1,0 +1,216 @@
+# Progress Tracker
+
+> **Instructions**: See [instructions.md](instructions.md) for workflow  
+> **Plan**: See [plan.md](plan.md) for task details
+
+---
+
+## Current Status
+
+**Phase**: 6 — agcom REST API Integration (3/5 tasks complete)
+**Last Updated**: 2026-01-25
+**Status**: 🟡 In Progress
+**Next Tasks**: Complete testing and documentation
+
+---
+
+## Phase 1: Project Setup & Teams SDK Integration ✅
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 1.1 Initialize Python project structure | 🟢 Complete | Created `python/` subdir for multi-language support |
+| 1.2 Install Teams SDK dependencies | 🟢 Complete | venv created, microsoft-teams-ai v2 + devtools installed |
+| 1.3 Create basic bot scaffold | 🟢 Complete | Echo bot with DevTools plugin |
+| 1.4 Verify DevTools connection | 🟢 Complete | DevTools running at http://localhost:3979/devtools |
+
+---
+
+## Phase 2: LLM Integration ✅
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 2.1 Choose LLM provider | 🟢 Complete | PydanticAI — multi-provider, type-safe, native tools |
+| 2.2 Implement LLM client | 🟢 Complete | `assistant/llm/client.py` with structured responses |
+| 2.3 Integrate LLM with bot | 🟢 Complete | Bot routes messages through LLM, tested successfully |
+| 2.4 Create config system | 🟢 Complete | Env vars + markdown config, API fixes for PydanticAI 1.46 |
+
+---
+
+## Phase 3: Script Generation & Execution ✅
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 3.1 Implement script generator | 🟢 Complete | `scripts/generator.py` - saves with metadata header |
+| 3.2 Implement script executor | 🟢 Complete | `scripts/executor.py` - subprocess with timeout |
+| 3.3 Add execution sandboxing | 🟢 Complete | Timeout, output truncation, working dir isolation |
+| 3.4 Return results to user | 🟢 Complete | Bot shows script, executes, displays output |
+
+---
+
+## Phase 4: Permission System ✅
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 4.1 Define permission categories | 🟢 Complete | `permissions/categories.py` - FILE, SHELL, NETWORK, SYSTEM, CODE_EXECUTION |
+| 4.2 Implement permission checker | 🟢 Complete | `permissions/checker.py` - AST analysis, pattern matching |
+| 4.3 Implement confirmation flow | 🟢 Complete | Development policy auto-approves, production requires confirmation |
+| 4.4 Add audit logging | 🟢 Complete | `permissions/audit.py` - JSON logs to file + console |
+
+---
+
+## Phase 5: Tool Registration & Promotion
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 5.1 Design tool registry | 🟢 Complete | Comprehensive Tool + ToolParameter models exist in tools/registry.py |
+| 5.2 Implement tool storage | 🟢 Complete | Hybrid SQLite + file-based in tools/storage.py (aligns with agcom pattern) |
+| 5.3 Create promotion workflow | 🟢 Complete | ToolPromoter with AST-based parameter detection in tools/promoter.py |
+| 5.4 Implement tool invocation | 🔴 **CRITICAL GAP** | Manual execution works (/run), but LLM cannot auto-invoke tools - needs bridge |
+| 5.5 Add tool management commands | 🟢 Complete | /tools, /tool, /promote, /run, /delete commands in bot/app.py |
+
+---
+
+## Phase 6: agcom REST API Integration
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 6.1 Core client layer | 🟢 Complete | AgcomClient with 24 API methods, async/await, retry logic (1,082 lines) |
+| 6.2 Tool integration | 🟢 Complete | 6 LLM-callable tools registered in tool registry (290 lines) |
+| 6.3 Slash commands | 🟢 Complete | 7 commands added to bot (/agcom-send, /agcom-inbox, etc.) (240 lines) |
+| 6.4 Testing | 🟡 In Progress | Unit + integration tests being developed |
+| 6.5 Documentation | 🟡 In Progress | README, config samples, guides being written |
+
+---
+
+## Phase 7: Polish & Hardening
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 7.1 Error handling review | 🔴 Not Started | |
+| 7.2 Logging & observability | 🔴 Not Started | |
+| 7.3 Documentation | 🔴 Not Started | |
+| 7.4 Testing | 🔴 Not Started | |
+
+---
+
+## Phase 8: Android Client (Future)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 8.1 Define API for remote access | 🔴 Not Started | |
+| 8.2 Build Android app | 🔴 Not Started | |
+| 8.3 Connect to local assistant | 🔴 Not Started | |
+
+---
+
+## Current Blockers
+
+**Phase 5.4 - LLM Tool Invocation**:
+- Tools are registered and can be manually executed via `/run <tool>`
+- LLM cannot automatically discover or invoke tools in response to user requests
+- Need to create bridge: `tools/llm_bridge.py` to register tools with PydanticAI agent
+- Once complete, assistant will have full script-to-tool promotion with auto-invocation
+
+**Phase 6.4-6.5 - Testing & Documentation**:
+- Tests in progress
+- Documentation in progress
+- No blockers, work proceeding
+
+---
+
+## Decisions Made
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-01-23 | PydanticAI for LLM layer | Multi-provider (OpenAI, Azure, Anthropic, Ollama), type-safe outputs, native tool/agent support |
+| | | |
+
+---
+
+## Plan Changes
+
+| Date | Change | Reason |
+|------|--------|--------|
+| 2026-01-23 | Initial plan created | Derived from specs.md |
+
+---
+
+## Session Log
+
+### 2026-01-25 (Morning)
+- **Parallel Agent Discovery**: Launched 4 agents in parallel to explore codebase
+  - **Agent 1 (Explore)**: Mapped agcom package structure - sophisticated multi-agent comm system
+  - **Agent 2 (Plan)**: Discovered Phase 5 is 80% complete - only LLM bridge missing
+  - **Agent 3 (Explore)**: Documented assistant architecture - clean layered design
+  - **Agent 4 (Research)**: Recommended hybrid storage (SQLite + files) - matches agcom pattern
+- **Key Findings**:
+  - Tool registry/storage/promoter/executor all implemented and working
+  - Manual tool execution works via `/run` command
+  - **Critical gap**: LLM cannot auto-invoke tools (needs PydanticAI bridge)
+- **Updated CLAUDE.md**: Added parallel agent guidance, architecture notes, critical gaps
+
+### 2026-01-25 (Afternoon - agcom Integration)
+- **Phase 6.1 Complete - Core Client (1,082 lines)**:
+  - Implemented `AgcomClient` with 24 async REST API methods
+  - Complete API coverage: messages, threads, contacts, audit, health
+  - Features: retry logic with exponential backoff, auto-login, session management
+  - Error handling: comprehensive exception mapping and retries
+  - File: `python/assistant/agcom/client.py`
+- **Phase 6.2 Complete - Tool Integration (290 lines)**:
+  - Registered 6 LLM-callable tools with the tool registry
+  - Tools: `agcom_send`, `agcom_list_messages`, `agcom_list_threads`, `agcom_search`, `agcom_add_contact`, `agcom_reply`
+  - Full PydanticAI integration with typed parameters
+  - File: `python/assistant/agcom/tools.py`
+- **Phase 6.3 Complete - Slash Commands (240 lines)**:
+  - Added 7 bot commands: `/agcom-send`, `/agcom-inbox`, `/agcom-threads`, `/agcom-contacts`, `/agcom-reply`, `/agcom-search`, `/agcom-status`
+  - Commands integrated into bot help text and routing
+  - Environment-based configuration with graceful fallback
+  - File: `python/assistant/bot/app.py`
+- **Code Review & Bug Fixes**:
+  - Fixed 4 critical response parsing bugs in client.py
+  - Issues found: incorrect response key access patterns
+  - All API methods now correctly parse JSON responses
+- **Parallel Execution**:
+  - Testing (Phase 6.4) in progress
+  - Documentation (Phase 6.5) in progress
+- **Integration Status**:
+  - ✅ Client layer fully functional
+  - ✅ Tools registered and callable by LLM (once Phase 5.4 bridge is complete)
+  - ✅ Bot commands working
+  - 🟡 Tests being written
+  - 🟡 Documentation being written
+
+### 2026-01-23
+- Created project planning structure
+- Files created: `instructions.md`, `plan.md`, `progress.md`
+- **Phase 1.1 Complete**: Python project structure created
+  - Organized under `python/` directory for multi-language support (Android later)
+  - Package structure: `assistant/` with submodules for bot, llm, scripts, tools, permissions
+  - Created `pyproject.toml`, `.gitignore`, `.env.sample`, README
+  - Created sample Markdown config file (`config/assistant.sample.md`)
+- **Phase 1.2 Complete**: Dependencies installed
+  - Using microsoft-teams-ai v2 (2.0.0a8) with DevTools plugin
+- **Phase 1.3 Complete**: Basic bot scaffold created
+  - Echo bot with DevTools integration
+  - Responds to messages with typing indicator
+- **Phase 1.4 Complete**: DevTools verified
+  - HTTP server on port 3978
+  - DevTools on port 3979 at http://localhost:3979/devtools
+- **Phase 1 Complete!**
+- **Phase 2.1 Complete**: Chose PydanticAI for LLM abstraction
+- **Phase 2.2 Complete**: Implemented LLM client
+  - `assistant/llm/client.py` - PydanticAI agent with structured responses
+  - `assistant/llm/config.py` - Multi-provider config (OpenAI, Azure, Anthropic, Ollama, Groq)
+- **Phase 2.3 Complete**: Integrated LLM with bot
+  - Messages now route through LLM, shows generated scripts
+- **Phase 2.4 Complete**: Updated config files\n  - Added markdown config parser (`assistant/config/parser.py`)\n  - Config loads from: env vars (priority) → markdown file → defaults\n- **Phase 2 Complete!** Ready for Phase 3 (Script Generation & Execution)", "oldString": "- **Phase 2.4 Complete**: Updated config files\n- **Phase 2 Complete!** Ready for Phase 3 (Script Generation & Execution)
+
+---
+
+## Status Legend
+
+- 🔴 Not Started
+- 🟡 In Progress
+- 🟢 Complete
+- 🔵 Blocked
+- ⚪ Skipped
