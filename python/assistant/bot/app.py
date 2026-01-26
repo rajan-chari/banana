@@ -29,6 +29,9 @@ from assistant.tools import (
     ToolPromoter,
     ToolExecutor,
 )
+from assistant.agcom import AgcomClient, load_agcom_config
+from assistant.agcom.client import AgcomError
+from assistant.agcom.tools import register_agcom_tools
 
 # Load environment variables
 load_dotenv()
@@ -59,6 +62,20 @@ tool_executor = ToolExecutor(tool_registry, tool_storage)
 
 # Load existing tools from storage
 tool_storage.load_into_registry(tool_registry)
+
+# Initialize agcom integration
+agcom_settings = load_agcom_config()
+agcom_client = None
+
+if agcom_settings.enabled:
+    try:
+        agcom_client = AgcomClient(agcom_settings)
+        # Register agcom tools in the tool registry
+        register_agcom_tools(tool_registry, tool_storage, agcom_client)
+        logger.info("agcom integration enabled - 6 tools registered")
+    except Exception as e:
+        logger.warning(f"agcom integration failed: {e}")
+        logger.warning("agcom tools will not be available")
 
 # Initialize the Teams App with DevTools plugin for local development
 app = App(plugins=[DevToolsPlugin()])
@@ -96,6 +113,15 @@ async def handle_command(
 📝 **Script Management:**
 - `/scripts` - List recent scripts
 - `/script <filename>` - View a script
+
+📨 **Multi-Agent Communication (agcom):**
+- `/agcom-send <handle> <subject> <body>` - Send message
+- `/agcom-inbox [limit]` - List recent messages
+- `/agcom-threads [limit]` - List conversations
+- `/agcom-contacts` - List contacts
+- `/agcom-reply <msg_id> <body>` - Reply to message
+- `/agcom-search <query>` - Search messages
+- `/agcom-status` - Show connection status
 
 ℹ️ **Info:**
 - `/help` - Show this help
@@ -237,9 +263,278 @@ async def handle_command(
 """
         await ctx.send(status)
         return
-    
+
+    # agcom Commands
+    elif cmd == "/agcom-send":
+        await handle_agcom_send(ctx, command_text)
+        return
+
+    elif cmd == "/agcom-inbox":
+        await handle_agcom_inbox(ctx, command_text)
+        return
+
+    elif cmd == "/agcom-threads":
+        await handle_agcom_threads(ctx, command_text)
+        return
+
+    elif cmd == "/agcom-contacts":
+        await handle_agcom_contacts(ctx)
+        return
+
+    elif cmd == "/agcom-reply":
+        await handle_agcom_reply(ctx, command_text)
+        return
+
+    elif cmd == "/agcom-search":
+        await handle_agcom_search(ctx, command_text)
+        return
+
+    elif cmd == "/agcom-status":
+        await handle_agcom_status(ctx)
+        return
+
     else:
         await ctx.send(f"❓ Unknown command: `{cmd}`\n\nType `/help` for available commands.")
+
+
+async def handle_agcom_send(ctx: ActivityContext[MessageActivity], text: str):
+    """
+    Handle /agcom-send command: Send a message to another agent.
+
+    Usage: /agcom-send <handle> <subject> <body>
+    """
+    if not agcom_client:
+        await ctx.send("⚠️ agcom is not configured. Set environment variables:\n- `AGCOM_ENABLED=true`\n- `AGCOM_API_URL=http://localhost:8000`\n- `AGCOM_HANDLE=<your_handle>`")
+        return
+
+    parts = text.split(maxsplit=3)
+    if len(parts) < 4:
+        await ctx.send("❌ **Usage:** `/agcom-send <handle> <subject> <body>`\n\n**Example:** `/agcom-send bob \"Project update\" \"Hi Bob, the project is ready.\"`")
+        return
+
+    _, to_handle, subject, body = parts
+
+    # Remove quotes if present
+    subject = subject.strip('"\'')
+    body = body.strip('"\'')
+
+    try:
+        message = await agcom_client.send_message([to_handle], subject, body)
+        await ctx.send(f"✅ **Message sent to {to_handle}**\n\n**Subject:** {message.subject}\n**ID:** `{message.message_id}`\n**Thread:** `{message.thread_id}`")
+    except AgcomError as e:
+        await ctx.send(f"❌ **Failed to send message:** {e}")
+
+
+async def handle_agcom_inbox(ctx: ActivityContext[MessageActivity], text: str):
+    """
+    Handle /agcom-inbox command: List recent messages.
+
+    Usage: /agcom-inbox [limit]
+    """
+    if not agcom_client:
+        await ctx.send("⚠️ agcom is not configured.")
+        return
+
+    # Parse optional limit
+    parts = text.split(maxsplit=1)
+    limit = 10
+    if len(parts) > 1:
+        try:
+            limit = int(parts[1])
+        except ValueError:
+            await ctx.send("❌ Invalid limit. Usage: `/agcom-inbox [limit]`")
+            return
+
+    try:
+        messages = await agcom_client.list_messages(limit=limit)
+
+        if not messages:
+            await ctx.send("📭 **Inbox is empty**\n\n_No messages found._")
+            return
+
+        lines = [f"📬 **Inbox ({len(messages)} messages)**\n"]
+        for i, msg in enumerate(messages, 1):
+            timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M")
+            lines.append(f"{i}. **From:** {msg.from_handle}")
+            lines.append(f"   **Subject:** {msg.subject}")
+            lines.append(f"   **ID:** `{msg.message_id}`")
+            lines.append(f"   **Time:** {timestamp}\n")
+
+        lines.append("_Use `/agcom-reply <msg_id> <body>` to reply._")
+        await ctx.send("\n".join(lines))
+
+    except AgcomError as e:
+        await ctx.send(f"❌ **Failed to list messages:** {e}")
+
+
+async def handle_agcom_threads(ctx: ActivityContext[MessageActivity], text: str):
+    """
+    Handle /agcom-threads command: List conversation threads.
+
+    Usage: /agcom-threads [limit]
+    """
+    if not agcom_client:
+        await ctx.send("⚠️ agcom is not configured.")
+        return
+
+    # Parse optional limit
+    parts = text.split(maxsplit=1)
+    limit = 10
+    if len(parts) > 1:
+        try:
+            limit = int(parts[1])
+        except ValueError:
+            await ctx.send("❌ Invalid limit. Usage: `/agcom-threads [limit]`")
+            return
+
+    try:
+        threads = await agcom_client.list_threads(limit=limit)
+
+        if not threads:
+            await ctx.send("📭 **No conversations**\n\n_No threads found._")
+            return
+
+        lines = [f"💬 **Conversations ({len(threads)} threads)**\n"]
+        for i, thread in enumerate(threads, 1):
+            timestamp = thread.last_activity_at.strftime("%Y-%m-%d %H:%M")
+            participants = ", ".join(thread.participant_handles)
+            lines.append(f"{i}. **Subject:** {thread.subject}")
+            lines.append(f"   **Participants:** {participants}")
+            lines.append(f"   **ID:** `{thread.thread_id}`")
+            lines.append(f"   **Last Activity:** {timestamp}\n")
+
+        await ctx.send("\n".join(lines))
+
+    except AgcomError as e:
+        await ctx.send(f"❌ **Failed to list threads:** {e}")
+
+
+async def handle_agcom_contacts(ctx: ActivityContext[MessageActivity]):
+    """
+    Handle /agcom-contacts command: List contacts from address book.
+
+    Usage: /agcom-contacts
+    """
+    if not agcom_client:
+        await ctx.send("⚠️ agcom is not configured.")
+        return
+
+    try:
+        contacts = await agcom_client.list_contacts(active_only=True)
+
+        if not contacts:
+            await ctx.send("📇 **No contacts**\n\n_Address book is empty._")
+            return
+
+        lines = [f"📇 **Contacts ({len(contacts)})**\n"]
+        for contact in contacts:
+            display = contact.display_name or contact.handle
+            desc = f" - {contact.description}" if contact.description else ""
+            tags = f" [{', '.join(contact.tags)}]" if contact.tags else ""
+            lines.append(f"- **{display}** (`{contact.handle}`){desc}{tags}")
+
+        await ctx.send("\n".join(lines))
+
+    except AgcomError as e:
+        await ctx.send(f"❌ **Failed to list contacts:** {e}")
+
+
+async def handle_agcom_reply(ctx: ActivityContext[MessageActivity], text: str):
+    """
+    Handle /agcom-reply command: Reply to a message.
+
+    Usage: /agcom-reply <msg_id> <body>
+    """
+    if not agcom_client:
+        await ctx.send("⚠️ agcom is not configured.")
+        return
+
+    parts = text.split(maxsplit=2)
+    if len(parts) < 3:
+        await ctx.send("❌ **Usage:** `/agcom-reply <msg_id> <body>`\n\n**Example:** `/agcom-reply abc123 \"Thanks for the update!\"`")
+        return
+
+    _, message_id, body = parts
+    body = body.strip('"\'')
+
+    try:
+        reply = await agcom_client.reply_to_message(message_id, body)
+        await ctx.send(f"✅ **Reply sent**\n\n**Reply ID:** `{reply.message_id}`\n**Thread:** `{reply.thread_id}`")
+
+    except AgcomError as e:
+        await ctx.send(f"❌ **Failed to reply:** {e}")
+
+
+async def handle_agcom_search(ctx: ActivityContext[MessageActivity], text: str):
+    """
+    Handle /agcom-search command: Search messages.
+
+    Usage: /agcom-search <query>
+    """
+    if not agcom_client:
+        await ctx.send("⚠️ agcom is not configured.")
+        return
+
+    parts = text.split(maxsplit=1)
+    if len(parts) < 2:
+        await ctx.send("❌ **Usage:** `/agcom-search <query>`\n\n**Example:** `/agcom-search project update`")
+        return
+
+    query = parts[1]
+
+    try:
+        messages = await agcom_client.search_messages(query, limit=10)
+
+        if not messages:
+            await ctx.send(f"🔍 **No results for:** \"{query}\"\n\n_Try a different search term._")
+            return
+
+        lines = [f"🔍 **Search Results ({len(messages)} matches for \"{query}\")**\n"]
+        for i, msg in enumerate(messages, 1):
+            timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M")
+            body_preview = msg.body[:100] if len(msg.body) <= 100 else msg.body[:100] + "..."
+            lines.append(f"{i}. **From:** {msg.from_handle}")
+            lines.append(f"   **Subject:** {msg.subject}")
+            lines.append(f"   **Preview:** {body_preview}")
+            lines.append(f"   **ID:** `{msg.message_id}`")
+            lines.append(f"   **Time:** {timestamp}\n")
+
+        await ctx.send("\n".join(lines))
+
+    except AgcomError as e:
+        await ctx.send(f"❌ **Search failed:** {e}")
+
+
+async def handle_agcom_status(ctx: ActivityContext[MessageActivity]):
+    """
+    Handle /agcom-status command: Show agcom connection status.
+
+    Usage: /agcom-status
+    """
+    if not agcom_client:
+        await ctx.send("⚠️ **agcom is not configured**\n\nTo enable agcom, set environment variables:\n- `AGCOM_ENABLED=true`\n- `AGCOM_API_URL=http://localhost:8000`\n- `AGCOM_HANDLE=<your_handle>`")
+        return
+
+    try:
+        # Try health check
+        health = await agcom_client.health_check()
+
+        # Get current identity
+        identity = await agcom_client.whoami()
+
+        status_text = f"""✅ **agcom Connected**
+
+**Status:** Online
+**API URL:** {agcom_client.settings.api_url}
+**Handle:** {identity.handle}
+**Display Name:** {identity.display_name or '(not set)'}
+**API Version:** {health.get('version', 'unknown')}
+**Auto-login:** {'Enabled' if agcom_client.settings.auto_login else 'Disabled'}
+"""
+        await ctx.send(status_text)
+
+    except AgcomError as e:
+        await ctx.send(f"❌ **agcom Connection Failed**\n\n{e}\n\nMake sure the agcom API server is running:\n```bash\nagcom-api\n```")
 
 
 @app.on_message

@@ -62,6 +62,18 @@ class ToolSettings:
 
 
 @dataclass
+class AgcomSettings:
+    """Multi-agent communication settings."""
+
+    enabled: bool = True
+    api_url: str = "http://localhost:8000"
+    handle: str = ""
+    display_name: str | None = None
+    auto_login: bool = True
+    poll_interval_seconds: int = 30
+
+
+@dataclass
 class AssistantConfig:
     """Complete assistant configuration from markdown file."""
 
@@ -69,6 +81,7 @@ class AssistantConfig:
     directories: DirectorySettings = field(default_factory=DirectorySettings)
     permissions: PermissionSettings = field(default_factory=PermissionSettings)
     tools: ToolSettings = field(default_factory=ToolSettings)
+    agcom: AgcomSettings = field(default_factory=AgcomSettings)
 
     # Raw sections for custom parsing
     raw_sections: dict[str, str] = field(default_factory=dict)
@@ -123,6 +136,12 @@ def parse_config_content(content: str) -> AssistantConfig:
     # Parse Tool Library
     if "Tool Library" in sections:
         config.tools = _parse_tool_settings(sections["Tool Library"])
+
+    # Parse Multi-Agent Communication
+    if "Multi-Agent Communication (agcom)" in sections:
+        config.agcom = _parse_agcom_settings(sections["Multi-Agent Communication (agcom)"])
+    elif "Multi-Agent Communication" in sections:
+        config.agcom = _parse_agcom_settings(sections["Multi-Agent Communication"])
 
     return config
 
@@ -266,6 +285,60 @@ def _parse_tool_settings(content: str) -> ToolSettings:
 
     if "generate a description" in content_lower or "auto" in content_lower:
         settings.auto_generate_description = True
+
+    return settings
+
+
+def _parse_agcom_settings(content: str) -> AgcomSettings:
+    """Parse agcom settings from section content."""
+    settings = AgcomSettings()
+    content_lower = content.lower()
+
+    # Check if enabled/disabled
+    if "disabled" in content_lower or "not enabled" in content_lower:
+        settings.enabled = False
+    elif "enabled" in content_lower:
+        settings.enabled = True
+
+    # Look for API URL
+    url_match = re.search(r"(?:api\s+url|url):\s*([^\s\n]+)", content, re.IGNORECASE)
+    if url_match:
+        settings.api_url = url_match.group(1).strip()
+
+    # Look for handle
+    handle_match = re.search(r"handle:\s*(\w+)", content, re.IGNORECASE)
+    if handle_match:
+        settings.handle = handle_match.group(1)
+
+    # Look for display name
+    display_match = re.search(
+        r"(?:display\s+name|name):\s*([^\n]+)", content, re.IGNORECASE
+    )
+    if display_match:
+        name = display_match.group(1).strip()
+        # Remove quotes if present
+        if name.startswith('"') and name.endswith('"'):
+            name = name[1:-1]
+        if name.startswith("'") and name.endswith("'"):
+            name = name[1:-1]
+        settings.display_name = name if name else None
+
+    # Look for auto-login setting
+    if "auto" in content_lower and "login" in content_lower:
+        if "disabled" in content_lower or "false" in content_lower:
+            settings.auto_login = False
+        else:
+            settings.auto_login = True
+
+    # Look for poll interval
+    poll_match = re.search(
+        r"(?:poll|polling)\s+(?:interval|period):\s*(\d+)", content, re.IGNORECASE
+    )
+    if poll_match:
+        try:
+            settings.poll_interval_seconds = int(poll_match.group(1))
+        except ValueError:
+            pass
 
     return settings
 

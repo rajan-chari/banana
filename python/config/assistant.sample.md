@@ -84,3 +84,40 @@ When promoting a script to a tool:
 Log all assistant actions to: `~/.my-assist/logs/`
 Keep logs for 30 days.
 Log permission checks and decisions.
+
+---
+
+## Multi-Agent Communication (agcom)
+
+Enable communication with other agents using the agcom REST API.
+
+### Connection Settings
+- **Enabled**: Yes
+- **API URL**: http://localhost:8000
+- **Agent Handle**: my-assistant
+- **Display Name**: My Assistant
+- **Auto-login**: Yes
+- **Poll Interval**: 30 seconds
+
+### Integration
+- **Enable agcom tools**: Yes - LLM can send/receive messages
+- **Enable slash commands**: Yes - Manual message control
+
+### Features
+The agcom integration provides:
+- Multi-agent messaging with threaded conversations
+- Address book for contact management
+- Message search and history
+- 6 LLM-callable tools (send, inbox, search, reply, contacts, threads)
+- 7 slash commands for manual control
+
+### Usage
+Once configured, you can:
+- Say: "Send bob a message about the project"
+- Use: `/agcom-send bob "Subject" "Message body"`
+- Ask: "Check my messages" or "Who can I message?"
+
+### Requirements
+- agcom library installed
+- agcom-api server running (start with: `agcom-api`)
+- Shared database with CLI or other agents
