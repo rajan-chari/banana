@@ -11,7 +11,25 @@
       "Bash(\".venv\\\\Scripts\\\\python.exe\" -m pytest tests/test_api.py -v --tb=line)",
       "Bash(\".venv\\\\Scripts\\\\python.exe\" -m pytest tests/test_api.py -v)",
       "Bash(pip install:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(PYTHONPATH=. python:*)",
+      "Bash(for f in *.py)",
+      "Bash(done)",
+      "Bash(find:*)",
+      "Bash(powershell -Command \"\\(Get-ChildItem -Recurse -Filter *.py | Measure-Object -Property Length -Sum\\).Sum\")",
+      "Bash(powershell -Command \"\\(Get-Content *.py | Measure-Object -Line\\).Lines\")",
+      "Bash(powershell -Command \"\\(Get-ChildItem -Path python\\\\assistant\\\\agcom -Recurse -File | Measure-Object\\).Count\")",
+      "Bash(pytest:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(.venv/Scripts/pytest tests/test_agcom_client.py -k \"test_settings\" --tb=short -q)",
+      "Bash(..venvScriptsActivate.ps1)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist /FI \"PID eq 8768\" /FO TABLE)",
+      "Bash(.venvScriptspython.exe -m pytest -m \"not integration\" -v --tb=short tests/test_agcom_client.py::test_search_messages tests/test_api.py::test_search_messages)",
+      "Bash(ls:*)"
     ]
   }
 }
