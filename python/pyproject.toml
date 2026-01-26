@@ -19,6 +19,7 @@ dependencies = [
     "microsoft-teams-devtools>=2.0.0a8",
     "pydantic-ai>=0.1.0",
     "aiohttp>=3.9.0",
+    "tenacity>=8.0.0",
     "python-dotenv>=1.0.0",
     "ulid-py>=1.1.0",
     "fastapi>=0.104.0",
@@ -30,6 +31,8 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "coverage[toml]>=7.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
 ]
@@ -53,3 +56,46 @@ select = ["E", "F", "I", "N", "W"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (require live API server)",
+]
+addopts = "--cov=assistant --cov=agcom --cov=agcom_api --cov-report=html --cov-report=term --cov-report=json"
+
+[tool.coverage.run]
+source = ["assistant", "agcom", "agcom_api"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "*/setup.py",
+]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+skip_empty = true
+sort = "Cover"
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@overload",
+    "@abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+title = "My Assist Test Coverage Report"
+
+[tool.coverage.json]
+output = "coverage.json"
+pretty_print = true

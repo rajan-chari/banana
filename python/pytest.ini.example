@@ -1,0 +1,16 @@
+# Alternative pytest configuration (without coverage)
+#
+# The main configuration is in pyproject.toml which includes coverage by default.
+#
+# To use this configuration instead (for running tests WITHOUT coverage):
+# 1. Rename this file to pytest.ini (remove .example)
+# 2. Run pytest (it will use this file instead of pyproject.toml)
+# 3. To restore: rename back to pytest.ini.example
+#
+# OR simply run: pytest --no-cov (easier, keeps pyproject.toml active)
+
+[pytest]
+asyncio_mode = auto
+testpaths = tests
+markers =
+    integration: marks tests as integration tests (require live API server)
