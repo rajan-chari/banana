@@ -1,7 +1,9 @@
 """Tests for the agcom REST API."""
 
+import gc
 import os
 import tempfile
+import time
 import pytest
 from fastapi.testclient import TestClient
 
@@ -18,9 +20,21 @@ def test_db_path():
     temp_db.close()
     init_database(temp_db.name)
     yield temp_db.name
-    # Cleanup
+
+    # Cleanup - handle Windows file locking issues
     if os.path.exists(temp_db.name):
-        os.unlink(temp_db.name)
+        # Force garbage collection to close any lingering connections
+        gc.collect()
+
+        # Retry deletion with delays (Windows may hold file locks)
+        for attempt in range(5):
+            try:
+                os.unlink(temp_db.name)
+                break
+            except PermissionError:
+                if attempt < 4:
+                    time.sleep(0.5)  # Wait for file lock to release
+                # If all attempts fail, just continue (CI will clean up temp files)
 
 
 @pytest.fixture(scope="module")

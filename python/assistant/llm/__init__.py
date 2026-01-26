@@ -14,6 +14,10 @@ from assistant.llm.config import (
     reload_config,
     set_config,
 )
+from assistant.llm.tool_bridge import (
+    create_pydantic_tool,
+    get_pydantic_tools,
+)
 
 __all__ = [
     "AssistantDependencies",
@@ -26,4 +30,6 @@ __all__ = [
     "get_config",
     "reload_config",
     "set_config",
+    "create_pydantic_tool",
+    "get_pydantic_tools",
 ]

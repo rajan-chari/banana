@@ -20,6 +20,8 @@ class AuditEventListResponse(BaseModel):
 @router.get("/events", response_model=AuditEventListResponse)
 def list_audit_events(
     session: Annotated[AgentCommsSession, Depends(get_session)],
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    actor_handle: Optional[str] = Query(None, description="Filter by actor handle"),
     target_handle: Optional[str] = Query(None, description="Filter by target handle"),
     limit: Optional[int] = Query(None, description="Maximum number of events")
 ):
@@ -27,13 +29,20 @@ def list_audit_events(
 
     Args:
         session: Authenticated session
+        event_type: Filter by event type
+        actor_handle: Filter by actor handle
         target_handle: Filter by target handle
         limit: Maximum events to return
 
     Returns:
         List of audit events
     """
-    events = session.audit_list(target_handle=target_handle, limit=limit)
+    events = session.audit_list(
+        event_type=event_type,
+        actor_handle=actor_handle,
+        target_handle=target_handle,
+        limit=limit
+    )
     return AuditEventListResponse(
         events=[audit_event_to_response(e) for e in events]
     )

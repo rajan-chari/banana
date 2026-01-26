@@ -128,7 +128,10 @@ def init_database(db_path: str) -> sqlite3.Connection:
 
 @contextmanager
 def transaction(conn: sqlite3.Connection):
-    """Context manager for database transactions.
+    """Context manager for database transactions with IMMEDIATE locking.
+
+    Uses BEGIN IMMEDIATE to acquire write lock immediately, avoiding
+    lock contention and "database is locked" errors in concurrent scenarios.
 
     Args:
         conn: Database connection
@@ -137,6 +140,10 @@ def transaction(conn: sqlite3.Connection):
         Connection within a transaction
     """
     try:
+        # Use IMMEDIATE to acquire write lock right away
+        # This prevents multiple transactions from starting simultaneously
+        # and then competing for the write lock
+        conn.execute("BEGIN IMMEDIATE")
         yield conn
         conn.commit()
     except Exception:
@@ -865,25 +872,41 @@ def insert_audit_event(
 
 def list_audit_events(
     conn: sqlite3.Connection,
+    event_type: Optional[str] = None,
+    actor_handle: Optional[str] = None,
     target_handle: Optional[str] = None,
     limit: Optional[int] = None
 ) -> list[AuditEvent]:
-    """List audit events, optionally filtered by target handle.
+    """List audit events, optionally filtered.
 
     Args:
         conn: Database connection
+        event_type: Optional event type to filter by
+        actor_handle: Optional actor handle to filter by
         target_handle: Optional target handle to filter by
         limit: Maximum number of events to return
 
     Returns:
         List of AuditEvent objects ordered by timestamp DESC (most recent first)
     """
+    # Build WHERE clause dynamically
+    where_clauses = []
+    params = []
+
+    if event_type:
+        where_clauses.append("event_type = ?")
+        params.append(event_type)
+    if actor_handle:
+        where_clauses.append("actor_handle = ?")
+        params.append(actor_handle)
     if target_handle:
-        query = "SELECT * FROM audit_log WHERE target_handle = ? ORDER BY timestamp DESC"
-        params = [target_handle]
+        where_clauses.append("target_handle = ?")
+        params.append(target_handle)
+
+    if where_clauses:
+        query = f"SELECT * FROM audit_log WHERE {' AND '.join(where_clauses)} ORDER BY timestamp DESC"
     else:
         query = "SELECT * FROM audit_log ORDER BY timestamp DESC"
-        params = []
 
     if limit is not None:
         query += " LIMIT ?"

@@ -29,7 +29,9 @@
       "Bash(findstr:*)",
       "Bash(tasklist /FI \"PID eq 8768\" /FO TABLE)",
       "Bash(.venvScriptspython.exe -m pytest -m \"not integration\" -v --tb=short tests/test_agcom_client.py::test_search_messages tests/test_api.py::test_search_messages)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(sqlite3:*)",
+      "Bash(curl:*)"
     ]
   }
 }

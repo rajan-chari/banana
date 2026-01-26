@@ -11,12 +11,13 @@ from agcom_api import __version__
 from agcom_api.auth import SessionManager
 from agcom_api import dependencies
 from agcom_api.routers import auth, messages, threads, contacts, audit, health
+# from agcom_api.write_queue import WriteQueue  # TODO: Integrate if needed after testing
 
 
 # Configuration from environment variables
 DB_PATH = os.getenv("AGCOM_DB_PATH", "./data/agcom.db")
 API_HOST = os.getenv("AGCOM_API_HOST", "0.0.0.0")
-API_PORT = int(os.getenv("AGCOM_API_PORT", "8000"))
+API_PORT = int(os.getenv("AGCOM_API_PORT", "8700"))
 API_RELOAD = os.getenv("AGCOM_API_RELOAD", "false").lower() == "true"
 SESSION_EXPIRY = int(os.getenv("AGCOM_SESSION_EXPIRY", "24"))
 
@@ -32,12 +33,20 @@ async def lifespan(app: FastAPI):
     dependencies.session_manager = SessionManager(session_expiry_hours=SESSION_EXPIRY)
     dependencies.db_path = DB_PATH
 
+    # TODO: Initialize write queue for handling SQLite write operations
+    # dependencies.write_queue = WriteQueue()
+    # await dependencies.write_queue.start()
+    # print("Write queue started")
+
     # Ensure database directory exists
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
 
     yield
 
     # Shutdown
+    # TODO: Shutdown write queue
+    # print("Shutting down write queue...")
+    # await dependencies.write_queue.stop()
     print("Shutting down agcom API")
 
 

@@ -71,6 +71,8 @@ async def chat(
     user_id: str,
     conversation_id: str,
     model: str | None = None,
+    tool_registry=None,
+    tool_executor=None,
 ) -> AssistantResponse:
     """
     Send a message to the assistant and get a structured response.
@@ -80,6 +82,8 @@ async def chat(
         user_id: Identifier for the user
         conversation_id: Identifier for the conversation
         model: Optional model override (e.g., "azure:gpt-4o", "ollama:llama3")
+        tool_registry: Optional ToolRegistry for tool access
+        tool_executor: Optional ToolExecutor for tool execution
 
     Returns:
         AssistantResponse with message and optional script
@@ -89,13 +93,25 @@ async def chat(
         conversation_id=conversation_id,
     )
 
-    # Use specified model or default
+    # Get PydanticAI-compatible tools if registry/executor provided
+    pydantic_tools = []
+    if tool_registry and tool_executor:
+        from assistant.llm.tool_bridge import get_pydantic_tools
+        pydantic_tools = get_pydantic_tools(tool_registry, tool_executor)
+
+    # Use override to apply model and tools dynamically
+    overrides = {}
     if model:
-        with assistant_agent.override(model=model):
+        overrides['model'] = model
+    if pydantic_tools:
+        overrides['tools'] = pydantic_tools
+
+    if overrides:
+        with assistant_agent.override(**overrides):
             result = await assistant_agent.run(user_message, deps=deps)
     else:
         result = await assistant_agent.run(user_message, deps=deps)
-    
+
     return result.output
 
 

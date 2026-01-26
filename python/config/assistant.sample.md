@@ -93,7 +93,7 @@ Enable communication with other agents using the agcom REST API.
 
 ### Connection Settings
 - **Enabled**: Yes
-- **API URL**: http://localhost:8000
+- **API URL**: http://localhost:8700
 - **Agent Handle**: my-assistant
 - **Display Name**: My Assistant
 - **Auto-login**: Yes

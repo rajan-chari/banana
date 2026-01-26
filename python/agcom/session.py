@@ -883,19 +883,29 @@ class AgentCommsSession:
 
     def audit_list(
         self,
+        event_type: Optional[str] = None,
+        actor_handle: Optional[str] = None,
         target_handle: Optional[str] = None,
         limit: Optional[int] = None
     ) -> list[AuditEvent]:
         """List audit events.
 
         Args:
+            event_type: Optional event type to filter by
+            actor_handle: Optional actor handle to filter by
             target_handle: Optional target handle to filter by
             limit: Maximum number of events to return
 
         Returns:
             List of AuditEvent objects
         """
-        return list_audit_events(self.conn, target_handle=target_handle, limit=limit)
+        return list_audit_events(
+            self.conn,
+            event_type=event_type,
+            actor_handle=actor_handle,
+            target_handle=target_handle,
+            limit=limit
+        )
 
     # Helper methods
 

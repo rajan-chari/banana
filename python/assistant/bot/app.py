@@ -570,6 +570,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             user_id=user_id,
             conversation_id=conversation_id,
             model=config.model_string,
+            tool_registry=tool_registry,
+            tool_executor=tool_executor,
         )
         logger.info(f"LLM response received: should_execute_script={response.should_execute_script}")
         logger.info(f"LLM message: {response.message[:200]}...")

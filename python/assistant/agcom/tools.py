@@ -281,6 +281,11 @@ def register_agcom_tools(
     """
     logger.info("Registering agcom tools...")
 
+    # Check if agcom tools are already registered (from previous session)
+    if registry.get_by_name("send_agcom_message"):
+        logger.info("agcom tools already loaded from storage, skipping registration")
+        return
+
     # Tool 1: Send Message
     send_tool = Tool(
         id=str(uuid.uuid4()),
