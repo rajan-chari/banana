@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Environment
 
 - **OS**: Windows 11
-- **Shell**: PowerShell 7 (`C:\Program Files\PowerShell\7\pwsh.exe`)
+- **User's Shell**: PowerShell 7 (for manual commands)
+- **Claude Code Bash Tool**: Uses `/usr/bin/bash` (Git Bash/WSL) — use bash syntax, not PowerShell
 - **Python**: 3.10+
 - **Workspace Root**: `C:\s\projects\work\teams\working\banana` — Claude starts here
 - **Python Working Directory**: `python/` — **Run all Python commands from this folder**
@@ -147,53 +148,32 @@ banana/
 
 ## Quick Commands
 
-**CRITICAL WORKFLOW**: Since you often run Python modules from `python/` subfolder:
+### For Claude (Bash tool — uses bash syntax)
 
-1. **For Python commands** - Always navigate to `python/` first:
-```powershell
-# From workspace root (banana/)
-cd python
-.\.venv\Scripts\Activate.ps1  # Activate venv
-my-assist                       # Run commands
-cd ..                           # Return to root when done
-```
+```bash
+# Python commands - activate venv first
+cd python && source .venv/Scripts/activate && pytest tests/ -v
+cd python && source .venv/Scripts/activate && my-assist
 
-2. **For reading project docs** - Use full paths or relative from root:
-```powershell
-# From workspace root (banana/):
+# Reading docs - use full paths or relative
 cat progress.md
-cat specs.md
-
-# From python/ subdirectory:
-cat ../progress.md
+cat ../progress.md  # from python/
 ```
 
-### Python Setup & Commands
+### For User (PowerShell — manual terminal)
 
-**Setup (one-time only):**
 ```powershell
 cd python
-python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
+my-assist
+pytest tests/ -v
 ```
 
-**Daily workflow (every terminal session):**
-```powershell
-cd python                       # Navigate to Python working directory
-.\.venv\Scripts\Activate.ps1   # Activate venv (prompt shows (.venv))
-my-assist                       # Run assistant
-agcom init --store db.db --me alice  # Initialize CLI
-agcom-api                       # Start REST API server
-pytest tests/ -v                # Run tests
+### Setup (one-time)
+
+```bash
+cd python && python -m venv .venv && source .venv/Scripts/activate && pip install -e ".[dev]"
 ```
-
-**Bash tool usage:**
-- When using Bash tool for Python commands, always include `cd python` or use full paths
-- Example: `cd python && .\.venv\Scripts\Activate.ps1 && pytest tests/ -v`
-- Or use working_directory parameter if available
-
-**Note**: Use `.\.venv\Scripts\Activate.ps1` (not `source` or `activate.bat`) in PowerShell.
 
 ## Guidelines
 
@@ -228,6 +208,7 @@ pytest tests/ -v                # Run tests
 - **Conditionals are risky**: `if helper_returns_true(): do_important_thing()` — what if the helper legitimately returns False but the important thing should still happen?
 
 ### Environment & Subprocesses
+- **`.claude/settings.local.json` is user-specific**: Already in `.gitignore`, never commit it
 - **Tools run in subprocesses**: When a tool modifies `.env`, the parent process must call `load_dotenv(override=True)` to see changes
 - **`query_db.py` helper**: Use `python query_db.py "SELECT * FROM table"` to inspect SQLite databases
 - **Restart servers after DB cleanup**: Deleting a database while a server runs leaves stale connections
