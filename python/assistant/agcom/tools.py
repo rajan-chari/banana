@@ -258,6 +258,84 @@ if __name__ == "__main__":
 '''
 
 
+def register_user_identity_tool(
+    registry: ToolRegistry,
+    storage: ToolStorage,
+) -> None:
+    """
+    Register user identity tool (always available).
+
+    This tool allows the LLM to learn the user's name naturally and configure
+    the assistant for multi-agent communication.
+
+    Args:
+        registry: Tool registry to register tools in
+        storage: Tool storage for persistence
+    """
+    # Check if already registered
+    if registry.get_by_name("remember_user_name"):
+        logger.info("User identity tool already registered")
+        return
+
+    identity_tool = Tool(
+        id=str(uuid.uuid4()),
+        name="remember_user_name",
+        description=(
+            "Remember and save the user's name to configure the assistant for multi-agent communication. "
+            "Call this when the user tells you their name (e.g., 'My name is Alice', 'I'm Bob', 'Call me Charlie'). "
+            "Extract the name from their message and pass it as the user_name parameter. "
+            "After this tool runs, communication features become available immediately."
+        ),
+        source_code='''"""Remember the user's name and configure the assistant."""
+import os
+import sys
+from pathlib import Path
+
+# Fix Windows encoding for stdout
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# Parameters (injected at runtime)
+user_name: str
+
+# Import identity configuration
+from assistant.agcom.identity import configure_identity, name_to_handle
+import assistant
+
+# Convert name to handle
+user_handle = name_to_handle(user_name)
+
+# Find the correct .env file location
+# Get the assistant package directory and go up one level to python/ directory
+assistant_dir = Path(assistant.__file__).parent.parent
+env_file = assistant_dir / ".env"
+
+print(f"DEBUG: Using .env file at: {env_file}")
+
+# Configure identity and save to .env
+identity = configure_identity(user_handle, env_file, user_name=user_name)
+
+print(f"Identity configured for {user_name}")
+print(f"__RELOAD_AGCOM_TOOLS__")
+print(f"All set! Communication tools are now available.")
+''',
+        parameters=[
+            ToolParameter(
+                name="user_name",
+                description="The user's full name exactly as they stated it. Extract from phrases like 'My name is Alice' or 'I'm Bob Smith'. Examples: 'Alice', 'Bob Smith', 'Charlie Johnson'",
+                param_type=ParameterType.STRING,
+                required=True,
+            ),
+        ],
+        tags=["setup", "configuration", "identity"],
+    )
+
+    registry.register(identity_tool)
+    storage.save(identity_tool)
+    logger.info("Registered user identity tool")
+
+
 def register_agcom_tools(
     registry: ToolRegistry,
     storage: ToolStorage,
@@ -427,3 +505,38 @@ def register_agcom_tools(
     logger.info(f"Registered tool: {threads_tool.name}")
 
     logger.info(f"Successfully registered 6 agcom tools")
+
+
+def try_register_agcom_tools_if_configured(
+    registry: ToolRegistry,
+    storage: ToolStorage,
+) -> bool:
+    """
+    Try to register agcom tools if identity is now configured.
+
+    This is used for dynamic tool registration after the user provides their name.
+
+    Args:
+        registry: Tool registry to register tools in
+        storage: Tool storage for persistence
+
+    Returns:
+        True if tools were registered, False otherwise
+    """
+    from .config import load_agcom_config
+    from .client import AgcomClient
+
+    agcom_settings = load_agcom_config()
+    if agcom_settings.is_configured and agcom_settings.enabled:
+        # Check if tools already registered
+        if registry.get_by_name("send_agcom_message"):
+            logger.info("agcom tools already registered")
+            return False  # Already registered
+
+        # Register tools now
+        agcom_client = AgcomClient(agcom_settings)
+        register_agcom_tools(registry, storage, agcom_client)
+        logger.info(f"Dynamically registered agcom tools for {agcom_settings.user_handle}")
+        return True
+
+    return False

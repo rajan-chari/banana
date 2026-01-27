@@ -91,16 +91,49 @@ Log permission checks and decisions.
 
 Enable communication with other agents using the agcom REST API.
 
+### Identity Configuration
+
+Before using agcom, you must configure your identity. The assistant will register itself with a handle derived from your user handle.
+
+**Identity Format:**
+- **Your Handle**: `alice` (your agcom handle)
+- **Assistant Handle**: `alice_assistant` (automatically derived)
+- **Display Name**: `Alice's Assistant` (automatically generated)
+
+**Setup Methods:**
+
+**Option 1: Conversational Setup (Recommended)**
+Just tell the assistant your agcom handle:
+```
+You: "My agcom handle is alice"
+Assistant: [Configures identity and saves to .env]
+Assistant: "I've configured myself as alice_assistant. Please restart me."
+```
+
+**Option 2: Slash Command**
+Use the setup command directly:
+```
+/agcom-setup alice
+```
+
+**Option 3: Manual Configuration**
+Add to your `.env` file:
+```bash
+AGCOM_USER_HANDLE=alice
+AGCOM_HANDLE=alice_assistant
+AGCOM_DISPLAY_NAME=Alice's Assistant
+```
+
+After configuration, restart the assistant for agcom tools to become available.
+
 ### Connection Settings
 - **Enabled**: Yes
 - **API URL**: http://localhost:8700
-- **Agent Handle**: my-assistant
-- **Display Name**: My Assistant
 - **Auto-login**: Yes
 - **Poll Interval**: 30 seconds
 
 ### Integration
-- **Enable agcom tools**: Yes - LLM can send/receive messages
+- **Enable agcom tools**: Yes - LLM can send/receive messages (after identity setup)
 - **Enable slash commands**: Yes - Manual message control
 
 ### Features
@@ -109,15 +142,17 @@ The agcom integration provides:
 - Address book for contact management
 - Message search and history
 - 6 LLM-callable tools (send, inbox, search, reply, contacts, threads)
-- 7 slash commands for manual control
+- 8 slash commands for manual control (including setup)
 
 ### Usage
 Once configured, you can:
 - Say: "Send bob a message about the project"
 - Use: `/agcom-send bob "Subject" "Message body"`
 - Ask: "Check my messages" or "Who can I message?"
+- Check status: `/agcom-status` to view identity and connection info
 
 ### Requirements
 - agcom library installed
 - agcom-api server running (start with: `agcom-api`)
 - Shared database with CLI or other agents
+- Identity configured (see Identity Configuration above)
