@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Phase**: 6 — agcom REST API Integration (3/5 tasks complete)
-**Last Updated**: 2026-01-25
+**Phase**: 6 — agcom REST API Integration (4/5 tasks complete)
+**Last Updated**: 2026-01-26
 **Status**: 🟡 In Progress
-**Next Tasks**: Complete testing and documentation
+**Next Tasks**: Complete documentation
 
 ---
 
@@ -77,7 +77,7 @@
 | 6.1 Core client layer | 🟢 Complete | AgcomClient with 24 API methods, async/await, retry logic (1,082 lines) |
 | 6.2 Tool integration | 🟢 Complete | 6 LLM-callable tools registered in tool registry (290 lines) |
 | 6.3 Slash commands | 🟢 Complete | 7 commands added to bot (/agcom-send, /agcom-inbox, etc.) (240 lines) |
-| 6.4 Testing | 🟡 In Progress | Unit + integration tests being developed |
+| 6.4 Testing | 🟢 Complete | Unit + integration tests (43 tests), backend registration tests |
 | 6.5 Documentation | 🟡 In Progress | README, config samples, guides being written |
 
 ---
@@ -111,10 +111,9 @@
 - Need to create bridge: `tools/llm_bridge.py` to register tools with PydanticAI agent
 - Once complete, assistant will have full script-to-tool promotion with auto-invocation
 
-**Phase 6.4-6.5 - Testing & Documentation**:
-- Tests in progress
+**Phase 6.5 - Documentation**:
 - Documentation in progress
-- No blockers, work proceeding
+- Tests complete (43 tests across identity, client, integration, app registration)
 
 ---
 
@@ -136,6 +135,27 @@
 ---
 
 ## Session Log
+
+### 2026-01-26 (Backend Registration on Identity Discovery)
+- **Feature: Auto-register assistant in agcom-api backend**:
+  - When user provides name ("My name is Rajan"), assistant now registers in backend
+  - Implemented `register_assistant_in_backend()` in app.py
+  - Calls login() + add_contact() to create entry in address_book
+  - Works from all identity paths: LLM tool, /run command, /agcom-setup
+- **Bug Fix: Registration skipped when tools already loaded**:
+  - Issue: `register_assistant_in_backend()` only called if `try_register_agcom_tools_if_configured()` returned True
+  - But tools loaded from storage return False (already registered)
+  - Fix: Call registration unconditionally when identity is newly configured
+- **Improvement: Database initialization at API startup**:
+  - agcom-api now creates database at startup (not lazily)
+  - Catches config errors early, clearer "server ready" indication
+- **Tests Added (7 new tests)**:
+  - `test_app_registration.py` covers the integration bug
+  - Tests: registration when tools loaded, when tools new, idempotency, error handling
+- **Key Learning**: Unit tests passed but integration wiring was wrong
+  - Each function worked in isolation
+  - The bug was in how they were composed in app.py
+  - Need integration tests for orchestration logic
 
 ### 2026-01-25 (Morning)
 - **Parallel Agent Discovery**: Launched 4 agents in parallel to explore codebase
