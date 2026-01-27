@@ -188,3 +188,24 @@ pytest tests/ -v                # Run tests
 1. **Phase 5.4**: LLM tool invocation bridge - tools exist but LLM can't discover/call them
 2. **Phase 6.5**: Documentation for agcom integration (in progress)
 3. **Permission UX**: Confirmation flow for ASK-level permissions not yet implemented
+
+## Gotchas & Lessons Learned
+
+### Integration Bugs Hide in Orchestration
+- **Unit tests can pass while integration is broken** — Each function works correctly in isolation, but the wiring between them can be wrong
+- **Test the composition**: When function A's result controls whether function B runs, test that orchestration explicitly
+- **Conditionals are risky**: `if helper_returns_true(): do_important_thing()` — what if the helper legitimately returns False but the important thing should still happen?
+
+### Environment & Subprocesses
+- **Tools run in subprocesses**: When a tool modifies `.env`, the parent process must call `load_dotenv(override=True)` to see changes
+- **`query_db.py` helper**: Use `python query_db.py "SELECT * FROM table"` to inspect SQLite databases
+- **Restart servers after DB cleanup**: Deleting a database while a server runs leaves stale connections
+
+### Code Style Preferences
+- **Check-then-act over try-catch for flow control**: Prefer `if not exists(): create()` over `try: create() except AlreadyExists: pass`
+- **Initialize resources at startup**: Databases, connections, etc. — fail fast on config errors
+
+### Documentation Hygiene
+- **No status snapshot files**: Don't create `*_COMPLETE.md` — put completion info in `progress.md` session logs
+- **Consolidate aggressively**: Fewer files = less drift, easier maintenance
+- **Root docs**: `CLAUDE.md` (AI), `README.md` (humans), `progress.md` (status), `specs.md` (requirements)
