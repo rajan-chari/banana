@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Important: Workspace vs Working Directory
 
-- **Workspace root** (`banana/`) contains project docs: `instructions.md`, `plan.md`, `progress.md`, `specs.md`, `CLAUDE.md`
+- **Workspace root** (`banana/`) contains project docs: `progress.md`, `specs.md`, `CLAUDE.md`, `README.md`
 - **Python working directory** (`python/`) contains all code: packages, tests, config, venv
 - **When reading docs**: Use full paths like `C:\s\projects\work\teams\working\banana\CLAUDE.md`
 - **When running Python**: Always `cd python` first, then activate venv, then run commands
@@ -31,12 +31,10 @@ This is a **local-first LLM assistant** project with a language-based folder str
 
 ```
 banana/
-├── instructions.md     # Workflow guide - READ THIS FIRST
-├── plan.md             # Implementation plan
-├── progress.md         # Execution tracker - CHECK CURRENT STATUS HERE
-├── specs.md            # Requirements (source of truth)
-├── CLAUDE.md           # This file - AI guidance
+├── CLAUDE.md           # This file - AI guidance + workflow
 ├── README.md           # Project overview
+├── progress.md         # Status tracker + session logs
+├── specs.md            # Requirements (source of truth)
 └── python/             # All Python code
     ├── agcom/          # Agent communication library
     │   ├── console/    # CLI interface (__main__.py, cli.py, commands.py, etc.)
@@ -72,9 +70,15 @@ banana/
 
 ## Workflow
 
-**See [instructions.md](instructions.md) for detailed workflow steps.**
+1. **Check progress** — Read [progress.md](progress.md) for current phase, status, blockers
+2. **Do the work** — Implement next incomplete task
+3. **Update progress** — Mark complete with timestamp and notes
+4. **Parallel agents** — Launch multiple agents for independent work (cost not a concern)
 
-Quick summary: `instructions.md` → `progress.md` → `plan.md` → do work → update progress
+**File Roles:**
+- `specs.md` — Source of truth for requirements (don't modify unless requirements change)
+- `progress.md` — Status tracker with phase tables and session logs
+- `CLAUDE.md` — This file (AI guidance)
 
 ## Python Packages
 
@@ -125,13 +129,11 @@ cd ..                           # Return to root when done
 
 2. **For reading project docs** - Use full paths or relative from root:
 ```powershell
-# From workspace root (banana/) - these work:
-cat instructions.md
+# From workspace root (banana/):
 cat progress.md
-cat plan.md
+cat specs.md
 
-# From python/ subdirectory - use parent paths:
-cat ../instructions.md
+# From python/ subdirectory:
 cat ../progress.md
 ```
 
@@ -184,5 +186,5 @@ pytest tests/ -v                # Run tests
 
 ### Critical Implementation Gaps
 1. **Phase 5.4**: LLM tool invocation bridge - tools exist but LLM can't discover/call them
-2. **Phase 6.4-6.5**: Testing and documentation for agcom integration (in progress)
+2. **Phase 6.5**: Documentation for agcom integration (in progress)
 3. **Permission UX**: Confirmation flow for ASK-level permissions not yet implemented
