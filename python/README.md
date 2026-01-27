@@ -32,15 +32,15 @@ LLM assistant with:
 my-assist
 ```
 
-**With agcom integration:**
+**With multi-agent team:**
 ```bash
 # Terminal 1: Start API
-agcom-api
+agcom-api  # Runs on port 8700
 
-# Terminal 2: Configure and start assistant
-export AGCOM_ENABLED=true
-export AGCOM_API_URL=http://localhost:8000
-export AGCOM_HANDLE=my-assistant
+# Terminal 2: Start agent team
+agent-team start
+
+# Terminal 3: Start assistant
 my-assist
 ```
 
@@ -107,19 +107,18 @@ agcom-api
 cd python
 agcom-api
 
-# Server runs at http://localhost:8000
-# API docs at http://localhost:8000/docs
+# Server runs at http://localhost:8700
+# API docs at http://localhost:8700/docs
 ```
 
-**Terminal 2: Configure Assistant**
+**Terminal 2: Start agent team**
 ```bash
-# Set environment variables
-export AGCOM_ENABLED=true
-export AGCOM_API_URL=http://localhost:8000
-export AGCOM_HANDLE=my-assistant
-export AGCOM_DISPLAY_NAME="My Assistant"
+cd python
+agent-team start
+```
 
-# Start assistant
+**Terminal 3: Start assistant**
+```bash
 cd python
 my-assist
 ```
@@ -179,7 +178,7 @@ Assistant: Found 3 contact(s):
 
 **Environment Variables:**
 - `AGCOM_ENABLED` - Enable/disable integration (default: false)
-- `AGCOM_API_URL` - API server URL (default: http://localhost:8000)
+- `AGCOM_API_URL` - API server URL (default: http://localhost:8700)
 - `AGCOM_HANDLE` - Your agent handle (default: system username)
 - `AGCOM_DISPLAY_NAME` - Display name shown to others (optional)
 - `AGCOM_AUTO_LOGIN` - Auto-login on startup (default: true)

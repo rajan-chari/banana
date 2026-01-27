@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Phase**: 6 — agcom REST API Integration (4/5 tasks complete)
-**Last Updated**: 2026-01-26
-**Status**: 🟡 In Progress
-**Next Tasks**: Complete documentation
+**Phase**: 7 — Multi-Agent Team (Complete)
+**Last Updated**: 2026-01-27
+**Status**: 🟢 Complete
+**Next Tasks**: Polish & hardening
 
 ---
 
@@ -78,36 +78,47 @@
 | 6.2 Tool integration | 🟢 Complete | 6 LLM-callable tools registered in tool registry (290 lines) |
 | 6.3 Slash commands | 🟢 Complete | 7 commands added to bot (/agcom-send, /agcom-inbox, etc.) (240 lines) |
 | 6.4 Testing | 🟢 Complete | Unit + integration tests (43 tests), backend registration tests |
-| 6.5 Documentation | 🟡 In Progress | README, config samples, guides being written |
+| 6.5 Documentation | 🟢 Complete | CLAUDE.md updated, README updated |
 
 ---
 
-## Phase 7: Polish & Hardening
+## Phase 7: Multi-Agent Team ✅
 
 | Task | Status | Notes |
 |------|--------|-------|
-| 7.1 Error handling review | 🔴 Not Started | |
-| 7.2 Logging & observability | 🔴 Not Started | |
-| 7.3 Documentation | 🔴 Not Started | |
-| 7.4 Testing | 🔴 Not Started | |
+| 7.1 Base agent class | 🟢 Complete | BaseAgent with LLM + agcom + polling loop |
+| 7.2 Agent personas | 🟢 Complete | Natural prompts for EM, Coder, Runner, Planner, Reviewer, Security |
+| 7.3 EM coordination | 🟢 Complete | LLM-driven routing, quality checking, loop prevention |
+| 7.4 Runner execution | 🟢 Complete | LLM code extraction, syntax check, subprocess execution |
+| 7.5 Assistant delegation | 🟢 Complete | Delegates to EM instead of executing scripts directly |
+| 7.6 CLI & orchestration | 🟢 Complete | agent-team start/stop/status commands |
 
 ---
 
-## Phase 8: Android Client (Future)
+## Phase 8: Polish & Hardening
 
 | Task | Status | Notes |
 |------|--------|-------|
-| 8.1 Define API for remote access | 🔴 Not Started | |
-| 8.2 Build Android app | 🔴 Not Started | |
-| 8.3 Connect to local assistant | 🔴 Not Started | |
+| 8.1 Error handling review | 🔴 Not Started | |
+| 8.2 Logging & observability | 🔴 Not Started | |
+| 8.3 Documentation | 🔴 Not Started | |
+| 8.4 Testing | 🔴 Not Started | |
+
+---
+
+## Phase 9: Android Client (Future)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 9.1 Define API for remote access | 🔴 Not Started | |
+| 9.2 Build Android app | 🔴 Not Started | |
+| 9.3 Connect to local assistant | 🔴 Not Started | |
 
 ---
 
 ## Current Blockers
 
-**Phase 6.5 - Documentation**:
-- Documentation in progress
-- Tests complete (43 tests across identity, client, integration, app registration)
+None - Phase 7 complete, ready for Phase 8 (Polish & Hardening)
 
 ---
 
@@ -129,6 +140,28 @@
 ---
 
 ## Session Log
+
+### 2026-01-27 (Multi-Agent Team Complete)
+- **Phase 7 Complete - Multi-Agent Team**:
+  - Created agents package with 6 agents: EM, Coder, Runner, Planner, Reviewer, Security
+  - BaseAgent class handles LLM + agcom messaging + polling loop
+  - EM coordinates team with natural LLM-driven decisions (minimal control structures)
+  - Runner uses LLM to extract/clean code, validates syntax with ast.parse() before execution
+  - Assistant delegates to EM instead of executing scripts directly
+- **Design Principles Applied**:
+  - Trust the LLM - natural prompts instead of rigid control flow
+  - Only hard rule: don't delegate back to whoever just responded (prevents loops)
+  - EM checks quality - verifies results make sense before returning to user
+  - Clear failure signals - `task_complete=False` triggers retry/reroute
+- **Cleanup**:
+  - Simplified personas (40+ lines → 5 lines each)
+  - Removed debug scripts
+  - Removed unused imports
+- **Documentation Updated**:
+  - CLAUDE.md - agent system architecture and design principles
+  - README.md - quick start with 3 terminals
+  - progress.md - Phase 7 complete
+  - python/README.md - fixed ports, added agent-team
 
 ### 2026-01-26 (Backend Registration on Identity Discovery)
 - **Feature: Auto-register assistant in agcom-api backend**:

@@ -1,60 +1,51 @@
 # Banana
 
-A local-first LLM assistant with script-to-tool promotion capabilities.
+A local-first LLM assistant with multi-agent team coordination.
 
 ## Overview
 
 This project combines:
 - **agcom** - Agent communication library with email-like messaging
-- **assistant** - LLM assistant that can generate, run, and promote scripts to tools
+- **agcom_api** - REST API server for agent communication
+- **assistant** - LLM assistant with multi-agent team (EM, Coder, Runner, etc.)
 
 ## Quick Start
 
 ```bash
 cd python
 
-# Setup virtual environment
+# Setup
 python -m venv .venv
 .venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Unix
-
-# Install dependencies
 pip install -e ".[dev]"
 
 # Configure
 cp .env.sample .env
-cp config/assistant.sample.md config/assistant.md
 
-# Run
-my-assist
+# Run (3 terminals)
+agcom-api           # Terminal 1: messaging backend
+agent-team start    # Terminal 2: agent team
+my-assist           # Terminal 3: assistant
 ```
 
 ## Project Structure
 
 ```
 banana/
-├── instructions.md     # Workflow guide - START HERE
-├── plan.md             # Implementation plan
-├── progress.md         # Execution tracker
-├── specs.md            # Requirements source of truth
 ├── CLAUDE.md           # AI assistant guidance
-└── python/             # All Python code
+├── README.md           # This file
+├── progress.md         # Status tracker
+├── specs.md            # Requirements
+└── python/
     ├── agcom/          # Communication library
-    ├── assistant/      # LLM assistant package
-    ├── config/         # Configuration files
-    ├── scripts/        # Generated scripts
-    ├── tests/          # Test suite
-    └── pyproject.toml  # Project config
+    ├── agcom_api/      # REST API server
+    ├── assistant/
+    │   ├── agents/     # Multi-agent team
+    │   ├── bot/        # Teams bot
+    │   ├── llm/        # LLM client
+    │   └── ...
+    └── pyproject.toml
 ```
-
-## Workflow
-
-This project uses a structured workflow:
-
-1. **instructions.md** - How to work on this project
-2. **specs.md** - What we're building (requirements)
-3. **plan.md** - How we're building it (implementation plan)
-4. **progress.md** - What's done and what's next
 
 ## Packages
 
@@ -78,10 +69,15 @@ See [python/agcom/README.md](./python/agcom/README.md) for full documentation.
 
 ### assistant
 Local-first LLM assistant with:
+- Multi-agent team (EM coordinates Coder, Runner, Planner, Reviewer, Security)
 - Teams SDK integration
 - Script generation and execution
 - Script-to-tool promotion
-- Permission-controlled sensitive actions
+
+**Agent Team:**
+```
+User → Assistant → EM → Coder → Runner → EM → User
+```
 
 ## Development
 
