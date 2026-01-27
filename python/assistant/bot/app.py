@@ -29,9 +29,14 @@ from assistant.tools import (
     ToolPromoter,
     ToolExecutor,
 )
-from assistant.agcom import AgcomClient, load_agcom_config
-from assistant.agcom.client import AgcomError
-from assistant.agcom.tools import register_agcom_tools
+from assistant.agcom import (
+    AgcomClient,
+    load_agcom_config,
+    is_identity_configured,
+    configure_identity,
+)
+from assistant.agcom.client import AgcomError, AgcomNotFoundError
+from assistant.agcom.tools import register_agcom_tools, register_user_identity_tool, try_register_agcom_tools_if_configured
 
 # Load environment variables
 load_dotenv()
@@ -63,19 +68,30 @@ tool_executor = ToolExecutor(tool_registry, tool_storage)
 # Load existing tools from storage
 tool_storage.load_into_registry(tool_registry)
 
+# Always register user identity tool (needed for first-time setup)
+register_user_identity_tool(tool_registry, tool_storage)
+
 # Initialize agcom integration
 agcom_settings = load_agcom_config()
 agcom_client = None
 
-if agcom_settings.enabled:
+if agcom_settings.is_configured and agcom_settings.enabled:
     try:
         agcom_client = AgcomClient(agcom_settings)
         # Register agcom tools in the tool registry
         register_agcom_tools(tool_registry, tool_storage, agcom_client)
-        logger.info("agcom integration enabled - 6 tools registered")
+        logger.info(
+            f"Communication tools enabled - 6 tools registered "
+            f"(user: {agcom_settings.user_handle}, "
+            f"assistant: {agcom_settings.handle})"
+        )
     except Exception as e:
         logger.warning(f"agcom integration failed: {e}")
-        logger.warning("agcom tools will not be available")
+        logger.warning("Communication tools will not be available")
+elif not agcom_settings.is_configured:
+    logger.info(
+        "Identity not configured - communication tools will register after setup"
+    )
 
 # Initialize the Teams App with DevTools plugin for local development
 app = App(plugins=[DevToolsPlugin()])
@@ -83,6 +99,62 @@ app = App(plugins=[DevToolsPlugin()])
 
 # Track last generated script for promotion
 _last_script: dict | None = None
+
+
+async def register_assistant_in_backend() -> bool:
+    """
+    Register the assistant in the agcom-api backend.
+
+    Called after identity is configured to ensure the agent exists
+    in the backend before attempting to send/receive messages.
+
+    Returns:
+        True if registration succeeded, False otherwise
+    """
+    global agcom_client
+
+    try:
+        # Reload config with new identity
+        settings = load_agcom_config()
+
+        if not settings.is_configured:
+            logger.warning("Cannot register in backend - identity not configured")
+            return False
+
+        # Create a new client with the updated settings
+        agcom_client = AgcomClient(settings)
+
+        # Login to create session
+        login_info = await agcom_client.login(
+            handle=settings.handle,
+            display_name=settings.display_name
+        )
+
+        # Register self in address_book so other agents can find us
+        try:
+            await agcom_client.get_contact(settings.handle)
+            logger.info(f"Assistant '{settings.handle}' already registered in backend")
+        except AgcomNotFoundError:
+            # Not registered yet - add ourselves
+            await agcom_client.add_contact(
+                handle=settings.handle,
+                display_name=settings.display_name,
+                description=f"Assistant for {settings.user_handle}",
+            )
+            logger.info(
+                f"Registered assistant '{settings.handle}' in agcom-api backend "
+                f"(display_name: {settings.display_name})"
+            )
+
+        return True
+
+    except AgcomError as e:
+        logger.warning(f"Failed to register in agcom-api backend: {e}")
+        logger.warning("Agent communication may not work until server is available")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error registering in backend: {e}")
+        return False
 
 
 async def handle_command(
@@ -101,7 +173,24 @@ async def handle_command(
     logger.info(f"Handling command: {cmd} with args: {args}")
     
     if cmd == "/help":
-        help_text = """**Available Commands:**
+        # Check for advanced help
+        if args and args[0].lower() == "advanced":
+            help_text = """**Advanced Commands:**
+
+📨 **Direct Communication:**
+- `/agcom-send <handle> <subject> <body>` - Send message
+- `/agcom-inbox [limit]` - List recent messages
+- `/agcom-threads [limit]` - List conversations
+- `/agcom-contacts` - List contacts
+- `/agcom-reply <msg_id> <body>` - Reply to message
+- `/agcom-search <query>` - Search messages
+- `/agcom-status` - Show detailed connection info
+- `/agcom-setup <your_name>` - Manual identity setup
+
+_Tip: You can also just ask me to communicate with other assistants naturally!_
+"""
+        else:
+            help_text = """**Available Commands:**
 
 📦 **Tool Management:**
 - `/tools` - List all registered tools
@@ -114,17 +203,13 @@ async def handle_command(
 - `/scripts` - List recent scripts
 - `/script <filename>` - View a script
 
-📨 **Multi-Agent Communication (agcom):**
-- `/agcom-send <handle> <subject> <body>` - Send message
-- `/agcom-inbox [limit]` - List recent messages
-- `/agcom-threads [limit]` - List conversations
-- `/agcom-contacts` - List contacts
-- `/agcom-reply <msg_id> <body>` - Reply to message
-- `/agcom-search <query>` - Search messages
-- `/agcom-status` - Show connection status
+💬 **Agent Communication:**
+- Just ask me! "Tell Bob's assistant about the meeting"
+- I can communicate with other assistants on your behalf
 
 ℹ️ **Info:**
 - `/help` - Show this help
+- `/help advanced` - Show advanced commands
 - `/status` - Show system status
 """
         await ctx.send(help_text)
@@ -213,11 +298,27 @@ async def handle_command(
             if "=" in arg:
                 key, value = arg.split("=", 1)
                 params[key] = value
-        
+
         await ctx.send(f"⏳ Running tool `{tool_name}`...")
-        
+
         result = await tool_executor.execute(tool_name, params)
-        
+
+        # Check if identity was just configured and register tools dynamically
+        if result.success and result.output and "__RELOAD_AGCOM_TOOLS__" in result.output:
+            logger.info("Identity configuration detected - registering communication tools dynamically")
+            # Reload .env since tool runs in subprocess
+            load_dotenv(override=True)
+            if try_register_agcom_tools_if_configured(tool_registry, tool_storage):
+                logger.info("Dynamically registered communication tools")
+                # Reload tools into executor
+                tool_storage.load_into_registry(tool_registry)
+
+            # Register the assistant in agcom-api backend (always, regardless of tool registration)
+            await register_assistant_in_backend()
+
+            # Remove technical marker from output
+            result.output = result.output.replace("__RELOAD_AGCOM_TOOLS__\n", "")
+
         if result.success:
             output = result.output or "(no output)"
             if len(output) > 2000:
@@ -254,7 +355,19 @@ async def handle_command(
     
     elif cmd == "/status":
         stats = tool_storage.get_stats()
+
+        # Check identity status
+        identity_status = "✅ Configured" if is_identity_configured() else "⚠️ Not configured"
+        identity_info = ""
+        if is_identity_configured():
+            from assistant.agcom import load_identity
+            identity = load_identity()
+            if identity:
+                identity_info = f"\n👤 **Your Assistant:** {identity.display_name or identity.assistant_handle}"
+
         status = f"""**System Status**
+
+{identity_status}{identity_info}
 
 🔧 **Tools:** {stats['total_tools']} registered ({stats['enabled_tools']} enabled)
 📊 **Total Invocations:** {stats['total_invocations']}
@@ -265,6 +378,10 @@ async def handle_command(
         return
 
     # agcom Commands
+    elif cmd == "/agcom-setup":
+        await handle_agcom_setup(ctx, command_text)
+        return
+
     elif cmd == "/agcom-send":
         await handle_agcom_send(ctx, command_text)
         return
@@ -295,6 +412,63 @@ async def handle_command(
 
     else:
         await ctx.send(f"❓ Unknown command: `{cmd}`\n\nType `/help` for available commands.")
+
+
+async def handle_agcom_setup(ctx: ActivityContext[MessageActivity], text: str):
+    """
+    Handle /agcom-setup command: Initial identity configuration.
+
+    Usage: /agcom-setup <your_name>
+    """
+    parts = text.split(maxsplit=1)
+    if len(parts) < 2:
+        await ctx.send(
+            "❌ **Usage:** `/agcom-setup <your_name>`\n\n"
+            "**Example:** `/agcom-setup Alice` or `/agcom-setup Bob Smith`\n\n"
+            "_Tip: You can also just tell me your name naturally!_"
+        )
+        return
+
+    user_name = parts[1].strip()
+
+    try:
+        # Import name conversion
+        from assistant.agcom.identity import name_to_handle
+
+        # Convert name to handle
+        user_handle = name_to_handle(user_name)
+
+        # Configure identity and save to .env
+        env_file = Path(__file__).parent.parent.parent / ".env"
+        identity = configure_identity(user_handle, env_file, user_name=user_name)
+
+        # Reload .env and try to register tools dynamically
+        load_dotenv(override=True)
+        if try_register_agcom_tools_if_configured(tool_registry, tool_storage):
+            logger.info("Dynamically registered communication tools")
+            tool_storage.load_into_registry(tool_registry)
+
+        # Register the assistant in agcom-api backend (always, regardless of tool registration)
+        registered = await register_assistant_in_backend()
+
+        if registered:
+            await ctx.send(
+                f"✅ **Perfect, {user_name}!**\n\n"
+                f"I'm all set up as **{identity.display_name}**.\n\n"
+                f"I can now communicate with other assistants on your behalf!"
+            )
+        else:
+            await ctx.send(
+                f"✅ **Perfect, {user_name}!**\n\n"
+                f"I'm set up as **{identity.display_name}**.\n\n"
+                f"⚠️ Could not connect to the agent network. "
+                f"Make sure agcom-api is running (`agcom-api`)."
+            )
+
+    except ValueError as e:
+        await ctx.send(f"❌ **Setup failed:** {e}")
+    except IOError as e:
+        await ctx.send(f"❌ **Failed to save configuration:** {e}")
 
 
 async def handle_agcom_send(ctx: ActivityContext[MessageActivity], text: str):
@@ -507,34 +681,70 @@ async def handle_agcom_search(ctx: ActivityContext[MessageActivity], text: str):
 
 async def handle_agcom_status(ctx: ActivityContext[MessageActivity]):
     """
-    Handle /agcom-status command: Show agcom connection status.
+    Handle /agcom-status command: Show identity and connection status.
 
     Usage: /agcom-status
     """
+    # Check if identity is configured
+    if not is_identity_configured():
+        await ctx.send(
+            "⚠️ **Identity Not Configured**\n\n"
+            "To communicate with other assistants, I need to know your name.\n\n"
+            "Just tell me: \"My name is Alice\" and I'll set everything up!"
+        )
+        return
+
+    # Load identity info
+    from assistant.agcom import load_identity
+    identity = load_identity()
+
+    if not identity:
+        await ctx.send("❌ **Configuration error**\n\nPlease tell me your name again.")
+        return
+
+    # If client exists, check connection
     if not agcom_client:
-        await ctx.send("⚠️ **agcom is not configured**\n\nTo enable agcom, set environment variables:\n- `AGCOM_ENABLED=true`\n- `AGCOM_API_URL=http://localhost:8000`\n- `AGCOM_HANDLE=<your_handle>`")
+        await ctx.send(
+            f"✅ **Your Personal Assistant**\n\n"
+            f"I'm the assistant for: **{identity.display_name or identity.user_handle}**\n\n"
+            f"⚠️ **Communication system not started**\n\n"
+            f"Make sure the agcom API server is running in another terminal:\n"
+            f"```bash\nagcom-api\n```"
+        )
         return
 
     try:
         # Try health check
         health = await agcom_client.health_check()
 
-        # Get current identity
-        identity = await agcom_client.whoami()
+        # Get current identity from server
+        server_identity = await agcom_client.whoami()
 
-        status_text = f"""✅ **agcom Connected**
+        status_text = f"""✅ **Your Personal Assistant**
 
-**Status:** Online
-**API URL:** {agcom_client.settings.api_url}
-**Handle:** {identity.handle}
-**Display Name:** {identity.display_name or '(not set)'}
-**API Version:** {health.get('version', 'unknown')}
-**Auto-login:** {'Enabled' if agcom_client.settings.auto_login else 'Disabled'}
+I'm the assistant for: **{identity.display_name or identity.user_handle}**
+
+**Status:** Connected to agent network
+
+I can communicate with other assistants on your behalf.
+
+**Technical Details:**
+- Identity: {identity.user_handle}
+- Assistant Handle: {identity.assistant_handle}
+- API: {agcom_client.settings.api_url}
+- Version: {health.get('version', 'unknown')}
 """
         await ctx.send(status_text)
 
     except AgcomError as e:
-        await ctx.send(f"❌ **agcom Connection Failed**\n\n{e}\n\nMake sure the agcom API server is running:\n```bash\nagcom-api\n```")
+        await ctx.send(
+            f"❌ **Connection Failed**\n\n"
+            f"I'm configured as **{identity.display_name or identity.user_handle}'s assistant**, "
+            f"but I can't reach the communication server.\n\n"
+            f"**Error:** {e}\n\n"
+            f"Make sure the agcom API server is running:\n"
+            f"```bash\nagcom-api\n```"
+        )
 
 
 @app.on_message
@@ -560,6 +770,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         return
 
     try:
+        # Track if identity was configured before this interaction
+        identity_was_configured = is_identity_configured()
+
         # Get LLM config (from config file + environment variables)
         config = get_config(CONFIG_DIR)
         logger.info(f"Using LLM: {config.model_string} (from {config.config_file_path or 'env'})")
@@ -577,6 +790,19 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         logger.info(f"LLM message: {response.message[:200]}...")
         if response.script_code:
             logger.info(f"LLM script_code length: {len(response.script_code)} chars")
+
+        # Check if identity was just configured during LLM interaction
+        # Need to reload .env because tool runs in subprocess
+        load_dotenv(override=True)
+        if not identity_was_configured and is_identity_configured():
+            logger.info("Identity configuration detected - registering communication tools dynamically")
+            if try_register_agcom_tools_if_configured(tool_registry, tool_storage):
+                logger.info("Dynamically registered communication tools")
+                # Reload tools into executor
+                tool_storage.load_into_registry(tool_registry)
+
+            # Register the assistant in agcom-api backend (always, regardless of tool registration)
+            await register_assistant_in_backend()
 
         # Build response message
         message = response.message

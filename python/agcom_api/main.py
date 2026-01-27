@@ -11,6 +11,7 @@ from agcom_api import __version__
 from agcom_api.auth import SessionManager
 from agcom_api import dependencies
 from agcom_api.routers import auth, messages, threads, contacts, audit, health
+from agcom.storage import init_database
 # from agcom_api.write_queue import WriteQueue  # TODO: Integrate if needed after testing
 
 
@@ -40,6 +41,11 @@ async def lifespan(app: FastAPI):
 
     # Ensure database directory exists
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
+
+    # Initialize database at startup (creates tables if needed)
+    conn = init_database(DB_PATH)
+    conn.close()
+    print(f"Database initialized: {DB_PATH}")
 
     yield
 
