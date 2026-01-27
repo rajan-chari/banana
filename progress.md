@@ -65,7 +65,7 @@
 | 5.1 Design tool registry | 🟢 Complete | Comprehensive Tool + ToolParameter models exist in tools/registry.py |
 | 5.2 Implement tool storage | 🟢 Complete | Hybrid SQLite + file-based in tools/storage.py (aligns with agcom pattern) |
 | 5.3 Create promotion workflow | 🟢 Complete | ToolPromoter with AST-based parameter detection in tools/promoter.py |
-| 5.4 Implement tool invocation | 🔴 **CRITICAL GAP** | Manual execution works (/run), but LLM cannot auto-invoke tools - needs bridge |
+| 5.4 Implement tool invocation | 🟢 Complete | tool_bridge.py bridges registry → PydanticAI tools, integrated in client.py |
 | 5.5 Add tool management commands | 🟢 Complete | /tools, /tool, /promote, /run, /delete commands in bot/app.py |
 
 ---
@@ -104,12 +104,6 @@
 ---
 
 ## Current Blockers
-
-**Phase 5.4 - LLM Tool Invocation**:
-- Tools are registered and can be manually executed via `/run <tool>`
-- LLM cannot automatically discover or invoke tools in response to user requests
-- Need to create bridge: `tools/llm_bridge.py` to register tools with PydanticAI agent
-- Once complete, assistant will have full script-to-tool promotion with auto-invocation
 
 **Phase 6.5 - Documentation**:
 - Documentation in progress

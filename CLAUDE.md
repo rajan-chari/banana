@@ -53,11 +53,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a **local-first LLM assistant** project with a language-based folder structure. Python code lives in `python/`, containing two packages:
+This is a **local-first LLM assistant** project with a language-based folder structure. Python code lives in `python/`, containing three packages:
 - **agcom**: Multi-agent communication library with email-like messaging
+- **agcom_api**: REST API server exposing agcom via HTTP
 - **assistant**: LLM assistant with script-to-tool promotion capabilities
 
-**Current Status**: Phase 5 Complete (Tool Registration) | Phase 6 In Progress (agcom Integration - 3/5 tasks)
+**Current Status**: Phase 6 In Progress (agcom Integration - 4/5 tasks complete)
 
 ## Workspace Structure
 
@@ -142,7 +143,7 @@ banana/
 - ✅ Permission system with audit logging (AST-based code analysis)
 - ✅ Tool registry, storage, promoter, executor (tools/)
 - ✅ **agcom integration**: REST API client + 6 LLM tools + 7 slash commands
-- ❌ **Critical Gap**: LLM cannot auto-invoke tools (needs bridge to PydanticAI)
+- ✅ **LLM tool bridge**: PydanticAI integration via tool_bridge.py
 **Config:** Markdown-based natural language config + environment variables
 **Architecture:** bot → llm → scripts/tools → permissions → audit → agcom
 
@@ -195,10 +196,9 @@ cd python && python -m venv .venv && source .venv/Scripts/activate && pip instal
 - **Data Flow**: User message → LLM → Permission check → Script generation → Execution → Audit
 - **Multi-Agent Flow**: User message → agcom client → REST API → agcom backend → messaging system
 
-### Critical Implementation Gaps
-1. **Phase 5.4**: LLM tool invocation bridge - tools exist but LLM can't discover/call them
-2. **Phase 6.5**: Documentation for agcom integration (in progress)
-3. **Permission UX**: Confirmation flow for ASK-level permissions not yet implemented
+### Implementation Gaps
+1. **Phase 6.5**: Documentation for agcom integration (in progress)
+2. **Permission UX**: Confirmation flow for ASK-level permissions not yet implemented
 
 ## Gotchas & Lessons Learned
 
