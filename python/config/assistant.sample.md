@@ -9,7 +9,7 @@ This file configures the local LLM assistant using natural language.
 ### Provider
 Use OpenAI as the default LLM provider.
 - Provider: openai
-- Model: gpt-4o
+- Model: gpt-5.1
 - Temperature: 0.7 for general tasks, 0.2 for code generation
 
 ### Alternative Providers

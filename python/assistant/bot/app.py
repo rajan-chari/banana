@@ -34,6 +34,7 @@ from assistant.agcom import (
     load_agcom_config,
     is_identity_configured,
     configure_identity,
+    load_identity,
 )
 from assistant.agcom.client import AgcomError, AgcomNotFoundError
 from assistant.agcom.tools import register_agcom_tools, register_user_identity_tool, try_register_agcom_tools_if_configured
@@ -777,6 +778,17 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         config = get_config(CONFIG_DIR)
         logger.info(f"Using LLM: {config.model_string} (from {config.config_file_path or 'env'})")
 
+        # Load identity for LLM context
+        identity_dict = None
+        if is_identity_configured():
+            identity = load_identity()
+            if identity:
+                identity_dict = {
+                    "handle": identity.assistant_handle,
+                    "user_handle": identity.user_handle,
+                    "display_name": identity.display_name,
+                }
+
         logger.info("Calling LLM...")
         response = await chat(
             user_message=user_text,
@@ -785,6 +797,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             model=config.model_string,
             tool_registry=tool_registry,
             tool_executor=tool_executor,
+            identity=identity_dict,
         )
         logger.info(f"LLM response received: should_execute_script={response.should_execute_script}")
         logger.info(f"LLM message: {response.message[:200]}...")

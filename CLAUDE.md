@@ -19,6 +19,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **When running Python**: Always `cd python` first, then activate venv, then run commands
 - **Path references in code**: Use relative paths from `python/` (e.g., `./config/`, `./tests/`)
 
+## Working Style Preferences
+
+### Communication
+- **Be terse** — Short responses, no fluff. Tables over paragraphs.
+- **Don't over-explain** — State what you did, not why it's important.
+- **Ask for clarification** — If direction is ambiguous, ask. Don't guess.
+
+### Problem-Solving
+- **Evidence over speculation** — Test hypotheses, don't assume. When debugging, create minimal repro cases.
+- **Root causes, not symptoms** — Understand *why* before fixing. Push back on assumptions.
+- **Quick pivots** — If something's broken (like gpt-5.2), move on. Don't fight lost causes.
+- **Simulate before integrating** — Standalone test scripts beat expensive end-to-end cycles.
+
+### Engineering
+- **Simplicity wins** — Switching models beats complex workarounds. Working beats elegant.
+- **Testability matters** — Invest in tests to avoid manual verification cycles.
+- **Verify end-to-end** — Unit tests aren't enough. Check actual behavior.
+- **Document learnings** — Capture insights while fresh (like this file).
+
+### Autonomy
+- **Take initiative** — Don't wait for permission on obvious next steps.
+- **Trust but verify** — Make changes, but confirm they work.
+- **Explain "why" when asked** — Ensure understanding, not just compliance.
+
+### Anti-Patterns to Avoid
+- Guessing without data
+- Over-engineering before validating
+- Verbose explanations when a table suffices
+- Sunk cost fallacy (defending broken approaches)
+- Asking "is this okay?" instead of just doing it
+
 ## Repository Overview
 
 This is a **local-first LLM assistant** project with a language-based folder structure. Python code lives in `python/`, containing two packages:
@@ -209,3 +240,14 @@ pytest tests/ -v                # Run tests
 - **No status snapshot files**: Don't create `*_COMPLETE.md` — put completion info in `progress.md` session logs
 - **Consolidate aggressively**: Fewer files = less drift, easier maintenance
 - **Root docs**: `CLAUDE.md` (AI), `README.md` (humans), `progress.md` (status), `specs.md` (requirements)
+
+### LLM & PydanticAI
+- **GPT-5.2 is broken with structured output + tools**: Causes infinite tool call loops. Use GPT-5.1, GPT-4o, or o3-mini instead
+- **Always set UsageLimits**: `UsageLimits(tool_calls_limit=5)` prevents runaway loops from burning API credits
+- **LLMs retry on error strings**: Returning "Tool execution failed: ..." makes the LLM retry. A full traceback with a clear permanent error stops it faster
+- **Identity via message prefix**: PydanticAI's `Agent.override()` doesn't support `system_prompt`, but prepending `[CONTEXT: ...]` to the user message works
+
+### Debugging LLM Issues
+- **Simulate before integrating**: Create standalone test scripts that call the LLM directly (see `python/scripts/debug_*.py`). Much faster and cheaper than full bot test cycles
+- **Mock tools first**: Use simple async functions returning canned responses to isolate LLM behavior from tool execution issues
+- **Log tool calls and results**: Add logging in tool_bridge.py to see exactly what the LLM sends and receives

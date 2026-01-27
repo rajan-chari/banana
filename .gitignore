@@ -72,6 +72,7 @@ Thumbs.db
 agcom2/data/*.db
 agcom2/email.db
 agcom2/.claude/
+.claude/settings.local.json
 
 # Jupyter
 .ipynb_checkpoints/

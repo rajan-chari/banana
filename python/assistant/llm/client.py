@@ -8,7 +8,7 @@ Supports multiple providers: OpenAI, Azure OpenAI, Anthropic, Ollama, Groq.
 from dataclasses import dataclass
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
+from pydantic_ai import Agent, UsageLimits
 
 
 @dataclass
@@ -36,13 +36,8 @@ class AssistantResponse(BaseModel):
     """Description of what the script does."""
 
 
-# Create the main assistant agent
-# Model can be configured via environment variable or config
-assistant_agent = Agent(
-    "openai:gpt-4o",  # Default model, can be overridden
-    deps_type=AssistantDependencies,
-    output_type=AssistantResponse,
-    system_prompt="""You are a helpful local assistant running on the user's computer.
+# Base system prompt
+BASE_SYSTEM_PROMPT = """You are a helpful local assistant running on the user's computer.
 You have the ability to generate and execute Python scripts locally.
 
 IMPORTANT: Getting to know your user
@@ -76,7 +71,15 @@ Example: "list files" → generate a script using os.listdir('.')
 
 For pure knowledge questions (like "what is Python?"), just answer directly.
 
-Always be proactive about executing code. The user wants to see things happen.""",
+Always be proactive about executing code. The user wants to see things happen."""
+
+# Create the main assistant agent
+# Model can be configured via environment variable or config
+assistant_agent = Agent(
+    "openai:gpt-4o",  # Default model, can be overridden
+    deps_type=AssistantDependencies,
+    output_type=AssistantResponse,
+    system_prompt=BASE_SYSTEM_PROMPT,
 )
 
 
@@ -87,6 +90,7 @@ async def chat(
     model: str | None = None,
     tool_registry=None,
     tool_executor=None,
+    identity: dict | None = None,
 ) -> AssistantResponse:
     """
     Send a message to the assistant and get a structured response.
@@ -113,6 +117,14 @@ async def chat(
         from assistant.llm.tool_bridge import get_pydantic_tools
         pydantic_tools = get_pydantic_tools(tool_registry, tool_executor)
 
+    # Build message with identity context if available
+    message_with_context = user_message
+    if identity:
+        identity_context = f"""[CONTEXT: You are {identity.get('display_name', identity.get('handle', 'an assistant'))} (handle: {identity.get('handle', 'unknown')}), assistant for {identity.get('user_handle', 'unknown')}. When listing contacts/agents, DO NOT list yourself - you ARE {identity.get('handle')}.]
+
+"""
+        message_with_context = identity_context + user_message
+
     # Use override to apply model and tools dynamically
     overrides = {}
     if model:
@@ -120,11 +132,14 @@ async def chat(
     if pydantic_tools:
         overrides['tools'] = pydantic_tools
 
+    # Limit tool calls to prevent runaway loops
+    usage_limits = UsageLimits(request_limit=10, tool_calls_limit=5)
+
     if overrides:
         with assistant_agent.override(**overrides):
-            result = await assistant_agent.run(user_message, deps=deps)
+            result = await assistant_agent.run(message_with_context, deps=deps, usage_limits=usage_limits)
     else:
-        result = await assistant_agent.run(user_message, deps=deps)
+        result = await assistant_agent.run(message_with_context, deps=deps, usage_limits=usage_limits)
 
     return result.output
 

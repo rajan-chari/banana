@@ -30,7 +30,7 @@ class LLMConfig:
     provider: LLMProvider = LLMProvider.OPENAI
     """The LLM provider to use."""
 
-    model: str = "gpt-4o"
+    model: str = "gpt-5.1"
     """The model name/identifier."""
 
     temperature: float = 0.7
@@ -76,7 +76,7 @@ class LLMConfig:
 
         return cls(
             provider=provider,
-            model=os.getenv("LLM_MODEL", "gpt-4o"),
+            model=os.getenv("LLM_MODEL", "gpt-5.1"),
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
             max_tokens=int(os.getenv("LLM_MAX_TOKENS")) if os.getenv("LLM_MAX_TOKENS") else None,
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),

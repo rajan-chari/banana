@@ -67,7 +67,6 @@ def _generate_list_contacts_script() -> str:
     """Generate script for listing agcom contacts."""
     return '''"""List available agents in the agcom address book."""
 import asyncio
-import json
 from assistant.agcom import AgcomClient, load_agcom_config
 
 async def main():

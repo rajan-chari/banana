@@ -33,11 +33,15 @@ def create_pydantic_tool(
     # Create wrapper function dynamically
     async def tool_wrapper(ctx: RunContext[Any], **kwargs) -> str:
         """Dynamically created tool wrapper."""
+        logger.info(f"Tool '{tool.name}' called with params: {kwargs}")
+
         # Execute the tool with provided parameters
         result = await executor.execute(tool.name, parameters=kwargs)
 
         if result.success:
-            return result.output or "Tool executed successfully (no output)"
+            output = result.output or "Tool executed successfully (no output)"
+            logger.info(f"Tool '{tool.name}' returned ({len(output)} chars): {output[:500]}{'...' if len(output) > 500 else ''}")
+            return output
         else:
             error_msg = f"Tool execution failed: {result.error}"
             logger.error(error_msg)
