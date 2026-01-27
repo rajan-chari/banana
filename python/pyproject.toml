@@ -41,6 +41,7 @@ dev = [
 my-assist = "assistant.main:main"
 agcom-api = "agcom_api.main:run"
 agcom = "agcom.console.cli:main"
+agent-team = "assistant.agents.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["assistant", "agcom", "agcom_api"]

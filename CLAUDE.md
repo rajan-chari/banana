@@ -58,7 +58,7 @@ This is a **local-first LLM assistant** project with a language-based folder str
 - **agcom_api**: REST API server exposing agcom via HTTP
 - **assistant**: LLM assistant with script-to-tool promotion capabilities
 
-**Current Status**: Phase 6 In Progress (agcom Integration - 4/5 tasks complete)
+**Current Status**: Phase 7 Complete (Multi-Agent Team)
 
 ## Workspace Structure
 
@@ -87,6 +87,18 @@ banana/
     │   │   ├── client.py  # Async REST client (24 methods)
     │   │   ├── tools.py   # LLM tools (6 tools)
     │   │   └── config.py  # Client configuration
+    │   ├── agents/     # Multi-agent team system
+    │   │   ├── base.py       # BaseAgent class (LLM + agcom + polling)
+    │   │   ├── personas.py   # System prompts for each role
+    │   │   ├── em.py         # Engineering Manager (coordinator)
+    │   │   ├── coder.py      # Code generation
+    │   │   ├── runner.py     # Code execution
+    │   │   ├── planner.py    # Task decomposition
+    │   │   ├── reviewer.py   # Code review
+    │   │   ├── security.py   # Security analysis
+    │   │   ├── orchestrator.py # Team lifecycle management
+    │   │   ├── delegation.py # Assistant → EM delegation
+    │   │   └── cli.py        # agent-team CLI
     │   ├── bot/        # Teams bot integration
     │   ├── config/     # Config parser
     │   ├── llm/        # LLM client (PydanticAI)
@@ -144,8 +156,31 @@ banana/
 - ✅ Tool registry, storage, promoter, executor (tools/)
 - ✅ **agcom integration**: REST API client + 6 LLM tools + 7 slash commands
 - ✅ **LLM tool bridge**: PydanticAI integration via tool_bridge.py
+- ✅ **Multi-agent team**: EM coordinates coder/runner/planner/reviewer/security
 **Config:** Markdown-based natural language config + environment variables
 **Architecture:** bot → llm → scripts/tools → permissions → audit → agcom
+
+### agents (part of assistant)
+**Purpose:** Multi-agent team coordinated by Engineering Manager
+**Location:** `python/assistant/agents/`
+**Quick Start:**
+```bash
+agcom-api              # Start messaging backend (port 8700)
+agent-team start       # Start all 6 agents
+my-assist              # Start assistant (delegates to team)
+```
+**Agents:**
+| Agent | Handle | Role |
+|-------|--------|------|
+| EM | `em` | Coordinates team, routes tasks, checks quality |
+| Coder | `coder` | Writes Python code |
+| Runner | `runner` | Executes code, reports output |
+| Planner | `planner` | Breaks down complex tasks |
+| Reviewer | `reviewer` | Reviews code for bugs |
+| Security | `security` | Checks for security issues |
+
+**Flow:** User → Assistant → EM → Coder → Runner → EM → User
+**Design:** LLM-driven decisions, minimal control structures, natural language coordination
 
 ## Quick Commands
 
@@ -155,6 +190,11 @@ banana/
 # Python commands - activate venv first
 cd python && source .venv/Scripts/activate && pytest tests/ -v
 cd python && source .venv/Scripts/activate && my-assist
+
+# Agent team (requires agcom-api running)
+cd python && source .venv/Scripts/activate && agcom-api  # Terminal 1
+cd python && source .venv/Scripts/activate && agent-team start  # Terminal 2
+cd python && source .venv/Scripts/activate && my-assist  # Terminal 3
 
 # Reading docs - use full paths or relative
 cat progress.md
@@ -194,11 +234,11 @@ cd python && python -m venv .venv && source .venv/Scripts/activate && pip instal
 - **agcom Tools**: 6 tools registered (send, list messages, list threads, search, contacts, reply)
 - **agcom Commands**: 7 slash commands for bot (/agcom-send, /agcom-inbox, /agcom-threads, etc.)
 - **Data Flow**: User message → LLM → Permission check → Script generation → Execution → Audit
-- **Multi-Agent Flow**: User message → agcom client → REST API → agcom backend → messaging system
+- **Multi-Agent Flow**: User → Assistant → EM → Team (Coder/Runner/etc) → EM → User
+- **Agent Design**: Natural LLM prompts, minimal if/else, trust the model's judgment
 
 ### Implementation Gaps
-1. **Phase 6.5**: Documentation for agcom integration (in progress)
-2. **Permission UX**: Confirmation flow for ASK-level permissions not yet implemented
+1. **Permission UX**: Confirmation flow for ASK-level permissions not yet implemented
 
 ## Gotchas & Lessons Learned
 
@@ -229,6 +269,13 @@ cd python && python -m venv .venv && source .venv/Scripts/activate && pip instal
 - **Identity via message prefix**: PydanticAI's `Agent.override()` doesn't support `system_prompt`, but prepending `[CONTEXT: ...]` to the user message works
 
 ### Debugging LLM Issues
-- **Simulate before integrating**: Create standalone test scripts that call the LLM directly (see `python/scripts/debug_*.py`). Much faster and cheaper than full bot test cycles
+- **Simulate before integrating**: Create standalone test scripts that call the LLM directly. Much faster and cheaper than full bot test cycles
 - **Mock tools first**: Use simple async functions returning canned responses to isolate LLM behavior from tool execution issues
 - **Log tool calls and results**: Add logging in tool_bridge.py to see exactly what the LLM sends and receives
+
+### Multi-Agent Design
+- **Trust the LLM**: Use natural prompts, not rigid control structures. Let the model decide routing/completion
+- **Prevent loops explicitly**: Only hard rule needed - don't delegate back to whoever just responded
+- **Check quality at coordinator**: EM should verify results make sense, not just pass through
+- **Runner validates code**: Use LLM to extract/clean code, ast.parse() for syntax check before execution
+- **Clear failure signals**: `task_complete=False` tells coordinator to retry/reroute, not just report the error

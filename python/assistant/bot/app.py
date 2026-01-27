@@ -38,6 +38,7 @@ from assistant.agcom import (
 )
 from assistant.agcom.client import AgcomError, AgcomNotFoundError
 from assistant.agcom.tools import register_agcom_tools, register_user_identity_tool, try_register_agcom_tools_if_configured
+from assistant.agents.delegation import EMDelegator
 
 # Load environment variables
 load_dotenv()
@@ -75,10 +76,12 @@ register_user_identity_tool(tool_registry, tool_storage)
 # Initialize agcom integration
 agcom_settings = load_agcom_config()
 agcom_client = None
+em_delegator = None
 
 if agcom_settings.is_configured and agcom_settings.enabled:
     try:
         agcom_client = AgcomClient(agcom_settings)
+        em_delegator = EMDelegator(agcom_client)
         # Register agcom tools in the tool registry
         register_agcom_tools(tool_registry, tool_storage, agcom_client)
         logger.info(
@@ -112,7 +115,7 @@ async def register_assistant_in_backend() -> bool:
     Returns:
         True if registration succeeded, False otherwise
     """
-    global agcom_client
+    global agcom_client, em_delegator
 
     try:
         # Reload config with new identity
@@ -124,6 +127,7 @@ async def register_assistant_in_backend() -> bool:
 
         # Create a new client with the updated settings
         agcom_client = AgcomClient(settings)
+        em_delegator = EMDelegator(agcom_client)
 
         # Login to create session
         login_info = await agcom_client.login(
@@ -817,112 +821,24 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             # Register the assistant in agcom-api backend (always, regardless of tool registration)
             await register_assistant_in_backend()
 
-        # Build response message
-        message = response.message
+        # If the assistant wants to delegate to the team
+        if response.should_execute_script:
+            global em_delegator
+            if not em_delegator and agcom_client:
+                em_delegator = EMDelegator(agcom_client)
 
-        # If the assistant generated a script, save and execute it
-        if response.should_execute_script and response.script_code:
-            logger.info(">>> SCRIPT EXECUTION PATH <<<")
-            
-            # Check permissions before execution
-            logger.info("Checking permissions...")
-            perm_result = permission_checker.check_code(response.script_code)
-            logger.info(f"Permission result: level={perm_result.level}, denied={perm_result.denied_reasons}, requests={len(perm_result.requests)}")
-
-            # Save the script
-            script = save_script(
-                code=response.script_code,
-                scripts_dir=SCRIPTS_DIR,
-                description=response.script_description,
-            )
-            logger.info(f"Saved script to: {script.filepath}")
-
-            # Track for potential promotion
-            global _last_script
-            _last_script = {
-                "code": response.script_code,
-                "description": response.script_description,
-                "filepath": str(script.filepath),
-            }
-
-            # Log script generation
-            audit_logger.log_script_generated(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                script_path=str(script.filepath),
-                description=response.script_description,
-            )
-
-            # Show the script
-            message += f"\n\n📝 **Script Generated:** `{script.filename}`\n```python\n{response.script_code}\n```"
-            if response.script_description:
-                message += f"\n\n_{response.script_description}_"
-            message += "\n\n💡 _Tip: Use `/promote <tool_name>` to save this as a reusable tool._"
-
-            # Handle permission check results
-            if perm_result.denied_reasons:
-                # Script was blocked
-                logger.warning(f"Script blocked: {perm_result.denied_reasons}")
-                message += "\n\n🚫 **Execution blocked:**"
-                for reason in perm_result.denied_reasons:
-                    message += f"\n- {reason}"
-                logger.info(f"Sending blocked message to chat...")
-                await ctx.send(message)
-                logger.info("Blocked message sent.")
+            if em_delegator:
+                task = response.script_description or response.script_code or user_text
+                result = await em_delegator.delegate_task(
+                    task_description=task,
+                    context=f"Original user request: {user_text}",
+                    timeout_seconds=120,
+                )
+                await ctx.send(result or response.message)
                 return
 
-            if perm_result.requests and perm_result.level == PermissionLevel.ASK:
-                # Need user confirmation
-                logger.info("Permissions require user confirmation")
-                message += "\n\n⚠️ **Permissions required:**"
-                for req in perm_result.requests:
-                    message += f"\n- {req.description}"
-                message += "\n\n_Reply 'yes' to execute or 'no' to cancel._"
-                logger.info(f"Sending permission request message...")
-                await ctx.send(message)
-                logger.info("Permission message sent.")
-                # TODO: Implement confirmation flow with state management
-                # For now, auto-approve in development mode
-                permission_checker.approve_all(perm_result.requests)
-
-            # Send the script message first
-            logger.info(f"Sending script message to chat (len={len(message)})...")
-            await ctx.send(message)
-            logger.info("Script message sent.")
-
-            # Execute the script
-            logger.info("Sending 'Executing...' message...")
-            message_exec = "⏳ _Executing..._"
-            await ctx.send(message_exec)
-            logger.info("Executing message sent.")
-
-            # Run the script
-            logger.info(">>> EXECUTING SCRIPT <<<")
-            result = await execute_script(response.script_code)
-            logger.info(f"Script result: success={result.success}, return_code={result.return_code}, duration={result.duration_ms}ms")
-            logger.info(f"Script stdout: {result.stdout[:500] if result.stdout else '(empty)'}")
-            logger.info(f"Script stderr: {result.stderr[:500] if result.stderr else '(empty)'}")
-
-            # Log execution result
-            audit_logger.log_script_executed(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                script_path=str(script.filepath),
-                success=result.success,
-                duration_ms=result.duration_ms,
-                return_code=result.return_code,
-            )
-
-            # Format and send the result
-            result_message = format_script_result(result)
-            logger.info(f"Sending result message to chat (len={len(result_message)})...")
-            await ctx.send(result_message)
-            logger.info("Result message sent. DONE.")
-            return
-
-        logger.info(f"No script to execute, sending text response (len={len(message)})...")
-        await ctx.send(message)
-        logger.info("Text response sent.")
+        # Just respond directly
+        await ctx.send(response.message)
 
     except Exception as e:
         logger.error(f"Error processing message: {e}", exc_info=True)
