@@ -469,3 +469,124 @@ def test_search_messages(client, auth_token, message):
     assert response.status_code == 200
     data = response.json()
     assert "messages" in data
+
+
+# Admin endpoint tests
+
+@pytest.fixture
+def admin_token(client):
+    """Get an auth token for an admin user."""
+    # First create the admin user in address book with admin tag
+    login_response = client.post(
+        "/api/auth/login",
+        json={"handle": "adminuser", "display_name": "Admin User"}
+    )
+    token = login_response.json()["token"]
+
+    # Add adminuser to address book with admin tag
+    client.post(
+        "/api/contacts",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "handle": "adminuser",
+            "display_name": "Admin User",
+            "tags": ["admin"]
+        }
+    )
+    return token
+
+
+def test_admin_stats(client, admin_token, message):
+    """Test admin stats endpoint."""
+    response = client.get(
+        "/api/admin/stats",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "threads" in data
+    assert "messages" in data
+    assert "users" in data
+    assert data["threads"] >= 0
+    assert data["messages"] >= 0
+
+
+def test_admin_list_threads(client, admin_token, message):
+    """Test admin list threads endpoint."""
+    response = client.get(
+        "/api/admin/threads",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "threads" in data
+    assert "count" in data
+
+
+def test_admin_list_messages(client, admin_token, message):
+    """Test admin list messages endpoint."""
+    response = client.get(
+        "/api/admin/messages",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "messages" in data
+    assert "count" in data
+
+
+def test_admin_list_messages_since_id(client, admin_token, message):
+    """Test admin list messages with since_id parameter."""
+    response = client.get(
+        f"/api/admin/messages?since_id={message['message_id']}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "messages" in data
+    # Should be empty or only newer messages
+    for m in data["messages"]:
+        assert m["message_id"] != message["message_id"]
+
+
+def test_admin_get_thread_messages(client, admin_token, message):
+    """Test admin get thread messages endpoint."""
+    response = client.get(
+        f"/api/admin/threads/{message['thread_id']}/messages",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "thread" in data
+    assert "messages" in data
+    assert data["thread"]["thread_id"] == message["thread_id"]
+
+
+def test_admin_list_users(client, admin_token):
+    """Test admin list users endpoint."""
+    response = client.get(
+        "/api/admin/users",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "users" in data
+    assert "count" in data
+
+
+def test_admin_requires_admin_tag(client, auth_token):
+    """Test that admin endpoints require admin tag."""
+    response = client.get(
+        "/api/admin/stats",
+        headers={"Authorization": f"Bearer {auth_token}"}
+    )
+    assert response.status_code == 403
+
+
+def test_admin_thread_not_found(client, admin_token):
+    """Test admin get thread messages with non-existent thread."""
+    response = client.get(
+        "/api/admin/threads/nonexistent/messages",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 404

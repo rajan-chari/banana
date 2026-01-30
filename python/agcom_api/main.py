@@ -10,13 +10,24 @@ import uvicorn
 from agcom_api import __version__
 from agcom_api.auth import SessionManager
 from agcom_api import dependencies
-from agcom_api.routers import auth, messages, threads, contacts, audit, health
+from agcom_api.routers import auth, messages, threads, contacts, audit, health, admin
 from agcom.storage import init_database
+from agcom.console.config import load_config as load_agcom_config
 # from agcom_api.write_queue import WriteQueue  # TODO: Integrate if needed after testing
 
 
-# Configuration from environment variables
-DB_PATH = os.getenv("AGCOM_DB_PATH", "./data/agcom.db")
+# Configuration: env var > agcom config > default
+def get_db_path() -> str:
+    """Get database path from env, agcom config, or default."""
+    if os.getenv("AGCOM_DB_PATH"):
+        return os.getenv("AGCOM_DB_PATH")
+    agcom_config = load_agcom_config()
+    if agcom_config.get("store"):
+        return agcom_config["store"]
+    return "./data/agcom.db"
+
+
+DB_PATH = get_db_path()
 API_HOST = os.getenv("AGCOM_API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("AGCOM_API_PORT", "8700"))
 API_RELOAD = os.getenv("AGCOM_API_RELOAD", "false").lower() == "true"
@@ -94,6 +105,7 @@ app.include_router(messages.router)
 app.include_router(threads.router)
 app.include_router(contacts.router)
 app.include_router(audit.router)
+app.include_router(admin.router)
 
 
 # Root endpoint

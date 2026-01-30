@@ -42,9 +42,10 @@ my-assist = "assistant.main:main"
 agcom-api = "agcom_api.main:run"
 agcom = "agcom.console.cli:main"
 agent-team = "assistant.agents.cli:main"
+agcom-viewer = "agcom_viewer.main:run"
 
 [tool.hatch.build.targets.wheel]
-packages = ["assistant", "agcom", "agcom_api"]
+packages = ["assistant", "agcom", "agcom_api", "agcom_viewer"]
 
 [tool.black]
 line-length = 100
@@ -63,7 +64,7 @@ markers = [
 addopts = "--cov=assistant --cov=agcom --cov=agcom_api --cov-report=html --cov-report=term --cov-report=json"
 
 [tool.coverage.run]
-source = ["assistant", "agcom", "agcom_api"]
+source = ["assistant", "agcom", "agcom_api", "agcom_viewer"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
