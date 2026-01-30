@@ -38,7 +38,7 @@ from assistant.agcom import (
 )
 from assistant.agcom.client import AgcomError, AgcomNotFoundError
 from assistant.agcom.tools import register_agcom_tools, register_user_identity_tool, try_register_agcom_tools_if_configured
-from assistant.agents.delegation import EMDelegator
+from assistant.agents.delegation import EMDelegator, should_delegate_to_team
 
 # Load environment variables
 load_dotenv()
@@ -806,7 +806,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         logger.info(f"LLM response received: should_execute_script={response.should_execute_script}")
         logger.info(f"LLM message: {response.message[:200]}...")
         if response.script_code:
-            logger.info(f"LLM script_code length: {len(response.script_code)} chars")
+            logger.info(f"LLM script_code ({len(response.script_code)} chars): {response.script_code[:500]}")
+        if response.script_description:
+            logger.info(f"LLM script_description: {response.script_description}")
 
         # Check if identity was just configured during LLM interaction
         # Need to reload .env because tool runs in subprocess
@@ -821,14 +823,16 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             # Register the assistant in agcom-api backend (always, regardless of tool registration)
             await register_assistant_in_backend()
 
-        # If the assistant wants to delegate to the team
-        if response.should_execute_script:
+        # If the assistant wants to delegate to the team (or should based on keywords)
+        should_delegate = response.should_execute_script or should_delegate_to_team(user_text, response)
+        if should_delegate:
             global em_delegator
             if not em_delegator and agcom_client:
                 em_delegator = EMDelegator(agcom_client)
 
             if em_delegator:
                 task = response.script_description or response.script_code or user_text
+                logger.info(f"Delegating to team: {task[:100]}")
                 result = await em_delegator.delegate_task(
                     task_description=task,
                     context=f"Original user request: {user_text}",

@@ -64,6 +64,9 @@ class EMDelegator:
 
         # Send to EM
         try:
+            logger.info(f"[ASSISTANT → EM] Delegating task:")
+            logger.info(f"  Body:\n{body}")
+
             message = await self.client.send_message(
                 to_handles=["em"],
                 subject="User Request",
@@ -196,6 +199,8 @@ def should_delegate_to_team(user_message: str, llm_response: Any) -> bool:
         "write code", "create script", "build", "implement",
         "execute", "run", "code review", "security check",
         "analyze code", "debug", "fix bug", "refactor",
+        "screenshot", "capture", "list files", "read file",
+        "what time", "current time", "date", "system info",
     ]
 
     lower_message = user_message.lower()
