@@ -122,6 +122,7 @@ class EMAgent(BaseAgent):
         self._tasks[task_id] = task
 
         logger.info(f"EM created task {task_id}: {message_body[:100]}...")
+        logger.info(f"[EM received from {context.sender_handle}] Full message body:\n{message_body}")
 
         # Use LLM to decide how to handle the task
         coordination_prompt = f"""New task received from {context.sender_handle}:
@@ -129,15 +130,13 @@ class EMAgent(BaseAgent):
 Subject: {context.subject}
 Request: {message_body}
 
-Analyze this task and decide:
-1. Is this simple enough to go directly to coder?
-2. Does it need planner to break it down first?
-3. What specialist(s) will be needed?
-
-Respond with your coordination plan and who should act first.
+Decide who on your team should handle this first. Your team: planner, coder, reviewer, security, runner.
 If delegating, set action_needed=True and target_agent to the agent handle."""
 
+        logger.info(f"[EM LLM prompt]:\n{coordination_prompt}")
         response = await self._generate_llm_response(coordination_prompt)
+        logger.info(f"[EM LLM response] action_needed={response.action_needed}, target_agent={response.target_agent}, task_complete={response.task_complete}")
+        logger.info(f"[EM LLM message]: {response.message[:500]}")
 
         # Update task with assignment
         if response.action_needed and response.target_agent:
@@ -177,6 +176,8 @@ If delegating, set action_needed=True and target_agent to the agent handle."""
         task.results[context.sender_handle] = message_body[:1000]
         task.updated_at = datetime.now()
 
+        logger.info(f"[EM received from {context.sender_handle}] Team response:\n{message_body[:1000]}")
+
         # Build context for LLM decision
         work_done = ", ".join(task.results.keys()) if task.results else "none yet"
 
@@ -196,7 +197,10 @@ What should happen next? Remember:
 - If this is code from coder, it probably needs to go to runner
 - Your message is what the user sees if task_complete=True"""
 
+        logger.info(f"[EM LLM prompt for team response]:\n{coordination_prompt}")
         response = await self._generate_llm_response(coordination_prompt)
+        logger.info(f"[EM LLM decision] action_needed={response.action_needed}, target_agent={response.target_agent}, task_complete={response.task_complete}")
+        logger.info(f"[EM LLM message]: {response.message[:500]}")
 
         # Safety check: prevent delegation back to same agent
         if response.action_needed and response.target_agent == context.sender_handle:
@@ -229,13 +233,26 @@ What should happen next? Remember:
         """
         subject = f"Task: {task.description[:50]}..."
 
+        # Include team context so agents know what's possible
+        team_context = """Your team:
+- coder: writes Python code
+- runner: executes Python on the user's machine (can detect OS, take screenshots, read files, etc.)
+- reviewer: reviews code for bugs
+- security: checks for security issues
+
+Code can discover system information - don't ask the user for things code can determine."""
+
         body = f"""Task ID: {task.task_id}
 Original request: {task.description}
+
+{team_context}
 
 Context from previous work:
 {context}
 
 Please complete your part of this task and respond with your output."""
+
+        logger.info(f"[EM → {target_agent}] Delegating:\n{body}")
 
         message = await self.send_message(
             to_handle=target_agent,
@@ -264,6 +281,8 @@ Please complete your part of this task and respond with your output."""
         # Format a user-friendly response - just the result, not internal metadata
         # The final_result from runner should contain the actual output
         body = final_result
+
+        logger.info(f"[EM → {task.requester}] Task complete, sending result:\n{body[:1000]}")
 
         if not self._client:
             logger.error(f"EM cannot report completion - no client")

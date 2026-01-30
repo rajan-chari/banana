@@ -63,25 +63,33 @@ class RunnerAgent(BaseAgent):
         Returns:
             AgentResponse with execution results
         """
+        logger.info(f"[RUNNER] Processing message, extracting code...")
+
         # Extract code from the message (uses LLM to clean it up)
         code = await self._extract_code(message_body)
 
         if not code:
+            logger.info("[RUNNER] No code found in message")
             return AgentResponse(
                 message="No code found in the message to execute. Please provide Python code in a code block.",
                 task_complete=False,
             )
 
+        logger.info(f"[RUNNER] Extracted code ({len(code)} chars):\n{code[:500]}")
+
         # Check syntax first
         syntax_error = self._check_syntax(code)
         if syntax_error:
+            logger.info(f"[RUNNER] Syntax error: {syntax_error}")
             return AgentResponse(
                 message=f"Syntax error in code: {syntax_error}",
                 task_complete=False,
             )
 
         # Execute the code
+        logger.info("[RUNNER] Executing code...")
         result = await self._execute_code(code)
+        logger.info(f"[RUNNER] Execution result: status={result['status']}, stdout={result.get('stdout', '')[:200]}, stderr={result.get('stderr', '')[:200]}")
 
         # If execution failed, report error and don't mark complete
         if result['status'] != 'SUCCESS':
