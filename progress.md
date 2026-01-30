@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Phase**: 7 — Multi-Agent Team (Complete)
-**Last Updated**: 2026-01-27
-**Status**: 🟢 Complete
-**Next Tasks**: Polish & hardening
+**Phase**: 8 — Polish & Hardening
+**Last Updated**: 2026-01-29
+**Status**: 🟡 In Progress
+**Next Tasks**: Error handling, logging, docs, testing
 
 ---
 
@@ -95,6 +95,16 @@
 
 ---
 
+## Phase 7.5: agcom Viewer (Ad-hoc)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 7.5.1 Admin endpoints | 🟢 Complete | 5 endpoints in `/api/admin/*` (threads, messages, users, stats) |
+| 7.5.2 Viewer web app | 🟢 Complete | `agcom_viewer/` package, static HTML/JS/CSS |
+| 7.5.3 Tests | 🟢 Complete | 8 admin endpoint tests added |
+
+---
+
 ## Phase 8: Polish & Hardening
 
 | Task | Status | Notes |
@@ -140,6 +150,22 @@ None - Phase 7 complete, ready for Phase 8 (Polish & Hardening)
 ---
 
 ## Session Log
+
+### 2026-01-29 (agcom Viewer)
+- **Phase 7.5 Complete - agcom Message Viewer**:
+  - Admin endpoints: 5 new endpoints in `agcom_api/routers/admin.py`
+    - `GET /api/admin/threads` - all threads with pagination
+    - `GET /api/admin/messages` - all messages with since_id for polling
+    - `GET /api/admin/threads/{id}/messages` - thread with messages
+    - `GET /api/admin/users` - all users from address_book
+    - `GET /api/admin/stats` - counts (threads, messages, users)
+  - Viewer app: `agcom_viewer/` package with FastAPI + static files
+    - Dark theme UI with thread list + message panel
+    - Admin/User mode switching
+    - Real-time polling (3s interval)
+    - Ports: API on 8700, Viewer on 8701
+  - Tests: 8 new admin endpoint tests (37 total API tests)
+  - Entry point: `agcom-viewer` command
 
 ### 2026-01-27 (Multi-Agent Team Complete)
 - **Phase 7 Complete - Multi-Agent Team**:
