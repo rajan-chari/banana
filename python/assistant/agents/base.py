@@ -162,6 +162,9 @@ class BaseAgent(ABC):
             await self._client._ensure_session()
             await self._client._ensure_authenticated()
 
+            # Register self in address book (idempotent)
+            await self._register_self()
+
             # Start message polling loop
             self._running = True
             from datetime import timezone
@@ -204,6 +207,26 @@ class BaseAgent(ABC):
 
         self._state = AgentState.STOPPED
         logger.info(f"Agent '{self.handle}' stopped")
+
+    async def _register_self(self) -> None:
+        """Register this agent in the address book (idempotent)."""
+        if not self._client:
+            return
+
+        try:
+            await self._client.add_contact(
+                handle=self.handle,
+                display_name=self.config.display_name,
+                description=f"Agent: {self.config.display_name}",
+                tags=["agent"],
+            )
+            logger.debug(f"Agent '{self.handle}' registered in address book")
+        except AgcomError as e:
+            # Ignore "already exists" errors (409 Conflict)
+            if "409" in str(e) or "conflict" in str(e).lower():
+                logger.debug(f"Agent '{self.handle}' already registered")
+            else:
+                logger.warning(f"Agent '{self.handle}' failed to register: {e}")
 
     async def _poll_loop(self) -> None:
         """
@@ -259,6 +282,7 @@ class BaseAgent(ABC):
                 f"Agent '{self.handle}' received message from '{msg.from_handle}': "
                 f"'{msg.subject}'"
             )
+            logger.info(f"[{msg.from_handle} → {self.handle}] Message body:\n{msg.body[:1000]}")
 
             try:
                 await self._handle_message(msg)
@@ -320,6 +344,7 @@ class BaseAgent(ABC):
                     reply_tags.append(tag)
 
         try:
+            logger.info(f"[{self.handle} → {original_message.from_handle}] Reply:\n{response.message[:1000]}")
             await self._client.reply_to_message(
                 message_id=original_message.message_id,
                 body=response.message,
