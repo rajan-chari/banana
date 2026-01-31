@@ -31,7 +31,18 @@
       "Bash(.venvScriptspython.exe -m pytest -m \"not integration\" -v --tb=short tests/test_agcom_client.py::test_search_messages tests/test_api.py::test_search_messages)",
       "Bash(ls:*)",
       "Bash(sqlite3:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(if [ -f .env ])",
+      "Bash(then cat .env)",
+      "Bash(else echo \".env file not found\")",
+      "Bash(fi)",
+      "Bash(pwsh -Command:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(Select-String -Pattern \"claude|settings\" -CaseSensitive:$false)",
+      "Bash(source .venv/Scripts/activate)",
+      "Bash(agent-team:*)",
+      "Bash(agcom config set:*)"
     ]
   }
 }
