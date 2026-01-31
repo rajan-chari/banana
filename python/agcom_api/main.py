@@ -1,13 +1,36 @@
 """Main FastAPI application for the agcom REST API."""
 
+import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from agcom_api import __version__
+
+# Set up logging to both console and file
+LOGS_DIR = Path(__file__).parent.parent / "logs"
+LOG_FILE = LOGS_DIR / "agcom-api.log"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Custom handler that flushes on every write
+class FlushingFileHandler(logging.FileHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        FlushingFileHandler(LOG_FILE, mode='w', encoding='utf-8'),
+    ],
+)
+logger = logging.getLogger(__name__)
 from agcom_api.auth import SessionManager
 from agcom_api import dependencies
 from agcom_api.routers import auth, messages, threads, contacts, audit, health, admin
@@ -76,9 +99,16 @@ app = FastAPI(
 )
 
 # Add CORS middleware for local development
+# Note: allow_origins=["*"] with allow_credentials=True doesn't work properly
+# Must list specific origins when credentials are enabled
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this
+    allow_origins=[
+        "http://localhost:8701",
+        "http://127.0.0.1:8701",
+        "http://localhost:8700",
+        "http://127.0.0.1:8700",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -72,6 +72,7 @@ from assistant.agcom import AgcomClient, load_agcom_config
 async def main():
     # Load configuration and create client
     config = load_agcom_config()
+    my_handle = config.handle  # The assistant's own handle
 
     async with AgcomClient(config) as client:
         # List contacts
@@ -81,10 +82,16 @@ async def main():
             print("No contacts found in address book.")
             return
 
-        print(f"Found {len(contacts)} contact(s):\\n")
+        # Filter out self and count others
+        other_contacts = [c for c in contacts if c.handle != my_handle]
+
+        print(f"My handle: {my_handle}")
+        print(f"Found {len(other_contacts)} other agent(s):\\n")
 
         for contact in contacts:
-            print(f"Handle: {contact.handle}")
+            is_me = contact.handle == my_handle
+            label = " (me)" if is_me else ""
+            print(f"Handle: {contact.handle}{label}")
             if contact.display_name:
                 print(f"  Display Name: {contact.display_name}")
             if contact.description:
@@ -358,13 +365,17 @@ def register_agcom_tools(
     """
     logger.info("Registering agcom tools...")
 
-    # Check if agcom tools are already registered (from previous session)
-    if registry.get_by_name("send_agcom_message"):
-        logger.info("agcom tools already loaded from storage, skipping registration")
-        return
+    # Helper to register a tool only if it doesn't exist
+    def register_if_missing(tool: Tool) -> bool:
+        if registry.get_by_name(tool.name):
+            return False
+        registry.register(tool)
+        storage.save(tool)
+        logger.info(f"Registered tool: {tool.name}")
+        return True
 
     # Tool 1: Send Message
-    send_tool = Tool(
+    register_if_missing(Tool(
         id=str(uuid.uuid4()),
         name="send_agcom_message",
         description="Send a message to another agent via agcom communication system",
@@ -390,26 +401,20 @@ def register_agcom_tools(
             ),
         ],
         tags=["agcom", "communication", "messaging"],
-    )
-    registry.register(send_tool)
-    storage.save(send_tool)
-    logger.info(f"Registered tool: {send_tool.name}")
+    ))
 
     # Tool 2: List Contacts
-    contacts_tool = Tool(
+    register_if_missing(Tool(
         id=str(uuid.uuid4()),
         name="list_agcom_contacts",
         description="List all available agents in the agcom address book",
         source_code=_generate_list_contacts_script(),
         parameters=[],
         tags=["agcom", "contacts", "discovery"],
-    )
-    registry.register(contacts_tool)
-    storage.save(contacts_tool)
-    logger.info(f"Registered tool: {contacts_tool.name}")
+    ))
 
     # Tool 3: Get Inbox
-    inbox_tool = Tool(
+    register_if_missing(Tool(
         id=str(uuid.uuid4()),
         name="get_agcom_inbox",
         description="Get recent messages from agcom inbox",
@@ -424,13 +429,10 @@ def register_agcom_tools(
             ),
         ],
         tags=["agcom", "messaging", "inbox"],
-    )
-    registry.register(inbox_tool)
-    storage.save(inbox_tool)
-    logger.info(f"Registered tool: {inbox_tool.name}")
+    ))
 
     # Tool 4: Search Messages
-    search_tool = Tool(
+    register_if_missing(Tool(
         id=str(uuid.uuid4()),
         name="search_agcom_messages",
         description="Search through message history by keyword or phrase",
@@ -451,13 +453,10 @@ def register_agcom_tools(
             ),
         ],
         tags=["agcom", "messaging", "search"],
-    )
-    registry.register(search_tool)
-    storage.save(search_tool)
-    logger.info(f"Registered tool: {search_tool.name}")
+    ))
 
     # Tool 5: Reply to Message
-    reply_tool = Tool(
+    register_if_missing(Tool(
         id=str(uuid.uuid4()),
         name="reply_agcom_message",
         description="Reply to a specific message in an existing conversation thread",
@@ -477,13 +476,10 @@ def register_agcom_tools(
             ),
         ],
         tags=["agcom", "messaging", "reply"],
-    )
-    registry.register(reply_tool)
-    storage.save(reply_tool)
-    logger.info(f"Registered tool: {reply_tool.name}")
+    ))
 
     # Tool 6: List Threads
-    threads_tool = Tool(
+    register_if_missing(Tool(
         id=str(uuid.uuid4()),
         name="list_agcom_threads",
         description="List conversation threads with participants and activity info",
@@ -498,12 +494,106 @@ def register_agcom_tools(
             ),
         ],
         tags=["agcom", "messaging", "threads"],
-    )
-    registry.register(threads_tool)
-    storage.save(threads_tool)
-    logger.info(f"Registered tool: {threads_tool.name}")
+    ))
 
-    logger.info(f"Successfully registered 6 agcom tools")
+    # Tool 7: Send Task to Team
+    register_if_missing(Tool(
+        id=str(uuid.uuid4()),
+        name="send_task_to_team",
+        description=(
+            "Send a task to the engineering team for execution. Use this when the user needs: "
+            "code written or executed, files read/written/listed, system information (time, screenshots, etc.), "
+            "network requests, or any task requiring Python execution. "
+            "The team will handle the work and return results."
+        ),
+        source_code=_generate_send_task_to_team_script(),
+        parameters=[
+            ToolParameter(
+                name="task_description",
+                description="Clear description of what the user needs done. Include all relevant context.",
+                param_type=ParameterType.STRING,
+                required=True,
+            ),
+        ],
+        tags=["agcom", "team", "execution", "delegation"],
+    ))
+
+    logger.info("agcom tools registration complete")
+
+
+def _generate_send_task_to_team_script() -> str:
+    """Generate script for sending tasks to the engineering team."""
+    return '''"""Send a task to the engineering team and wait for completion."""
+import asyncio
+import platform
+import sys
+import time
+from assistant.agcom import AgcomClient, load_agcom_config
+
+# Parameters (injected at runtime)
+task_description: str
+
+async def main():
+    config = load_agcom_config()
+
+    # Gather environment info for context
+    env_info = f"""Environment:
+- OS: {platform.system()} {platform.release()}
+- Python: {sys.version.split()[0]}
+- Can pip install packages: yes
+
+Workflow: coder writes code → runner executes it → results back to you"""
+
+    async with AgcomClient(config) as client:
+        # Send task to EM (Engineering Manager)
+        task_body = f"""Task from user:
+{task_description}
+
+{env_info}"""
+
+        message = await client.send_message(
+            to_handles=["em"],
+            subject="User Request",
+            body=task_body,
+            tags=["user-task"],
+        )
+
+        print(f"Task sent to team (thread: {message.thread_id})")
+        print("Waiting for response...")
+
+        # Poll for response (max 3 minutes, show progress updates)
+        thread_id = message.thread_id
+        seen_ids = {message.message_id}
+        timeout = 180  # 3 minutes
+        start = time.time()
+
+        while time.time() - start < timeout:
+            await asyncio.sleep(3)
+
+            # Get thread messages
+            messages = await client.get_thread_messages(thread_id, limit=20)
+
+            for msg in messages:
+                if msg.message_id in seen_ids:
+                    continue
+                seen_ids.add(msg.message_id)
+
+                # Response from EM back to us
+                if msg.from_handle == "em" and config.handle in msg.to_handles:
+                    # Check if it's a progress update or final response
+                    tags = msg.tags or []
+                    if "progress" in tags:
+                        print(f"[Progress] {msg.body}")
+                        continue  # Keep waiting for final response
+                    elif "task-complete" in tags or not any(t.startswith("progress") for t in tags):
+                        print(f"\\n--- Response from team ---\\n{msg.body}")
+                        return
+
+        print("Timeout waiting for team response. They may still be working on it.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+'''
 
 
 def try_register_agcom_tools_if_configured(

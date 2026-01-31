@@ -18,8 +18,11 @@
                 </select>
             </div>
             <div class="control-group">
-                <label for="user-input">User:</label>
-                <input type="text" id="user-input" placeholder="handle" value="admin">
+                <label for="user-select">User:</label>
+                <select id="user-select">
+                    <option value="">-- Select user --</option>
+                </select>
+                <input type="text" id="user-input" placeholder="or type handle">
                 <button id="login-btn">Login</button>
             </div>
             <div class="control-group status">
@@ -30,19 +33,45 @@
     </header>
 
     <main>
-        <aside id="threads-panel">
+        <aside id="list-panel">
             <div class="panel-header">
-                <h2>Threads</h2>
-                <button id="refresh-threads-btn" title="Refresh">&#8635;</button>
+                <div class="view-tabs">
+                    <button id="threads-tab" class="tab-btn active">Threads</button>
+                    <button id="messages-tab" class="tab-btn">All Messages</button>
+                </div>
+                <input type="text" id="search-input" placeholder="Filter..." class="search-input">
+                <input type="datetime-local" id="time-filter" title="Show messages after this time">
+                <button id="refresh-btn" title="Refresh">&#8635;</button>
             </div>
-            <div id="threads-list" class="scrollable">
-                <p class="placeholder">Login to view threads</p>
+            <div id="threads-view" class="view-content">
+                <div class="list-header" id="threads-header">
+                    <span class="col-subject sortable resizable" data-sort="subject" data-col="subject">Subject<span class="sort-icon"></span><span class="col-resize" title="Drag to resize"></span></span>
+                    <span class="col-participants sortable resizable" data-sort="participants" data-col="participants">Participants<span class="sort-icon"></span><span class="col-resize" title="Drag to resize"></span></span>
+                    <span class="col-count sortable resizable" data-sort="count" data-col="count">#<span class="sort-icon"></span><span class="col-resize" title="Drag to resize"></span></span>
+                    <span class="col-time sortable resizable active" data-sort="time" data-col="time">Time<span class="sort-icon">▼</span><span class="col-resize" title="Drag to resize"></span></span>
+                </div>
+                <div id="threads-list" class="scrollable" tabindex="0">
+                    <p class="placeholder">Login to view threads</p>
+                </div>
+            </div>
+            <div id="messages-view" class="view-content hidden">
+                <div class="list-header" id="messages-header">
+                    <span class="col-time sortable resizable active" data-sort="time" data-col="time">Time<span class="sort-icon">▼</span><span class="col-resize" title="Drag to resize"></span></span>
+                    <span class="col-from sortable resizable" data-sort="from" data-col="from">From<span class="sort-icon"></span><span class="col-resize" title="Drag to resize"></span></span>
+                    <span class="col-to sortable resizable" data-sort="to" data-col="to">To<span class="sort-icon"></span><span class="col-resize" title="Drag to resize"></span></span>
+                    <span class="col-subject sortable resizable" data-sort="subject" data-col="subject">Subject<span class="sort-icon"></span><span class="col-resize" title="Drag to resize"></span></span>
+                </div>
+                <div id="all-messages-list" class="scrollable" tabindex="0">
+                    <p class="placeholder">Login to view messages</p>
+                </div>
             </div>
         </aside>
+        <div id="resize-handle"></div>
 
         <section id="messages-panel">
             <div class="panel-header">
                 <h2 id="messages-title">Messages</h2>
+                <span id="messages-subtitle" class="subtitle"></span>
             </div>
             <div id="messages-list" class="scrollable">
                 <p class="placeholder">Select a thread to view messages</p>

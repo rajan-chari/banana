@@ -273,7 +273,7 @@ def admin_get_thread_messages(
 def admin_list_users(
     admin_ctx: Annotated[tuple[sqlite3.Connection, AgentIdentity], Depends(require_admin)]
 ):
-    """List all users from address book (admin only).
+    """List all users (from address book and message senders).
 
     Args:
         admin_ctx: Admin context (conn, identity)
@@ -282,7 +282,40 @@ def admin_list_users(
         All users with count
     """
     conn, identity = admin_ctx
+
+    # Get address book entries
     entries = list_address_book_entries(conn, active_only=False)
+    known_handles = {e.handle for e in entries}
+
+    # Also get unique handles from messages not in address book
+    cursor = conn.execute(
+        "SELECT DISTINCT from_handle FROM messages WHERE from_handle NOT IN ({})".format(
+            ','.join('?' * len(known_handles)) if known_handles else "''"
+        ),
+        tuple(known_handles) if known_handles else ()
+    )
+
+    from agcom.models import AddressBookEntry
+    from datetime import datetime
+
+    # Add message senders as synthetic entries
+    now = datetime.now()
+    for row in cursor:
+        handle = row["from_handle"]
+        entries.append(AddressBookEntry(
+            handle=handle,
+            display_name=handle,
+            description=None,
+            tags=None,
+            is_active=True,
+            created_at=now,
+            updated_at=now,
+            updated_by="system",
+            version=0
+        ))
+
+    # Sort by handle
+    entries.sort(key=lambda e: e.handle.lower())
 
     return AdminUserListResponse(
         users=[address_book_entry_to_response(e) for e in entries],

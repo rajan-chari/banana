@@ -103,7 +103,10 @@ def is_identity_configured() -> bool:
     Returns:
         True if AGCOM_USER_HANDLE environment variable is set
     """
-    return bool(os.getenv("AGCOM_USER_HANDLE"))
+    user_handle = os.getenv("AGCOM_USER_HANDLE")
+    configured = bool(user_handle)
+    logger.debug(f"is_identity_configured: AGCOM_USER_HANDLE={user_handle!r} -> {configured}")
+    return configured
 
 
 def load_identity() -> AgcomIdentity | None:

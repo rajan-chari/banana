@@ -106,6 +106,16 @@ class EMAgent(BaseAgent):
         Returns:
             AgentResponse with delegation plan
         """
+        # Check for duplicate/similar task already in progress
+        existing_task = self._find_similar_active_task(context.sender_handle, message_body)
+        if existing_task:
+            logger.info(f"EM found similar active task {existing_task.task_id}, sending status update")
+            status_msg = f"Still working on this task (ID: {existing_task.task_id}). Currently assigned to: {existing_task.assigned_to or 'pending'}."
+            return AgentResponse(
+                message=status_msg,
+                task_complete=False,
+            )
+
         # Create task record
         self._task_counter += 1
         task_id = f"task-{self._task_counter}"
@@ -172,11 +182,11 @@ If delegating, set action_needed=True and target_agent to the agent handle."""
                 task_complete=True,
             )
 
-        # Store the result
-        task.results[context.sender_handle] = message_body[:1000]
+        # Store the result (keep more context for debugging)
+        task.results[context.sender_handle] = message_body[:3000]
         task.updated_at = datetime.now()
 
-        logger.info(f"[EM received from {context.sender_handle}] Team response:\n{message_body[:1000]}")
+        logger.info(f"[EM received from {context.sender_handle}] Team response:\n{message_body[:1500]}")
 
         # Build context for LLM decision
         work_done = ", ".join(task.results.keys()) if task.results else "none yet"
@@ -236,19 +246,22 @@ What should happen next? Remember:
         # Include team context so agents know what's possible
         team_context = """Your team:
 - coder: writes Python code
-- runner: executes Python on the user's machine (can detect OS, take screenshots, read files, etc.)
+- runner: executes Python on the user's machine (Windows, can pip install packages)
 - reviewer: reviews code for bugs
 - security: checks for security issues
 
-Code can discover system information - don't ask the user for things code can determine."""
+Code can discover system information - don't ask the user for things code can determine.
+If a package is missing, code can pip install it."""
+
+        # Build richer context from previous work
+        previous_work = self._build_previous_work_context(task)
 
         body = f"""Task ID: {task.task_id}
 Original request: {task.description}
 
 {team_context}
 
-Context from previous work:
-{context}
+{previous_work}
 
 Please complete your part of this task and respond with your output."""
 
@@ -266,6 +279,37 @@ Please complete your part of this task and respond with your output."""
             task.delegation_threads.append(message.thread_id)
 
         logger.info(f"EM delegated task {task.task_id} to {target_agent}")
+
+        # Send progress update to requester
+        await self._send_progress_update(task, target_agent)
+
+    def _build_previous_work_context(self, task: TaskRecord) -> str:
+        """Build context string from previous work on this task."""
+        if not task.results:
+            return f"Context from previous work:\n{task.description}"
+
+        parts = ["Previous work on this task:"]
+        for agent, result in task.results.items():
+            # Include more context for failures
+            parts.append(f"\n[{agent}]:\n{result}")
+
+        return "\n".join(parts)
+
+    async def _send_progress_update(self, task: TaskRecord, assigned_to: str) -> None:
+        """Send a progress update to the requester."""
+        if not self._client:
+            return
+
+        try:
+            update_msg = f"Working on it - sent to {assigned_to}."
+            await self._client.reply_to_message(
+                message_id=task.requester_message_id,
+                body=update_msg,
+                tags=["progress", task.task_id],
+            )
+            logger.info(f"EM sent progress update to {task.requester}: {update_msg}")
+        except Exception as e:
+            logger.warning(f"EM couldn't send progress update: {e}")
 
     async def _report_completion(self, task: TaskRecord, final_result: str) -> None:
         """
@@ -316,6 +360,27 @@ Please complete your part of this task and respond with your output."""
                 task_id = tag
                 if task_id in self._tasks:
                     return self._tasks[task_id]
+        return None
+
+    def _find_similar_active_task(self, requester: str, description: str) -> TaskRecord | None:
+        """
+        Find an active task with similar description from the same requester.
+
+        This prevents duplicate tasks when the requester retries.
+        """
+        # Normalize description for comparison
+        desc_normalized = description.strip().lower()[:200]
+
+        for task in self._tasks.values():
+            if task.status not in ("pending", "in_progress"):
+                continue
+            if task.requester != requester:
+                continue
+            # Check if descriptions are similar (first 200 chars match)
+            task_desc_normalized = task.description.strip().lower()[:200]
+            if task_desc_normalized == desc_normalized:
+                return task
+
         return None
 
     def get_tools(self) -> list[Any]:

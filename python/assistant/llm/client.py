@@ -5,10 +5,25 @@ This module provides the core LLM interaction layer using PydanticAI.
 Supports multiple providers: OpenAI, Azure OpenAI, Anthropic, Ollama, Groq.
 """
 
+import logging
+from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, UsageLimits
+from pydantic_ai.messages import ModelMessage
+
+logger = logging.getLogger(__name__)
+
+# Conversation history storage
+# Maps conversation_id -> list of ModelMessage
+_conversation_history: dict[str, list[ModelMessage]] = defaultdict(list)
+_conversation_timestamps: dict[str, datetime] = {}
+
+# History settings
+MAX_HISTORY_MESSAGES = 20  # Keep last N messages per conversation
+HISTORY_EXPIRY_MINUTES = 60  # Clear history after inactivity
 
 
 @dataclass
@@ -37,57 +52,29 @@ class AssistantResponse(BaseModel):
 
 
 # Base system prompt
-BASE_SYSTEM_PROMPT = """You are a helpful personal assistant. You talk to users and coordinate with a team of specialist agents to get things done.
+BASE_SYSTEM_PROMPT = """You are a helpful personal assistant with access to tools.
 
-IMPORTANT: Getting to know your user
-- On first interaction, if you don't know the user's name, ask naturally:
-  "Hi! I'm your personal assistant. What's your name?"
-- Once they tell you their name, use the remember_user_name tool
-- After setup completes, you can coordinate with your team on the user's behalf
-- Never mention technical details like "agcom", "handles", "EM", or "agent team"
-- Just say: "All set!" or "Perfect! I'm ready to help"
+GETTING TO KNOW YOUR USER:
+- On first interaction, ask for their name: "Hi! I'm your assistant. What's your name?"
+- When they tell you, call remember_user_name with their name
+- Never mention technical terms like "agcom", "handles", or "backend"
 
-YOUR ROLE:
-- You are the user-facing assistant - friendly, helpful, conversational
-- You do NOT write code, run scripts, or execute anything yourself
-- You have a team (managed by an Engineering Manager) that handles all technical work
-- When the user needs something done (code, files, system tasks), you delegate to your team
+KEY TOOLS:
+- remember_user_name: Call when user tells you their name
+- send_task_to_team: Send tasks to your team for execution
 
-WHEN TO DELEGATE (set should_execute_script=True):
-- Writing or running code
-- File operations (read, write, list, delete)
-- System commands or information
-- HTTP requests or network operations
-- Any task requiring Python execution
-- Code review, security analysis, debugging
+USE send_task_to_team FOR:
+- Screenshots, files, directories
+- System info (time, date, etc.)
+- Code execution
+- Anything requiring action on user's machine
 
-Instead of writing code yourself, describe what needs to be done in script_description.
-The script_code field should contain the task description for your team, NOT actual code.
+RESPOND DIRECTLY FOR:
+- Greetings, conversation
+- Knowledge questions
+- Explanations, advice
 
-Example: User says "what time is it"
-- should_execute_script=True
-- script_description="Get and display the current date and time"
-- script_code="Display the current date and time in a user-friendly format"
-- message="Let me check that for you..."
-
-Example: User says "list files in my documents folder"
-- should_execute_script=True
-- script_description="List files in the user's Documents folder"
-- script_code="List all files in the Documents folder with sizes"
-- message="I'll have my team look that up..."
-
-WHEN NOT TO DELEGATE (just respond directly):
-- Greetings and casual conversation
-- Knowledge questions ("what is Python?")
-- Explaining concepts
-- Giving advice that doesn't require execution
-
-Be conversational and friendly. Don't over-explain the delegation - just say things like:
-- "Let me check on that..."
-- "I'll get that for you..."
-- "One moment while I look into this..."
-
-The user doesn't need to know about the team - they just see you getting things done."""
+Be friendly and concise. The user doesn't need to know about the team."""
 
 # Create the main assistant agent
 # Model can be configured via environment variable or config
@@ -97,6 +84,52 @@ assistant_agent = Agent(
     output_type=AssistantResponse,
     system_prompt=BASE_SYSTEM_PROMPT,
 )
+
+
+def _get_conversation_history(conversation_id: str) -> list[ModelMessage]:
+    """
+    Get conversation history for a conversation, clearing if expired.
+
+    Args:
+        conversation_id: Unique conversation identifier
+
+    Returns:
+        List of previous messages in this conversation
+    """
+    # Check if history exists and hasn't expired
+    last_activity = _conversation_timestamps.get(conversation_id)
+    if last_activity:
+        if datetime.now() - last_activity > timedelta(minutes=HISTORY_EXPIRY_MINUTES):
+            # History expired, clear it
+            logger.info(f"[HISTORY] Conversation {conversation_id} expired, clearing history")
+            _conversation_history[conversation_id] = []
+            del _conversation_timestamps[conversation_id]
+            return []
+
+    return _conversation_history[conversation_id]
+
+
+def _update_conversation_history(
+    conversation_id: str,
+    new_messages: list[ModelMessage],
+) -> None:
+    """
+    Update conversation history with new messages.
+
+    Args:
+        conversation_id: Unique conversation identifier
+        new_messages: New messages to add to history
+    """
+    history = _conversation_history[conversation_id]
+    history.extend(new_messages)
+
+    # Trim to max size (keep most recent)
+    if len(history) > MAX_HISTORY_MESSAGES:
+        _conversation_history[conversation_id] = history[-MAX_HISTORY_MESSAGES:]
+
+    # Update timestamp
+    _conversation_timestamps[conversation_id] = datetime.now()
+    logger.info(f"[HISTORY] Conversation {conversation_id} now has {len(_conversation_history[conversation_id])} messages")
 
 
 async def chat(
@@ -141,6 +174,18 @@ async def chat(
 """
         message_with_context = identity_context + user_message
 
+    # Log conversation input
+    logger.info(f"[CONVERSATION] User message: {user_message}")
+    if identity:
+        logger.info(f"[CONVERSATION] Identity: {identity.get('handle')} for user {identity.get('user_handle')}")
+    else:
+        logger.info(f"[CONVERSATION] Identity: NOT CONFIGURED")
+    logger.info(f"[CONVERSATION] Available tools: {[t.name for t in pydantic_tools]}")
+
+    # Get conversation history
+    history = _get_conversation_history(conversation_id)
+    logger.info(f"[CONVERSATION] History: {len(history)} previous messages")
+
     # Use override to apply model and tools dynamically
     overrides = {}
     if model:
@@ -153,9 +198,27 @@ async def chat(
 
     if overrides:
         with assistant_agent.override(**overrides):
-            result = await assistant_agent.run(message_with_context, deps=deps, usage_limits=usage_limits)
+            result = await assistant_agent.run(
+                message_with_context,
+                deps=deps,
+                usage_limits=usage_limits,
+                message_history=history if history else None,
+            )
     else:
-        result = await assistant_agent.run(message_with_context, deps=deps, usage_limits=usage_limits)
+        result = await assistant_agent.run(
+            message_with_context,
+            deps=deps,
+            usage_limits=usage_limits,
+            message_history=history if history else None,
+        )
+
+    # Update conversation history with new messages
+    _update_conversation_history(conversation_id, result.new_messages())
+
+    # Log conversation output
+    logger.info(f"[CONVERSATION] LLM response message: {result.output.message}")
+    if result.output.should_execute_script:
+        logger.info(f"[CONVERSATION] LLM wants to execute script: {result.output.script_description}")
 
     return result.output
 

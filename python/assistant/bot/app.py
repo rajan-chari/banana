@@ -38,7 +38,7 @@ from assistant.agcom import (
 )
 from assistant.agcom.client import AgcomError, AgcomNotFoundError
 from assistant.agcom.tools import register_agcom_tools, register_user_identity_tool, try_register_agcom_tools_if_configured
-from assistant.agents.delegation import EMDelegator, should_delegate_to_team
+# Delegation is now handled via send_task_to_team tool, not special logic
 
 # Load environment variables
 load_dotenv()
@@ -49,10 +49,23 @@ SCRIPTS_DIR = Path(__file__).parent.parent.parent / "scripts"
 LOGS_DIR = Path(__file__).parent.parent.parent / "logs"
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
-# Configure logging
+# Configure logging to both console and file
+LOG_FILE = LOGS_DIR / "assistant.log"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Custom handler that flushes on every write
+class FlushingFileHandler(logging.FileHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        FlushingFileHandler(LOG_FILE, mode='w', encoding='utf-8'),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -76,16 +89,14 @@ register_user_identity_tool(tool_registry, tool_storage)
 # Initialize agcom integration
 agcom_settings = load_agcom_config()
 agcom_client = None
-em_delegator = None
 
 if agcom_settings.is_configured and agcom_settings.enabled:
     try:
         agcom_client = AgcomClient(agcom_settings)
-        em_delegator = EMDelegator(agcom_client)
-        # Register agcom tools in the tool registry
+        # Register agcom tools in the tool registry (includes send_task_to_team)
         register_agcom_tools(tool_registry, tool_storage, agcom_client)
         logger.info(
-            f"Communication tools enabled - 6 tools registered "
+            f"Communication tools enabled - 7 tools registered "
             f"(user: {agcom_settings.user_handle}, "
             f"assistant: {agcom_settings.handle})"
         )
@@ -115,7 +126,7 @@ async def register_assistant_in_backend() -> bool:
     Returns:
         True if registration succeeded, False otherwise
     """
-    global agcom_client, em_delegator
+    global agcom_client
 
     try:
         # Reload config with new identity
@@ -127,7 +138,6 @@ async def register_assistant_in_backend() -> bool:
 
         # Create a new client with the updated settings
         agcom_client = AgcomClient(settings)
-        em_delegator = EMDelegator(agcom_client)
 
         # Login to create session
         login_info = await agcom_client.login(
@@ -605,12 +615,19 @@ async def handle_agcom_contacts(ctx: ActivityContext[MessageActivity]):
             await ctx.send("📇 **No contacts**\n\n_Address book is empty._")
             return
 
-        lines = [f"📇 **Contacts ({len(contacts)})**\n"]
+        # Get my own handle to identify self
+        my_handle = agcom_settings.handle if agcom_settings else None
+
+        # Separate self from others
+        other_contacts = [c for c in contacts if c.handle != my_handle]
+
+        lines = [f"📇 **Contacts** (me: `{my_handle}`, {len(other_contacts)} others)\n"]
         for contact in contacts:
             display = contact.display_name or contact.handle
             desc = f" - {contact.description}" if contact.description else ""
             tags = f" [{', '.join(contact.tags)}]" if contact.tags else ""
-            lines.append(f"- **{display}** (`{contact.handle}`){desc}{tags}")
+            is_me = " *(me)*" if contact.handle == my_handle else ""
+            lines.append(f"- **{display}** (`{contact.handle}`){is_me}{desc}{tags}")
 
         await ctx.send("\n".join(lines))
 
@@ -767,7 +784,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     user_id = ctx.activity.from_.id if ctx.activity.from_ else "unknown"
     conversation_id = ctx.activity.conversation.id if ctx.activity.conversation else "unknown"
 
-    logger.info(f"Received message from {user_id}: {user_text[:100]}...")
+    logger.info(f"=" * 60)
+    logger.info(f"[USER MESSAGE] {user_text}")
+    logger.info(f"[USER ID] {user_id}")
 
     # Check for tool management commands
     if user_text.startswith("/"):
@@ -777,10 +796,11 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     try:
         # Track if identity was configured before this interaction
         identity_was_configured = is_identity_configured()
+        logger.info(f"[IDENTITY] Configured before this message: {identity_was_configured}")
 
         # Get LLM config (from config file + environment variables)
         config = get_config(CONFIG_DIR)
-        logger.info(f"Using LLM: {config.model_string} (from {config.config_file_path or 'env'})")
+        logger.info(f"[LLM] Using model: {config.model_string}")
 
         # Load identity for LLM context
         identity_dict = None
@@ -793,7 +813,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                     "display_name": identity.display_name,
                 }
 
-        logger.info("Calling LLM...")
+        logger.info("[LLM] Calling chat...")
         response = await chat(
             user_message=user_text,
             user_id=user_id,
@@ -803,45 +823,26 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             tool_executor=tool_executor,
             identity=identity_dict,
         )
-        logger.info(f"LLM response received: should_execute_script={response.should_execute_script}")
-        logger.info(f"LLM message: {response.message[:200]}...")
-        if response.script_code:
-            logger.info(f"LLM script_code ({len(response.script_code)} chars): {response.script_code[:500]}")
-        if response.script_description:
-            logger.info(f"LLM script_description: {response.script_description}")
+        logger.info(f"[LLM] Response received")
 
         # Check if identity was just configured during LLM interaction
         # Need to reload .env because tool runs in subprocess
         load_dotenv(override=True)
-        if not identity_was_configured and is_identity_configured():
-            logger.info("Identity configuration detected - registering communication tools dynamically")
+        identity_now_configured = is_identity_configured()
+        logger.info(f"[IDENTITY] Configured after this message: {identity_now_configured}")
+
+        if not identity_was_configured and identity_now_configured:
+            logger.info("[IDENTITY] Just configured! Registering communication tools...")
             if try_register_agcom_tools_if_configured(tool_registry, tool_storage):
-                logger.info("Dynamically registered communication tools")
-                # Reload tools into executor
+                logger.info("[IDENTITY] Dynamically registered communication tools")
                 tool_storage.load_into_registry(tool_registry)
 
-            # Register the assistant in agcom-api backend (always, regardless of tool registration)
+            # Register the assistant in agcom-api backend
             await register_assistant_in_backend()
 
-        # If the assistant wants to delegate to the team (or should based on keywords)
-        should_delegate = response.should_execute_script or should_delegate_to_team(user_text, response)
-        if should_delegate:
-            global em_delegator
-            if not em_delegator and agcom_client:
-                em_delegator = EMDelegator(agcom_client)
-
-            if em_delegator:
-                task = response.script_description or response.script_code or user_text
-                logger.info(f"Delegating to team: {task[:100]}")
-                result = await em_delegator.delegate_task(
-                    task_description=task,
-                    context=f"Original user request: {user_text}",
-                    timeout_seconds=120,
-                )
-                await ctx.send(result or response.message)
-                return
-
-        # Just respond directly
+        # Just respond directly (delegation now happens via send_task_to_team tool)
+        logger.info(f"[RESPONSE] {response.message[:500]}{'...' if len(response.message) > 500 else ''}")
+        logger.info(f"=" * 60)
         await ctx.send(response.message)
 
     except Exception as e:

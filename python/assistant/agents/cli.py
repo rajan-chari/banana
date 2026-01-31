@@ -24,11 +24,25 @@ from pathlib import Path
 
 from .orchestrator import TeamOrchestrator, TeamConfig
 
-# Set up logging
+# Set up logging to both console and file
+LOGS_DIR = Path(__file__).parent.parent.parent / "logs"
+LOG_FILE = LOGS_DIR / "agent-team.log"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Custom handler that flushes on every write
+class FlushingFileHandler(logging.FileHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),
+        FlushingFileHandler(LOG_FILE, mode='w', encoding='utf-8'),
+    ],
 )
 logger = logging.getLogger("agent-team")
 
