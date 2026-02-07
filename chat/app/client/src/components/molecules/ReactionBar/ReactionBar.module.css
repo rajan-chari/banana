@@ -19,7 +19,7 @@
   transition: background-color var(--duration-fast) var(--ease-default),
               transform var(--duration-fast) var(--ease-default);
   position: relative;
-  animation: popIn var(--duration-slow) var(--ease-spring);
+  animation: fadeIn var(--duration-fast) var(--ease-out);
 }
 
 .pill:hover {

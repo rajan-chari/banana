@@ -12,6 +12,7 @@ import styles from './MessageBubble.module.css';
 interface MessageBubbleProps {
   message: Message;
   isFirstInGroup: boolean;
+  isOwnMessage?: boolean;
   onReply?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
 }
@@ -24,7 +25,7 @@ function formatTime(date: Date): string {
   });
 }
 
-export function MessageBubble({ message, isFirstInGroup, onReply, onToggleReaction }: MessageBubbleProps) {
+export function MessageBubble({ message, isFirstInGroup, isOwnMessage, onReply, onToggleReaction }: MessageBubbleProps) {
   const [showPicker, setShowPicker] = useState(false);
 
   const handleToggleReaction = useCallback(
@@ -44,22 +45,24 @@ export function MessageBubble({ message, isFirstInGroup, onReply, onToggleReacti
 
   return (
     <div
-      className={`${styles.message} ${isFirstInGroup ? styles.firstInGroup : ''}`}
+      className={`${styles.message} ${isFirstInGroup ? styles.firstInGroup : ''} ${isOwnMessage ? styles.ownMessage : ''}`}
       role="article"
       aria-label={`${message.sender.displayName} at ${formatTime(message.createdAt)}`}
     >
-      {/* Avatar column */}
-      <div className={styles.avatarCol}>
-        {isFirstInGroup ? (
-          <Avatar
-            size="lg"
-            initials={message.sender.initials}
-            alt={message.sender.displayName}
-          />
-        ) : (
-          <div className={styles.avatarPlaceholder} />
-        )}
-      </div>
+      {/* Avatar column — hidden for own messages */}
+      {!isOwnMessage && (
+        <div className={styles.avatarCol}>
+          {isFirstInGroup ? (
+            <Avatar
+              size="lg"
+              initials={message.sender.initials}
+              alt={message.sender.displayName}
+            />
+          ) : (
+            <div className={styles.avatarPlaceholder} />
+          )}
+        </div>
+      )}
 
       {/* Content column */}
       <div className={styles.contentCol}>

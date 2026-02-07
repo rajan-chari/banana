@@ -99,11 +99,14 @@ export function MessageArea({ messages, loading, hasMore, onLoadMore, onReply, o
       lastDate = msg.createdAt;
     }
 
+    const isOwnMessage = msg.sender.id === currentUserId;
+
     elements.push(
       <MessageBubble
         key={msg.id}
         message={msg}
         isFirstInGroup={isFirstInGroup(messages, i)}
+        isOwnMessage={isOwnMessage}
         onReply={onReply}
         onToggleReaction={onToggleReaction}
       />
@@ -113,7 +116,7 @@ export function MessageArea({ messages, loading, hasMore, onLoadMore, onReply, o
     const receipts = receiptsByMessage.get(msg.id);
     if (receipts && receipts.length > 0) {
       elements.push(
-        <div key={`read-${msg.id}`} className={styles.readReceipts}>
+        <div key={`read-${msg.id}`} className={`${styles.readReceipts} ${isOwnMessage ? styles.readReceiptsOwn : ''}`}>
           {receipts.map((r) => (
             <span key={r.userId} className={styles.readReceiptAvatar} title={r.displayName}>
               <Avatar

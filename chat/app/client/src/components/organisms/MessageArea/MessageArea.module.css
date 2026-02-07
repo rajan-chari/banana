@@ -80,3 +80,10 @@
 .readReceiptAvatar:hover {
   opacity: 1;
 }
+
+/* Own-message read receipts — right-aligned, no avatar offset */
+.readReceiptsOwn {
+  margin-left: auto;
+  margin-right: var(--space-5);
+  justify-content: flex-end;
+}

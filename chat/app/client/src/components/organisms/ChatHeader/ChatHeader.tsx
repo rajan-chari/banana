@@ -26,6 +26,10 @@ export function ChatHeader({ name, type, memberCount }: ChatHeaderProps) {
           <h2 className={styles.channelName}>{name}</h2>
         </div>
         <div className={styles.headerActions}>
+          <button className={styles.meetBtn} aria-label="Meet now">
+            <Icon name="phone" size="sm" />
+            <span>Meet now</span>
+          </button>
           {memberCount != null && (
             <button className={styles.memberCount} aria-label={`${memberCount} members`}>
               <Icon name="people" size="sm" />
