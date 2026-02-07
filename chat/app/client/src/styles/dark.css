@@ -1,0 +1,159 @@
+[data-theme="dark"] {
+  /* Backgrounds — subtle cool-blue tint for depth */
+  --color-bg-app: #18191e;
+  --color-bg-topbar: #1c1d23;
+  --color-bg-navrail: #1c1d23;
+  --color-bg-sidebar: #22232a;
+  --color-bg-content: #1c1d23;
+  --color-bg-compose: #1c1d23;
+  --color-bg-hover: #2c2d35;
+  --color-bg-selected: #33343e;
+  --color-bg-active: #3a3b46;
+  --color-bg-search: #2c2d35;
+  --color-bg-card: #262730;
+  --color-bg-quote: #24252e;
+  --color-bg-message-hover: #22232c;
+  --color-bg-code: #2a2b34;
+  --color-text-code: #e2e2e8;
+  --color-bg-tooltip: #3a3b46;
+  --color-bg-modal: #262730;
+  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Surfaces — for layered glass panels */
+  --color-surface-glass: rgba(34, 35, 42, 0.75);
+  --color-surface-raised: #2a2b34;
+  --color-surface-sunken: #16171c;
+
+  /* Text */
+  --color-text-primary: #f0f0f5;
+  --color-text-secondary: #a0a0b0;
+  --color-text-tertiary: #6e6e80;
+  --color-text-disabled: #4a4a58;
+  --color-text-inverse: #ffffff;
+  --color-text-link: #7da0e8;
+
+  /* Accent — Teams purple with glow variants */
+  --color-accent-primary: #6b6db5;
+  --color-accent-primary-hover: #8183cc;
+  --color-accent-primary-active: #5856a8;
+  --color-accent-glow: rgba(107, 109, 181, 0.25);
+  --color-accent-glow-strong: rgba(107, 109, 181, 0.4);
+  --color-accent-subtle: rgba(107, 109, 181, 0.1);
+
+  /* Icons */
+  --color-icon-default: #a0a0b0;
+  --color-icon-active: #f0f0f5;
+  --color-icon-disabled: #4a4a58;
+
+  /* Borders */
+  --color-border-default: rgba(255, 255, 255, 0.08);
+  --color-border-divider: rgba(255, 255, 255, 0.06);
+  --color-border-card: rgba(255, 255, 255, 0.08);
+  --color-border-focus: #6b6db5;
+  --color-border-input: rgba(255, 255, 255, 0.12);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+
+  /* Badge */
+  --color-badge-bg: #d1365a;
+  --color-badge-text: #ffffff;
+  --color-badge-glow: rgba(209, 54, 90, 0.3);
+
+  /* Status */
+  --color-status-online: #6dd66e;
+  --color-status-away: #f0c850;
+  --color-status-busy: #d1365a;
+  --color-status-offline: #6e6e80;
+
+  /* Mentions */
+  --color-mention-bg: rgba(107, 109, 181, 0.2);
+  --color-mention-bg-hover: rgba(107, 109, 181, 0.35);
+  --color-mention-text: #b0b1e0;
+
+  /* Shadows — layered for dimensional depth */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-accent: 0 4px 20px rgba(107, 109, 181, 0.2);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="light"] {
+  /* Backgrounds */
+  --color-bg-app: #f4f4f8;
+  --color-bg-topbar: #e8e8f0;
+  --color-bg-navrail: #e8e8f0;
+  --color-bg-sidebar: #ffffff;
+  --color-bg-content: #ffffff;
+  --color-bg-compose: #ffffff;
+  --color-bg-hover: #eaeaf0;
+  --color-bg-selected: #e0e0f0;
+  --color-bg-active: #d6d6e2;
+  --color-bg-search: #ffffff;
+  --color-bg-card: #f5f5fa;
+  --color-bg-quote: #f0f0f5;
+  --color-bg-message-hover: #f5f5fa;
+  --color-bg-code: #f0f0f5;
+  --color-text-code: #333344;
+  --color-bg-tooltip: #242430;
+  --color-bg-modal: #ffffff;
+  --color-bg-overlay: rgba(0, 0, 0, 0.35);
+
+  /* Surfaces */
+  --color-surface-glass: rgba(255, 255, 255, 0.75);
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #ededf2;
+
+  /* Text */
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #555568;
+  --color-text-tertiary: #8a8a9a;
+  --color-text-disabled: #bdbdcc;
+  --color-text-inverse: #ffffff;
+  --color-text-link: #4b60a8;
+
+  /* Accent */
+  --color-accent-primary: #6264a7;
+  --color-accent-primary-hover: #5250a1;
+  --color-accent-primary-active: #464688;
+  --color-accent-glow: rgba(98, 100, 167, 0.15);
+  --color-accent-glow-strong: rgba(98, 100, 167, 0.25);
+  --color-accent-subtle: rgba(98, 100, 167, 0.06);
+
+  /* Icons */
+  --color-icon-default: #555568;
+  --color-icon-active: #1a1a2e;
+  --color-icon-disabled: #bdbdcc;
+
+  /* Borders */
+  --color-border-default: rgba(0, 0, 0, 0.08);
+  --color-border-divider: rgba(0, 0, 0, 0.06);
+  --color-border-card: rgba(0, 0, 0, 0.08);
+  --color-border-focus: #6264a7;
+  --color-border-input: rgba(0, 0, 0, 0.15);
+  --color-border-subtle: rgba(0, 0, 0, 0.04);
+
+  /* Badge */
+  --color-badge-bg: #c4314b;
+  --color-badge-text: #ffffff;
+  --color-badge-glow: rgba(196, 49, 75, 0.2);
+
+  /* Status */
+  --color-status-online: #6bb700;
+  --color-status-away: #f0b849;
+  --color-status-busy: #c4314b;
+  --color-status-offline: #8a8a9a;
+
+  /* Mentions */
+  --color-mention-bg: rgba(98, 100, 167, 0.12);
+  --color-mention-bg-hover: rgba(98, 100, 167, 0.22);
+  --color-mention-text: #5250a1;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-accent: 0 4px 20px rgba(98, 100, 167, 0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}

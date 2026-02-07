@@ -1,0 +1,1 @@
+export { ComposeBar } from './ComposeBar';

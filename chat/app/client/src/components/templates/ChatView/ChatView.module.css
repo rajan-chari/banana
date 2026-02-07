@@ -1,0 +1,22 @@
+.chatView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-md);
+}
+
+.typingIndicator {
+  padding: 2px 16px 4px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}

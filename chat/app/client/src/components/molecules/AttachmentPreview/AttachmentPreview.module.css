@@ -1,0 +1,122 @@
+/* Image thumbnail */
+.imageThumbnail {
+  display: inline-block;
+  max-width: 400px;
+  max-height: 300px;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--color-border-card);
+  background: none;
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-fast) var(--ease-default),
+              box-shadow var(--duration-fast) var(--ease-default);
+}
+
+.imageThumbnail:hover {
+  transform: scale(1.01);
+  box-shadow: var(--shadow-md);
+}
+
+.thumbnailImg {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+/* Lightbox */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.85);
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.lightboxClose {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.lightboxClose:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.lightboxImg {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+}
+
+/* File download card */
+.fileCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-raised);
+  text-decoration: none;
+  max-width: 320px;
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--duration-fast) var(--ease-default),
+              box-shadow var(--duration-fast) var(--ease-default);
+}
+
+.fileCard:hover {
+  background-color: var(--color-bg-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.fileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-quote);
+  color: var(--color-icon-default);
+  flex-shrink: 0;
+}
+
+.fileInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fileName {
+  font-size: var(--font-size-base);
+  color: var(--color-text-link);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: text-decoration var(--duration-fast) var(--ease-default);
+}
+
+.fileCard:hover .fileName {
+  text-decoration: underline;
+}
+
+.fileSize {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}

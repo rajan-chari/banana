@@ -1,0 +1,174 @@
+.message {
+  display: flex;
+  gap: var(--space-3);
+  padding: 2px var(--space-5);
+  transition: background-color var(--duration-fast) var(--ease-default);
+  position: relative;
+}
+
+.message:hover {
+  background-color: var(--color-bg-message-hover);
+}
+
+.firstInGroup {
+  padding-top: var(--space-3);
+}
+
+/* Avatar column */
+.avatarCol {
+  flex-shrink: 0;
+  width: var(--avatar-lg);
+}
+
+.avatarPlaceholder {
+  width: var(--avatar-lg);
+}
+
+/* Content column */
+.contentCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: 1px;
+}
+
+.senderName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-base);
+}
+
+.timestamp {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-regular);
+}
+
+.message:hover .timestamp {
+  color: var(--color-text-secondary);
+}
+
+.editedLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.body {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Deleted message */
+.deleted {
+  color: var(--color-text-disabled);
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* Attachments */
+.attachments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* Quoted reply */
+.quotedReply {
+  display: flex;
+  margin: var(--space-1) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-accent-primary);
+  background-color: var(--color-bg-quote);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.quotedReply:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.quotedContent {
+  min-width: 0;
+}
+
+.quotedAuthor {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+
+.quotedText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Hover actions */
+.actions {
+  position: absolute;
+  top: -12px;
+  right: var(--space-5);
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  animation: fadeIn var(--duration-fast) var(--ease-out);
+}
+
+.message:hover .actions {
+  display: flex;
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hit-target-min);
+  height: 28px;
+  border-radius: var(--radius-md);
+  color: var(--color-icon-default);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default);
+}
+
+.actionBtn:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-icon-active);
+}
+
+.reactBtnWrapper {
+  position: relative;
+}
+
+/* System message */
+.systemMessage {
+  padding: var(--space-2) var(--space-5);
+  text-align: center;
+}
+
+.systemText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}

@@ -1,0 +1,22 @@
+.divider {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+}
+
+.line {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-border-subtle);
+}
+
+.label {
+  padding: 2px var(--space-3);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}

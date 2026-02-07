@@ -1,0 +1,199 @@
+.appShell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Top Bar */
+.topBar {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--space-4);
+  background-color: var(--color-bg-topbar);
+  -webkit-app-region: drag;
+  z-index: 400;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-inset);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.navControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  -webkit-app-region: no-drag;
+}
+
+.topBarBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hit-target-min);
+  height: var(--hit-target-min);
+  border-radius: var(--radius-md);
+  color: var(--color-icon-default);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-normal) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+  -webkit-app-region: no-drag;
+}
+
+.topBarBtn:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.logo {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-text-primary);
+  margin-left: var(--space-3);
+  margin-right: var(--space-4);
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  max-width: 560px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  margin: 0 auto;
+  background-color: var(--color-bg-search);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+  transition:
+    background-color var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.searchBar:hover {
+  background-color: var(--color-bg-hover);
+  border-color: var(--color-border-input);
+}
+
+.searchPlaceholder {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.searchHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-disabled);
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.searchIcon svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.topBarRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+}
+
+/* Content area */
+.contentArea {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.mainPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  background-color: var(--color-bg-content);
+}
+
+.mainContent {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-md);
+}
+
+.welcomeState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  animation: fadeInUp 0.4s var(--ease-spring) both;
+}
+
+.welcomeIcon {
+  color: var(--color-accent-primary);
+  opacity: 0.7;
+  animation: breathe 3s var(--ease-in-out) infinite;
+}
+
+.welcomeTitle {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-xl, 1.25rem);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.welcomeDesc {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.welcomeBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-display);
+  color: #fff;
+  background-color: var(--color-accent-primary);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-default),
+    background-color var(--duration-fast) var(--ease-default);
+}
+
+.welcomeBtn:hover {
+  background-color: var(--color-accent-primary-hover);
+  transform: scale(1.02);
+  box-shadow: var(--shadow-accent);
+}
+
+.welcomeBtn:active {
+  transform: scale(0.98);
+}

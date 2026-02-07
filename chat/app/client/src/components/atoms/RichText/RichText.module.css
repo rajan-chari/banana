@@ -1,0 +1,49 @@
+.inlineCode {
+  font-family: var(--font-family-mono);
+  font-size: 0.85em;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-code);
+  color: var(--color-text-code);
+}
+
+.codeBlock {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  padding: var(--space-4);
+  margin: var(--space-2) 0;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-code);
+  color: var(--color-text-code);
+  box-shadow: var(--shadow-inset);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.mention {
+  background-color: var(--color-mention-bg);
+  color: var(--color-mention-text);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.mention:hover {
+  background-color: var(--color-mention-bg-hover);
+}
+
+.bold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.link {
+  color: var(--color-text-link);
+  text-decoration: none;
+  transition: text-decoration var(--duration-fast) var(--ease-default);
+}
+
+.link:hover {
+  text-decoration: underline;
+}

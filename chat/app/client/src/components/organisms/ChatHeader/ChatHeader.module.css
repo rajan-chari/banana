@@ -1,0 +1,109 @@
+.chatHeader {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-content);
+  border-bottom: 1px solid var(--color-border-subtle);
+  z-index: 300;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 var(--space-5);
+}
+
+.channelInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.channelIcon {
+  color: var(--color-text-tertiary);
+}
+
+.channelName {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hit-target-min);
+  height: var(--hit-target-min);
+  border-radius: var(--radius-md);
+  color: var(--color-icon-default);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.actionBtn:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.memberCount {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.memberCount:hover {
+  background-color: var(--color-bg-hover);
+}
+
+/* Tab bar */
+.tabBar {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  height: 36px;
+  gap: var(--space-1);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  height: 26px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default);
+}
+
+.tab:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.tabActive {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  background-color: var(--color-bg-selected);
+}
+
+.tabActive:hover {
+  background-color: var(--color-bg-selected);
+}

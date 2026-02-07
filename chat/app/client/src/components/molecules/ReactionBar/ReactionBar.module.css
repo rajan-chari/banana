@@ -1,0 +1,74 @@
+.reactionBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-bg-card);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  transition: background-color var(--duration-fast) var(--ease-default),
+              transform var(--duration-fast) var(--ease-default);
+  position: relative;
+  animation: popIn var(--duration-slow) var(--ease-spring);
+}
+
+.pill:hover {
+  background-color: var(--color-bg-hover);
+  transform: scale(1.03);
+}
+
+.pillActive {
+  border-color: var(--color-accent-primary);
+  background-color: var(--color-accent-subtle);
+}
+
+.pillActive:hover {
+  background-color: var(--color-accent-glow);
+}
+
+.emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.pillActive .count {
+  color: var(--color-accent-primary);
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-bg-tooltip);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.pill:hover .tooltip {
+  display: block;
+  animation: fadeIn var(--duration-fast) var(--ease-out);
+}

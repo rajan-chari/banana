@@ -1,0 +1,82 @@
+.messageArea {
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  display: flex;
+  flex-direction: column;
+}
+
+.messageList {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100%;
+  padding-bottom: var(--space-2);
+}
+
+.messageList > * {
+  animation: fadeInUp var(--duration-normal) var(--ease-out) both;
+}
+
+.newMessagesPill {
+  position: sticky;
+  bottom: var(--space-4);
+  align-self: center;
+  padding: var(--space-1) var(--space-4);
+  background-color: var(--color-accent-primary);
+  color: white;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-accent);
+  cursor: pointer;
+  z-index: 500;
+  border: none;
+  animation: fadeInScale var(--duration-normal) var(--ease-spring);
+  transition: opacity var(--duration-normal) var(--ease-out),
+              transform var(--duration-normal) var(--ease-bounce);
+}
+
+.newMessagesPill:hover {
+  background-color: var(--color-accent-primary-hover);
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6, 24px);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm, 14px);
+}
+
+.loadMoreSentinel {
+  height: 1px;
+  flex-shrink: 0;
+}
+
+.readReceipts {
+  display: flex;
+  gap: 0;
+  padding: 2px var(--space-5) 0;
+  /* Align with message content: avatar width + gap */
+  margin-left: calc(var(--avatar-lg) + var(--space-3));
+}
+
+.readReceiptAvatar {
+  display: inline-flex;
+  opacity: 0.8;
+  margin-left: -4px;
+  box-shadow: var(--shadow-sm);
+  transition: opacity var(--duration-fast) var(--ease-default);
+  cursor: default;
+}
+
+.readReceiptAvatar:first-child {
+  margin-left: 0;
+}
+
+.readReceiptAvatar:hover {
+  opacity: 1;
+}

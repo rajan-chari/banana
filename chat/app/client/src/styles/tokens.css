@@ -1,0 +1,103 @@
+:root {
+  /* Font Family */
+  --font-family-base: 'Figtree', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-display: 'Outfit', 'Figtree', 'Segoe UI', sans-serif;
+  --font-family-mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+
+  /* Font Sizes */
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 32px;
+
+  /* Font Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-base: 1.43;
+  --line-height-relaxed: 1.5;
+
+  /* Letter Spacing */
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
+  --letter-spacing-display: -0.03em;
+
+  /* Spacing (base unit: 4px) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Border Radius */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-pill: 9999px;
+  --radius-circle: 50%;
+
+  /* Shadows (base — overridden per theme in dark.css) */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Avatars */
+  --avatar-xs: 20px;
+  --avatar-sm: 24px;
+  --avatar-md: 32px;
+  --avatar-lg: 36px;
+  --avatar-xl: 48px;
+  --avatar-2xl: 72px;
+
+  /* Icons */
+  --icon-xs: 12px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 32px;
+
+  /* Hit Targets */
+  --hit-target-min: 32px;
+  --hit-target-standard: 36px;
+  --hit-target-large: 44px;
+
+  /* Durations */
+  --duration-instant: 0ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+
+  /* Easing */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 1.0, 0.36, 1.0);
+
+  /* Glass / Backdrop */
+  --glass-blur: 12px;
+  --glass-blur-heavy: 24px;
+}
