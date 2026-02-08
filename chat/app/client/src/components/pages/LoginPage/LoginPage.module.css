@@ -6,10 +6,10 @@
   padding: var(--space-4);
   background-color: var(--color-bg-app);
 
-  /* Dramatic gradient mesh background */
+  /* Dramatic gradient mesh background — vivid electric glow */
   background:
-    radial-gradient(ellipse 80% 60% at 20% 30%, var(--color-accent-glow-strong) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 80% at 80% 70%, rgba(107, 109, 181, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(124, 92, 252, 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 70%, rgba(124, 92, 252, 0.18) 0%, transparent 50%),
     radial-gradient(ellipse 100% 100% at 50% 50%, var(--color-bg-app) 0%, var(--color-bg-app) 100%);
 }
 
@@ -37,15 +37,15 @@
   border-radius: var(--radius-2xl);
   border: 1px solid var(--color-border-subtle);
 
-  /* Frosted glass */
+  /* Frosted glass — stronger */
   background: var(--color-surface-glass);
   backdrop-filter: blur(var(--glass-blur-heavy));
   -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
 
-  /* Layered shadow + accent glow */
+  /* Layered shadow + vivid accent glow */
   box-shadow:
     var(--shadow-elevated),
-    var(--shadow-accent);
+    0 0 40px rgba(124, 92, 252, 0.2);
 
   /* Entrance animation */
   animation: fadeInScale 0.5s var(--ease-spring) both;
@@ -136,7 +136,7 @@
 .submit:hover:not(:disabled) {
   background-color: var(--color-accent-primary-hover);
   transform: scale(1.02);
-  box-shadow: var(--shadow-accent);
+  box-shadow: 0 4px 24px rgba(124, 92, 252, 0.35);
 }
 
 .submit:active:not(:disabled) {

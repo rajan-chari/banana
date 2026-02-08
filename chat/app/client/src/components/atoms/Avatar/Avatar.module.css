@@ -10,7 +10,7 @@
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
   user-select: none;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), 0 0 8px var(--color-accent-glow);
   transition: filter var(--duration-fast) var(--ease-default);
 }
 

@@ -57,7 +57,7 @@
 .inputContainer {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   min-height: 40px;
   background-color: var(--color-surface-sunken);
   border-radius: var(--radius-lg);

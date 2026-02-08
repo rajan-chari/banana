@@ -64,11 +64,11 @@
 
 .active {
   background-color: var(--color-bg-active);
-  color: var(--color-accent-primary);
+  color: #ffffff;
 }
 
 .active:hover {
-  color: var(--color-accent-primary);
+  color: #ffffff;
 }
 
 .active::before {
@@ -81,6 +81,7 @@
   height: 16px;
   background-color: var(--color-accent-primary);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow: 0 0 10px var(--color-accent-glow-strong);
 }
 
 .badgeWrapper {

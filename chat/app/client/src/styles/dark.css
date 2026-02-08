@@ -1,81 +1,81 @@
 [data-theme="dark"] {
-  /* Backgrounds — subtle cool-blue tint for depth */
-  --color-bg-app: #18191e;
-  --color-bg-topbar: #1c1d23;
-  --color-bg-navrail: #1c1d23;
-  --color-bg-sidebar: #22232a;
-  --color-bg-content: #1c1d23;
-  --color-bg-compose: #1c1d23;
-  --color-bg-hover: #2c2d35;
-  --color-bg-selected: #33343e;
-  --color-bg-active: #3a3b46;
-  --color-bg-search: #2c2d35;
-  --color-bg-card: #262730;
-  --color-bg-quote: #24252e;
-  --color-bg-message-hover: #22232c;
-  --color-bg-code: #2a2b34;
-  --color-text-code: #e2e2e8;
-  --color-bg-tooltip: #3a3b46;
-  --color-bg-modal: #262730;
-  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+  /* Backgrounds — Obsidian Glow: deep rich blacks */
+  --color-bg-app: #111116;
+  --color-bg-topbar: #111116;
+  --color-bg-navrail: #18191f;
+  --color-bg-sidebar: #1e1f28;
+  --color-bg-content: #1a1b22;
+  --color-bg-compose: #1a1b22;
+  --color-bg-hover: #2a2b36;
+  --color-bg-selected: #30313d;
+  --color-bg-active: #383948;
+  --color-bg-search: #24252f;
+  --color-bg-card: #24252f;
+  --color-bg-quote: #20212a;
+  --color-bg-message-hover: #1e1f28;
+  --color-bg-code: #262730;
+  --color-text-code: #e4e4ec;
+  --color-bg-tooltip: #383948;
+  --color-bg-modal: #24252f;
+  --color-bg-overlay: rgba(0, 0, 0, 0.7);
 
   /* Surfaces — for layered glass panels */
-  --color-surface-glass: rgba(34, 35, 42, 0.75);
-  --color-surface-raised: #2a2b34;
-  --color-surface-sunken: #16171c;
+  --color-surface-glass: rgba(30, 31, 40, 0.8);
+  --color-surface-raised: #262730;
+  --color-surface-sunken: #131418;
 
-  /* Text */
-  --color-text-primary: #f0f0f5;
-  --color-text-secondary: #a0a0b0;
-  --color-text-tertiary: #6e6e80;
-  --color-text-disabled: #4a4a58;
+  /* Text — maximum contrast */
+  --color-text-primary: #f8f8ff;
+  --color-text-secondary: #a4a4b8;
+  --color-text-tertiary: #6e6e82;
+  --color-text-disabled: #4a4a5a;
   --color-text-inverse: #ffffff;
-  --color-text-link: #7da0e8;
+  --color-text-link: #8b9fef;
 
-  /* Accent — Teams purple with glow variants */
-  --color-accent-primary: #6b6db5;
-  --color-accent-primary-hover: #8183cc;
-  --color-accent-primary-active: #5856a8;
-  --color-accent-glow: rgba(107, 109, 181, 0.25);
-  --color-accent-glow-strong: rgba(107, 109, 181, 0.4);
-  --color-accent-subtle: rgba(107, 109, 181, 0.1);
+  /* Accent — vivid electric blue-violet */
+  --color-accent-primary: #7c5cfc;
+  --color-accent-primary-hover: #9478ff;
+  --color-accent-primary-active: #6a48e8;
+  --color-accent-glow: rgba(124, 92, 252, 0.3);
+  --color-accent-glow-strong: rgba(124, 92, 252, 0.45);
+  --color-accent-subtle: rgba(124, 92, 252, 0.12);
 
   /* Icons */
-  --color-icon-default: #a0a0b0;
-  --color-icon-active: #f0f0f5;
-  --color-icon-disabled: #4a4a58;
+  --color-icon-default: #a4a4b8;
+  --color-icon-active: #f8f8ff;
+  --color-icon-disabled: #4a4a5a;
 
-  /* Borders */
-  --color-border-default: rgba(255, 255, 255, 0.08);
-  --color-border-divider: rgba(255, 255, 255, 0.06);
-  --color-border-card: rgba(255, 255, 255, 0.08);
-  --color-border-focus: #6b6db5;
-  --color-border-input: rgba(255, 255, 255, 0.12);
-  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  /* Borders — slightly more visible */
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-divider: rgba(255, 255, 255, 0.08);
+  --color-border-card: rgba(255, 255, 255, 0.10);
+  --color-border-focus: #7c5cfc;
+  --color-border-input: rgba(255, 255, 255, 0.14);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
 
   /* Badge */
   --color-badge-bg: #d1365a;
   --color-badge-text: #ffffff;
-  --color-badge-glow: rgba(209, 54, 90, 0.3);
+  --color-badge-glow: rgba(209, 54, 90, 0.35);
 
   /* Status */
   --color-status-online: #6dd66e;
   --color-status-away: #f0c850;
   --color-status-busy: #d1365a;
-  --color-status-offline: #6e6e80;
+  --color-status-offline: #6e6e82;
 
-  /* Mentions */
-  --color-mention-bg: rgba(107, 109, 181, 0.2);
-  --color-mention-bg-hover: rgba(107, 109, 181, 0.35);
-  --color-mention-text: #b0b1e0;
+  /* Mentions — vivid accent */
+  --color-mention-bg: rgba(124, 92, 252, 0.2);
+  --color-mention-bg-hover: rgba(124, 92, 252, 0.35);
+  --color-mention-text: #b8a8ff;
 
-  /* Shadows — layered for dimensional depth */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
-  --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.25);
-  --shadow-accent: 0 4px 20px rgba(107, 109, 181, 0.2);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  /* Shadows — layered for dimensional depth + accent glow */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-accent: 0 4px 24px rgba(124, 92, 252, 0.25);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 [data-theme="light"] {

@@ -161,6 +161,8 @@
 
 .chatItemSelected {
   background-color: var(--color-bg-selected);
+  border-left: 2px solid var(--color-accent-primary);
+  padding-left: calc(var(--space-4) - 2px);
 }
 
 .chatItemSelected:hover {

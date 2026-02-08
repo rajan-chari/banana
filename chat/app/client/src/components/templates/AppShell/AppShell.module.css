@@ -11,12 +11,12 @@
   align-items: center;
   height: 48px;
   padding: 0 var(--space-4);
-  background-color: var(--color-bg-topbar);
+  background-color: var(--color-bg-app);
   -webkit-app-region: drag;
   z-index: 400;
   flex-shrink: 0;
   box-shadow: var(--shadow-inset);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-divider);
 }
 
 .navControls {
@@ -80,6 +80,11 @@
 .searchBar:hover {
   background-color: var(--color-bg-hover);
   border-color: var(--color-border-input);
+}
+
+.searchBar:focus-within {
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 2px var(--color-accent-glow), 0 0 12px var(--color-accent-glow);
 }
 
 .searchPlaceholder {
