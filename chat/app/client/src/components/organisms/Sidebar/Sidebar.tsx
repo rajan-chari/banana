@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Avatar } from '../../atoms/Avatar';
 import { Badge } from '../../atoms/Badge';
 import { Icon } from '../../atoms/Icon';
@@ -38,6 +38,36 @@ type FilterTab = 'all' | 'unread' | 'channels' | 'chats';
 
 export function Sidebar({ chats, selectedChatId, onSelectChat, onNewChat }: SidebarProps) {
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [width, setWidth] = useState(320);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const isDragging = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const startX = e.clientX;
+    const startWidth = width;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = e.clientX - startX;
+      const newWidth = Math.min(Math.max(startWidth + delta, 200), 600);
+      setWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      isDragging.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [width]);
 
   const tabs: { id: FilterTab; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -56,7 +86,7 @@ export function Sidebar({ chats, selectedChatId, onSelectChat, onNewChat }: Side
   });
 
   return (
-    <aside className={styles.sidebar} aria-label="Chat list">
+    <aside className={styles.sidebar} aria-label="Chat list" ref={sidebarRef} style={{ width }}>
       <div className={styles.header}>
         <div className={styles.filterTabs} role="tablist">
           {tabs.map((tab) => (
@@ -126,6 +156,7 @@ export function Sidebar({ chats, selectedChatId, onSelectChat, onNewChat }: Side
           </div>
         ))}
       </div>
+      <div className={styles.resizeHandle} onMouseDown={handleMouseDown} aria-hidden="true" />
     </aside>
   );
 }
