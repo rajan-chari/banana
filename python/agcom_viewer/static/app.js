@@ -16,7 +16,7 @@ const state = {
     refreshInterval: null,
     // New state for features
     availableUsers: [],
-    currentView: 'threads',
+    currentView: 'messages',
     allMessages: [],
     allMessagesLastId: null,
     selectedMessage: null,
@@ -215,7 +215,7 @@ function switchView(view) {
             'Messages';
         elements.messagesSubtitle.textContent = '';
     } else {
-        elements.messagesTitle.textContent = 'All Messages';
+        elements.messagesTitle.textContent = 'Messages';
         elements.messagesSubtitle.textContent = state.allMessages.length ?
             `(${state.allMessages.length} messages)` : '';
         loadAllMessages();
@@ -457,8 +457,9 @@ async function login() {
         state.token = data.token;
         setStatus('connected', `Connected as ${user}`);
 
-        // Load data
+        // Load all data
         await loadThreads();
+        await loadAllMessages();
         await loadStats();
 
     } catch (e) {
@@ -709,6 +710,7 @@ async function loadAllMessages() {
         }
 
         renderAllMessages();
+        elements.messagesTitle.textContent = 'Messages';
         elements.messagesSubtitle.textContent = `(${state.allMessages.length} messages)`;
 
     } catch (e) {

@@ -380,7 +380,7 @@ class BaseAgent(ABC):
         additional_context: str | None = None,
     ) -> AgentResponse:
         """
-        Generate a response using the LLM.
+        Generate a response using the LLM with structured output.
 
         Args:
             prompt: The user/message prompt
@@ -411,6 +411,24 @@ class BaseAgent(ABC):
             result = await self._llm_agent.run(full_prompt, usage_limits=usage_limits)
 
         return result.output
+
+    async def _generate_raw_response(self, prompt: str) -> str:
+        """
+        Generate an unstructured LLM response.
+
+        Use this for agents that produce free-form content (like code)
+        where structured output would constrain the natural format.
+
+        Args:
+            prompt: The prompt to send to the LLM
+
+        Returns:
+            Raw string response from the LLM
+        """
+        # Create a simple agent without output_type constraint
+        raw_agent = Agent(self.config.model, system_prompt=self.config.system_prompt)
+        result = await raw_agent.run(prompt)
+        return str(result.output)
 
     def get_tools(self) -> list[Any]:
         """

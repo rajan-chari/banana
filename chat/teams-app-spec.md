@@ -11,7 +11,7 @@ This document specifies a **Microsoft Teams-like real-time collaboration applica
 - **1:1 and group chat** with rich text, replies, @mentions, reactions, link previews, and attachments
 - **Teams & channels** with RBAC (owner/member/guest roles), private/shared channels, and communities
 - **Real-time infrastructure** via WebSocket with presence, typing indicators, read receipts, and offline sync
-- **Modern UI** with three-column layout, dark/light themes, responsive design, and WCAG 2.1 AA accessibility
+- **Modern UI** with three-column layout, dark/light themes, responsive design
 
 The four detailed specs are included inline below:
 
@@ -345,7 +345,7 @@ Channel ──< ChannelMembership (private/shared only)
 
 ## 9. MVP Scope
 
-> **Last audited: 2026-02-07**
+> **Last audited: 2026-02-07 (updated after UI polish session)**
 
 ### Phase 1: Core Chat — COMPLETE
 - [x] User auth (JWT) — register, login, token validation, WS auth via query param
@@ -370,9 +370,9 @@ Channel ──< ChannelMembership (private/shared only)
 - [ ] Standard and private channels — no Channel/ChannelMembership models or API
 - [ ] Channel conversations — no MessageThread organism
 - [ ] Member management — no team/channel member management UI
-- [x] Filter tabs (Unread, Channels, Chats) — Sidebar has All/Unread/Channels/Chats tabs
+- [x] Filter tabs (Unread, Channels, Chats) — Sidebar has All/Unread/Channels/Chats tabs, pill/chip style
 
-### Phase 4: Polish & Scale — MOSTLY NOT STARTED
+### Phase 4: Polish & Scale — PARTIALLY COMPLETE
 - [ ] Full-text search (Elasticsearch) — no search implementation
 - [ ] User presence system — UserStatus enum exists on model + Avatar shows status dot, but no presence tracking/WS events/endpoints
 - [ ] Notification preferences (per-chat mute, DND) — is_muted field exists on ChatMember but no settings UI or notification pipeline
@@ -381,6 +381,21 @@ Channel ──< ChannelMembership (private/shared only)
 - [ ] Responsive/mobile layout — no @media breakpoint queries implemented
 - [ ] Communities — no Community models or UI
 - [ ] Accessibility audit — ARIA roles, focus-visible, skip link, reduced motion present; missing keyboard shortcuts docs and comprehensive testing
+- [x] **UI Polish — "Obsidian Glow" design system** (added 2026-02-07):
+  - Custom typography: Outfit (display) + Figtree (body) via Google Fonts
+  - "Obsidian Glow" dark theme: deep blacks (#111116), electric accent (#7c5cfc), strong glow effects
+  - 30+ SVG icons redesigned: stroke-based Lucide-inspired with responsive strokeWidth scaling
+  - Own messages right-aligned with accent-subtle bubble background
+  - Other messages left-aligned with card bubble backgrounds (compact, max-width: 70%)
+  - Unified compose bar: textarea + emoji/attach/send icons in single container
+  - Pill/chip filter tabs in sidebar and chat header
+  - Resizable sidebar (200-600px drag handle)
+  - 8+ global keyframe animations (fadeIn, fadeInUp, popIn, breathe, shimmer, glowPulse)
+  - Glassmorphism effects (backdrop-filter blur on login, emoji picker, dialogs)
+  - Frosted glass login card with gradient mesh background
+  - Staggered list entrance animations
+  - Scrollbar styling (6px, transparent track)
+  - Reduced motion support (@media prefers-reduced-motion)
 
 ### Implementation Stats
 
@@ -392,7 +407,9 @@ Channel ──< ChannelMembership (private/shared only)
 | **API client methods** | 18 |
 | **WS event types** | 10 client-side, 7 server frame handlers |
 | **Custom hooks** | 5 (useAuth, useChats, useMessages, useTyping, useReadReceipts) |
-| **CSS custom properties** | 90+ design tokens |
+| **CSS custom properties** | 120+ design tokens (expanded with glass, glow, surface tokens) |
+| **SVG icons** | 30 stroke-based, multi-path, responsive strokeWidth |
+| **Animations** | 8 global keyframes + per-component entrance animations |
 
 ### Not Yet Implemented (from spec)
 

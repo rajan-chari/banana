@@ -5,6 +5,7 @@ The EM coordinates the agent team, routing tasks to specialists
 and tracking progress across multiple agents.
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -14,6 +15,12 @@ from .base import BaseAgent, AgentConfig, AgentContext, AgentResponse
 from .personas import EM_PERSONA
 
 logger = logging.getLogger(__name__)
+
+# How often to send progress updates while waiting (seconds)
+PROGRESS_UPDATE_INTERVAL = 20
+
+# Max attempts per agent before giving up on that approach
+MAX_AGENT_ATTEMPTS = 3
 
 
 @dataclass
@@ -33,6 +40,12 @@ class TaskRecord:
     assigned_to: str | None = None
     results: dict[str, str] = field(default_factory=dict)
     delegation_threads: list[str] = field(default_factory=list)  # Threads with team members
+
+    # Progress tracking
+    agent_attempts: dict[str, int] = field(default_factory=dict)  # agent -> attempt count
+    last_error: str | None = None  # Last error message (to detect repeated failures)
+    waiting_since: datetime | None = None  # When we started waiting for current agent
+    progress_task: Any = None  # Background task for periodic updates
 
 
 class EMAgent(BaseAgent):
@@ -170,8 +183,14 @@ If delegating, set action_needed=True and target_agent to the agent handle."""
 
         Uses LLM to decide next steps - no hardcoded routing logic.
         """
+        # Ignore progress messages - these are informational, not task completion
+        tags = context.incoming_message.tags or []
+        if "progress" in tags:
+            logger.info(f"[EM] Ignoring progress message from {context.sender_handle}: {message_body[:100]}")
+            return None
+
         # Find the task
-        task = self._find_task_by_tags(context.incoming_message.tags)
+        task = self._find_task_by_tags(tags)
         if not task:
             task = self._find_task_for_thread(context.conversation_thread_id)
 
@@ -182,29 +201,40 @@ If delegating, set action_needed=True and target_agent to the agent handle."""
                 task_complete=True,
             )
 
-        # Store the result (keep more context for debugging)
-        task.results[context.sender_handle] = message_body[:3000]
+        # Stop periodic progress updates - we got a response
+        self._stop_progress_updates(task)
+
+        # Store the result (keep full context for artifact-based workflows)
+        task.results[context.sender_handle] = message_body[:20000]
         task.updated_at = datetime.now()
 
-        logger.info(f"[EM received from {context.sender_handle}] Team response:\n{message_body[:1500]}")
+        # Track if this looks like a failure (for progress detection)
+        is_failure = self._looks_like_failure(message_body)
+        if is_failure:
+            task.last_error = message_body[:500]
+
+        logger.info(f"[EM received from {context.sender_handle}] Team response:\n{message_body[:5000]}")
 
         # Build context for LLM decision
         work_done = ", ".join(task.results.keys()) if task.results else "none yet"
+        attempt_info = ", ".join(f"{a}:{c}" for a, c in task.agent_attempts.items())
 
         coordination_prompt = f"""TEAM RESPONSE RECEIVED
 
 From: {context.sender_handle}
 Original task: {task.description}
 Work completed so far: {work_done}
+Agent attempts: {attempt_info}
 
 Their response:
-{message_body[:1500]}
+{message_body[:16000]}
 
 ---
-What should happen next? Remember:
-- If {context.sender_handle} just responded, do NOT delegate back to them
-- If this is execution output from runner, the task is likely complete
-- If this is code from coder, it probably needs to go to runner
+What should happen next?
+- If this is successful output from runner → task_complete=True
+- If this is code from coder → send to runner
+- If runner failed → send error back to coder to fix
+- coder→runner→coder→runner cycles are fine when fixing bugs
 - Your message is what the user sees if task_complete=True"""
 
         logger.info(f"[EM LLM prompt for team response]:\n{coordination_prompt}")
@@ -212,15 +242,24 @@ What should happen next? Remember:
         logger.info(f"[EM LLM decision] action_needed={response.action_needed}, target_agent={response.target_agent}, task_complete={response.task_complete}")
         logger.info(f"[EM LLM message]: {response.message[:500]}")
 
-        # Safety check: prevent delegation back to same agent
-        if response.action_needed and response.target_agent == context.sender_handle:
-            logger.warning(f"LLM tried to delegate back to {context.sender_handle}, completing instead")
-            response.action_needed = False
-            response.task_complete = True
+        # Check if we should allow delegation to the same agent
+        if response.action_needed and response.target_agent:
+            target = response.target_agent
+            attempts = task.agent_attempts.get(target, 0)
+
+            # Allow same-agent delegation if under max attempts
+            # But block if same error is repeating (no progress)
+            if attempts >= MAX_AGENT_ATTEMPTS:
+                if is_failure and task.last_error and self._similar_error(task.last_error, message_body):
+                    logger.warning(f"Agent {target} has failed {attempts} times with similar errors, giving up")
+                    response.action_needed = False
+                    response.task_complete = True
+                    response.message = f"Unable to complete the task after {attempts} attempts. Last error: {message_body[:2000]}"
 
         # Handle the LLM's decision
         if response.task_complete:
             task.status = "completed"
+            self._stop_progress_updates(task)
             await self._report_completion(task, response.message)
             return None
         elif response.action_needed and response.target_agent:
@@ -229,6 +268,36 @@ What should happen next? Remember:
             return None
 
         return response
+
+    def _looks_like_failure(self, message: str) -> bool:
+        """Check if a message looks like a failure/error."""
+        failure_indicators = [
+            "error", "failed", "exception", "traceback",
+            "could not", "unable to", "timed out", "timeout"
+        ]
+        message_lower = message.lower()
+        return any(indicator in message_lower for indicator in failure_indicators)
+
+    def _similar_error(self, error1: str, error2: str) -> bool:
+        """Check if two error messages are similar (same root cause)."""
+        # Simple heuristic: check if key error phrases match
+        def extract_error_type(msg: str) -> str:
+            # Look for common error patterns
+            import re
+            patterns = [
+                r"(\w+Error):",
+                r"(\w+Exception):",
+                r"timed out",
+                r"timeout",
+            ]
+            msg_lower = msg.lower()
+            for pattern in patterns:
+                match = re.search(pattern, msg_lower if "time" in pattern else msg)
+                if match:
+                    return match.group(1) if match.lastindex else match.group(0)
+            return ""
+
+        return extract_error_type(error1) == extract_error_type(error2)
 
     async def _delegate_task(
         self, task: TaskRecord, target_agent: str, context: str
@@ -241,6 +310,10 @@ What should happen next? Remember:
             target_agent: Agent to delegate to
             context: Context/instructions for the agent
         """
+        # Track attempts per agent
+        task.agent_attempts[target_agent] = task.agent_attempts.get(target_agent, 0) + 1
+        task.waiting_since = datetime.now()
+
         subject = f"Task: {task.description[:50]}..."
 
         # Include team context so agents know what's possible
@@ -280,8 +353,38 @@ Please complete your part of this task and respond with your output."""
 
         logger.info(f"EM delegated task {task.task_id} to {target_agent}")
 
-        # Send progress update to requester
+        # Send initial progress update to requester
         await self._send_progress_update(task, target_agent)
+
+        # Start background task for periodic progress updates
+        self._start_progress_updates(task, target_agent)
+
+    def _start_progress_updates(self, task: TaskRecord, assigned_to: str) -> None:
+        """Start a background task to send periodic progress updates."""
+        # Cancel any existing progress task
+        if task.progress_task and not task.progress_task.done():
+            task.progress_task.cancel()
+
+        async def send_periodic_updates():
+            update_count = 0
+            while True:
+                await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
+                update_count += 1
+                elapsed = (datetime.now() - task.waiting_since).seconds if task.waiting_since else 0
+                await self._send_progress_update(
+                    task,
+                    assigned_to,
+                    message=f"Still working... {assigned_to} is running ({elapsed}s elapsed)"
+                )
+
+        task.progress_task = asyncio.create_task(send_periodic_updates())
+
+    def _stop_progress_updates(self, task: TaskRecord) -> None:
+        """Stop the background progress update task."""
+        if task.progress_task and not task.progress_task.done():
+            task.progress_task.cancel()
+            task.progress_task = None
+        task.waiting_since = None
 
     def _build_previous_work_context(self, task: TaskRecord) -> str:
         """Build context string from previous work on this task."""
@@ -290,18 +393,24 @@ Please complete your part of this task and respond with your output."""
 
         parts = ["Previous work on this task:"]
         for agent, result in task.results.items():
-            # Include more context for failures
-            parts.append(f"\n[{agent}]:\n{result}")
+            # If result contains artifact path, include full result (paths are important for multi-turn)
+            if "Artifact:" in result:
+                parts.append(f"\n[{agent}]: {result}")
+            else:
+                # Truncate non-artifact results to avoid bloat
+                parts.append(f"\n[{agent}]:\n{result[:2000]}")
 
         return "\n".join(parts)
 
-    async def _send_progress_update(self, task: TaskRecord, assigned_to: str) -> None:
+    async def _send_progress_update(
+        self, task: TaskRecord, assigned_to: str, message: str | None = None
+    ) -> None:
         """Send a progress update to the requester."""
         if not self._client:
             return
 
         try:
-            update_msg = f"Working on it - sent to {assigned_to}."
+            update_msg = message or f"Working on it - sent to {assigned_to}."
             await self._client.reply_to_message(
                 message_id=task.requester_message_id,
                 body=update_msg,

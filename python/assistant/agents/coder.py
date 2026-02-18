@@ -57,20 +57,18 @@ class CoderAgent(BaseAgent):
         Returns:
             AgentResponse with generated code
         """
-        coding_prompt = f"""Coding task received from {context.sender_handle}:
+        coding_prompt = f"""Task: {message_body}
 
-Subject: {context.subject}
-Task: {message_body}
+Write Python code to accomplish this. Put it in a ```python block."""
 
-Generate Python code to accomplish this task. Include:
-1. Clear comments explaining the code
-2. Proper error handling
-3. Informative output
+        # Use raw LLM output - structured output fights with code blocks
+        raw_output = await self._generate_raw_response(coding_prompt)
 
-Respond with the code and a brief explanation."""
-
-        response = await self._generate_llm_response(coding_prompt)
-        return response
+        # Wrap in AgentResponse for the messaging system
+        return AgentResponse(
+            message=raw_output,
+            task_complete=False,  # Coder never completes - runner executes
+        )
 
     def get_tools(self) -> list[Any]:
         """Coder doesn't need special tools - just generates code."""
