@@ -2,6 +2,54 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## MANDATORY: On Load (Do This FIRST)
+
+**BEFORE responding to the user's first message**, you MUST complete all of the following steps. Do not skip this. Do not respond to the user until these are done.
+
+1. Read `Claude-KB.md` for troubleshooting knowledge and known issues.
+2. Read recent entries in `LOG.md` to understand what was done last.
+3. Read `progress.md` to understand current phase, status, and blockers.
+4. Check for any `.state.json` or `task_status.json` files that indicate in-progress work.
+5. **Greet the user** and report what you found (current phase, last session activity, any anomalies). Then ask what they'd like to do, offering these starting points:
+
+   - **Continue Phase 8** — pick up error handling, logging, docs, or testing tasks
+   - **Run tests** — `cd python && source .venv/Scripts/activate && pytest tests/ -v`
+   - **Start the assistant** — launch `my-assist` for interactive use
+   - **Start the agent team** — spin up agcom-api + agent-team + my-assist (3 terminals)
+   - **Check status** — verify venv, dependencies, server health
+   - **Troubleshoot** — diagnose a specific issue (check KB first)
+   - **New feature / bug fix** — describe what you need
+
+**Why this matters:** The greeting is the user's confirmation that Claude has context. Without it, the user has no way to know if the KB was read, if state files were found, or if Claude understands the project. This has been missed in past sessions on other projects — don't let it happen here.
+
+---
+
+## Self-Improvement Protocol (Continuous, Not Deferred)
+
+Do these **inline as they happen**, not at session end. There is no reliable end-of-session hook, so never defer KB updates to "later" — later may not come.
+
+- **Something failed unexpectedly?** Update `Claude-KB.md` immediately with the error, cause, and fix.
+- **A workaround was discovered?** Add it to KB > Lessons Learned right now.
+- **CLAUDE.md instructions led you astray?** Fix CLAUDE.md now, or note the gap in KB > Lessons Learned.
+- **progress.md drifted from reality?** Flag it and fix it in the same action.
+- **Every action gets a LOG.md entry.** Append a dated entry describing what was done. This is non-negotiable.
+
+## Logging Requirement
+
+After every significant step or action, append to `LOG.md` with a dated entry describing what was done. Format: `### YYYY-MM-DD HH:MM — <summary>` followed by bullet points.
+
+## Updating the Knowledge Base
+
+Update `Claude-KB.md` whenever:
+- A new error is encountered and resolved
+- A workaround is discovered
+- A step behaves differently than expected
+- A diagnostic command proves useful
+
+Each KB entry should include: the error/symptom, the cause, and the fix.
+
+---
+
 ## Environment
 
 - **OS**: Windows 11
@@ -121,9 +169,12 @@ banana/
 4. **Parallel agents** — Launch multiple agents for independent work (cost not a concern)
 
 **File Roles:**
-- `specs.md` — Source of truth for requirements (don't modify unless requirements change)
+- `CLAUDE.md` — AI instructions (how to work here)
+- `Claude-KB.md` — Knowledge base (errors, gotchas, diagnostics, lessons learned)
+- `LOG.md` — Chronological action log (append after every significant step)
 - `progress.md` — Status tracker with phase tables and session logs
-- `CLAUDE.md` — This file (AI guidance)
+- `specs.md` — Source of truth for requirements (don't modify unless requirements change)
+- `README.md` — Human-readable project overview
 
 ## Python Packages
 
@@ -240,42 +291,6 @@ cd python && python -m venv .venv && source .venv/Scripts/activate && pip instal
 ### Implementation Gaps
 1. **Permission UX**: Confirmation flow for ASK-level permissions not yet implemented
 
-## Gotchas & Lessons Learned
+## Gotchas & Knowledge Base
 
-### Integration Bugs Hide in Orchestration
-- **Unit tests can pass while integration is broken** — Each function works correctly in isolation, but the wiring between them can be wrong
-- **Test the composition**: When function A's result controls whether function B runs, test that orchestration explicitly
-- **Conditionals are risky**: `if helper_returns_true(): do_important_thing()` — what if the helper legitimately returns False but the important thing should still happen?
-
-### Environment & Subprocesses
-- **`.claude/settings.local.json` is user-specific**: Already in `.gitignore`, never commit it
-- **Tools run in subprocesses**: When a tool modifies `.env`, the parent process must call `load_dotenv(override=True)` to see changes
-- **`query_db.py` helper**: Use `python query_db.py "SELECT * FROM table"` to inspect SQLite databases
-- **Restart servers after DB cleanup**: Deleting a database while a server runs leaves stale connections
-
-### Code Style Preferences
-- **Check-then-act over try-catch for flow control**: Prefer `if not exists(): create()` over `try: create() except AlreadyExists: pass`
-- **Initialize resources at startup**: Databases, connections, etc. — fail fast on config errors
-
-### Documentation Hygiene
-- **No status snapshot files**: Don't create `*_COMPLETE.md` — put completion info in `progress.md` session logs
-- **Consolidate aggressively**: Fewer files = less drift, easier maintenance
-- **Root docs**: `CLAUDE.md` (AI), `README.md` (humans), `progress.md` (status), `specs.md` (requirements)
-
-### LLM & PydanticAI
-- **GPT-5.2 is broken with structured output + tools**: Causes infinite tool call loops. Use GPT-5.1, GPT-4o, or o3-mini instead
-- **Always set UsageLimits**: `UsageLimits(tool_calls_limit=5)` prevents runaway loops from burning API credits
-- **LLMs retry on error strings**: Returning "Tool execution failed: ..." makes the LLM retry. A full traceback with a clear permanent error stops it faster
-- **Identity via message prefix**: PydanticAI's `Agent.override()` doesn't support `system_prompt`, but prepending `[CONTEXT: ...]` to the user message works
-
-### Debugging LLM Issues
-- **Simulate before integrating**: Create standalone test scripts that call the LLM directly. Much faster and cheaper than full bot test cycles
-- **Mock tools first**: Use simple async functions returning canned responses to isolate LLM behavior from tool execution issues
-- **Log tool calls and results**: Add logging in tool_bridge.py to see exactly what the LLM sends and receives
-
-### Multi-Agent Design
-- **Trust the LLM**: Use natural prompts, not rigid control structures. Let the model decide routing/completion
-- **Prevent loops explicitly**: Only hard rule needed - don't delegate back to whoever just responded
-- **Check quality at coordinator**: EM should verify results make sense, not just pass through
-- **Runner validates code**: Use LLM to extract/clean code, ast.parse() for syntax check before execution
-- **Clear failure signals**: `task_complete=False` tells coordinator to retry/reroute, not just report the error
+All gotchas, error resolutions, lessons learned, and diagnostic commands live in `Claude-KB.md`. Check there first when something goes wrong. Update it immediately when something new is discovered.
