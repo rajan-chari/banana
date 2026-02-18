@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>agcom viewer</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%233ddc84'/></svg>">
+</head>
+<body>
+<div id="app">
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="logo">
+            <span class="dot" id="conn-dot"></span>
+            <span>agcom</span>
+        </div>
+
+        <div class="view-tabs">
+            <button class="active" data-view="messages">Messages</button>
+            <button data-view="threads">Threads</button>
+        </div>
+
+        <div class="topbar-controls">
+            <div class="mode-switch">
+                <button class="active" data-mode="admin">Admin</button>
+                <button data-mode="user">User</button>
+            </div>
+            <select class="user-select" id="user-select" style="display:none">
+                <option value="">Select agent...</option>
+            </select>
+            <button class="auto-refresh-toggle active" id="auto-refresh-btn">Live</button>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-bar">
+        <input type="text" class="search-input" id="search-input" placeholder="Search messages...">
+        <input type="datetime-local" class="time-filter" id="time-from" title="From">
+        <input type="datetime-local" class="time-filter" id="time-to" title="To">
+    </div>
+
+    <!-- Main Content -->
+    <div class="content detail-hidden" id="content">
+        <div class="loading-bar" id="loading-bar"></div>
+
+        <!-- List Panel -->
+        <div class="list-panel">
+            <div class="list-header" id="list-header"></div>
+            <div class="list-body" id="list-body" tabindex="0"></div>
+        </div>
+
+        <!-- Resize Handle -->
+        <div class="panel-divider" id="panel-divider"></div>
+
+        <!-- Detail Panel -->
+        <div class="detail-panel" id="detail-panel">
+            <div class="detail-empty" id="detail-empty">Select an item to inspect</div>
+            <div id="detail-content" style="display:none"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="stats" id="stats">
+            <span class="stat"><span class="meta-label">Threads</span> <span class="stat-value" id="stat-threads">-</span></span>
+            <span class="stat"><span class="meta-label">Messages</span> <span class="stat-value" id="stat-messages">-</span></span>
+            <span class="stat"><span class="meta-label">Users</span> <span class="stat-value" id="stat-users">-</span></span>
+        </div>
+        <div class="connection-status">
+            <span id="conn-label">connecting</span>
+            <span class="connection-dot" id="conn-dot-footer"></span>
+        </div>
+    </div>
+
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
