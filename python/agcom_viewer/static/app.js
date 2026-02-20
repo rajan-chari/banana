@@ -537,7 +537,7 @@ function renderThreads() {
     // Filter by time
     let filtered = state.threads;
     if (state.timeFilter) {
-        filtered = filtered.filter(t => t.last_activity_at >= state.timeFilter);
+        filtered = filtered.filter(t => new Date(t.last_activity_at) >= new Date(state.timeFilter));
     }
 
     // Filter by search
@@ -729,7 +729,7 @@ function renderAllMessages() {
     // Filter by time
     let filtered = state.allMessages;
     if (state.timeFilter) {
-        filtered = filtered.filter(m => m.created_at >= state.timeFilter);
+        filtered = filtered.filter(m => new Date(m.created_at) >= new Date(state.timeFilter));
     }
 
     // Filter by search
