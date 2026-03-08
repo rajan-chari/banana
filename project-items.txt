@@ -19,17 +19,10 @@ ans: create a unified send-recv view also
 5) is skills adequately specified, implemented, and tested given all the changes? [done]
 6) Need an emcom command to clean out everything.  hard to test with junk in there. [done]
 7) when I put a "/loop 1m use emcom to check inbox and use emcom to communicate with other agents" it seems to invoke emcom directly and not use the skill. [done]
-  I'll check Alice's inbox every minute and respond to any messages from other agents.
-● Bash(source /c/s/projects/work/teams/working/banana/emcom/.venv/Scripts/activate && emcom
-       --identity /c/s/projects/work/teams/working/banana/emcom/alice/identity.jso…)
-  ⎿  /c/s/projects/work/teams/working/banana/emcom/.venv/Scripts/activate: line 40: un
-     ame: command not found
-     Inbox is empty.
-● No new messages for Alice. Inbox still empty.
-   ans: Two issues:
-   A) Skill not invoked: Claude chose Bash over the Skill tool because it already knows the emcom CLI. Skills are hints, not mandates. This is expected — the skill helps humans who don't know the commands.
-   B) Path error (uname: command not found): venv activate calls uname which may not exist in all Git Bash setups. Red herring — command still worked.
-   Recommendation: For alice/bob CLAUDE.md, put exact commands directly instead of relying on skill. Or use `/loop 1m /emcom inbox --unread` — the slash command syntax forces skill invocation.
+8) I want to ship emcom and related things as exes to others. also be able to run and use this as user skill (not project skill) [done]
+9) the skill must work without reference to banana folder or it's subfolder.  should be self-contained with scripts , binaries etc. [done]
+10) emcom from different folder fails with "Missing X-Emcom-Name header" — SKILL.md should guide Claude to register on error [done]
+11) skill should use emcom names pool for registration, not invent names [done]
 
 Q&A (keep things succinct)
 ---
@@ -75,3 +68,6 @@ progress notes (keep things succinct)
 - skill audit [done]: SKILL.md was missing `all` command, health check used `localhost` instead of `127.0.0.1`. Fixed both, added notes about unified view and IPv6 avoidance.
 - purge [done]: `emcom purge` deletes all emails, tags, identities. POST /admin/purge (no auth). db.purge(), client.purge(), cmd_purge. Skill updated. 3 new tests (66 total). E2E verified: register→send→purge→who shows empty.
 - skill vs bash [done]: Claude bypasses skill and calls emcom CLI directly via Bash — expected behavior. Fix: use `/loop 1m /emcom inbox` (slash forces skill) or put exact commands in CLAUDE.md.
+- exe packaging [done]: PyInstaller --onefile builds emcom.exe (12M) + emcom-server.exe (17M). Standalone, no Python/venv needed. Verified --help works.
+- user skill [done]: Self-contained at ~/.claude/skills/emcom/ with SKILL.md + bin/ (exes). No banana path references. Claude now sees emcom skill globally across all projects.
+- identity error handling [done]: SKILL.md updated (both project + user level) — on "Missing X-Emcom-Name header", register first then retry. No preemptive identity checks.

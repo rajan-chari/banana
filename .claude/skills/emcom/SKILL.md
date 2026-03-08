@@ -30,7 +30,22 @@ C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom-server &
 ```
 Wait 2 seconds, then retry. Do NOT run a health check preemptively — just run the command.
 
-By default the CLI reads/writes `identity.json` in the current directory. Use `--identity <path>` (`-i`) to specify a different file.
+## Identity
+
+Each directory has its own `identity.json` — this is the agent's identity in that folder. Do NOT use `--identity` to point at another folder's identity. Just use the default (CWD).
+
+Global flags (`--identity`, `-i`, `--server`) must come **before** the subcommand:
+```bash
+emcom --identity path/to/id.json inbox    # correct
+emcom inbox --identity path/to/id.json    # WRONG — argparse error
+```
+
+If a command fails with "Missing X-Emcom-Name header", register in the current directory:
+1. Run `emcom names` to get an available name from the pool
+2. Register with one of those names: `emcom register --name <NAME>`
+3. Retry the original command
+
+Do NOT invent a name or ask the user to pick — choose one from the pool yourself.
 
 ## Command Dispatch
 
