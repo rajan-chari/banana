@@ -94,6 +94,10 @@ my-assist
 - **`query_db.py` helper**: Use `python query_db.py "SELECT * FROM table"` to inspect SQLite databases.
 - **httpx + localhost on Windows is slow (~2s per request)**: httpx tries IPv6 DNS for "localhost" first. Use `127.0.0.1` instead. This applies to any httpx client, not just emcom.
 - **emcom-server port is 8800**: Data in `~/.emcom/`. Start: `source emcom/.venv/Scripts/activate && emcom-server`.
+- **emcom identity is CWD-based**: `identity.json` lives in the working directory. Each agent folder gets its own identity — don't use `--identity` to point at another folder's file.
+- **argparse global flags before subcommand**: `emcom --identity foo.json inbox` works; `emcom inbox --identity foo.json` fails. Global args are on the main parser, not subparsers.
+- **PyInstaller --onefile for emcom**: `pyinstaller --onefile --name emcom --console emcom/cli.py` produces a ~12M standalone exe. Clean up `dist/`, `build/`, `*.spec` after. User skill exes live at `~/.claude/skills/emcom/bin/`.
+- **SKILL.md must be explicit about autonomy**: Claude will ask the user to pick names, confirm actions, etc. unless SKILL.md says "choose yourself, don't ask". Be directive.
 
 ### Code Style
 - **Check-then-act, not try-catch for flow control**: Project style prefers `if not exists(): create()` over `try: create() except AlreadyExists: pass`.
