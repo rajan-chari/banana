@@ -57,6 +57,12 @@ class EMDelegator:
         Returns:
             EM's response/result as a string
         """
+        # Check for duplicate — don't send if a similar task is already pending
+        existing = self._find_similar_pending(task_description)
+        if existing:
+            logger.info(f"[ASSISTANT] Dedup: similar task already pending (thread={existing['thread_id']})")
+            return "Already working on a similar request. Please wait for the current task to complete."
+
         # Build the message body
         body = f"Task from user:\n{task_description}"
         if context:
@@ -173,6 +179,18 @@ class EMDelegator:
             return contact.is_active
         except AgcomError:
             return False
+
+    def _find_similar_pending(self, description: str) -> dict[str, Any] | None:
+        """Find a pending task with similar description (Jaccard > 0.7 on word sets)."""
+        new_words = set(description.lower().split())
+        for task_info in self._pending_tasks.values():
+            existing_words = set(task_info["description"].lower().split())
+            intersection = new_words & existing_words
+            union = new_words | existing_words
+            similarity = len(intersection) / len(union) if union else 0
+            if similarity > 0.7:
+                return task_info
+        return None
 
     def get_pending_tasks(self) -> list[dict[str, Any]]:
         """Get list of pending task delegations."""

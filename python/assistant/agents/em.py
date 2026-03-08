@@ -38,7 +38,7 @@ class TaskRecord:
     steps: list[str] = field(default_factory=list)
     current_step: int = 0
     assigned_to: str | None = None
-    results: dict[str, str] = field(default_factory=dict)
+    results: dict[str, list[str]] = field(default_factory=dict)
     delegation_threads: list[str] = field(default_factory=list)  # Threads with team members
 
     # Progress tracking
@@ -177,7 +177,7 @@ If delegating, set action_needed=True and target_agent to the agent handle."""
 
     async def _handle_team_response(
         self, context: AgentContext, message_body: str
-    ) -> AgentResponse:
+    ) -> AgentResponse | None:
         """
         Handle a response from a team member.
 
@@ -204,8 +204,8 @@ If delegating, set action_needed=True and target_agent to the agent handle."""
         # Stop periodic progress updates - we got a response
         self._stop_progress_updates(task)
 
-        # Store the result (keep full context for artifact-based workflows)
-        task.results[context.sender_handle] = message_body[:20000]
+        # Append result (preserve history — don't overwrite previous results)
+        task.results.setdefault(context.sender_handle, []).append(message_body[:20000])
         task.updated_at = datetime.now()
 
         # Track if this looks like a failure (for progress detection)
@@ -216,7 +216,7 @@ If delegating, set action_needed=True and target_agent to the agent handle."""
         logger.info(f"[EM received from {context.sender_handle}] Team response:\n{message_body[:5000]}")
 
         # Build context for LLM decision
-        work_done = ", ".join(task.results.keys()) if task.results else "none yet"
+        work_done = ", ".join(f"{a}({len(r)})" for a, r in task.results.items()) if task.results else "none yet"
         attempt_info = ", ".join(f"{a}:{c}" for a, c in task.agent_attempts.items())
 
         coordination_prompt = f"""TEAM RESPONSE RECEIVED
@@ -267,7 +267,24 @@ What should happen next?
             await self._delegate_task(task, response.target_agent, message_body)
             return None
 
-        return response
+        # Fallback: LLM returned no action and no completion.
+        # Apply heuristic routing instead of replying to the team member.
+        sender = context.sender_handle
+        if sender == "runner" and is_failure:
+            # Runner failed — route error to coder to fix
+            logger.info(f"[EM] Fallback: runner failure → delegating to coder")
+            task.assigned_to = "coder"
+            await self._delegate_task(task, "coder", message_body)
+        elif sender == "coder" and any(ind in message_body for ind in ["import ", "def ", "class ", "```"]):
+            # Coder sent code — route to runner
+            logger.info(f"[EM] Fallback: coder sent code → delegating to runner")
+            task.assigned_to = "runner"
+            await self._delegate_task(task, "runner", message_body)
+        else:
+            logger.warning(f"[EM] Fallback: no action from LLM for {sender}'s response, ignoring")
+
+        # NEVER return a response — all communication goes through explicit methods
+        return None
 
     def _looks_like_failure(self, message: str) -> bool:
         """Check if a message looks like a failure/error."""
@@ -392,7 +409,9 @@ Please complete your part of this task and respond with your output."""
             return f"Context from previous work:\n{task.description}"
 
         parts = ["Previous work on this task:"]
-        for agent, result in task.results.items():
+        for agent, results_list in task.results.items():
+            # Use the most recent result from each agent
+            result = results_list[-1] if results_list else ""
             # If result contains artifact path, include full result (paths are important for multi-turn)
             if "Artifact:" in result:
                 parts.append(f"\n[{agent}]: {result}")
@@ -431,6 +450,9 @@ Please complete your part of this task and respond with your output."""
             task: The completed task
             final_result: The result to send (usually runner's output)
         """
+        # Cancel other active tasks from same requester with similar descriptions
+        self._cancel_similar_tasks(task)
+
         # Format a user-friendly response - just the result, not internal metadata
         # The final_result from runner should contain the actual output
         body = final_result
@@ -450,6 +472,26 @@ Please complete your part of this task and respond with your output."""
             logger.info(f"EM reported completion of task {task.task_id} in original thread")
         except Exception as e:
             logger.error(f"EM failed to report completion: {e}")
+
+    def _cancel_similar_tasks(self, completed_task: TaskRecord) -> None:
+        """Cancel other active tasks from the same requester with similar descriptions."""
+        completed_words = set(completed_task.description.lower().split())
+        for task in self._tasks.values():
+            if task.task_id == completed_task.task_id:
+                continue
+            if task.status not in ("pending", "in_progress"):
+                continue
+            if task.requester != completed_task.requester:
+                continue
+            # Jaccard similarity on word sets
+            task_words = set(task.description.lower().split())
+            intersection = completed_words & task_words
+            union = completed_words | task_words
+            similarity = len(intersection) / len(union) if union else 0
+            if similarity > 0.5:
+                logger.info(f"[EM] Cancelling similar task {task.task_id} (similarity={similarity:.2f})")
+                task.status = "cancelled"
+                self._stop_progress_updates(task)
 
     def _find_task_for_thread(self, thread_id: str) -> TaskRecord | None:
         """Find the task associated with a thread."""

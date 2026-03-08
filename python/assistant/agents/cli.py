@@ -48,6 +48,67 @@ logger = logging.getLogger("agent-team")
 
 # Signal file for graceful shutdown
 STOP_FILE = Path.home() / ".agent-team-stop"
+# PID file for instance guard
+PID_FILE = Path.home() / ".agent-team.pid"
+
+
+def _is_process_running(pid: int) -> bool:
+    """Check if a process with given PID is running (cross-platform)."""
+    if sys.platform == "win32":
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                capture_output=True, text=True, timeout=5,
+            )
+            return str(pid) in result.stdout
+        except Exception:
+            return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # process exists, just can't signal it
+    except OSError:
+        return False
+
+
+def _check_and_create_pid_file() -> bool:
+    """Check for existing instance and create PID file. Returns True if OK to start."""
+    if PID_FILE.exists():
+        try:
+            existing_pid = int(PID_FILE.read_text().strip())
+        except (ValueError, OSError):
+            existing_pid = None
+
+        if existing_pid is not None and _is_process_running(existing_pid):
+            print(
+                f"Another agent-team is already running (PID: {existing_pid}). "
+                f"Use 'agent-team stop' first."
+            )
+            return False
+        else:
+            logger.warning("Removing stale PID file (process %s no longer running)", existing_pid)
+            try:
+                PID_FILE.unlink()
+            except OSError:
+                pass
+
+    PID_FILE.write_text(str(os.getpid()))
+    return True
+
+
+def _remove_pid_file():
+    """Remove PID file if it contains our PID."""
+    try:
+        if PID_FILE.exists():
+            stored_pid = int(PID_FILE.read_text().strip())
+            if stored_pid == os.getpid():
+                PID_FILE.unlink()
+    except (ValueError, OSError):
+        pass
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -128,6 +189,10 @@ async def cmd_start(args: argparse.Namespace) -> int:
     if STOP_FILE.exists():
         STOP_FILE.unlink()
 
+    # Instance guard: prevent duplicate agent-team processes
+    if not _check_and_create_pid_file():
+        return 1
+
     # Parse agent list
     if args.agents == "all":
         config = TeamConfig(
@@ -197,6 +262,7 @@ async def cmd_start(args: argparse.Namespace) -> int:
         # Stop the team
         logger.info("Stopping agent team...")
         await orchestrator.stop()
+        _remove_pid_file()
         print("\nAgent team stopped.")
 
     return 0
@@ -205,7 +271,14 @@ async def cmd_start(args: argparse.Namespace) -> int:
 def cmd_stop(args: argparse.Namespace) -> int:
     """Stop running agents by creating stop file."""
     STOP_FILE.touch()
-    print(f"Stop signal sent. Agents will stop shortly.")
+    try:
+        if PID_FILE.exists():
+            pid = int(PID_FILE.read_text().strip())
+            print(f"Signaling agent-team (PID: {pid}) to stop...")
+        else:
+            print("Stop signal sent. Agents will stop shortly.")
+    except (ValueError, OSError):
+        print("Stop signal sent. Agents will stop shortly.")
     return 0
 
 

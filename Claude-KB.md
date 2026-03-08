@@ -84,6 +84,7 @@ my-assist
 ## Gotchas
 
 ### Environment
+- **`os.kill(pid, 0)` doesn't work on Windows**: Always returns `OSError`, even for running processes. Use `tasklist /FI "PID eq {pid}"` instead. See `cli.py:_is_process_running()`.
 - **Workspace root vs Python dir**: Docs (`CLAUDE.md`, `progress.md`, `specs.md`) are in `banana/`. All code is in `banana/python/`. Always `cd python` before running Python commands.
 - **Venv activation is mandatory**: Every bash session must `source .venv/Scripts/activate` before running any Python command. Forgetting this causes `ModuleNotFoundError`.
 - **Claude Code Bash tool uses Git Bash, not PowerShell**: Write bash syntax, not PowerShell. The user's terminal is PowerShell, but Claude's Bash tool is `/usr/bin/bash`.
@@ -110,6 +111,12 @@ my-assist
 - **Check quality at coordinator**: EM should verify results make sense, not just pass through.
 - **Clear failure signals**: `task_complete=False` tells coordinator to retry/reroute, not just report the error.
 
+### Testing Agents
+- **`AgentTestHarness`** (`tests/agent_harness.py`): Creates real agent instances with real LLM calls, stubs only `_client` (agcom transport). Call `inject()` to feed messages directly to `process_message()` — no server needed.
+- **LLM judge for semantic assertions**: `judge(response_text, criterion)` uses gpt-5.1 to evaluate natural language responses. Use for content quality; use structural assertions for deterministic fields (`result is None`, `task.status == "completed"`).
+- **LLM judge can be overly strict**: If the judge returns False on reasonable responses, switch to deterministic keyword checks. The `test_runner_status_update` test hit this — Runner's system prompt influences LLM to echo "no executable code found" even through the fix-5 fallback path, which confused the judge.
+- **Runner system prompt tension**: The system prompt says `report: "No executable code found - received description only."` but fix 5 in `process_message` routes non-code messages to the LLM for contextual responses. The LLM still echoes the system prompt's canned phrasing. If this matters, update the system prompt to remove the canned response template.
+
 ### Documentation
 - **No status snapshot files**: Don't create `*_COMPLETE.md` — put completion info in `progress.md` session logs.
 - **Consolidate aggressively**: Fewer files = less drift, easier maintenance.
@@ -131,3 +138,8 @@ Add entries here as sessions uncover new knowledge. Format: `- **YYYY-MM-DD:** <
 - **2026-01-27:** Multi-agent design works best with natural LLM prompts and minimal control structures. Rigid if/else routing is fragile. Trust the model's judgment for routing decisions. Only hard rule needed: prevent delegation loops.
 - **2026-01-27:** Runner agent should validate code syntax with `ast.parse()` before execution. LLM-extracted code sometimes has markdown artifacts or truncation issues. Catching these before subprocess execution gives clearer error messages.
 - **2026-02-18:** Added session management system (CLAUDE.md on-load section, Claude-KB.md, LOG.md). Pattern adapted from fellow_scholars/teams-e2e project. Key insight from that project: on-load instructions must be the very first section in CLAUDE.md or they get skipped. Self-improvement must be continuous (inline), not deferred to end-of-session.
+- **2026-02-21:** EM agent loses error context during coder→runner→coder loops. When runner fails, EM sends status messages to runner instead of immediately routing the error to coder. Then EM's "Previous work" context includes runner's "no code found" reply (to the status message) instead of the actual traceback. Coder can't learn from the failure and repeats the same approach. Fix needed: on runner failure, immediately route to coder with the full error traceback.
+- **2026-02-21:** ISO timestamp string comparison is unreliable across formats. API returns `+00:00`, JS `toISOString()` returns `.000Z`. ASCII value of `+` (43) < `.` (46) so string comparison silently filters out all matches. Always compare `new Date()` objects, never raw ISO strings.
+- **2026-02-21:** When analyzing agent message logs, never truncate message bodies. Truncation led to a wrong conclusion that EM wasn't forwarding code to runner (it was — the code was in a "Previous work" section past the truncation point). Read full data before drawing conclusions.
+- **2026-02-21:** Base agent's `_handle_message` sends any non-None return from `process_message` back to the sender. Coordinator agents like EM must ALWAYS return None from team response handlers — all communication goes through explicit `_delegate_task`/`_report_completion`/`_send_progress_update`. A fallthrough `return response` creates noise messages to team members.
+- **2026-02-21:** Store agent results as lists (append), not single values (overwrite). When runner sends noise replies, the real error traceback gets lost if results is `dict[str, str]`. Changed to `dict[str, list[str]]` and use `[-1]` for latest.

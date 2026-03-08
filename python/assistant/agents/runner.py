@@ -83,11 +83,15 @@ class RunnerAgent(BaseAgent):
         code = await self._extract_code(message_body)
 
         if not code:
-            logger.info("[RUNNER] No code found in message")
-            return AgentResponse(
-                message="No code found in the message to execute. Please provide Python code in a code block.",
-                task_complete=False,
+            logger.info("[RUNNER] No code found in message, consulting LLM")
+            # Use LLM to understand and respond instead of canned response
+            response = await self._generate_llm_response(
+                f"You received this message:\n\n{message_body}\n\n"
+                "This doesn't contain Python code to execute. "
+                "Respond appropriately based on what the message is "
+                "(e.g. acknowledge status updates, flag missing code, etc.)."
             )
+            return response
 
         logger.info(f"[RUNNER] Extracted code ({len(code)} chars):\n{code[:500]}")
 
