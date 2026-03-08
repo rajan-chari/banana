@@ -7,13 +7,14 @@
 
 ## Current Status
 
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-03-08
 
 | Project | Phase | Status | Next |
 |---------|-------|--------|------|
 | **LLM Assistant** (`python/`) | 8 — Polish & Hardening | 🟡 In Progress | Error handling, logging, docs, testing |
 | **Chat App** (`chat/`) | 1 — Core Chat | 🟡 In Progress | See `chat/` specs |
 | **emailag** (`emailag/`) | Experimental | 🟡 Active | Fresh agcom reimplementation |
+| **emcom** (`emcom/`) | MVP Complete | 🟢 Complete | Attachments, REPL, viewer integration |
 
 ---
 

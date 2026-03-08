@@ -1,0 +1,77 @@
+**Please keep things succinct in here.**
+
+test
+----
+1) threads [done]
+2) tags [done]
+3) not yet read, etc, mark as read [done]
+4) record progress in the progress notes section [done]
+5) emcom sent [done]
+6) purge [done]
+
+issues, gaps
+---------------
+1) where is the interactive CLI? [done]
+2) should sent and received messages show up in one view? would it provide better context for claude? [done]
+ans: create a unified send-recv view also
+3) why are things so slow? [done]
+4) --identity-dir should be --identity <file> [done]
+5) is skills adequately specified, implemented, and tested given all the changes? [done]
+6) Need an emcom command to clean out everything.  hard to test with junk in there. [done]
+7) when I put a "/loop 1m use emcom to check inbox and use emcom to communicate with other agents" it seems to invoke emcom directly and not use the skill. [done]
+  I'll check Alice's inbox every minute and respond to any messages from other agents.
+● Bash(source /c/s/projects/work/teams/working/banana/emcom/.venv/Scripts/activate && emcom
+       --identity /c/s/projects/work/teams/working/banana/emcom/alice/identity.jso…)
+  ⎿  /c/s/projects/work/teams/working/banana/emcom/.venv/Scripts/activate: line 40: un
+     ame: command not found
+     Inbox is empty.
+● No new messages for Alice. Inbox still empty.
+   ans: Two issues:
+   A) Skill not invoked: Claude chose Bash over the Skill tool because it already knows the emcom CLI. Skills are hints, not mandates. This is expected — the skill helps humans who don't know the commands.
+   B) Path error (uname: command not found): venv activate calls uname which may not exist in all Git Bash setups. Red herring — command still worked.
+   Recommendation: For alice/bob CLAUDE.md, put exact commands directly instead of relying on skill. Or use `/loop 1m /emcom inbox --unread` — the slash command syntax forces skill invocation.
+
+Q&A (keep things succinct)
+---
+1) manual procedure to test tags?
+   Start server: `source emcom/.venv/Scripts/activate && emcom-server`
+   Then in another terminal:
+   ```
+   emcom -i /tmp/b.json inbox                          # see unread tag
+   emcom -i /tmp/b.json tag <id> important working     # add tags
+   emcom -i /tmp/b.json tagged important               # list by tag
+   emcom -i /tmp/b.json untag <id> working             # remove tag
+   emcom -i /tmp/b.json read <id>                      # removes unread
+   emcom -i /tmp/b.json inbox --unread                 # should be empty
+   ```
+2) I want to start claudes in 2 subfolders .  alice and bob. I want them to use the tools we build to work on something together.  ideas?
+   ans: Setup:
+   - Create `alice/` and `bob/` subdirs. Each gets its own `CLAUDE.md` with persona + instructions.
+   - Start emcom-server once (shared). Each Claude registers via `emcom -i identity.json register --name alice` (or bob).
+   - Each Claude's CLAUDE.md on-load section: register with emcom, then `/loop 1m emcom inbox --unread` to poll for messages.
+   - The emcom skill already handles send/reply/inbox — Claude can use it natively.
+
+   Collaboration ideas:
+   - **Code review**: Alice writes code, sends it to bob via emcom. Bob reviews, replies with feedback.
+   - **Ping-pong programming**: Alice implements feature, sends to bob. Bob writes tests, sends results back.
+   - **Research + synthesis**: Alice researches topic A, bob researches topic B. They email findings to each other, then synthesize.
+   - **Debate/red-team**: Give them opposing positions on a design decision. They argue via email, converge on a recommendation.
+
+   Key: each CLAUDE.md should say "check emcom inbox regularly" and "use emcom to communicate with the other agent". The `/loop` skill automates the polling.
+
+3) If we had 'check emcom inbox' would it know to use the skill?
+   ans: Yes. The skill description includes triggers "check email", "inbox", and "any email-related request." The word "emcom" plus "inbox" would match. Claude sees the skill list in every system reminder and matches user intent to skill descriptions. "check emcom inbox" would trigger `/emcom` which runs SKILL.md, which maps "inbox" → `emcom inbox`. For a `/loop` prompt like `/loop 1m check emcom inbox`, the loop fires the prompt and Claude would invoke the skill each time.
+
+progress notes (keep things succinct)
+---------------
+- threads [done]: 4-message conversation, short ID resolution for thread view, all verified
+- tags [done]: add/remove, per-owner isolation, unread auto-tag, tagged listing — all pass
+- mark as read [done]: unread count drops on read, inbox --unread filters correctly, full inbox still shows all
+- progress notes [done]: all 4 test items verified and recorded
+- --identity flag [done]: changed --identity-dir to --identity <file>, supports -i shorthand, updated client/CLI/skill
+- perf [done]: 3.3s→1.3s per command. Root cause: httpx DNS resolving "localhost" tries IPv6 first on Windows (~2s penalty). Fix: default to 127.0.0.1 instead of localhost.
+- interactive CLI [done]: `emcom` with no subcommand launches REPL. Reuses same process (instant commands). Supports help, quit, all subcommands. Prompt shows identity name.
+- unified view [done]: `emcom all` shows sent+received in one chronological view. >> = sent, << = received. Added db.all_mail(), GET /email/all, client.all_mail(), format_all_mail(), 4 new tests (63 total).
+- skill audit [done]: SKILL.md was missing `all` command, health check used `localhost` instead of `127.0.0.1`. Fixed both, added notes about unified view and IPv6 avoidance.
+- purge [done]: `emcom purge` deletes all emails, tags, identities. POST /admin/purge (no auth). db.purge(), client.purge(), cmd_purge. Skill updated. 3 new tests (66 total). E2E verified: register→send→purge→who shows empty.
+- skill vs bash [done]: Claude bypasses skill and calls emcom CLI directly via Bash — expected behavior. Fix: use `/loop 1m /emcom inbox` (slash forces skill) or put exact commands in CLAUDE.md.

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(source:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom inbox:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom read:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom reply:*)"
+    ]
+  }
+}

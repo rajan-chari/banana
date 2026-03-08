@@ -92,6 +92,8 @@ my-assist
 - **agcom-api default port is 8700**: Not 8000. Check `python/agcom_api/main.py` if unsure.
 - **Config priority**: Environment variables > Markdown config > Defaults. Don't set values in markdown config if env vars are already set.
 - **`query_db.py` helper**: Use `python query_db.py "SELECT * FROM table"` to inspect SQLite databases.
+- **httpx + localhost on Windows is slow (~2s per request)**: httpx tries IPv6 DNS for "localhost" first. Use `127.0.0.1` instead. This applies to any httpx client, not just emcom.
+- **emcom-server port is 8800**: Data in `~/.emcom/`. Start: `source emcom/.venv/Scripts/activate && emcom-server`.
 
 ### Code Style
 - **Check-then-act, not try-catch for flow control**: Project style prefers `if not exists(): create()` over `try: create() except AlreadyExists: pass`.

@@ -104,3 +104,34 @@ Fallback routing added in em.py: runner failure → coder, coder sends code → 
 - `_remove_pid_file()`: safe cleanup (only removes if PID matches current process)
 - `cmd_stop()` now prints the PID it's signaling
 - Cross-platform: `os.kill(pid, 0)` works on both Unix and Windows (Python 3.10+)
+
+### 2026-03-08 — emcom: full implementation (6 phases)
+
+Built emcom — email-metaphor messaging system for AI agent-to-agent communication. All 6 phases implemented and tested:
+
+| Phase | What | Tests |
+|-------|------|-------|
+| 1. Scaffold | `pyproject.toml`, venv, entry points (`emcom`, `emcom-server`) | Entry points resolve |
+| 2. Models + DB | Dataclasses (`Email`, `Identity`, `Thread`, `LocalIdentity`), `Database` class (SQLite WAL, 50-name seed pool) | 34 tests |
+| 3. Server | FastAPI app, lifespan DB init, CORS, auth middleware (`X-Emcom-Name`), 7 routers (identity, names, email, threads, tags, search, attachments stub) | 25 tests |
+| 4. Client | Sync `httpx` client (`EmcomClient`), identity.json management, auto-start server, error hierarchy | E2E verified |
+| 5. CLI | 16 subcommands via argparse, short ID support (8-char prefix → full UUID), formatting helpers | Full E2E verified |
+| 6. Skill | `.claude/skills/emcom/SKILL.md` — maps user intent to CLI commands | Created |
+
+**59 total tests, all passing.** Key design decisions: sync httpx (not async), `X-Emcom-Name` header auth, JSON lists in SQLite, port 8800, data in `~/.emcom/`, short ID prefix resolution. Attachments + REPL + viewer deferred.
+
+### 2026-03-08 16:00 — emcom: unified sent+received view
+
+Added `emcom all` command — shows both sent and received emails in one chronological view with direction indicators (`>>` sent, `<<` received). Changes across all layers:
+
+| Layer | Change |
+|-------|--------|
+| `db.py` | `all_mail(name)` — union of sent+received, sorted by date desc |
+| `routers/email.py` | `GET /email/all` endpoint |
+| `client.py` | `all_mail()` method |
+| `formatting.py` | `format_all_mail()` with direction arrows |
+| `cli.py` | `all` subcommand + import |
+| `test_db.py` | 3 tests: includes both, excludes unrelated, sort order |
+| `test_server.py` | 1 test: endpoint returns sent+received |
+
+63 tests passing (was 59).

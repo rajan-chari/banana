@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom inbox:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom who:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom send:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom all:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom read:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom reply:*)",
+      "Bash(C:/s/projects/work/teams/working/banana/emcom/.venv/Scripts/emcom thread:*)"
+    ]
+  }
+}
