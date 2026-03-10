@@ -25,9 +25,10 @@ class TestSchema:
 
 class TestIdentity:
     def test_register(self, db):
-        result = db.register("alice", "test agent")
+        result = db.register("alice", "test agent", location="working/banana/emcom")
         assert result["name"] == "alice"
         assert result["active"]
+        assert result["location"] == "working/banana/emcom"
 
     def test_register_duplicate_fails(self, db):
         db.register("alice", "first")
@@ -46,9 +47,10 @@ class TestIdentity:
         db.register("alice", "v1")
         db.unregister("alice")
         # Force re-register
-        result = db.force_register("alice", "v2")
+        result = db.force_register("alice", "v2", location="a/b/c")
         assert result["active"]
         assert result["description"] == "v2"
+        assert result["location"] == "a/b/c"
 
     def test_list_identities(self, db):
         db.register("alice", "a")

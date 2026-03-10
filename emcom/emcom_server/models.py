@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class RegisterRequest(BaseModel):
     name: str | None = None
     description: str = ""
+    location: str = ""
     force: bool = False
 
 

@@ -53,9 +53,10 @@ class TestAuth:
 
 class TestIdentity:
     def test_register_with_name(self, client):
-        r = client.post("/register", json={"name": "alice", "description": "test agent"})
+        r = client.post("/register", json={"name": "alice", "description": "test agent", "location": "x/y/z"})
         assert r.status_code == 200
         assert r.json()["name"] == "alice"
+        assert r.json()["location"] == "x/y/z"
 
     def test_register_without_name(self, client):
         r = client.post("/register", json={"description": "auto-named"})
@@ -87,13 +88,15 @@ class TestIdentity:
         assert r.status_code == 404
 
     def test_who(self, client):
-        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "alice", "description": "a", "location": "foo/bar/baz"})
         client.post("/register", json={"name": "bob", "description": "b"})
         r = client.get("/who")
         assert r.status_code == 200
-        names = [i["name"] for i in r.json()]
+        names = {i["name"]: i for i in r.json()}
         assert "alice" in names
         assert "bob" in names
+        assert names["alice"]["location"] == "foo/bar/baz"
+        assert names["bob"]["location"] == ""
 
     def test_update_description(self, client):
         client.post("/register", json={"name": "alice", "description": "old"})

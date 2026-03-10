@@ -97,6 +97,7 @@ my-assist
 - **emcom identity is CWD-based**: `identity.json` lives in the working directory. Each agent folder gets its own identity — don't use `--identity` to point at another folder's file.
 - **argparse global flags before subcommand**: `emcom --identity foo.json inbox` works; `emcom inbox --identity foo.json` fails. Global args are on the main parser, not subparsers.
 - **PyInstaller --onefile for emcom**: `pyinstaller --onefile --name emcom --console emcom/cli.py` produces a ~12M standalone exe. Clean up `dist/`, `build/`, `*.spec` after. User skill exes live at `~/.claude/skills/emcom/bin/`.
+- **PyInstaller + Windows cp1252 stdout**: PyInstaller freezes `sys.stdout` encoding to cp1252 on Windows, ignoring `PYTHONUTF8=1` env var. Fix: `sys.stdout.reconfigure(encoding="utf-8")` at top of `main()`. Without this, any Unicode char outside cp1252 (e.g. `→` U+2192) crashes with `UnicodeEncodeError`.
 - **SKILL.md must be explicit about autonomy**: Claude will ask the user to pick names, confirm actions, etc. unless SKILL.md says "choose yourself, don't ask". Be directive.
 
 ### Code Style

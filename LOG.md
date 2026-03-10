@@ -135,3 +135,20 @@ Added `emcom all` command — shows both sent and received emails in one chronol
 | `test_server.py` | 1 test: endpoint returns sent+received |
 
 63 tests passing (was 59).
+
+### 2026-03-10 — emcom: add `location` field to identities
+
+Added `location` field (last 3 CWD segments) to identity registration so `emcom who` shows where each agent is running from.
+
+| Layer | Change |
+|-------|--------|
+| `emcom_server/db.py` | Schema: `location TEXT NOT NULL DEFAULT ''`, ALTER TABLE migration, `register()`/`force_register()` accept+store location |
+| `emcom_server/models.py` | `RegisterRequest.location: str = ""` |
+| `emcom_server/routers/identity.py` | Pass `req.location` to db methods |
+| `emcom/models.py` | `Identity.location: str` field |
+| `emcom/client.py` | Compute location from CWD via `PurePosixPath`, send in registration body, read in `_to_identity` |
+| `emcom/formatting.py` | `Location` column in `format_who()` |
+| `tests/test_db.py` | Updated register/force_register tests with location assertions |
+| `tests/test_server.py` | Updated register/who tests with location assertions |
+
+66 tests passing (was 63). Rebuilt `emcom.exe` and `emcom-server.exe`.

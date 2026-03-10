@@ -24,6 +24,7 @@ class Email:
 class Identity:
     name: str
     description: str
+    location: str
     registered_at: str
     last_seen: str
     active: bool

@@ -22,6 +22,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS identities (
     name TEXT PRIMARY KEY,
     description TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL DEFAULT '',
     registered_at TEXT NOT NULL,
     last_seen TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1
@@ -78,6 +79,11 @@ class Database:
         conn = self._connect()
         try:
             conn.executescript(SCHEMA)
+            # Migration: add location column if missing
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(identities)").fetchall()]
+            if "location" not in cols:
+                conn.execute("ALTER TABLE identities ADD COLUMN location TEXT NOT NULL DEFAULT ''")
+                conn.commit()
             # Seed name pool if empty
             count = conn.execute("SELECT COUNT(*) FROM name_pool").fetchone()[0]
             if count == 0:
@@ -91,7 +97,7 @@ class Database:
 
     # --- Identity ---
 
-    def register(self, name: str, description: str) -> dict:
+    def register(self, name: str, description: str, location: str = "") -> dict:
         now = _now()
         conn = self._connect()
         try:
@@ -101,13 +107,13 @@ class Database:
                 raise sqlite3.IntegrityError(f"Name '{name}' is already registered")
             if existing:
                 conn.execute(
-                    "UPDATE identities SET description=?, last_seen=?, active=1 WHERE name=?",
-                    (description, now, name),
+                    "UPDATE identities SET description=?, location=?, last_seen=?, active=1 WHERE name=?",
+                    (description, location, now, name),
                 )
             else:
                 conn.execute(
-                    "INSERT INTO identities (name, description, registered_at, last_seen, active) VALUES (?, ?, ?, ?, 1)",
-                    (name, description, now, now),
+                    "INSERT INTO identities (name, description, location, registered_at, last_seen, active) VALUES (?, ?, ?, ?, ?, 1)",
+                    (name, description, location, now, now),
                 )
             conn.commit()
             row = conn.execute("SELECT * FROM identities WHERE name=?", (name,)).fetchone()
@@ -115,15 +121,15 @@ class Database:
         finally:
             conn.close()
 
-    def force_register(self, name: str, description: str) -> dict:
+    def force_register(self, name: str, description: str, location: str = "") -> dict:
         """Re-register an existing name (force reclaim)."""
         now = _now()
         conn = self._connect()
         try:
             conn.execute(
-                "INSERT INTO identities (name, description, registered_at, last_seen, active) VALUES (?, ?, ?, ?, 1) "
-                "ON CONFLICT(name) DO UPDATE SET description=?, last_seen=?, active=1",
-                (name, description, now, now, description, now),
+                "INSERT INTO identities (name, description, location, registered_at, last_seen, active) VALUES (?, ?, ?, ?, ?, 1) "
+                "ON CONFLICT(name) DO UPDATE SET description=?, location=?, last_seen=?, active=1",
+                (name, description, location, now, now, description, location, now),
             )
             conn.commit()
             row = conn.execute("SELECT * FROM identities WHERE name=?", (name,)).fetchone()

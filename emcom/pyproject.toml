@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn[standard]",
     "httpx",
     "python-dotenv",
+    "textual>=0.47",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +23,7 @@ dev = [
 
 [project.scripts]
 emcom = "emcom.cli:main"
+emcom-tui = "emcom.tui:main"
 emcom-server = "emcom_server.main:run"
 
 [tool.hatch.build.targets.wheel]

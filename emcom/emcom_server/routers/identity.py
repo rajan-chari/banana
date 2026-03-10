@@ -22,11 +22,11 @@ def register(req: RegisterRequest, request: Request):
             raise HTTPException(503, "No names available in pool")
 
     if req.force:
-        result = db.force_register(name, req.description)
+        result = db.force_register(name, req.description, req.location)
         return result
 
     try:
-        result = db.register(name, req.description)
+        result = db.register(name, req.description, req.location)
     except sqlite3.IntegrityError:
         raise HTTPException(409, f"Name '{name}' is already registered")
     return result

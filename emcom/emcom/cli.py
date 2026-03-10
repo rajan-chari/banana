@@ -7,8 +7,8 @@ import sys
 
 from emcom.client import EmcomClient, EmcomError
 from emcom.formatting import (
-    format_inbox, format_email, format_thread, format_who,
-    format_sent, format_threads, format_all_mail,
+    format_all_mail, format_email, format_inbox, format_sent,
+    format_thread, format_threads, format_who,
 )
 
 
@@ -136,6 +136,12 @@ def cmd_names(args):
 
 
 def main():
+    # Force UTF-8 stdout/stderr on Windows (PyInstaller freezes cp1252)
+    if sys.stdout.encoding != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8")
+    if sys.stderr.encoding != "utf-8":
+        sys.stderr.reconfigure(encoding="utf-8")
+
     parser = argparse.ArgumentParser(prog="emcom", description="Email-metaphor messaging for AI agents")
     parser.add_argument("--server", default="http://127.0.0.1:8800", help="Server URL")
     parser.add_argument("--identity", "-i", default="identity.json", help="Path to identity file")
@@ -252,6 +258,7 @@ def main():
 
 def _repl(parser, sub):
     """Interactive REPL. Reuses the same process so no startup cost per command."""
+    import re
     import shlex
 
     # Get global defaults for identity/server
@@ -265,7 +272,19 @@ def _repl(parser, sub):
         pass
 
     prompt = f"emcom ({name})> " if name else "emcom> "
-    print(f"emcom interactive mode. Type 'help' for commands, 'quit' to exit.")
+    print("emcom interactive mode. Type 'help' for commands, 'quit' to exit.")
+
+    # Numbered-list state: list of (type, id) from last list command
+    _last_items: list[tuple[str, str]] = []
+
+    def _resolve_num(n: int) -> tuple[str, str] | None:
+        if 1 <= n <= len(_last_items):
+            return _last_items[n - 1]
+        print(f"No item #{n} (last list had {len(_last_items)} items)", file=sys.stderr)
+        return None
+
+    def _client() -> EmcomClient:
+        return EmcomClient(identity=global_args.identity, server=global_args.server)
 
     while True:
         try:
@@ -279,12 +298,54 @@ def _repl(parser, sub):
         if line in ("quit", "exit", "q"):
             break
         if line == "help":
-            sub.choices  # ensure populated
             cmds = sorted(sub.choices.keys())
             print(f"Commands: {', '.join(cmds)}")
+            print("Shortcuts: <N> read item N, r <N> reply to item N")
             print("Also: help, quit")
             continue
 
+        # --- Numbered shortcuts ---
+        # bare number → read/open that item
+        if re.fullmatch(r"\d+", line):
+            item = _resolve_num(int(line))
+            if item:
+                try:
+                    cl = _client()
+                    if item[0] == "thread":
+                        print(format_thread(cl.thread(item[1])))
+                    else:
+                        print(format_email(cl.read(item[1])))
+                except (EmcomError, Exception) as e:
+                    print(f"Error: {e}", file=sys.stderr)
+            continue
+
+        # r/reply <N> → reply to item N
+        m = re.fullmatch(r"(?:r|reply)\s+(\d+)", line)
+        if m:
+            item = _resolve_num(int(m.group(1)))
+            if item:
+                try:
+                    cl = _client()
+                    # For threads, read the last email to reply to
+                    email_id = item[1]
+                    if item[0] == "thread":
+                        emails = cl.thread(item[1])
+                        if emails:
+                            email_id = emails[-1].id
+                        else:
+                            print("Thread is empty.", file=sys.stderr)
+                            continue
+                    body = input("Reply (empty to cancel): ")
+                    if body.strip():
+                        reply = cl.reply(email_id, body=body)
+                        print(f"Replied [{reply.id[:8]}] in thread {reply.thread_id[:8]}")
+                    else:
+                        print("Cancelled.")
+                except (EmcomError, Exception) as e:
+                    print(f"Error: {e}", file=sys.stderr)
+            continue
+
+        # --- Standard command parsing ---
         try:
             tokens = shlex.split(line)
         except ValueError as e:
@@ -302,8 +363,39 @@ def _repl(parser, sub):
         if not args.command:
             continue
 
+        # Intercept list commands to populate numbered items
         try:
-            args.func(args)
+            cl = _client()
+            if args.command == "inbox":
+                emails = cl.inbox(unread_only=args.unread)
+                _last_items = [("email", e.id) for e in emails]
+                print(format_inbox(emails, numbered=True))
+            elif args.command == "sent":
+                emails = cl.sent()
+                _last_items = [("email", e.id) for e in emails]
+                print(format_sent(emails, numbered=True))
+            elif args.command == "all":
+                emails = cl.all_mail()
+                _last_items = [("email", e.id) for e in emails]
+                print(format_all_mail(emails, cl.name or "", numbered=True))
+            elif args.command == "threads":
+                thread_list = cl.threads()
+                _last_items = [("thread", t.thread_id) for t in thread_list]
+                print(format_threads(thread_list, numbered=True))
+            elif args.command == "tagged":
+                emails = cl.tagged(args.tag)
+                _last_items = [("email", e.id) for e in emails]
+                print(format_inbox(emails, numbered=True))
+            elif args.command == "search":
+                emails = cl.search(
+                    from_=getattr(args, "from", None),
+                    to=args.to, subject=args.subject,
+                    tag=args.tag, body=args.body,
+                )
+                _last_items = [("email", e.id) for e in emails]
+                print(format_inbox(emails, numbered=True))
+            else:
+                args.func(args)
         except EmcomError as e:
             print(f"Error: {e}", file=sys.stderr)
         except Exception as e:
@@ -311,7 +403,7 @@ def _repl(parser, sub):
 
         # Update prompt if identity changed
         try:
-            c = EmcomClient(identity=global_args.identity, server=global_args.server)
+            c = _client()
             name = c.name
             prompt = f"emcom ({name})> " if name else "emcom> "
         except Exception:

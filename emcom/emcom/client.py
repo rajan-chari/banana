@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import httpx
 
@@ -46,6 +46,7 @@ def _to_email(d: dict) -> Email:
 def _to_identity(d: dict) -> Identity:
     return Identity(
         name=d["name"], description=d.get("description", ""),
+        location=d.get("location", ""),
         registered_at=d["registered_at"], last_seen=d["last_seen"],
         active=bool(d.get("active", True)),
     )
@@ -131,7 +132,10 @@ class EmcomClient:
         if self._identity and not force:
             raise EmcomError(f"Already registered as '{self._identity.name}'. Unregister first or use force=True.")
 
-        body: dict = {"description": description, "force": force}
+        parts = PurePosixPath(Path.cwd().as_posix()).parts
+        location = "/".join(parts[-3:]) if len(parts) >= 3 else "/".join(parts)
+
+        body: dict = {"description": description, "location": location, "force": force}
         if name:
             body["name"] = name
 
