@@ -5,7 +5,7 @@ from __future__ import annotations
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Vertical, VerticalScroll
+from textual.containers import Container, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import (
     DataTable,
@@ -231,18 +231,11 @@ class EmcomApp(App):
     TITLE = "emcom"
 
     DEFAULT_CSS = """
-    Screen {
-        layout: vertical;
-        overflow: hidden;
-    }
-
-    TabbedContent {
-        height: 2fr;
-    }
-
-    TabPane {
-        layout: vertical;
-        overflow: hidden;
+    #main {
+        height: 1fr;
+        layout: grid;
+        grid-size: 1 2;
+        grid-rows: 3fr 2fr;
     }
 
     .email-table {
@@ -250,8 +243,7 @@ class EmcomApp(App):
     }
 
     #preview-box {
-        height: 1fr;
-        min-height: 8;
+        min-height: 6;
         border-top: solid $accent;
     }
 
@@ -284,17 +276,18 @@ class EmcomApp(App):
     def compose(self) -> ComposeResult:
         name = self.client.name or "unregistered"
         yield Header()
-        with TabbedContent("Inbox", "Sent", "All", "Threads", id="tabs"):
-            with TabPane("Inbox", id="inbox"):
-                yield DataTable(id="table-inbox", classes="email-table", cursor_type="row")
-            with TabPane("Sent", id="sent"):
-                yield DataTable(id="table-sent", classes="email-table", cursor_type="row")
-            with TabPane("All", id="all"):
-                yield DataTable(id="table-all", classes="email-table", cursor_type="row")
-            with TabPane("Threads", id="threads"):
-                yield DataTable(id="table-threads", classes="email-table", cursor_type="row")
-        with VerticalScroll(id="preview-box"):
-            yield Static("Select an email to preview", id="preview")
+        with Container(id="main"):
+            with TabbedContent("Inbox", "Sent", "All", "Threads", id="tabs"):
+                with TabPane("Inbox", id="inbox"):
+                    yield DataTable(id="table-inbox", classes="email-table", cursor_type="row")
+                with TabPane("Sent", id="sent"):
+                    yield DataTable(id="table-sent", classes="email-table", cursor_type="row")
+                with TabPane("All", id="all"):
+                    yield DataTable(id="table-all", classes="email-table", cursor_type="row")
+                with TabPane("Threads", id="threads"):
+                    yield DataTable(id="table-threads", classes="email-table", cursor_type="row")
+            with VerticalScroll(id="preview-box"):
+                yield Static("Select an email to preview", id="preview")
         yield Footer()
 
     def on_mount(self) -> None:
