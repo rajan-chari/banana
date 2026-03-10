@@ -257,6 +257,8 @@ class EmcomApp(App):
         Binding("2", "tab('sent')", "Sent", show=True),
         Binding("3", "tab('all')", "All", show=True),
         Binding("4", "tab('threads')", "Threads", show=True),
+        Binding("left", "tab_prev", "Prev Tab", show=False),
+        Binding("right", "tab_next", "Next Tab", show=False),
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
         Binding("r", "reply", "Reply", show=True),
@@ -298,6 +300,7 @@ class EmcomApp(App):
         self._setup_email_table("table-all")
         self._setup_thread_table("table-threads")
         self._load_tab("inbox")
+        self.query_one("#table-inbox", DataTable).focus()
 
     def _setup_email_table(self, table_id: str, sent: bool = False) -> None:
         table = self.query_one(f"#{table_id}", DataTable)
@@ -312,10 +315,23 @@ class EmcomApp(App):
 
     # --- Tab switching ---
 
+    TAB_ORDER = ["inbox", "sent", "all", "threads"]
+
+    def action_tab_prev(self) -> None:
+        current = self._active_tab()
+        idx = self.TAB_ORDER.index(current) if current in self.TAB_ORDER else 0
+        self.action_tab(self.TAB_ORDER[(idx - 1) % len(self.TAB_ORDER)])
+
+    def action_tab_next(self) -> None:
+        current = self._active_tab()
+        idx = self.TAB_ORDER.index(current) if current in self.TAB_ORDER else 0
+        self.action_tab(self.TAB_ORDER[(idx + 1) % len(self.TAB_ORDER)])
+
     def action_tab(self, tab_id: str) -> None:
         tabs = self.query_one("#tabs", TabbedContent)
         tabs.active = tab_id
         self._load_tab(tab_id)
+        self.query_one(f"#table-{tab_id}", DataTable).focus()
 
     def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
         tab_id = event.pane.id
