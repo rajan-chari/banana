@@ -351,6 +351,10 @@ class Database:
         for tag in tags:
             conn.execute("INSERT OR IGNORE INTO tags (email_id, owner, tag) VALUES (?, ?, ?)",
                          (email_id, owner, tag))
+        # handled supersedes pending
+        if "handled" in tags:
+            conn.execute("DELETE FROM tags WHERE email_id=? AND owner=? AND tag='pending'",
+                         (email_id, owner))
         conn.commit()
 
     def remove_tag(self, email_id: str, owner: str, tag: str) -> bool:
