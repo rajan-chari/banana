@@ -434,7 +434,7 @@ class EmcomApp(App):
     @work(thread=True)
     def _load_email_preview(self, email_id: str) -> None:
         try:
-            email = self.client.read(email_id)
+            email = self.client.read(email_id, tags=[])  # preview only, no pending tag
             self.call_from_thread(self._show_email_preview, email)
         except EmcomError as e:
             self.call_from_thread(self._set_preview, f"Error: {e}")
@@ -547,7 +547,7 @@ class EmcomApp(App):
     @work(thread=True)
     def _reply_to_email(self, email_id: str) -> None:
         try:
-            email = self.client.read(email_id)
+            email = self.client.read(email_id, tags=[])  # just fetch, reply handles workflow
             self.call_from_thread(self._open_reply_screen, email)
         except EmcomError as e:
             self.call_from_thread(self.notify, str(e), severity="error")

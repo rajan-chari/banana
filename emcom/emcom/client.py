@@ -168,15 +168,19 @@ class EmcomClient:
         r = self._request("POST", "/email", json=payload)
         return _to_email(r.json())
 
-    def inbox(self, unread_only: bool = False) -> list[Email]:
-        r = self._request("GET", "/email/inbox")
-        emails = [_to_email(d) for d in r.json()]
-        if unread_only:
-            emails = [e for e in emails if "unread" in e.tags]
-        return emails
+    def inbox(self, include_all: bool = False) -> list[Email]:
+        params = {"all": "true"} if include_all else {}
+        r = self._request("GET", "/email/inbox", params=params)
+        return [_to_email(d) for d in r.json()]
 
-    def read(self, email_id: str) -> Email:
-        r = self._request("GET", f"/email/{email_id}")
+    def read(self, email_id: str, tags: list[str] | None = None) -> Email:
+        """Read an email. Default tags=None adds 'pending'; pass tags=[] to skip."""
+        if tags is None:
+            tags = ["pending"]
+        params = {}
+        if tags:
+            params["add_tags"] = ",".join(tags)
+        r = self._request("GET", f"/email/{email_id}", params=params)
         return _to_email(r.json())
 
     def sent(self) -> list[Email]:

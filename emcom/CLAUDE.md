@@ -77,7 +77,7 @@ Auth flow: middleware extracts `X-Emcom-Name` header → checks `db.is_registere
 - `client.py` — `EmcomClient` (sync httpx). Reads `identity.json` for auth. All API methods return dataclasses from `models.py`. Has `ensure_server()` to auto-start server as background process.
 - `models.py` — Dataclasses: `Email`, `Identity`, `Thread`, `LocalIdentity`
 - `cli.py` — argparse CLI with one-shot commands + interactive REPL. REPL supports numbered item references (type `3` to read item 3, `r 3` to reply).
-- `tui.py` — Textual app with tabbed inbox/sent/all/threads, preview pane, compose/reply/who modals. Keybindings: 1-4 tabs, j/k nav, c compose, r reply, w who, F5 refresh.
+- `tui.py` — Textual app with tabbed inbox/sent/all/threads, preview pane, compose/reply/who modals. Grid layout (3fr/2fr) keeps table and preview both visible. Keybindings: 1-4 or left/right arrows for tabs, j/k nav, c compose, r reply, w who, F5 refresh. Auto-focuses inbox on startup.
 - `formatting.py` — Text formatters for CLI output
 
 ### Identity Model

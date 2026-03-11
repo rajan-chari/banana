@@ -83,14 +83,18 @@ public static class Program
             }
             case "inbox":
             {
-                bool unread = rest.Contains("--unread") || rest.Contains("-u");
-                Console.WriteLine(Fmt.FormatInbox(c.Inbox(unread)));
+                bool all = rest.Contains("--all") || rest.Contains("-a");
+                Console.WriteLine(Fmt.FormatInbox(c.Inbox(all)));
                 break;
             }
             case "read":
             {
                 if (rest.Count < 1) { Console.Error.WriteLine("Error: email ID required"); return 1; }
-                Console.WriteLine(Fmt.FormatEmail(c.ReadEmail(rest[0])));
+                List<string> tags = ["pending"];
+                for (int i = 1; i < rest.Count; i++)
+                    if (rest[i] == "--tag")
+                        while (++i < rest.Count && !rest[i].StartsWith('-')) tags.Add(rest[i]);
+                Console.WriteLine(Fmt.FormatEmail(c.ReadEmail(rest[0], tags)));
                 break;
             }
             case "send":
@@ -320,8 +324,8 @@ public static class Program
                 {
                     case "inbox":
                     {
-                        var unread = tokens.Contains("--unread") || tokens.Contains("-u");
-                        var emails = cl.Inbox(unread);
+                        var all = tokens.Contains("--all") || tokens.Contains("-a");
+                        var emails = cl.Inbox(all);
                         lastItems = emails.Select(e => ("email", e.Id)).ToList();
                         Console.WriteLine(Fmt.FormatInbox(emails, numbered: true));
                         break;

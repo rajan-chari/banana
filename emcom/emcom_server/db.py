@@ -307,26 +307,33 @@ class Database:
         finally:
             conn.close()
 
-    def inbox(self, name: str) -> list[dict]:
+    def inbox(self, name: str, include_all: bool = False) -> list[dict]:
         conn = self._connect()
         try:
-            rows = conn.execute(
-                "SELECT * FROM emails ORDER BY created_at DESC"
-            ).fetchall()
+            like = f'%"{name}"%'
+            if include_all:
+                rows = conn.execute(
+                    "SELECT * FROM emails WHERE (recipients LIKE ? OR cc LIKE ?) AND sender != ? "
+                    "ORDER BY created_at DESC",
+                    (like, like, name),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM emails WHERE (recipients LIKE ? OR cc LIKE ?) AND sender != ? "
+                    "AND id NOT IN (SELECT email_id FROM tags WHERE owner = ? AND tag = 'handled') "
+                    "ORDER BY created_at DESC",
+                    (like, like, name, name),
+                ).fetchall()
             result = []
             for row in rows:
                 email = dict(row)
-                recipients = json.loads(email.pop("recipients"))
-                cc = json.loads(email["cc"])
-                if name in recipients or name in cc:
-                    email["to"] = recipients
-                    email["cc"] = cc
-                    # Get tags for this user
-                    tag_rows = conn.execute(
-                        "SELECT tag FROM tags WHERE email_id=? AND owner=?", (email["id"], name)
-                    ).fetchall()
-                    email["tags"] = [t["tag"] for t in tag_rows]
-                    result.append(email)
+                email["to"] = json.loads(email.pop("recipients"))
+                email["cc"] = json.loads(email["cc"])
+                tag_rows = conn.execute(
+                    "SELECT tag FROM tags WHERE email_id=? AND owner=?", (email["id"], name)
+                ).fetchall()
+                email["tags"] = [t["tag"] for t in tag_rows]
+                result.append(email)
             return result
         finally:
             conn.close()
@@ -422,6 +429,19 @@ class Database:
 
     def mark_read(self, email_id: str, name: str):
         self.remove_tag(email_id, name, "unread")
+
+    def mark_read_and_tag(self, email_id: str, name: str, tags: list[str] | None = None):
+        """Atomically remove 'unread' and add tags (e.g. 'pending') in one commit."""
+        conn = self._connect()
+        try:
+            conn.execute("DELETE FROM tags WHERE email_id=? AND owner=? AND tag='unread'",
+                         (email_id, name))
+            for tag in (tags or []):
+                conn.execute("INSERT OR IGNORE INTO tags (email_id, owner, tag) VALUES (?, ?, ?)",
+                             (email_id, name, tag))
+            conn.commit()
+        finally:
+            conn.close()
 
     # --- Threads ---
 

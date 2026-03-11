@@ -24,3 +24,12 @@ Variable assignment + chaining (`EMCOM=$HOME/... && $EMCOM inbox && $EMCOM read 
 
 ### 2026-03-11: Git Bash adds ~170ms process creation overhead vs native shells
 Benchmarked emcom CLI: 74ms from PowerShell, 96ms via cmd, 241ms from Git Bash. The ~170ms delta is MSYS2 fork emulation. The native AOT binary itself executes in ~44ms (minus ~30ms network). Cannot be fixed in application code — it's the shell layer.
+
+### 2026-03-11: TUI preview must not trigger read side-effects
+`client.read()` now auto-tags `pending` by default (for CLI workflow). But the TUI calls `read()` on every row highlight for preview, which would tag everything as `pending` just from scrolling. Fix: pass `tags=[]` explicitly in TUI preview and reply-fetch calls. Design: server is side-effect-free by default (`add_tags` param opt-in), clients choose what tags to apply. Python CLI passes `["pending"]` explicitly; C# CLI does the same.
+
+### 2026-03-11: vswhere.exe must be on PATH for .NET AOT publish from Git Bash
+`dotnet publish` with `PublishAot=true` fails from Git Bash because `vswhere.exe` isn't on PATH. Quick fix: prepend its location (`/c/Program Files (x86)/Microsoft Visual Studio/Installer`) to PATH in the same command: `PATH="..." dotnet publish ...`. No need for a full Developer Command Prompt.
+
+### 2026-03-11: Linters/hooks can silently revert uncommitted edits
+A pre-commit hook or linter modifying `db.py` reverted feature changes (new methods + modified `inbox()`) while I was still editing. Always re-read files after a linter runs and before building/testing. Don't assume your edits survived.

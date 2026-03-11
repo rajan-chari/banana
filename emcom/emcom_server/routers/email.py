@@ -46,10 +46,10 @@ def send_email(req: SendEmailRequest, request: Request):
 
 
 @router.get("/email/inbox")
-def inbox(request: Request):
+def inbox(request: Request, all: bool = False):
     caller = _get_caller(request)
     db = request.app.state.db
-    return db.inbox(caller)
+    return db.inbox(caller, include_all=all)
 
 
 @router.get("/email/sent")
@@ -67,7 +67,7 @@ def all_mail(request: Request):
 
 
 @router.get("/email/{email_id}")
-def get_email(email_id: str, request: Request):
+def get_email(email_id: str, request: Request, add_tags: str | None = None):
     caller = _get_caller(request)
     db = request.app.state.db
     # Resolve short ID prefix to full UUID
@@ -77,8 +77,9 @@ def get_email(email_id: str, request: Request):
     email = db.get_email(resolved, viewer=caller)
     if not email:
         raise HTTPException(404, f"Email '{email_id}' not found")
-    # Mark as read (side effect)
-    db.mark_read(resolved, caller)
-    # Refresh tags after mark_read
+    # Atomically: remove unread, add any requested tags (e.g. pending)
+    extra = [t.strip() for t in add_tags.split(",") if t.strip()] if add_tags else []
+    db.mark_read_and_tag(resolved, caller, extra)
+    # Refresh tags
     email = db.get_email(resolved, viewer=caller)
     return email

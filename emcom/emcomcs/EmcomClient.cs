@@ -179,18 +179,21 @@ public sealed class EmcomClient
         return Read(resp, EmcomJsonContext.Default.Email);
     }
 
-    public List<Email> Inbox(bool unreadOnly = false)
+    public List<Email> Inbox(bool includeAll = false)
     {
-        var resp = Get("/email/inbox");
-        var emails = Read(resp, EmcomJsonContext.Default.ListEmail);
-        if (unreadOnly)
-            emails = emails.Where(e => e.Tags.Contains("unread")).ToList();
-        return emails;
+        var path = includeAll ? "/email/inbox?all=true" : "/email/inbox";
+        var resp = Get(path);
+        return Read(resp, EmcomJsonContext.Default.ListEmail);
     }
 
-    public Email ReadEmail(string emailId)
+    public Email ReadEmail(string emailId, List<string>? tags = null, bool addPending = true)
     {
-        var resp = Get($"/email/{emailId}");
+        // Default: add 'pending' tag. Pass addPending=false for preview-only reads.
+        tags ??= addPending ? ["pending"] : [];
+        var path = $"/email/{emailId}";
+        if (tags.Count > 0)
+            path += $"?add_tags={Uri.EscapeDataString(string.Join(",", tags))}";
+        var resp = Get(path);
         return Read(resp, EmcomJsonContext.Default.Email);
     }
 
