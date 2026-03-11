@@ -42,7 +42,11 @@
       "Bash(uvicorn:*)",
       "Bash(npm run dev:*)",
       "Bash(git reset:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd chat app, remove password min-length restriction, set all passwords to 1\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "mcp__plugin_serena_serena__onboarding",
+      "mcp__plugin_serena_serena__write_memory",
+      "Bash(wmic process:*)"
     ]
   }
 }
