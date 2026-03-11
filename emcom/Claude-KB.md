@@ -18,3 +18,9 @@ The `/who` endpoint returns `"active": 1` (SQLite integer), not `"active": true`
 
 ### 2026-03-11: AOT-safe JSON serialization with System.Text.Json
 `JsonContent.Create(object, Type, ...)` triggers IL2026/IL3050 trimming warnings and may fail at AOT runtime. Fix: use `JsonSerializer.Serialize<T>(body, typeInfo)` with the source-generated `JsonTypeInfo<T>` from `EmcomJsonContext.Default`, then wrap in `StringContent`. Also: `[JsonPropertyName]` attributes override the global `PropertyNamingPolicy`, so either use attributes OR the policy, not both (attributes take precedence).
+
+### 2026-03-11: Skill Bash commands must be simple for permission auto-approve
+Variable assignment + chaining (`EMCOM=$HOME/... && $EMCOM inbox && $EMCOM read ...`) triggers manual permission prompts because the permission model can't parse what's being executed. Fix: one simple command per Bash call, use the bare command name or literal path, and use parallel Bash tool calls for independent operations. Sequential dependencies (register→retry) must be separate calls in order.
+
+### 2026-03-11: Git Bash adds ~170ms process creation overhead vs native shells
+Benchmarked emcom CLI: 74ms from PowerShell, 96ms via cmd, 241ms from Git Bash. The ~170ms delta is MSYS2 fork emulation. The native AOT binary itself executes in ~44ms (minus ~30ms network). Cannot be fixed in application code — it's the shell layer.
