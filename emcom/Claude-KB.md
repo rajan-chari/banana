@@ -31,5 +31,8 @@ Benchmarked emcom CLI: 74ms from PowerShell, 96ms via cmd, 241ms from Git Bash. 
 ### 2026-03-11: vswhere.exe must be on PATH for .NET AOT publish from Git Bash
 `dotnet publish` with `PublishAot=true` fails from Git Bash because `vswhere.exe` isn't on PATH. Quick fix: prepend its location (`/c/Program Files (x86)/Microsoft Visual Studio/Installer`) to PATH in the same command: `PATH="..." dotnet publish ...`. No need for a full Developer Command Prompt.
 
+### 2026-03-11: SQLite perf — connection reuse and N+1 elimination give 5-30x speedup
+Thread-local connection reuse (`threading.local()`) eliminates per-call `sqlite3.connect()` + 3 PRAGMAs overhead — this alone gives ~7x on writes. For reads, the N+1 tag query pattern (1 query per email to fetch tags) was the main bottleneck. Fix: batch-fetch all tags in one `WHERE owner=? AND email_id IN (...)` query via `_attach_tags()` helper. Also: filter in SQL (WHERE clause with LIKE on JSON fields) instead of loading all rows and filtering in Python. Added `idx_tags_email_owner` index for the batch tag lookups.
+
 ### 2026-03-11: Linters/hooks can silently revert uncommitted edits
 A pre-commit hook or linter modifying `db.py` reverted feature changes (new methods + modified `inbox()`) while I was still editing. Always re-read files after a linter runs and before building/testing. Don't assume your edits survived.

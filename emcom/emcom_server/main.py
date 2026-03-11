@@ -59,13 +59,12 @@ def create_app() -> FastAPI:
                     media_type="application/json",
                 )
             db: Database = request.app.state.db
-            if not db.is_registered(name):
+            if not db.check_registered_and_touch(name):
                 return Response(
                     content=f'{{"detail":"Identity \'{name}\' is not registered or inactive"}}',
                     status_code=401,
                     media_type="application/json",
                 )
-            db.touch_last_seen(name)
 
         return await call_next(request)
 
