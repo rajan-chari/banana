@@ -33,3 +33,9 @@ Benchmarked emcom CLI: 74ms from PowerShell, 96ms via cmd, 241ms from Git Bash. 
 
 ### 2026-03-11: Linters/hooks can silently revert uncommitted edits
 A pre-commit hook or linter modifying `db.py` reverted feature changes (new methods + modified `inbox()`) while I was still editing. Always re-read files after a linter runs and before building/testing. Don't assume your edits survived.
+
+### 2026-03-11: Skill instructions shape agent behavior — avoid prescriptive ordering
+Writing "every message you process follows this pattern: 1, 2, 3, 4" caused agents to process messages strictly sequentially. Changing to "any order is fine, batch your work, tag handled in parallel" let agents show good judgment (read all, batch process, parallel tag). Skill wording directly controls whether agents act rigidly or adaptively.
+
+### 2026-03-11: sage owns the skills repo — defer commits there
+The `~/.claude/skills/` directory is managed by sage (fellow_scholars workspace). Don't commit/push skill changes directly — send sage a message via emcom with what changed and let them handle it.
