@@ -56,10 +56,8 @@ async function loadIdentities() {
 }
 
 async function launchSession(name, location) {
-  // Resolve location to absolute path
-  const workingDir = location.startsWith("/") || location.match(/^[A-Z]:/i)
-    ? location
-    : `C:/s/projects/work/teams/${location}`;
+  // Use location as-is (emcom provides absolute or project-relative paths)
+  const workingDir = location;
 
   try {
     const res = await fetch("/api/sessions", {

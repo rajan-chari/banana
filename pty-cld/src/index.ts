@@ -5,10 +5,12 @@ import { buildCliConfig } from "./config.js";
 import { ClaudeSession } from "./pty/claude-session.js";
 import { log } from "./log.js";
 
-function parseArgs(argv: string[]): { serve: boolean; claudeArgs: string[] } {
+function parseArgs(argv: string[]): { serve: boolean; setup: boolean; claudeArgs: string[] } {
+  const firstArg = argv[0];
+  const setup = firstArg === "setup";
   const serve = argv.includes("--serve");
-  const claudeArgs = argv.filter((a) => a !== "--serve");
-  return { serve, claudeArgs };
+  const claudeArgs = argv.filter((a) => a !== "--serve" && a !== "setup");
+  return { serve, setup, claudeArgs };
 }
 
 /** Bind control API, trying successive ports. Returns { server, port }. */
@@ -111,9 +113,12 @@ async function runCli(claudeArgs: string[]): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { serve, claudeArgs } = parseArgs(process.argv.slice(2));
+  const { serve, setup, claudeArgs } = parseArgs(process.argv.slice(2));
 
-  if (serve) {
+  if (setup) {
+    const { runSetup } = await import("./setup.js");
+    runSetup(claudeArgs);
+  } else if (serve) {
     const { startServer } = await import("./server.js");
     await startServer();
   } else {
