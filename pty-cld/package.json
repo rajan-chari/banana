@@ -1,0 +1,27 @@
+{
+  "name": "pty-cld",
+  "version": "0.1.0",
+  "description": "PTY wrapper for Claude Code with emcom message notifications",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "pty-cld": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "serve": "node dist/index.js --serve",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.0"
+  }
+}

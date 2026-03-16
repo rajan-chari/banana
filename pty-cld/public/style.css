@@ -1,0 +1,127 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+}
+
+header h1 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e94560;
+}
+
+#status {
+  font-size: 12px;
+  color: #888;
+}
+
+nav#tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 16px;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+  min-height: 32px;
+}
+
+.tab {
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+  background: #1a1a2e;
+  color: #aaa;
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.tab.active {
+  background: #0f3460;
+  color: #fff;
+  border-color: #e94560;
+  border-bottom: none;
+}
+
+.tab .badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #e94560;
+  color: white;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  display: none;
+}
+
+.tab .badge.show { display: inline; }
+
+#launcher {
+  padding: 16px;
+}
+
+#launcher h2 {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #888;
+}
+
+#identities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.identity-card {
+  padding: 8px 16px;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.identity-card:hover {
+  border-color: #e94560;
+}
+
+.identity-card .name {
+  font-weight: 600;
+  color: #e94560;
+}
+
+.identity-card .location {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+}
+
+#terminals {
+  flex: 1;
+  position: relative;
+}
+
+.terminal-container {
+  position: absolute;
+  inset: 0;
+  padding: 4px;
+  display: none;
+}
+
+.terminal-container.active {
+  display: block;
+}
