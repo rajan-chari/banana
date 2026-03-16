@@ -15,6 +15,7 @@ Before responding to the user's first message:
 ### Common scenarios
 
 - **Build** — `npm run build` (compiles TypeScript to `dist/`)
+- **Setup hook** — `pty-cld setup` (installs global Notification hook into `~/.claude/settings.json`)
 - **Run CLI mode** — `cd /project/with/identity.json && pty-cld` (wraps Claude with emcom polling)
 - **Run with args** — `pty-cld --resume <session-id>` (args pass through to claude)
 - **Run web UI** — `pty-cld --serve` (multi-session browser UI on port 3500)
@@ -31,9 +32,8 @@ PTY wrapper for Claude Code with emcom message injection. Replaces expensive `/l
 # 1. Install and link
 cd pty-cld && npm install && npm run build && npm link
 
-# 2. Verify global hook exists in ~/.claude/settings.json
-# Should have a Notification hook pointing to bin/idle-hook.sh
-# See "Global hook" section below for the exact config
+# 2. Install global hook (idempotent — safe to re-run)
+pty-cld setup
 ```
 
 ### Prerequisites
