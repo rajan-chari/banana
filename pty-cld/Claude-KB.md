@@ -22,3 +22,6 @@ Per-project hook installation in `.claude/settings.local.json` is messy and frag
 
 ### 2026-03-16: System prompt suppresses duplicate emcom polling
 Claude instances with CLAUDE.md instructions to start `/emcom-monitor` will double-poll. The wrapper appends `--append-system-prompt` telling Claude not to use `/loop` or `CronCreate` for emcom — pty-cld handles it externally.
+
+### 2026-03-16: idle_prompt hook has latency after skill/cron setup
+The `Notification` hook with `idle_prompt` type fires only after Claude **fully finishes** its turn — including skill loading and cron scheduling. In testing, this added ~2.5 minutes of apparent latency after a complex startup response. This is expected Claude Code behavior, not a pty-cld bug.
