@@ -25,3 +25,9 @@ Claude instances with CLAUDE.md instructions to start `/emcom-monitor` will doub
 
 ### 2026-03-16: idle_prompt hook has latency after skill/cron setup
 The `Notification` hook with `idle_prompt` type fires only after Claude **fully finishes** its turn — including skill loading and cron scheduling. In testing, this added ~2.5 minutes of apparent latency after a complex startup response. This is expected Claude Code behavior, not a pty-cld bug.
+
+### 2026-03-16: Notification hook JSON has spaces — grep must be flexible
+Claude Code sends hook JSON with spaces after colons: `"notification_type": "idle_prompt"`. The original grep pattern `'"notification_type":"idle_prompt"'` (no space) silently failed, causing `idle-hook.sh` to exit without posting to the control API. Fix: use `'"notification_type".*"idle_prompt"'` to match regardless of whitespace. Always use flexible patterns when grepping JSON from external tools.
+
+### 2026-03-17: Multi-line paste broken by Buffer.toString() in stdin pipe
+`process.stdin` in raw mode delivers data as `Buffer` chunks with arbitrary boundaries. Calling `data.toString()` on a chunk split mid-UTF-8 character mangles the bytes (special chars like `●`, `─`, `❯`). Fix: pass the raw `Buffer` directly to `ptyProcess.write()` which accepts both `string` and `Buffer`. Removed `.toString()` in `index.ts`, widened `session.write()` signature in `claude-session.ts`.

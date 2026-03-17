@@ -3,13 +3,15 @@ import { log } from "../log.js";
 
 type State = "startup" | "idle" | "busy" | "injecting" | "cooldown";
 
-const INJECTION_PROMPT = "Check emcom inbox for new messages\r";
+const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and collaborate with others as needed\r";
+const STARTUP_KICK = "hi\r";
 const STARTUP_GRACE_MS = 10_000;
 
 export class InputInjector {
   private state: State = "startup";
   private lastOutputTime = Date.now();
   private pendingMessages = false;
+  private idleDuringStartup = false;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -22,7 +24,19 @@ export class InputInjector {
     setTimeout(() => {
       if (this.state === "startup") {
         log(`[${this.sessionName}] Startup grace period ended`);
-        this.state = "busy";
+        if (this.idleDuringStartup) {
+          // Hook fired during startup — user already interacted
+          this.state = "idle";
+          log(`[${this.sessionName}] Idle (deferred from startup)`);
+          if (this.pendingMessages) {
+            this.inject();
+          }
+        } else {
+          this.state = "busy";
+          // idle_prompt doesn't fire after Claude's initial boot —
+          // inject "hi" to kick off startup initialization
+          this.startPostStartupFallback();
+        }
       }
     }, STARTUP_GRACE_MS);
   }
@@ -45,6 +59,11 @@ export class InputInjector {
 
   /** Called by idle hook (HTTP POST /idle) */
   signalIdle(): void {
+    if (this.state === "startup") {
+      this.idleDuringStartup = true;
+      log(`[${this.sessionName}] Idle hook during startup — deferring`);
+      return;
+    }
     this.setIdle("hook");
   }
 
@@ -74,6 +93,27 @@ export class InputInjector {
       clearInterval(this.heuristicTimer);
       this.heuristicTimer = null;
     }
+  }
+
+  /**
+   * After startup grace, idle_prompt doesn't fire for Claude's initial boot.
+   * Wait for output to go quiet, then inject "hi" to kick off initialization.
+   * Auto-disables after firing once.
+   */
+  private startPostStartupFallback(): void {
+    if (this.heuristicTimer) return;
+    log(`[${this.sessionName}] Post-startup fallback: waiting for output quiet`);
+    this.heuristicTimer = setInterval(() => {
+      if (this.state === "busy" && Date.now() - this.lastOutputTime > this.quietThresholdMs) {
+        this.stopHeuristic();
+        log(`[${this.sessionName}] Injecting startup kick`);
+        this.ptyProcess.write(STARTUP_KICK);
+        this.state = "cooldown";
+        setTimeout(() => {
+          this.state = "busy";
+        }, this.cooldownMs);
+      }
+    }, 1000);
   }
 
   private inject(): void {

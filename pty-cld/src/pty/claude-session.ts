@@ -33,7 +33,8 @@ export class ClaudeSession extends EventEmitter {
     const appendPrompt =
       "Emcom inbox checks are handled externally by pty-cld. " +
       "Do NOT use /loop, CronCreate, or emcom-monitor to poll for messages. " +
-      "You will be prompted to check inbox automatically when new messages arrive.";
+      "You will be prompted to check inbox automatically when new messages arrive. " +
+      "When you receive emcom messages, triage before replying — not every message needs a response.";
     const claudeArgs = [
       "--append-system-prompt", appendPrompt,
       ...config.claudeArgs,
@@ -95,7 +96,7 @@ export class ClaudeSession extends EventEmitter {
     removePortFile(this.config.workingDir, this.name);
   }
 
-  write(data: string): void {
+  write(data: string | Buffer): void {
     this.ptyProcess.write(data);
   }
 

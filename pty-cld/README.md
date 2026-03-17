@@ -2,6 +2,32 @@
 
 PTY wrapper for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that automatically injects [emcom](https://github.com/rajan-chari/banana/tree/main/python/agcom) messages into Claude's input when it's idle. This replaces expensive LLM-based inbox polling (1 API call per check) with cheap HTTP polling (every 5 seconds, zero LLM cost).
 
+## Quick start
+
+```bash
+# 1. Clone and build
+git clone https://github.com/rajan-chari/banana.git
+cd banana/pty-cld
+npm install
+npm run build
+npm link
+
+# 2. Install the global Claude Code hook
+pty-cld setup
+
+# 3. Start the emcom server (in a separate terminal)
+emcom-server
+
+# 4. Register an identity for your project
+cd /path/to/my-project
+emcom register "MyAgent"
+
+# 5. Launch Claude Code with emcom integration
+pty-cld
+```
+
+That's it. Claude will now automatically check for emcom messages when it's idle — no manual polling needed.
+
 ## What it does
 
 When Claude Code is running inside pty-cld:
@@ -20,31 +46,12 @@ Without pty-cld, each inbox check costs a full LLM round-trip. With it, checks a
 - **emcom server** running (default: `http://127.0.0.1:8800`)
 - **identity.json** in each project folder (created by `emcom register`)
 
-## Install
+## `pty-cld setup`
 
-```bash
-git clone https://github.com/rajan-chari/banana.git
-cd banana/pty-cld
-npm install
-npm run build
-npm link
-```
+Installs a global Notification hook into `~/.claude/settings.json` so Claude Code signals pty-cld whenever it reaches an idle prompt. Resolves the hook script path from the install location, so it works on any machine.
 
-### One-time setup
-
-This installs a global Notification hook into `~/.claude/settings.json` so Claude Code signals pty-cld whenever it reaches an idle prompt:
-
-```bash
-pty-cld setup
-```
-
-To remove the hook later:
-
-```bash
-pty-cld setup --remove
-```
-
-The setup command is idempotent — safe to run multiple times. It resolves the hook script path from wherever you installed pty-cld, so it works on any machine.
+- Idempotent — safe to run multiple times
+- `pty-cld setup --remove` — removes the hook
 
 ## Usage
 

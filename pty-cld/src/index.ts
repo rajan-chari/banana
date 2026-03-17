@@ -86,7 +86,7 @@ async function runCli(claudeArgs: string[]): Promise<void> {
   process.stdin.setRawMode?.(true);
   process.stdin.resume();
   process.stdin.on("data", (data) => {
-    session.write(data.toString());
+    session.write(data);
   });
 
   // Handle terminal resize

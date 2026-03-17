@@ -6,7 +6,7 @@
 INPUT=$(cat)
 
 # Only act on idle_prompt — ignore permission_prompt, auth_success, etc.
-echo "$INPUT" | grep -q '"notification_type":"idle_prompt"' || exit 0
+echo "$INPUT" | grep -q '"notification_type".*"idle_prompt"' || exit 0
 
 # Read the port file written by pty-cld in this project's CWD
 PORT=$(cat .pty-cld-port 2>/dev/null) || exit 0
