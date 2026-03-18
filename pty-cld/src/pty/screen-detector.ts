@@ -5,17 +5,18 @@ export type PromptType = "input" | "permission" | "busy" | "unknown";
 
 // Claude Code UI patterns (observed from screenshots)
 //
-// Busy:   "* Transmuting… (44s · ↓ 340 tokens)"  — animated, constantly rewriting
-// Done:   "※ Sautéed for 2m 32s"                  — static completion line
-// Idle:   "> " or "❯ " at line start               — input prompt, cursor waiting
+// Busy:   "※ Zigzagging… (1m 8s · ↑ 1.4k tokens)"  — animated, constantly rewriting
+//         "* Transmuting… (44s · ↓ 340 tokens)"      — alternate prefix
+// Done:   "※ Cooked for 1m 16s"                      — static completion line
+// Idle:   "> " or "❯ " at line start                  — input prompt, cursor waiting
 //
-// The cooking verbs rotate: Transmuting, Simmering, Sautéing, Brewing, etc.
-// The completion marker is always ※ (reference mark).
+// Busy vs done: busy has "verb…" (ellipsis) + "(stats)", done has "verb for duration".
+// Prefix is ※ or *. Cooking verbs rotate: Transmuting, Zigzagging, Sautéing, etc.
 
 const INPUT_PROMPT_RE = /^[❯>]\s*$/;
 const PERMISSION_PROMPT_RE = /allow|permission|approve|deny|y\/n|yes.*no/i;
-const BUSY_ANIMATION_RE = /^\s*\*\s+\S+…\s+\(/;  // "* Transmuting… ("
-const COMPLETION_RE = /^※\s+/;                     // "※ Sautéed for"
+const BUSY_ANIMATION_RE = /^[※*]\s+\S+…\s+\(/;      // "※ Zigzagging… (" or "* Transmuting… ("
+const COMPLETION_RE = /^※\s+\S+\s+for\s+\d/;         // "※ Cooked for 1m 16s"
 
 export class ScreenDetector {
   private terminal: Terminal;
