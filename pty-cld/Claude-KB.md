@@ -34,3 +34,6 @@ Node.js `setRawMode(true)` on Windows uses libuv's `UV_TTY_MODE_RAW`, which does
 
 ### 2026-03-17: Multi-line paste broken by Buffer.toString() in stdin pipe
 `process.stdin` in raw mode delivers data as `Buffer` chunks with arbitrary boundaries. Calling `data.toString()` on a chunk split mid-UTF-8 character mangles the bytes (special chars like `●`, `─`, `❯`). Fix: pass the raw `Buffer` directly to `ptyProcess.write()` which accepts both `string` and `Buffer`. Removed `.toString()` in `index.ts`, widened `session.write()` signature in `claude-session.ts`.
+
+### 2026-03-18: xterm-headless enables screen-aware idle detection
+node-pty provides raw byte I/O but no screen state. `xterm-headless` (from the xterm.js project) is a headless terminal emulator — feed it PTY output and it maintains an in-memory cell grid. You can read `buffer.getLine(y).translateToString()` to see what's rendered. This lets you pattern-match on prompt content (e.g. `❯` for input prompt vs. `Allow?` for permission prompt) instead of relying solely on the Notification hook. Design notes in `banana/pty-xterm-musings.md`.

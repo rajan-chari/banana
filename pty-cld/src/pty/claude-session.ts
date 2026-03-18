@@ -3,6 +3,7 @@ import { EventEmitter } from "events";
 import { EmcomClient } from "../emcom/client.js";
 import { EmcomPoller } from "../emcom/poller.js";
 import { InputInjector } from "./input-injector.js";
+import { ScreenDetector } from "./screen-detector.js";
 import { writePortFile, removePortFile } from "../hooks.js";
 import type { SessionConfig } from "../config.js";
 import { log } from "../log.js";
@@ -17,6 +18,7 @@ export class ClaudeSession extends EventEmitter {
   private ptyProcess: pty.IPty;
   private poller: EmcomPoller;
   private injector: InputInjector;
+  private screenDetector: ScreenDetector;
   readonly name: string;
 
   constructor(
@@ -57,6 +59,12 @@ export class ClaudeSession extends EventEmitter {
     const client = new EmcomClient(config.emcomServer, config.emcomIdentity);
     this.poller = new EmcomPoller(client, config.pollIntervalMs, config.name);
 
+    // Screen detector — headless terminal for screen-aware idle detection
+    const cols = 120;
+    const rows = 40;
+    this.screenDetector = new ScreenDetector(cols, rows, config.name);
+    log(`[${config.name}] Screen detector initialized (${cols}x${rows})`);
+
     // Input injector
     this.injector = new InputInjector(
       this.ptyProcess,
@@ -64,10 +72,12 @@ export class ClaudeSession extends EventEmitter {
       config.injectionCooldownMs,
       config.name,
     );
+    this.injector.setScreenDetector(this.screenDetector);
 
-    // Wire PTY output
+    // Wire PTY output to injector, screen detector, and consumer
     this.ptyProcess.onData((data) => {
       this.injector.onOutput();
+      this.screenDetector.write(data);
       this.emit("data", data);
     });
 
@@ -93,6 +103,7 @@ export class ClaudeSession extends EventEmitter {
   stop(): void {
     this.poller.stop();
     this.injector.stopHeuristic();
+    this.screenDetector.dispose();
     removePortFile(this.config.workingDir, this.name);
   }
 
@@ -102,6 +113,7 @@ export class ClaudeSession extends EventEmitter {
 
   resize(cols: number, rows: number): void {
     this.ptyProcess.resize(cols, rows);
+    this.screenDetector.resize(cols, rows);
   }
 
   /** Called by control API when idle hook fires */

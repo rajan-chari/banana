@@ -1,4 +1,5 @@
 import type * as pty from "node-pty";
+import type { ScreenDetector } from "./screen-detector.js";
 import { log } from "../log.js";
 
 type State = "startup" | "idle" | "busy" | "injecting" | "cooldown";
@@ -13,6 +14,7 @@ export class InputInjector {
   private pendingMessages = false;
   private idleDuringStartup = false;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
+  private screenDetector: ScreenDetector | null = null;
 
   constructor(
     private ptyProcess: pty.IPty,
@@ -77,13 +79,32 @@ export class InputInjector {
     }
   }
 
-  /** Start the output-quiet heuristic timer (disabled by default — hook is preferred) */
-  startHeuristic(enabled = false): void {
-    if (!enabled || this.heuristicTimer) return;
-    log(`[${this.sessionName}] Heuristic idle detection enabled`);
+  /** Attach a screen detector for screen-aware idle detection */
+  setScreenDetector(detector: ScreenDetector): void {
+    this.screenDetector = detector;
+  }
+
+  /**
+   * Start the screen-aware heuristic timer.
+   * When a ScreenDetector is attached, this is enabled by default — the detector
+   * can distinguish input prompts from permission prompts, making the heuristic safe.
+   * Without a detector, the heuristic is disabled by default (pass enabled=true to force).
+   */
+  startHeuristic(enabled?: boolean): void {
+    const shouldEnable = enabled ?? !!this.screenDetector;
+    if (!shouldEnable || this.heuristicTimer) return;
+    log(`[${this.sessionName}] Heuristic idle detection enabled (screen-aware: ${!!this.screenDetector})`);
     this.heuristicTimer = setInterval(() => {
       if (this.state === "busy" && Date.now() - this.lastOutputTime > this.quietThresholdMs) {
-        this.setIdle("heuristic");
+        if (this.screenDetector) {
+          const promptType = this.screenDetector.detectPromptType();
+          if (promptType === "input") {
+            this.setIdle("heuristic");
+          }
+          // permission or unknown → stay busy, don't inject
+        } else {
+          this.setIdle("heuristic");
+        }
       }
     }, 1000);
   }
@@ -105,6 +126,11 @@ export class InputInjector {
     log(`[${this.sessionName}] Post-startup fallback: waiting for output quiet`);
     this.heuristicTimer = setInterval(() => {
       if (this.state === "busy" && Date.now() - this.lastOutputTime > this.quietThresholdMs) {
+        // If screen detector is available, verify it's an input prompt before kicking
+        if (this.screenDetector) {
+          const promptType = this.screenDetector.detectPromptType();
+          if (promptType !== "input") return; // not ready yet
+        }
         this.stopHeuristic();
         log(`[${this.sessionName}] Injecting startup kick`);
         this.ptyProcess.write(STARTUP_KICK);
