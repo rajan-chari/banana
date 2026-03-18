@@ -1,11 +1,21 @@
 import { Terminal } from "@xterm/headless";
 import { log } from "../log.js";
 
-export type PromptType = "input" | "permission" | "unknown";
+export type PromptType = "input" | "permission" | "busy" | "unknown";
 
-// Claude Code prompt patterns
-const INPUT_PROMPT_RE = /[❯>$]\s*$/;
+// Claude Code UI patterns (observed from screenshots)
+//
+// Busy:   "* Transmuting… (44s · ↓ 340 tokens)"  — animated, constantly rewriting
+// Done:   "※ Sautéed for 2m 32s"                  — static completion line
+// Idle:   "> " or "❯ " at line start               — input prompt, cursor waiting
+//
+// The cooking verbs rotate: Transmuting, Simmering, Sautéing, Brewing, etc.
+// The completion marker is always ※ (reference mark).
+
+const INPUT_PROMPT_RE = /^[❯>]\s*$/;
 const PERMISSION_PROMPT_RE = /allow|permission|approve|deny|y\/n|yes.*no/i;
+const BUSY_ANIMATION_RE = /^\s*\*\s+\S+…\s+\(/;  // "* Transmuting… ("
+const COMPLETION_RE = /^※\s+/;                     // "※ Sautéed for"
 
 export class ScreenDetector {
   private terminal: Terminal;
@@ -36,20 +46,34 @@ export class ScreenDetector {
    * Call this when output has gone quiet to decide if injection is safe.
    */
   detectPromptType(): PromptType {
-    const buf = this.terminal.buffer.active;
-    // Read from cursor line upward to find the last non-empty line
-    const lastLines = this.getLastNonEmptyLines(3);
-    const joined = lastLines.join(" ");
+    const lastLines = this.getLastNonEmptyLines(5);
 
+    // Check all recent lines for patterns — order matters
+    for (const line of lastLines) {
+      // Animated busy line: "* Transmuting… (44s · ↓ 340 tokens)"
+      if (BUSY_ANIMATION_RE.test(line)) {
+        log(`[${this.sessionName}] Screen: busy animation detected`);
+        return "busy";
+      }
+    }
+
+    const joined = lastLines.join(" ");
     if (PERMISSION_PROMPT_RE.test(joined)) {
       log(`[${this.sessionName}] Screen: permission prompt detected`);
       return "permission";
     }
 
-    // Check the very last non-empty line for an input prompt char
+    // Look for the idle input prompt "> " at the cursor line
+    // Strongest signal: completion line (※) above, then "> " prompt below
     const lastLine = lastLines[lastLines.length - 1] ?? "";
+    const hasCompletion = lastLines.some(l => COMPLETION_RE.test(l));
+
     if (INPUT_PROMPT_RE.test(lastLine)) {
-      log(`[${this.sessionName}] Screen: input prompt detected`);
+      if (hasCompletion) {
+        log(`[${this.sessionName}] Screen: input prompt + completion marker`);
+      } else {
+        log(`[${this.sessionName}] Screen: input prompt detected`);
+      }
       return "input";
     }
 
