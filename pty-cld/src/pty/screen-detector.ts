@@ -6,18 +6,21 @@ export type PromptType = "input" | "permission" | "busy" | "unknown";
 
 // Claude Code UI patterns (observed from screenshots)
 //
-// Busy:   "※ Zigzagging… (1m 8s · ↑ 1.4k tokens)"  — animated, constantly rewriting
-//         "* Transmuting… (44s · ↓ 340 tokens)"      — alternate prefix
+// Busy:   "※ Zigzagging… (1m 8s · ↑ 1.4k tokens)"  — with duration + token stats
+//         "※ Perusing… (thinking with high effort)"   — with thinking label, no digits
 // Done:   "※ Cooked for 1m 16s"                      — static completion line
 // Idle:   "> " or "❯ " at line start                  — input prompt, cursor waiting
+// Status: "[working\banana\pty-cld]  @pine  $3.69"   — bottom status bar (skip this)
+//         "▸▸ accept edits on (shift+tab to cycle)"   — mode indicator line
 //
-// Busy vs done: busy has "verb…" (ellipsis) + "(stats)", done has "verb for duration".
 // The leading character cycles (※, *, emoji, etc.) — don't match on prefix.
+// cursorY lands on the status bar — don't trust it for prompt location.
 
 const INPUT_PROMPT_RE = /^[❯>]\s*$/;
 const PERMISSION_PROMPT_RE = /allow|permission|approve|deny|y\/n|yes.*no/i;
-const BUSY_ANIMATION_RE = /\S+…\s+\(\d/;              // "Zigzagging… (1m" — verb + ellipsis + (stats)
-const COMPLETION_RE = /\S+\s+for\s+\d+[ms]/;          // "Cooked for 1m 16s" — verb + for + duration
+const BUSY_ANIMATION_RE = /\S+…\s+\(/;               // "Zigzagging… (" — verb + ellipsis + open paren
+const COMPLETION_RE = /\S+\s+for\s+\d+[ms]/;          // "Cooked for 1m 16s"
+const STATUS_BAR_RE = /^\s*[▸▶●⏺]\s|@\w+\s+\$|shift.tab|accept\s+edits/i;  // status bar indicators
 
 export class ScreenDetector {
   private terminal: InstanceType<typeof Terminal>;
@@ -50,62 +53,67 @@ export class ScreenDetector {
    */
   detectPromptType(): PromptType {
     const buf = this.terminal.buffer.active;
-    const lastLines = this.getLastNonEmptyLines(5);
+    const contentLines = this.getContentLines(8);
 
-    // Diagnostic: log cursor position and what we see (throttled)
+    // Diagnostic: log what we see (throttled to every 5s)
     const now = Date.now();
     if (now - this.lastDiagTime > 5000) {
       this.lastDiagTime = now;
-      const linesDebug = lastLines.map((l, i) => `  [${i}] "${l.slice(-80)}"`).join("\n");
-      log(`[${this.sessionName}] Screen diag: cursorY=${buf.cursorY} baseY=${buf.baseY} lines=${lastLines.length}\n${linesDebug}`);
+      const linesDebug = contentLines.map((l, i) => `  [${i}] "${l.slice(-80)}"`).join("\n");
+      log(`[${this.sessionName}] Screen diag: rows=${this.terminal.rows} cursorY=${buf.cursorY} content lines=${contentLines.length}\n${linesDebug}`);
     }
 
-    // Check all recent lines for patterns — order matters
-    for (const line of lastLines) {
+    // Check all lines for patterns — order matters
+    for (const line of contentLines) {
       if (BUSY_ANIMATION_RE.test(line)) {
         log(`[${this.sessionName}] Screen: busy animation detected`);
         return "busy";
       }
     }
 
-    const joined = lastLines.join(" ");
+    const joined = contentLines.join(" ");
     if (PERMISSION_PROMPT_RE.test(joined)) {
       log(`[${this.sessionName}] Screen: permission prompt detected`);
       return "permission";
     }
 
-    // Look for the idle input prompt "> " at the cursor line
-    // Strongest signal: completion line (※) above, then "> " prompt below
-    const lastLine = lastLines[lastLines.length - 1] ?? "";
-    const hasCompletion = lastLines.some(l => COMPLETION_RE.test(l));
-
-    if (INPUT_PROMPT_RE.test(lastLine)) {
-      if (hasCompletion) {
-        log(`[${this.sessionName}] Screen: input prompt + completion marker`);
-      } else {
-        log(`[${this.sessionName}] Screen: input prompt detected`);
+    // Look for input prompt anywhere in the content lines
+    const hasCompletion = contentLines.some(l => COMPLETION_RE.test(l));
+    for (let i = contentLines.length - 1; i >= 0; i--) {
+      if (INPUT_PROMPT_RE.test(contentLines[i])) {
+        if (hasCompletion) {
+          log(`[${this.sessionName}] Screen: input prompt + completion marker`);
+        } else {
+          log(`[${this.sessionName}] Screen: input prompt detected`);
+        }
+        return "input";
       }
-      return "input";
     }
 
+    const lastLine = contentLines[contentLines.length - 1] ?? "";
     log(`[${this.sessionName}] Screen: unknown (last line: "${lastLine.slice(-80)}")`);
     return "unknown";
   }
 
-  /** Get the last N non-empty rendered lines from the viewport */
-  private getLastNonEmptyLines(n: number): string[] {
+  /**
+   * Get the last N non-empty content lines from the viewport,
+   * scanning bottom-up and skipping the status bar at the bottom.
+   */
+  private getContentLines(n: number): string[] {
     const buf = this.terminal.buffer.active;
     const lines: string[] = [];
 
-    // Scan from cursor position upward
-    for (let y = buf.cursorY; y >= 0 && lines.length < n; y--) {
+    // Scan from the bottom of the viewport upward, skipping status bar lines
+    for (let y = this.terminal.rows - 1; y >= 0 && lines.length < n; y--) {
       const line = buf.getLine(buf.baseY + y);
-      if (line) {
-        const text = line.translateToString(true);
-        if (text.trim().length > 0) {
-          lines.unshift(text);
-        }
-      }
+      if (!line) continue;
+      const text = line.translateToString(true);
+      if (text.trim().length === 0) continue;
+
+      // Skip status bar lines (bottom of screen)
+      if (STATUS_BAR_RE.test(text)) continue;
+
+      lines.unshift(text);
     }
     return lines;
   }

@@ -9,7 +9,7 @@ const STARTUP_KICK = "hi\r";
 const STARTUP_GRACE_MS = 10_000;
 
 // Stream-based detection patterns (same as screen-detector but applied to raw data)
-const STREAM_BUSY_RE = /\S+…\s+\(\d/;            // "Zigzagging… (1m" in data stream
+const STREAM_BUSY_RE = /\S+…\s+\(/;              // "Zigzagging… (" in data stream
 const STREAM_COMPLETION_RE = /\S+\s+for\s+\d+[ms]/; // "Cooked for 1m" in data stream
 
 // When we see a completion signal in the stream, reduce quiet threshold to this
