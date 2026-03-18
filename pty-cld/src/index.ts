@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 
 import { createServer, type Server } from "http";
+import { execSync } from "child_process";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { buildCliConfig } from "./config.js";
 import { ClaudeSession } from "./pty/claude-session.js";
 import { log } from "./log.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function parseArgs(argv: string[]): { serve: boolean; setup: boolean; claudeArgs: string[] } {
   const firstArg = argv[0];
@@ -84,6 +89,22 @@ async function runCli(claudeArgs: string[]): Promise<void> {
 
   // Pipe stdin to PTY
   process.stdin.setRawMode?.(true);
+
+  // Windows: enable ENABLE_VIRTUAL_TERMINAL_INPUT so Shift+Tab arrives as \x1b[Z
+  // instead of 0x09 (indistinguishable from plain Tab). Must run AFTER setRawMode
+  // since that resets console mode flags. PowerShell child shares the console handle.
+  if (process.platform === "win32") {
+    try {
+      const script = resolve(__dirname, "../bin/enable-vt-input.ps1");
+      execSync(`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${script}"`, {
+        stdio: "inherit",
+      });
+      log("[pty-cld] VT input mode enabled");
+    } catch (err) {
+      log(`[pty-cld] Warning: failed to enable VT input: ${err}`);
+    }
+  }
+
   process.stdin.resume();
   process.stdin.on("data", (data) => {
     session.write(data);
