@@ -76,7 +76,7 @@ export class ClaudeSession extends EventEmitter {
 
     // Wire PTY output to injector, screen detector, and consumer
     this.ptyProcess.onData((data) => {
-      this.injector.onOutput();
+      this.injector.onOutput(data);
       this.screenDetector.write(data);
       this.emit("data", data);
     });

@@ -37,3 +37,15 @@ Node.js `setRawMode(true)` on Windows uses libuv's `UV_TTY_MODE_RAW`, which does
 
 ### 2026-03-18: xterm-headless enables screen-aware idle detection
 node-pty provides raw byte I/O but no screen state. `xterm-headless` (from the xterm.js project) is a headless terminal emulator — feed it PTY output and it maintains an in-memory cell grid. You can read `buffer.getLine(y).translateToString()` to see what's rendered. This lets you pattern-match on prompt content (e.g. `❯` for input prompt vs. `Allow?` for permission prompt) instead of relying solely on the Notification hook. Design notes in `banana/pty-xterm-musings.md`.
+
+### 2026-03-18: Two complementary idle detection signals — stream and screen
+pty-cld has access to both the raw PTY data stream (`onData()`) and the rendered screen buffer (xterm-headless). These are complementary:
+- **Stream-based** (real-time): scan `onData()` bytes for busy animation (`verb… (digits`) and completion patterns (`verb for Nm`). Detects the busy→done transition the instant it happens — no delay.
+- **Screen-based** (snapshot): xterm-headless renders the full screen state. Useful for confirmation after output goes quiet — can distinguish input prompt (`>`) from permission prompt (`Allow?`).
+Best approach: stream detection for the fast signal, screen detection for the confident confirmation.
+
+### 2026-03-18: Claude Code status line patterns for busy vs done
+The Claude Code TUI shows an animated status line while working and a static completion line when done. The leading character cycles (※, *, emoji) — don't match on prefix.
+- **Busy**: `verb… (duration · stats)` e.g. `Zigzagging… (1m 8s · ↑ 1.4k tokens)` — regex: `/\S+…\s+\(\d/`
+- **Done**: `verb for duration` e.g. `Cooked for 1m 16s` — regex: `/\S+\s+for\s+\d+[ms]/`
+- **Idle**: `>` or `❯` on its own line below the completion line

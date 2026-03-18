@@ -8,6 +8,13 @@ const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and c
 const STARTUP_KICK = "hi\r";
 const STARTUP_GRACE_MS = 10_000;
 
+// Stream-based detection patterns (same as screen-detector but applied to raw data)
+const STREAM_BUSY_RE = /\S+…\s+\(\d/;            // "Zigzagging… (1m" in data stream
+const STREAM_COMPLETION_RE = /\S+\s+for\s+\d+[ms]/; // "Cooked for 1m" in data stream
+
+// When we see a completion signal in the stream, reduce quiet threshold to this
+const FAST_QUIET_MS = 500;
+
 export class InputInjector {
   private state: State = "startup";
   private lastOutputTime = Date.now();
@@ -15,6 +22,8 @@ export class InputInjector {
   private idleDuringStartup = false;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
   private screenDetector: ScreenDetector | null = null;
+  private sawCompletion = false;        // stream saw "Cooked for 1m" etc.
+  private completionTime = 0;           // when we saw it
 
   constructor(
     private ptyProcess: pty.IPty,
@@ -43,11 +52,28 @@ export class InputInjector {
     }, STARTUP_GRACE_MS);
   }
 
-  /** Call on every PTY output event */
-  onOutput(): void {
-    this.lastOutputTime = Date.now();
+  /** Call on every PTY output event — also scans for stream signals */
+  onOutput(data?: string): void {
+    const now = Date.now();
+    this.lastOutputTime = now;
     if (this.state === "idle") {
       this.state = "busy";
+    }
+
+    // Stream-based detection: scan raw data for busy/completion patterns
+    if (data) {
+      if (STREAM_COMPLETION_RE.test(data)) {
+        if (!this.sawCompletion) {
+          log(`[${this.sessionName}] Stream: completion detected`);
+        }
+        this.sawCompletion = true;
+        this.completionTime = now;
+      } else if (STREAM_BUSY_RE.test(data)) {
+        if (this.sawCompletion) {
+          log(`[${this.sessionName}] Stream: busy animation resumed — clearing completion`);
+          this.sawCompletion = false;
+        }
+      }
     }
   }
 
@@ -71,8 +97,9 @@ export class InputInjector {
 
   private setIdle(source: "hook" | "heuristic"): void {
     if (this.state === "busy") {
+      const quietMs = Date.now() - this.lastOutputTime;
       this.state = "idle";
-      log(`[${this.sessionName}] Idle (${source})`);
+      log(`[${this.sessionName}] Idle (${source}, quiet ${quietMs}ms)`);
       if (this.pendingMessages) {
         this.inject();
       }
@@ -93,20 +120,32 @@ export class InputInjector {
   startHeuristic(enabled?: boolean): void {
     const shouldEnable = enabled ?? !!this.screenDetector;
     if (!shouldEnable || this.heuristicTimer) return;
-    log(`[${this.sessionName}] Heuristic idle detection enabled (screen-aware: ${!!this.screenDetector})`);
+    log(`[${this.sessionName}] Heuristic idle detection enabled (screen-aware: ${!!this.screenDetector}, fast quiet: ${FAST_QUIET_MS}ms)`);
     this.heuristicTimer = setInterval(() => {
-      if (this.state === "busy" && Date.now() - this.lastOutputTime > this.quietThresholdMs) {
+      if (this.state !== "busy") return;
+
+      const quietMs = Date.now() - this.lastOutputTime;
+      // Use fast threshold if stream saw a completion signal, else default
+      const threshold = this.sawCompletion ? FAST_QUIET_MS : this.quietThresholdMs;
+
+      if (quietMs > threshold) {
         if (this.screenDetector) {
           const promptType = this.screenDetector.detectPromptType();
           if (promptType === "input") {
-            this.setIdle("heuristic");
+            const latency = this.sawCompletion ? Date.now() - this.completionTime : null;
+            log(`[${this.sessionName}] Idle (heuristic, quiet ${quietMs}ms, threshold ${threshold}ms${latency !== null ? `, completion→idle ${latency}ms` : ""})`);
+            this.sawCompletion = false;
+            this.state = "idle";
+            if (this.pendingMessages) {
+              this.inject();
+            }
           }
-          // permission or unknown → stay busy, don't inject
+          // permission, busy, or unknown → stay busy, don't inject
         } else {
           this.setIdle("heuristic");
         }
       }
-    }, 1000);
+    }, 250); // check 4x/sec for faster response
   }
 
   stopHeuristic(): void {
@@ -125,21 +164,26 @@ export class InputInjector {
     if (this.heuristicTimer) return;
     log(`[${this.sessionName}] Post-startup fallback: waiting for output quiet`);
     this.heuristicTimer = setInterval(() => {
-      if (this.state === "busy" && Date.now() - this.lastOutputTime > this.quietThresholdMs) {
+      if (this.state !== "busy") return;
+      const quietMs = Date.now() - this.lastOutputTime;
+      const threshold = this.sawCompletion ? FAST_QUIET_MS : this.quietThresholdMs;
+
+      if (quietMs > threshold) {
         // If screen detector is available, verify it's an input prompt before kicking
         if (this.screenDetector) {
           const promptType = this.screenDetector.detectPromptType();
           if (promptType !== "input") return; // not ready yet
         }
+        this.sawCompletion = false;
         this.stopHeuristic();
-        log(`[${this.sessionName}] Injecting startup kick`);
+        log(`[${this.sessionName}] Injecting startup kick (quiet ${quietMs}ms)`);
         this.ptyProcess.write(STARTUP_KICK);
         this.state = "cooldown";
         setTimeout(() => {
           this.state = "busy";
         }, this.cooldownMs);
       }
-    }, 1000);
+    }, 250);
   }
 
   private inject(): void {
