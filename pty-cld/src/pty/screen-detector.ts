@@ -22,6 +22,7 @@ const COMPLETION_RE = /\S+\s+for\s+\d+[ms]/;          // "Cooked for 1m 16s" —
 export class ScreenDetector {
   private terminal: InstanceType<typeof Terminal>;
   private sessionName: string;
+  private lastDiagTime = 0;
 
   constructor(cols: number, rows: number, sessionName: string) {
     this.sessionName = sessionName;
@@ -48,11 +49,19 @@ export class ScreenDetector {
    * Call this when output has gone quiet to decide if injection is safe.
    */
   detectPromptType(): PromptType {
+    const buf = this.terminal.buffer.active;
     const lastLines = this.getLastNonEmptyLines(5);
+
+    // Diagnostic: log cursor position and what we see (throttled)
+    const now = Date.now();
+    if (now - this.lastDiagTime > 5000) {
+      this.lastDiagTime = now;
+      const linesDebug = lastLines.map((l, i) => `  [${i}] "${l.slice(-80)}"`).join("\n");
+      log(`[${this.sessionName}] Screen diag: cursorY=${buf.cursorY} baseY=${buf.baseY} lines=${lastLines.length}\n${linesDebug}`);
+    }
 
     // Check all recent lines for patterns — order matters
     for (const line of lastLines) {
-      // Animated busy line: "* Transmuting… (44s · ↓ 340 tokens)"
       if (BUSY_ANIMATION_RE.test(line)) {
         log(`[${this.sessionName}] Screen: busy animation detected`);
         return "busy";
@@ -79,7 +88,7 @@ export class ScreenDetector {
       return "input";
     }
 
-    log(`[${this.sessionName}] Screen: unknown (last line: "${lastLine.slice(-60)}")`);
+    log(`[${this.sessionName}] Screen: unknown (last line: "${lastLine.slice(-80)}")`);
     return "unknown";
   }
 

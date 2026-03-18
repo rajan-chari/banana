@@ -20,10 +20,11 @@ export class InputInjector {
   private lastOutputTime = Date.now();
   private pendingMessages = false;
   private idleDuringStartup = false;
+  private needsStartupKick = false;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
   private screenDetector: ScreenDetector | null = null;
-  private sawCompletion = false;        // stream saw "Cooked for 1m" etc.
-  private completionTime = 0;           // when we saw it
+  private sawCompletion = false;
+  private completionTime = 0;
 
   constructor(
     private ptyProcess: pty.IPty,
@@ -36,7 +37,6 @@ export class InputInjector {
       if (this.state === "startup") {
         log(`[${this.sessionName}] Startup grace period ended`);
         if (this.idleDuringStartup) {
-          // Hook fired during startup — user already interacted
           this.state = "idle";
           log(`[${this.sessionName}] Idle (deferred from startup)`);
           if (this.pendingMessages) {
@@ -44,9 +44,8 @@ export class InputInjector {
           }
         } else {
           this.state = "busy";
-          // idle_prompt doesn't fire after Claude's initial boot —
-          // inject "hi" to kick off startup initialization
-          this.startPostStartupFallback();
+          this.needsStartupKick = true;
+          log(`[${this.sessionName}] Needs startup kick — heuristic will handle`);
         }
       }
     }, STARTUP_GRACE_MS);
@@ -125,27 +124,47 @@ export class InputInjector {
       if (this.state !== "busy") return;
 
       const quietMs = Date.now() - this.lastOutputTime;
-      // Use fast threshold if stream saw a completion signal, else default
       const threshold = this.sawCompletion ? FAST_QUIET_MS : this.quietThresholdMs;
 
-      if (quietMs > threshold) {
-        if (this.screenDetector) {
-          const promptType = this.screenDetector.detectPromptType();
-          if (promptType === "input") {
-            const latency = this.sawCompletion ? Date.now() - this.completionTime : null;
-            log(`[${this.sessionName}] Idle (heuristic, quiet ${quietMs}ms, threshold ${threshold}ms${latency !== null ? `, completion→idle ${latency}ms` : ""})`);
+      if (quietMs <= threshold) return;
+
+      // Check screen state
+      if (this.screenDetector) {
+        const promptType = this.screenDetector.detectPromptType();
+        if (promptType === "input") {
+          // Startup kick: first time we see input prompt after boot
+          if (this.needsStartupKick) {
+            this.needsStartupKick = false;
             this.sawCompletion = false;
-            this.state = "idle";
-            if (this.pendingMessages) {
-              this.inject();
-            }
+            log(`[${this.sessionName}] Injecting startup kick (quiet ${quietMs}ms)`);
+            this.ptyProcess.write(STARTUP_KICK);
+            this.state = "cooldown";
+            setTimeout(() => { this.state = "busy"; }, this.cooldownMs);
+            return;
           }
-          // permission, busy, or unknown → stay busy, don't inject
+
+          const latency = this.sawCompletion ? Date.now() - this.completionTime : null;
+          log(`[${this.sessionName}] Idle (heuristic, quiet ${quietMs}ms, threshold ${threshold}ms${latency !== null ? `, completion→idle ${latency}ms` : ""})`);
+          this.sawCompletion = false;
+          this.state = "idle";
+          if (this.pendingMessages) {
+            this.inject();
+          }
+        }
+        // permission, busy, or unknown → stay busy (screen-detector already logged why)
+      } else {
+        // No screen detector — blind heuristic (unsafe, only if forced)
+        if (this.needsStartupKick) {
+          this.needsStartupKick = false;
+          log(`[${this.sessionName}] Injecting startup kick (quiet ${quietMs}ms, no screen)`);
+          this.ptyProcess.write(STARTUP_KICK);
+          this.state = "cooldown";
+          setTimeout(() => { this.state = "busy"; }, this.cooldownMs);
         } else {
           this.setIdle("heuristic");
         }
       }
-    }, 250); // check 4x/sec for faster response
+    }, 250);
   }
 
   stopHeuristic(): void {
@@ -155,47 +174,15 @@ export class InputInjector {
     }
   }
 
-  /**
-   * After startup grace, idle_prompt doesn't fire for Claude's initial boot.
-   * Wait for output to go quiet, then inject "hi" to kick off initialization.
-   * Auto-disables after firing once.
-   */
-  private startPostStartupFallback(): void {
-    if (this.heuristicTimer) return;
-    log(`[${this.sessionName}] Post-startup fallback: waiting for output quiet`);
-    this.heuristicTimer = setInterval(() => {
-      if (this.state !== "busy") return;
-      const quietMs = Date.now() - this.lastOutputTime;
-      const threshold = this.sawCompletion ? FAST_QUIET_MS : this.quietThresholdMs;
-
-      if (quietMs > threshold) {
-        // If screen detector is available, verify it's an input prompt before kicking
-        if (this.screenDetector) {
-          const promptType = this.screenDetector.detectPromptType();
-          if (promptType !== "input") return; // not ready yet
-        }
-        this.sawCompletion = false;
-        this.stopHeuristic();
-        log(`[${this.sessionName}] Injecting startup kick (quiet ${quietMs}ms)`);
-        this.ptyProcess.write(STARTUP_KICK);
-        this.state = "cooldown";
-        setTimeout(() => {
-          this.state = "busy";
-        }, this.cooldownMs);
-      }
-    }, 250);
-  }
-
   private inject(): void {
     this.state = "injecting";
     this.pendingMessages = false;
     log(`[${this.sessionName}] Injecting emcom inbox check`);
     this.ptyProcess.write(INJECTION_PROMPT);
 
-    // Transition to cooldown
     this.state = "cooldown";
     setTimeout(() => {
-      this.state = "busy"; // will transition to idle via heuristic/hook
+      this.state = "busy";
     }, this.cooldownMs);
   }
 
