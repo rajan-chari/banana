@@ -8,20 +8,9 @@ const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and c
 const STARTUP_KICK = "hi\r";
 const STARTUP_GRACE_MS = 10_000;
 
-// Strip ANSI escape sequences so regexes match the visible text
-const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07/g;
-function stripAnsi(s: string): string { return s.replace(ANSI_RE, ""); }
-
-// Stream-based detection patterns (applied to ANSI-stripped buffered data)
-const STREAM_BUSY_RE = /\S+…\s+\(/;              // "Zigzagging… (" in data stream
-const STREAM_COMPLETION_RE = /[A-Z]\S+\s+for\s+\d+[ms]/; // "Cooked for 1m" — capitalized verb
-
-// When we see a completion signal in the stream, reduce quiet threshold to this
-const FAST_QUIET_MS = 500;
-
-// Ring buffer size for stream detection — PTY chunks split text arbitrarily,
-// so we accumulate recent data and match against the combined buffer
-const STREAM_BUF_MAX = 512;
+// With screen detection confirming the ❯ prompt, a short quiet threshold is safe.
+// The animation updates every ~100ms, so 1s of silence = output is done.
+const SCREEN_AWARE_QUIET_MS = 1000;
 
 export class InputInjector {
   private state: State = "startup";
@@ -31,9 +20,6 @@ export class InputInjector {
   private needsStartupKick = false;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
   private screenDetector: ScreenDetector | null = null;
-  private sawCompletion = false;
-  private completionTime = 0;
-  private streamBuf = "";  // accumulates recent ANSI-stripped PTY output
 
   constructor(
     private ptyProcess: pty.IPty,
@@ -60,37 +46,11 @@ export class InputInjector {
     }, STARTUP_GRACE_MS);
   }
 
-  /** Call on every PTY output event — also scans for stream signals */
-  onOutput(data?: string): void {
-    const now = Date.now();
-    this.lastOutputTime = now;
+  /** Call on every PTY output event */
+  onOutput(): void {
+    this.lastOutputTime = Date.now();
     if (this.state === "idle") {
       this.state = "busy";
-    }
-
-    // Stream-based detection: accumulate ANSI-stripped chunks, match on buffer
-    if (data) {
-      this.streamBuf += stripAnsi(data);
-      // Keep buffer bounded
-      if (this.streamBuf.length > STREAM_BUF_MAX) {
-        this.streamBuf = this.streamBuf.slice(-STREAM_BUF_MAX);
-      }
-
-      if (STREAM_COMPLETION_RE.test(this.streamBuf)) {
-        if (!this.sawCompletion) {
-          // Extract the matching region for logging
-          const match = this.streamBuf.match(STREAM_COMPLETION_RE);
-          log(`[${this.sessionName}] Stream: completion detected ("${match?.[0]}")`);
-        }
-        this.sawCompletion = true;
-        this.completionTime = now;
-        this.streamBuf = "";  // reset after match to avoid re-matching
-      } else if (STREAM_BUSY_RE.test(this.streamBuf)) {
-        if (this.sawCompletion) {
-          log(`[${this.sessionName}] Stream: busy animation resumed — clearing completion`);
-          this.sawCompletion = false;
-        }
-      }
     }
   }
 
@@ -130,30 +90,25 @@ export class InputInjector {
 
   /**
    * Start the screen-aware heuristic timer.
-   * When a ScreenDetector is attached, this is enabled by default — the detector
-   * can distinguish input prompts from permission prompts, making the heuristic safe.
-   * Without a detector, the heuristic is disabled by default (pass enabled=true to force).
+   * With a ScreenDetector, uses a short quiet threshold (1s) since the detector
+   * confirms the ❯ prompt before acting. Without one, disabled by default.
    */
   startHeuristic(enabled?: boolean): void {
     const shouldEnable = enabled ?? !!this.screenDetector;
     if (!shouldEnable || this.heuristicTimer) return;
-    log(`[${this.sessionName}] Heuristic idle detection enabled (screen-aware: ${!!this.screenDetector}, fast quiet: ${FAST_QUIET_MS}ms)`);
+    const threshold = this.screenDetector ? SCREEN_AWARE_QUIET_MS : this.quietThresholdMs;
+    log(`[${this.sessionName}] Heuristic idle detection enabled (screen-aware: ${!!this.screenDetector}, quiet threshold: ${threshold}ms)`);
     this.heuristicTimer = setInterval(() => {
       if (this.state !== "busy") return;
 
       const quietMs = Date.now() - this.lastOutputTime;
-      const threshold = this.sawCompletion ? FAST_QUIET_MS : this.quietThresholdMs;
-
       if (quietMs <= threshold) return;
 
-      // Check screen state
       if (this.screenDetector) {
         const promptType = this.screenDetector.detectPromptType();
         if (promptType === "input") {
-          // Startup kick: first time we see input prompt after boot
           if (this.needsStartupKick) {
             this.needsStartupKick = false;
-            this.sawCompletion = false;
             log(`[${this.sessionName}] Injecting startup kick (quiet ${quietMs}ms)`);
             this.ptyProcess.write(STARTUP_KICK);
             this.state = "cooldown";
@@ -161,17 +116,14 @@ export class InputInjector {
             return;
           }
 
-          const latency = this.sawCompletion ? Date.now() - this.completionTime : null;
-          log(`[${this.sessionName}] Idle (heuristic, quiet ${quietMs}ms, threshold ${threshold}ms${latency !== null ? `, completion→idle ${latency}ms` : ""})`);
-          this.sawCompletion = false;
+          log(`[${this.sessionName}] Idle (heuristic, quiet ${quietMs}ms)`);
           this.state = "idle";
           if (this.pendingMessages) {
             this.inject();
           }
         }
-        // permission, busy, or unknown → stay busy (screen-detector already logged why)
+        // permission, busy, or unknown → stay busy
       } else {
-        // No screen detector — blind heuristic (unsafe, only if forced)
         if (this.needsStartupKick) {
           this.needsStartupKick = false;
           log(`[${this.sessionName}] Injecting startup kick (quiet ${quietMs}ms, no screen)`);
