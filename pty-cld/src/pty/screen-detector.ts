@@ -1,4 +1,5 @@
-import { Terminal } from "@xterm/headless";
+import pkg from "@xterm/headless";
+const { Terminal } = pkg;
 import { log } from "../log.js";
 
 export type PromptType = "input" | "permission" | "busy" | "unknown";
@@ -19,7 +20,7 @@ const BUSY_ANIMATION_RE = /\S+…\s+\(\d/;              // "Zigzagging… (1m" �
 const COMPLETION_RE = /\S+\s+for\s+\d+[ms]/;          // "Cooked for 1m 16s" — verb + for + duration
 
 export class ScreenDetector {
-  private terminal: Terminal;
+  private terminal: InstanceType<typeof Terminal>;
   private sessionName: string;
 
   constructor(cols: number, rows: number, sessionName: string) {
