@@ -5,6 +5,7 @@ import { join, dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { ClaudeSession } from "./pty/claude-session.js";
 import { EmcomClient } from "./emcom/client.js";
+import { log } from "./log.js";
 import type { SessionConfig } from "./config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -105,9 +106,15 @@ export async function startServer(): Promise<void> {
   // WebSocket for terminal I/O
   const wss = new WebSocketServer({ server: httpServer });
   const wsClients = new Set<WebSocket>();
+  const wsAlive = new Map<WebSocket, boolean>();
 
   wss.on("connection", (ws) => {
     wsClients.add(ws);
+    wsAlive.set(ws, true);
+
+    ws.on("pong", () => {
+      wsAlive.set(ws, true);
+    });
 
     // Send current session list
     const list = [...sessions.entries()].map(([name, s]) => ({
@@ -132,13 +139,31 @@ export async function startServer(): Promise<void> {
       } catch {}
     });
 
-    ws.on("close", () => wsClients.delete(ws));
+    ws.on("close", () => {
+      wsClients.delete(ws);
+      wsAlive.delete(ws);
+    });
 
     // Subscribe to all session output
     for (const [name, session] of sessions) {
       attachSessionToWs(name, session, ws);
     }
   });
+
+  // WebSocket heartbeat: detect dead connections every 30s
+  const heartbeatInterval = setInterval(() => {
+    for (const ws of wsClients) {
+      if (wsAlive.get(ws) === false) {
+        ws.terminate();
+        wsClients.delete(ws);
+        wsAlive.delete(ws);
+        continue;
+      }
+      wsAlive.set(ws, false);
+      ws.ping();
+    }
+  }, 30_000);
+  heartbeatInterval.unref();
 
   function attachSessionToWs(name: string, session: ClaudeSession, ws: WebSocket): void {
     const onData = (data: string) => {
@@ -181,7 +206,40 @@ export async function startServer(): Promise<void> {
   };
 
   httpServer.listen(DEFAULTS.webPort, () => {
-    console.log(`[pty-cld] Web UI: http://127.0.0.1:${DEFAULTS.webPort}`);
-    console.log(`[pty-cld] Control API: http://127.0.0.1:${DEFAULTS.webPort}/idle/:session`);
+    log(`[pty-cld] Web UI: http://127.0.0.1:${DEFAULTS.webPort}`);
+    log(`[pty-cld] Control API: http://127.0.0.1:${DEFAULTS.webPort}/idle/:session`);
   });
+
+  // Graceful shutdown
+  const shutdown = () => {
+    log("[pty-cld] Shutting down server...");
+
+    // Kill all sessions
+    for (const [name, session] of sessions) {
+      log(`[pty-cld] Killing session: ${name}`);
+      session.kill();
+    }
+    sessions.clear();
+
+    // Close all WebSocket clients
+    clearInterval(heartbeatInterval);
+    for (const ws of wsClients) {
+      ws.close(1001, "Server shutting down");
+    }
+    wsClients.clear();
+    wsAlive.clear();
+    wss.close();
+
+    // Close HTTP server
+    httpServer.close(() => {
+      log("[pty-cld] Server stopped");
+      process.exit(0);
+    });
+
+    // Force exit after 5s if graceful close hangs
+    setTimeout(() => process.exit(1), 5000).unref();
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }

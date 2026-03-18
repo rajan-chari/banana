@@ -1,4 +1,5 @@
 import { EmcomClient, type EmcomEmail } from "./client.js";
+import { log } from "../log.js";
 
 export type NewMessagesCallback = (emails: EmcomEmail[]) => void;
 
@@ -6,10 +7,12 @@ export class EmcomPoller {
   private seenIds = new Set<string>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private callback: NewMessagesCallback | null = null;
+  private lastErrorCode: string | null = null;
 
   constructor(
     private client: EmcomClient,
     private intervalMs: number,
+    private sessionName: string,
   ) {}
 
   onNewMessages(cb: NewMessagesCallback): void {
@@ -33,6 +36,13 @@ export class EmcomPoller {
   private async poll(): Promise<void> {
     try {
       const unread = await this.client.getUnread();
+
+      // Log reconnection if we were previously disconnected
+      if (this.lastErrorCode === "ECONNREFUSED") {
+        log(`[${this.sessionName}] emcom reconnected`);
+      }
+      this.lastErrorCode = null;
+
       const newEmails = unread.filter((e) => !this.seenIds.has(e.id));
 
       if (newEmails.length > 0) {
@@ -46,7 +56,16 @@ export class EmcomPoller {
         if (!currentIds.has(id)) this.seenIds.delete(id);
       }
     } catch (err) {
-      // Silently ignore poll errors (server might be down briefly)
+      const code = (err as any).cause?.code ?? (err as any).code ?? "UNKNOWN";
+      if (code === "ECONNREFUSED") {
+        // Log once, suppress repeats
+        if (this.lastErrorCode !== "ECONNREFUSED") {
+          log(`[${this.sessionName}] emcom unreachable (ECONNREFUSED)`);
+        }
+      } else {
+        log(`[${this.sessionName}] poll error: ${code} — ${err}`);
+      }
+      this.lastErrorCode = code;
     }
   }
 }

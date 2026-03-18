@@ -55,7 +55,7 @@ export class ClaudeSession extends EventEmitter {
 
     // Emcom client + poller
     const client = new EmcomClient(config.emcomServer, config.emcomIdentity);
-    this.poller = new EmcomPoller(client, config.pollIntervalMs);
+    this.poller = new EmcomPoller(client, config.pollIntervalMs, config.name);
 
     // Input injector
     this.injector = new InputInjector(

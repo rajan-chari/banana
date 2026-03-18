@@ -25,6 +25,12 @@ export interface AppConfig {
   sessions: SessionConfig[];
 }
 
+export interface CliOverrides {
+  pollIntervalMs?: number;
+  cooldownMs?: number;
+  controlPort?: number;
+}
+
 const DEFAULTS = {
   pollIntervalMs: 5000,
   quietThresholdMs: 3000,
@@ -36,20 +42,34 @@ const DEFAULTS = {
 export function readIdentity(dir: string): Identity | null {
   const path = join(dir, "identity.json");
   if (!existsSync(path)) return null;
-  return JSON.parse(readFileSync(path, "utf-8"));
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf-8"));
+    if (typeof raw.name !== "string" || !raw.name.trim()) {
+      console.error(`identity.json: "name" must be a non-empty string`);
+      return null;
+    }
+    if (typeof raw.server !== "string" || !raw.server.trim()) {
+      console.error(`identity.json: "server" must be a non-empty string`);
+      return null;
+    }
+    return raw as Identity;
+  } catch (err) {
+    console.error(`identity.json: failed to parse — ${err}`);
+    return null;
+  }
 }
 
-export function buildCliConfig(cwd: string, claudeArgs: string[]): AppConfig {
+export function buildCliConfig(cwd: string, claudeArgs: string[], overrides?: CliOverrides): AppConfig {
   const identity = readIdentity(cwd);
   if (!identity) {
-    console.error(`No identity.json found in ${cwd}. Register with emcom first.`);
+    console.error(`No valid identity.json found in ${cwd}. Register with emcom first.`);
     process.exit(1);
   }
 
   return {
     mode: "cli",
     webPort: DEFAULTS.webPort,
-    controlPort: DEFAULTS.controlPort,
+    controlPort: overrides?.controlPort ?? DEFAULTS.controlPort,
     sessions: [
       {
         name: identity.name,
@@ -57,9 +77,9 @@ export function buildCliConfig(cwd: string, claudeArgs: string[]): AppConfig {
         emcomServer: identity.server,
         workingDir: cwd,
         claudeArgs,
-        pollIntervalMs: DEFAULTS.pollIntervalMs,
+        pollIntervalMs: overrides?.pollIntervalMs ?? DEFAULTS.pollIntervalMs,
         quietThresholdMs: DEFAULTS.quietThresholdMs,
-        injectionCooldownMs: DEFAULTS.injectionCooldownMs,
+        injectionCooldownMs: overrides?.cooldownMs ?? DEFAULTS.injectionCooldownMs,
       },
     ],
   };

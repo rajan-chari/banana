@@ -4,18 +4,48 @@ import { createServer, type Server } from "http";
 import { execSync } from "child_process";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { buildCliConfig } from "./config.js";
+import { buildCliConfig, type CliOverrides } from "./config.js";
 import { ClaudeSession } from "./pty/claude-session.js";
+import { EmcomClient } from "./emcom/client.js";
 import { log } from "./log.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function parseArgs(argv: string[]): { serve: boolean; setup: boolean; claudeArgs: string[] } {
-  const firstArg = argv[0];
-  const setup = firstArg === "setup";
-  const serve = argv.includes("--serve");
-  const claudeArgs = argv.filter((a) => a !== "--serve" && a !== "setup");
-  return { serve, setup, claudeArgs };
+function parseArgs(argv: string[]): { serve: boolean; setup: boolean; claudeArgs: string[]; overrides: CliOverrides } {
+  const overrides: CliOverrides = {};
+  const claudeArgs: string[] = [];
+  let serve = false;
+  let setup = false;
+
+  let i = 0;
+  if (argv[0] === "setup") {
+    setup = true;
+    i = 1;
+  }
+
+  while (i < argv.length) {
+    const arg = argv[i];
+    if (arg === "--serve") {
+      serve = true;
+    } else if (arg === "--poll-interval" && i + 1 < argv.length) {
+      const val = Number(argv[++i]);
+      if (Number.isNaN(val)) { console.error(`Invalid --poll-interval: ${argv[i]}`); process.exit(1); }
+      overrides.pollIntervalMs = val;
+    } else if (arg === "--cooldown" && i + 1 < argv.length) {
+      const val = Number(argv[++i]);
+      if (Number.isNaN(val)) { console.error(`Invalid --cooldown: ${argv[i]}`); process.exit(1); }
+      overrides.cooldownMs = val;
+    } else if (arg === "--control-port" && i + 1 < argv.length) {
+      const val = Number(argv[++i]);
+      if (Number.isNaN(val)) { console.error(`Invalid --control-port: ${argv[i]}`); process.exit(1); }
+      overrides.controlPort = val;
+    } else {
+      claudeArgs.push(arg);
+    }
+    i++;
+  }
+
+  return { serve, setup, claudeArgs, overrides };
 }
 
 /** Bind control API, trying successive ports. Returns { server, port }. */
@@ -52,10 +82,31 @@ function bindControlApi(startPort: number): Promise<{ server: Server; port: numb
   });
 }
 
-async function runCli(claudeArgs: string[]): Promise<void> {
+async function runCli(claudeArgs: string[], overrides: CliOverrides): Promise<void> {
   const cwd = process.cwd();
-  const config = buildCliConfig(cwd, claudeArgs);
+  const config = buildCliConfig(cwd, claudeArgs, overrides);
   const sessionCfg = config.sessions[0];
+
+  // Validate emcom server is reachable and identity exists
+  const client = new EmcomClient(sessionCfg.emcomServer, sessionCfg.emcomIdentity);
+  try {
+    const healthy = await client.health();
+    if (!healthy) {
+      console.error(`Cannot reach emcom server at ${sessionCfg.emcomServer}`);
+      console.error(`Start it with: emcom-server`);
+      process.exit(1);
+    }
+    const identities = await client.getWho();
+    const found = identities.some((id) => id.name === sessionCfg.emcomIdentity);
+    if (!found) {
+      console.error(`Identity "${sessionCfg.emcomIdentity}" not found on emcom server`);
+      console.error(`Register with: emcom register`);
+      process.exit(1);
+    }
+  } catch (err) {
+    console.error(`Failed to validate emcom: ${err}`);
+    process.exit(1);
+  }
 
   // Bind control API first so we know the actual port
   const { server: controlServer, port: actualPort } = await bindControlApi(config.controlPort);
@@ -83,6 +134,7 @@ async function runCli(claudeArgs: string[]): Promise<void> {
 
   session.on("exit", (code: number | undefined) => {
     log(`[pty-cld] Claude exited (code ${code ?? "unknown"})`);
+    process.stdin.setRawMode?.(false);
     controlServer.close();
     process.exit(code ?? 0);
   });
@@ -123,8 +175,14 @@ async function runCli(claudeArgs: string[]): Promise<void> {
   // Start polling + heuristic
   session.start();
 
+  // Safety net: always restore raw mode on process exit
+  process.on("exit", () => {
+    try { process.stdin.setRawMode?.(false); } catch {}
+  });
+
   // Graceful shutdown
   const cleanup = () => {
+    process.stdin.setRawMode?.(false);
     session.kill();
     controlServer.close();
     process.exit(0);
@@ -134,7 +192,7 @@ async function runCli(claudeArgs: string[]): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { serve, setup, claudeArgs } = parseArgs(process.argv.slice(2));
+  const { serve, setup, claudeArgs, overrides } = parseArgs(process.argv.slice(2));
 
   if (setup) {
     const { runSetup } = await import("./setup.js");
@@ -143,11 +201,12 @@ async function main(): Promise<void> {
     const { startServer } = await import("./server.js");
     await startServer();
   } else {
-    await runCli(claudeArgs);
+    await runCli(claudeArgs, overrides);
   }
 }
 
 main().catch((err) => {
+  process.stdin.setRawMode?.(false);
   console.error(err);
   process.exit(1);
 });
