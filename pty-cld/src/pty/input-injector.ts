@@ -14,7 +14,7 @@ function stripAnsi(s: string): string { return s.replace(ANSI_RE, ""); }
 
 // Stream-based detection patterns (applied to ANSI-stripped buffered data)
 const STREAM_BUSY_RE = /\S+…\s+\(/;              // "Zigzagging… (" in data stream
-const STREAM_COMPLETION_RE = /\S+\s+for\s+\d+[ms]/; // "Cooked for 1m" in data stream
+const STREAM_COMPLETION_RE = /[A-Z]\S+\s+for\s+\d+[ms]/; // "Cooked for 1m" — capitalized verb
 
 // When we see a completion signal in the stream, reduce quiet threshold to this
 const FAST_QUIET_MS = 500;

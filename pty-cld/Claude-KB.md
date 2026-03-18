@@ -49,3 +49,21 @@ The Claude Code TUI shows an animated status line while working and a static com
 - **Busy**: `verb… (duration · stats)` e.g. `Zigzagging… (1m 8s · ↑ 1.4k tokens)` — regex: `/\S+…\s+\(\d/`
 - **Done**: `verb for duration` e.g. `Cooked for 1m 16s` — regex: `/\S+\s+for\s+\d+[ms]/`
 - **Idle**: `>` or `❯` on its own line below the completion line
+
+### 2026-03-18: @xterm/headless is CJS — needs default import in ESM
+`import { Terminal } from "@xterm/headless"` fails at runtime with "Named export not found" because the package is CommonJS. Fix: `import pkg from "@xterm/headless"; const { Terminal } = pkg;` and use `InstanceType<typeof Terminal>` for the type annotation.
+
+### 2026-03-18: cursorY points to the status bar, not the prompt
+Claude Code renders the status bar last, leaving `cursorY` at the bottom status area. Don't use `cursorY` to locate the input prompt. Instead scan the full viewport bottom-up and skip status bar lines (matching `@user $cost`, `shift+tab`, `accept edits`).
+
+### 2026-03-18: PTY onData chunks split text arbitrarily
+A line like "Brewed for 1m 47s" can arrive as `"Brewed"` + `" for 1m 47s"` across two onData calls. Single-chunk regex matching silently fails. Fix: accumulate ANSI-stripped data in a ring buffer (~512 bytes) and match against the combined text.
+
+### 2026-03-18: Startup response has no completion line
+After the startup kick ("hi"), Claude's first response goes straight to the `❯` prompt with no "Brewed for..." completion line. Stream completion detection cannot trigger for the first turn. The heuristic falls through to the default 3s quiet threshold + screen check.
+
+### 2026-03-18: Busy animation variants
+The busy line has multiple formats — all share `verb… (` but the parenthesized content varies:
+- `Zigzagging… (1m 8s · ↑ 1.4k tokens)` — duration + token stats
+- `Perusing… (thinking with high effort)` — thinking label, no digits
+Don't require digits after `(`.

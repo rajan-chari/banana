@@ -19,7 +19,7 @@ export type PromptType = "input" | "permission" | "busy" | "unknown";
 const INPUT_PROMPT_RE = /^[❯>]\s*$/;
 const PERMISSION_PROMPT_RE = /allow|permission|approve|deny|y\/n|yes.*no/i;
 const BUSY_ANIMATION_RE = /\S+…\s+\(/;               // "Zigzagging… (" — verb + ellipsis + open paren
-const COMPLETION_RE = /\S+\s+for\s+\d+[ms]/;          // "Cooked for 1m 16s"
+const COMPLETION_RE = /[A-Z]\S+\s+for\s+\d+[ms]/;      // "Cooked for 1m 16s" — capitalized verb
 const STATUS_BAR_RE = /^\s*[▸▶●⏺]\s|@\w+\s+\$|shift.tab|accept\s+edits/i;  // status bar indicators
 
 export class ScreenDetector {
