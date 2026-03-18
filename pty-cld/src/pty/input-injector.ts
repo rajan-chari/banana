@@ -8,7 +8,11 @@ const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and c
 const STARTUP_KICK = "hi\r";
 const STARTUP_GRACE_MS = 10_000;
 
-// Stream-based detection patterns (same as screen-detector but applied to raw data)
+// Strip ANSI escape sequences so regexes match the visible text
+const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07/g;
+function stripAnsi(s: string): string { return s.replace(ANSI_RE, ""); }
+
+// Stream-based detection patterns (applied to ANSI-stripped data)
 const STREAM_BUSY_RE = /\S+…\s+\(/;              // "Zigzagging… (" in data stream
 const STREAM_COMPLETION_RE = /\S+\s+for\s+\d+[ms]/; // "Cooked for 1m" in data stream
 
@@ -59,15 +63,16 @@ export class InputInjector {
       this.state = "busy";
     }
 
-    // Stream-based detection: scan raw data for busy/completion patterns
+    // Stream-based detection: strip ANSI codes then match patterns
     if (data) {
-      if (STREAM_COMPLETION_RE.test(data)) {
+      const clean = stripAnsi(data);
+      if (STREAM_COMPLETION_RE.test(clean)) {
         if (!this.sawCompletion) {
-          log(`[${this.sessionName}] Stream: completion detected`);
+          log(`[${this.sessionName}] Stream: completion detected ("${clean.trim().slice(0, 60)}")`);
         }
         this.sawCompletion = true;
         this.completionTime = now;
-      } else if (STREAM_BUSY_RE.test(data)) {
+      } else if (STREAM_BUSY_RE.test(clean)) {
         if (this.sawCompletion) {
           log(`[${this.sessionName}] Stream: busy animation resumed — clearing completion`);
           this.sawCompletion = false;
