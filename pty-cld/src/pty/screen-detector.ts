@@ -11,12 +11,12 @@ export type PromptType = "input" | "permission" | "busy" | "unknown";
 // Idle:   "> " or "❯ " at line start                  — input prompt, cursor waiting
 //
 // Busy vs done: busy has "verb…" (ellipsis) + "(stats)", done has "verb for duration".
-// Prefix is ※ or *. Cooking verbs rotate: Transmuting, Zigzagging, Sautéing, etc.
+// The leading character cycles (※, *, emoji, etc.) — don't match on prefix.
 
 const INPUT_PROMPT_RE = /^[❯>]\s*$/;
 const PERMISSION_PROMPT_RE = /allow|permission|approve|deny|y\/n|yes.*no/i;
-const BUSY_ANIMATION_RE = /^[※*]\s+\S+…\s+\(/;      // "※ Zigzagging… (" or "* Transmuting… ("
-const COMPLETION_RE = /^※\s+\S+\s+for\s+\d/;         // "※ Cooked for 1m 16s"
+const BUSY_ANIMATION_RE = /\S+…\s+\(\d/;              // "Zigzagging… (1m" — verb + ellipsis + (stats)
+const COMPLETION_RE = /\S+\s+for\s+\d+[ms]/;          // "Cooked for 1m 16s" — verb + for + duration
 
 export class ScreenDetector {
   private terminal: Terminal;
