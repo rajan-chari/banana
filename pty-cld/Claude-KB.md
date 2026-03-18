@@ -8,8 +8,8 @@
 ### 2026-03-14: Notification hook fires for all notification types
 The `Notification` hook fires for `permission_prompt`, `idle_prompt`, `auth_success`, etc. Must filter on `notification_type` in the hook script — injecting during a permission dialog would corrupt the UI.
 
-### 2026-03-14: Heuristic idle detection is unsafe
-The "no output for 3s = idle" heuristic can't distinguish permission prompts from the input prompt. Disabled by default — rely on the `idle_prompt` hook instead.
+### 2026-03-14: Heuristic idle detection is unsafe without screen detection
+The "no output for Ns = idle" heuristic alone can't distinguish permission prompts from the input prompt. With xterm-headless screen detection confirming the `❯` prompt, it's safe to use a 1s threshold.
 
 ### 2026-03-14: Use 127.0.0.1 not localhost
 IPv6 DNS penalty on Windows makes `localhost` slow. Always use `127.0.0.1` for emcom server and control API.
@@ -38,17 +38,14 @@ Node.js `setRawMode(true)` on Windows uses libuv's `UV_TTY_MODE_RAW`, which does
 ### 2026-03-18: xterm-headless enables screen-aware idle detection
 node-pty provides raw byte I/O but no screen state. `xterm-headless` (from the xterm.js project) is a headless terminal emulator — feed it PTY output and it maintains an in-memory cell grid. You can read `buffer.getLine(y).translateToString()` to see what's rendered. This lets you pattern-match on prompt content (e.g. `❯` for input prompt vs. `Allow?` for permission prompt) instead of relying solely on the Notification hook. Design notes in `banana/pty-xterm-musings.md`.
 
-### 2026-03-18: Two complementary idle detection signals — stream and screen
-pty-cld has access to both the raw PTY data stream (`onData()`) and the rendered screen buffer (xterm-headless). These are complementary:
-- **Stream-based** (real-time): scan `onData()` bytes for busy animation (`verb… (digits`) and completion patterns (`verb for Nm`). Detects the busy→done transition the instant it happens — no delay.
-- **Screen-based** (snapshot): xterm-headless renders the full screen state. Useful for confirmation after output goes quiet — can distinguish input prompt (`>`) from permission prompt (`Allow?`).
-Best approach: stream detection for the fast signal, screen detection for the confident confirmation.
+### 2026-03-18: Screen-only idle detection beats stream+screen
+Initially tried dual detection: stream-based (parsing raw PTY bytes for busy/completion patterns) + screen-based (xterm-headless snapshot). Stream parsing was abandoned — ANSI escapes break regexes, PTY chunks split text arbitrarily, and content like "(thought for 4s)" causes false positives. The simpler approach works better: output quiet for 1s + screen shows `❯` = idle. The busy animation updates every ~100ms, so 1s silence reliably means done.
 
-### 2026-03-18: Claude Code status line patterns for busy vs done
-The Claude Code TUI shows an animated status line while working and a static completion line when done. The leading character cycles (※, *, emoji) — don't match on prefix.
-- **Busy**: `verb… (duration · stats)` e.g. `Zigzagging… (1m 8s · ↑ 1.4k tokens)` — regex: `/\S+…\s+\(\d/`
-- **Done**: `verb for duration` e.g. `Cooked for 1m 16s` — regex: `/\S+\s+for\s+\d+[ms]/`
-- **Idle**: `>` or `❯` on its own line below the completion line
+### 2026-03-18: Claude Code status line patterns
+The Claude Code TUI shows an animated status line while working. The leading character cycles (※, *, emoji) — don't match on prefix.
+- **Busy**: `verb… (...)` e.g. `Zigzagging… (1m 8s · ↑ 1.4k tokens)` or `Perusing… (thinking with high effort)` — regex: `/\S+…\s+\(/`
+- **Idle**: `❯` or `>` on its own line — regex: `/^[❯>]\s*$/`
+- **Status bar** (skip): `@user $cost`, `shift+tab`, `accept edits` — regex: `/^\s*[▸▶●⏺]\s|@\w+\s+\$|shift.tab|accept\s+edits/i`
 
 ### 2026-03-18: @xterm/headless is CJS — needs default import in ESM
 `import { Terminal } from "@xterm/headless"` fails at runtime with "Named export not found" because the package is CommonJS. Fix: `import pkg from "@xterm/headless"; const { Terminal } = pkg;` and use `InstanceType<typeof Terminal>` for the type annotation.
@@ -57,10 +54,7 @@ The Claude Code TUI shows an animated status line while working and a static com
 Claude Code renders the status bar last, leaving `cursorY` at the bottom status area. Don't use `cursorY` to locate the input prompt. Instead scan the full viewport bottom-up and skip status bar lines (matching `@user $cost`, `shift+tab`, `accept edits`).
 
 ### 2026-03-18: PTY onData chunks split text arbitrarily
-A line like "Brewed for 1m 47s" can arrive as `"Brewed"` + `" for 1m 47s"` across two onData calls. Single-chunk regex matching silently fails. Fix: accumulate ANSI-stripped data in a ring buffer (~512 bytes) and match against the combined text.
-
-### 2026-03-18: Startup response has no completion line
-After the startup kick ("hi"), Claude's first response goes straight to the `❯` prompt with no "Brewed for..." completion line. Stream completion detection cannot trigger for the first turn. The heuristic falls through to the default 3s quiet threshold + screen check.
+A line like "Brewed for 1m 47s" can arrive as `"Brewed"` + `" for 1m 47s"` across two onData calls. Single-chunk regex matching silently fails. This is why stream-based detection was abandoned in favor of screen-based detection via xterm-headless.
 
 ### 2026-03-18: Busy animation variants
 The busy line has multiple formats — all share `verb… (` but the parenthesized content varies:
