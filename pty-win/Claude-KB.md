@@ -27,3 +27,6 @@ Tab single-click switches workspace (calls `renderTabs()` which destroys DOM). D
 
 ### 2026-03-22: Initial PTY dimensions should match browser
 Server spawns PTY at 120x40 by default. Browser terminal may be 200x45. The mismatch causes Claude to render at 120 cols, leaving empty space. Fix: pass `cols`/`rows` in `POST /api/sessions` estimated from the workspace area dimensions.
+
+### 2026-03-22: Dynamic emcom attach — watch for identity.json
+If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.

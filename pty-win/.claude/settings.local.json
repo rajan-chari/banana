@@ -13,7 +13,10 @@
       "mcp__chrome-devtools__fill",
       "mcp__chrome-devtools__press_key",
       "mcp__chrome-devtools__list_console_messages",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(find C:sprojectsworkteamsworkingbananapty-win -maxdepth 2 -type f \\\\\\(-name README* -o -name *.md \\\\\\))",
+      "Bash(~/.claude/skills/emcom/bin/emcom :*)",
+      "Bash(emcom:*)"
     ]
   }
 }
