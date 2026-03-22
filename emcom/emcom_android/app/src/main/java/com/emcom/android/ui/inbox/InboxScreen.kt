@@ -74,21 +74,19 @@ fun InboxScreen(
             }
 
             // Content
-            when {
-                state.error != null -> ErrorState(state.error!!, onRetry = viewModel::refresh)
-                state.isLoading -> LoadingState()
-                else -> {
-                    PullToRefreshBox(
-                        isRefreshing = state.isLoading,
-                        onRefresh = viewModel::refresh,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        when (state.activeTab) {
-                            Tab.INBOX -> EmailList(state.inboxEmails, showSender = true, onEmailClick)
-                            Tab.SENT -> EmailList(state.sentEmails, showSender = false, onEmailClick)
-                            Tab.ALL -> EmailList(state.allEmails, showSender = true, onEmailClick)
-                            Tab.THREADS -> ThreadList(state.threads, onThreadClick)
-                        }
+            PullToRefreshBox(
+                isRefreshing = state.isLoading,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                when {
+                    state.error != null -> ErrorState(state.error!!, onRetry = viewModel::refresh)
+                    state.isLoading && state.inboxEmails.isEmpty() -> LoadingState()
+                    else -> when (state.activeTab) {
+                        Tab.INBOX -> EmailList(state.inboxEmails, showSender = true, onEmailClick)
+                        Tab.SENT -> EmailList(state.sentEmails, showSender = false, onEmailClick)
+                        Tab.ALL -> EmailList(state.allEmails, showSender = true, onEmailClick)
+                        Tab.THREADS -> ThreadList(state.threads, onThreadClick)
                     }
                 }
             }
@@ -102,10 +100,10 @@ private fun EmailList(
     showSender: Boolean,
     onClick: (String) -> Unit
 ) {
-    if (emails.isEmpty()) {
-        EmptyState("No messages")
-    } else {
-        LazyColumn {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        if (emails.isEmpty()) {
+            item { EmptyState("No messages") }
+        } else {
             items(emails, key = { it.id }) { email ->
                 EmailListItem(email, showSender) { onClick(email.id) }
                 HorizontalDivider()
@@ -119,10 +117,10 @@ private fun ThreadList(
     threads: List<com.emcom.android.data.api.ThreadDto>,
     onClick: (String) -> Unit
 ) {
-    if (threads.isEmpty()) {
-        EmptyState("No threads")
-    } else {
-        LazyColumn {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        if (threads.isEmpty()) {
+            item { EmptyState("No threads") }
+        } else {
             items(threads, key = { it.threadId }) { thread ->
                 ThreadListItem(thread) { onClick(thread.threadId) }
                 HorizontalDivider()
