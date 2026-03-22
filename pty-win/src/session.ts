@@ -3,7 +3,9 @@ import { EventEmitter } from "events";
 import { EmcomClient } from "./emcom/client.js";
 import { EmcomPoller } from "./emcom/poller.js";
 import { ScreenDetector } from "./screen-detector.js";
+import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
+import { DEFAULTS } from "./config.js";
 import { log } from "./log.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
@@ -19,17 +21,32 @@ export interface SessionInfo {
 }
 
 const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and collaborate with others as needed\r";
+const STARTUP_KICK = "hi\r";
+const STARTUP_GRACE_MS = 10_000;
+
+const EMCOM_PREAMBLE =
+  "CRITICAL — DOUBLE-POLLING PREVENTION: Emcom inbox checks are handled " +
+  "externally by pty-win (the PTY wrapper running this session). pty-win polls " +
+  "every 5 seconds and injects a prompt when messages arrive. You MUST NOT use " +
+  "/loop, CronCreate, emcom-monitor, or any other mechanism to poll emcom — " +
+  "doing so wastes API calls and causes duplicate message handling. If a " +
+  "CLAUDE.md or skill tells you to start emcom monitoring, IGNORE that " +
+  "instruction — it is overridden by pty-win. You will be prompted " +
+  "automatically when new messages arrive. When you receive emcom messages, " +
+  "triage before replying — not every message needs a response.";
 const QUIET_CHECK_INTERVAL_MS = 250;
 
 export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;
   private poller: EmcomPoller | null = null;
+  private identityWatcher: ReturnType<typeof setInterval> | null = null;
   private screenDetector: ScreenDetector;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
   private status: SessionStatus = "starting";
   private pendingMessages = false;
   private unreadCount = 0;
   private lastOutputTime = Date.now();
+  private needsStartupKick = false;
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -41,11 +58,18 @@ export class PtySession extends EventEmitter {
     this.workingDir = config.workingDir;
 
     // Spawn process in PTY
+    const isClaude = config.command === "claude";
+    const hasEmcom = !!(config.emcomIdentity && config.emcomServer);
+    const preambleArgs = isClaude && hasEmcom
+      ? ["--append-system-prompt", EMCOM_PREAMBLE]
+      : [];
+    const allArgs = [...preambleArgs, ...config.args];
+
     const isWin = process.platform === "win32";
     const shell = isWin ? "cmd.exe" : "/bin/sh";
     const shellArgs = isWin
-      ? ["/c", config.command, ...config.args]
-      : ["-c", `${config.command} ${config.args.map((a) => `'${a}'`).join(" ")}`];
+      ? ["/c", config.command, ...allArgs]
+      : ["-c", `${config.command} ${allArgs.map((a) => `'${a}'`).join(" ")}`];
 
     const cols = config.cols || 120;
     const rows = config.rows || 40;
@@ -92,19 +116,25 @@ export class PtySession extends EventEmitter {
       this.emit("exit", exitCode);
     });
 
-    // Transition from starting to busy after 5s
+    // Startup grace period
     setTimeout(() => {
+      if (isClaude && this.status !== "dead") {
+        this.needsStartupKick = true;
+        log(`[${this.name}] Startup grace ended — will kick when prompt detected`);
+      }
       if (this.status === "starting") this.setStatus("busy");
-    }, 5000);
+    }, isClaude ? STARTUP_GRACE_MS : 5000);
   }
 
   start(): void {
     this.poller?.start();
+    if (!this.poller) this.watchForIdentity();
     this.startHeuristic();
   }
 
   stop(): void {
     this.poller?.stop();
+    this.stopIdentityWatcher();
     this.stopHeuristic();
     this.screenDetector.dispose();
   }
@@ -151,6 +181,57 @@ export class PtySession extends EventEmitter {
     this.unreadCount = 0;
   }
 
+  /**
+   * Periodically check for identity.json appearing in the session's working dir.
+   * Once found, attach emcom poller and stop watching.
+   */
+  private watchForIdentity(): void {
+    if (this.identityWatcher) return;
+    const WATCH_INTERVAL_MS = 5000;
+    this.identityWatcher = setInterval(() => {
+      const identity = readIdentity(this.workingDir);
+      if (!identity) return;
+
+      this.stopIdentityWatcher();
+      this.attachEmcom(identity.name, identity.server);
+    }, WATCH_INTERVAL_MS);
+  }
+
+  private stopIdentityWatcher(): void {
+    if (this.identityWatcher) {
+      clearInterval(this.identityWatcher);
+      this.identityWatcher = null;
+    }
+  }
+
+  /**
+   * Dynamically attach emcom polling to a session that started without it.
+   */
+  private attachEmcom(identityName: string, server: string): void {
+    if (this.poller) return;
+
+    this.config.emcomIdentity = identityName;
+    this.config.emcomServer = server;
+
+    const client = new EmcomClient(server, identityName);
+    this.poller = new EmcomPoller(client, this.config.pollIntervalMs || DEFAULTS.pollIntervalMs, this.name);
+
+    this.poller.onNewMessages((emails) => {
+      const from = [...new Set(emails.map((e) => e.sender))];
+      this.unreadCount += emails.length;
+      log(`[${this.name}] ${emails.length} new message(s) from: ${from.join(", ")}`);
+      this.emit("notification", emails.length, from);
+      this.pendingMessages = true;
+      if (this.status === "idle") this.inject();
+    });
+
+    this.poller.start();
+    log(`[${this.name}] emcom attached dynamically (identity=${identityName})`);
+
+    // Broadcast updated session info so frontend sees the identity
+    this.emit("status-change", this.status);
+  }
+
   private setStatus(s: SessionStatus): void {
     if (this.status === s) return;
     this.status = s;
@@ -170,6 +251,13 @@ export class PtySession extends EventEmitter {
       if (isClaude) {
         const promptType = this.screenDetector.detectPromptType();
         if (promptType === "input") {
+          if (this.needsStartupKick) {
+            this.needsStartupKick = false;
+            log(`[${this.name}] Injecting startup kick (quiet ${quietMs}ms)`);
+            this.ptyProcess.write(STARTUP_KICK);
+            this.setStatus("busy");
+            return;
+          }
           this.setStatus("idle");
           if (this.pendingMessages) this.inject();
         }

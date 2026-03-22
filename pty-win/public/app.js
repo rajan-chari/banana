@@ -22,6 +22,7 @@ const state = {
   visitedFolders: [],     // {name, path, identityName?, isClaudeReady}[] for quick-open
   expandedPaths: new Set(),
   ctxTarget: null,        // path for context menu
+  sessionMeta: new Map(), // name -> { workingDir, command } for recreating after restart
 };
 
 let nextWorkspaceId = 1;
@@ -111,6 +112,20 @@ function saveSidebarWidth(w) {
   localStorage.setItem("pty-win-sidebar-width", String(w));
 }
 
+function loadSessionMeta() {
+  try {
+    const raw = localStorage.getItem("pty-win-session-meta");
+    if (!raw) return new Map();
+    return new Map(Object.entries(JSON.parse(raw)));
+  } catch { return new Map(); }
+}
+
+function saveSessionMeta() {
+  const obj = {};
+  for (const [name, meta] of state.sessionMeta) obj[name] = meta;
+  localStorage.setItem("pty-win-session-meta", JSON.stringify(obj));
+}
+
 // ===== WebSocket =====
 
 function connect() {
@@ -135,15 +150,41 @@ function connect() {
         state.sessions.clear();
         for (const s of msg.payload) state.sessions.set(s.name, s);
 
-        // Prune workspace layouts: remove leaves for sessions that no longer exist
+        // Capture session metadata for recreation after restarts
+        for (const s of msg.payload) {
+          state.sessionMeta.set(s.name, { workingDir: s.workingDir, command: s.command });
+        }
+        saveSessionMeta();
+
+        // Collect orphaned workspace leaves (in layout but not on server)
+        const orphans = new Set();
         for (const ws of state.workspaces) {
           if (!ws.layout) continue;
-          const leaves = getLeafList(ws.layout);
-          const alive = leaves.filter((n) => serverNames.has(n));
-          if (alive.length < leaves.length) {
-            ws.layout = buildBalancedTree(alive);
-            updateWorkspaceTabName(ws);
+          for (const name of getLeafList(ws.layout)) {
+            if (!serverNames.has(name)) orphans.add(name);
           }
+        }
+
+        // Attempt to recreate orphans that have saved metadata; prune the rest
+        const recreatable = [...orphans].filter((n) => state.sessionMeta.has(n));
+        const unrecoverable = [...orphans].filter((n) => !state.sessionMeta.has(n));
+
+        // Prune leaves with no metadata (truly unknown)
+        if (unrecoverable.length > 0) {
+          for (const ws of state.workspaces) {
+            if (!ws.layout) continue;
+            const leaves = getLeafList(ws.layout);
+            const alive = leaves.filter((n) => !unrecoverable.includes(n));
+            if (alive.length < leaves.length) {
+              ws.layout = buildBalancedTree(alive);
+              updateWorkspaceTabName(ws);
+            }
+          }
+        }
+
+        // Recreate sessions that have metadata (async, server will re-broadcast)
+        if (recreatable.length > 0) {
+          recreateOrphanedSessions(recreatable);
         }
 
         refreshTreeRunningState();
@@ -355,6 +396,64 @@ function cssId(path) {
   return path.replace(/[^a-zA-Z0-9]/g, "_");
 }
 
+// ===== Session Recreation =====
+
+let recreationInProgress = false;
+
+async function recreateOrphanedSessions(names) {
+  if (recreationInProgress) return;
+  recreationInProgress = true;
+
+  const mainEl = document.getElementById("main");
+  const charW = 7.6, charH = 18;
+  const availW = (mainEl?.clientWidth || 800) - 4;
+  const availH = (mainEl?.clientHeight || 600) - 35 - 26 - 22 - 4;
+  const cols = Math.max(80, Math.floor(availW / charW));
+  const rows = Math.max(24, Math.floor(availH / charH));
+
+  for (const name of names) {
+    const meta = state.sessionMeta.get(name);
+    if (!meta) continue;
+
+    try {
+      const body = { workingDir: meta.workingDir, cols, rows };
+      if (meta.command && meta.command !== "claude") body.command = meta.command;
+
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        console.warn(`Failed to recreate session "${name}":`, await res.text());
+        pruneFailedSession(name);
+      }
+      // Success: server will broadcast updated sessions list, triggering re-render
+    } catch (err) {
+      console.warn(`Error recreating session "${name}":`, err);
+      pruneFailedSession(name);
+    }
+  }
+
+  recreationInProgress = false;
+}
+
+function pruneFailedSession(name) {
+  state.sessionMeta.delete(name);
+  saveSessionMeta();
+  for (const ws of state.workspaces) {
+    if (ws.layout && treeContains(ws.layout, name)) {
+      const leaves = getLeafList(ws.layout).filter((n) => n !== name);
+      ws.layout = buildBalancedTree(leaves);
+      updateWorkspaceTabName(ws);
+    }
+  }
+  saveWorkspaces();
+  if (state.isDashboard) renderDashboard();
+  else renderActiveWorkspace();
+}
+
 // ===== Open Folder =====
 
 /** Get the active workspace, or the most recent one, or create a new one */
@@ -487,7 +586,7 @@ document.addEventListener("click", () => {
   document.getElementById("context-menu").classList.add("hidden");
 });
 
-document.getElementById("context-menu").addEventListener("click", (e) => {
+document.getElementById("context-menu").addEventListener("click", async (e) => {
   const action = e.target.closest(".ctx-item")?.dataset.action;
   if (!action || !state.ctxTarget) return;
 
@@ -505,6 +604,24 @@ document.getElementById("context-menu").addEventListener("click", (e) => {
     case "open-cmd": {
       const cmd = prompt("Command to run:", "cmd.exe");
       if (cmd) openFolder(path, name, cmd);
+      break;
+    }
+    case "new-folder": {
+      const folderName = prompt("New folder name:");
+      if (!folderName?.trim()) break;
+      const trimmed = folderName.trim();
+      if (/[/\\:*?"<>|]/.test(trimmed)) { alert("Invalid folder name. Avoid: / \\ : * ? \" < > |"); break; }
+      try {
+        const res = await fetch("/api/folders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parentPath: path, name: trimmed }),
+        });
+        if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to create folder"); break; }
+        state.folderCache.delete(path);
+        state.expandedPaths.add(path);
+        renderTree();
+      } catch (err) { alert("Failed to create folder: " + err.message); }
       break;
     }
     case "fav-add":
@@ -617,6 +734,9 @@ function toggleSidebar() {
 
 document.getElementById("btn-collapse").onclick = toggleSidebar;
 document.getElementById("btn-expand").onclick = toggleSidebar;
+
+function refreshTree() { state.folderCache.clear(); renderTree(); }
+document.getElementById("btn-refresh").onclick = refreshTree;
 
 // Sidebar resize handle
 (() => {
@@ -1165,6 +1285,8 @@ async function killSession(sessionName) {
   }
 
   state.sessions.delete(sessionName);
+  state.sessionMeta.delete(sessionName);
+  saveSessionMeta();
   if (state.focusedPane === sessionName) state.focusedPane = null;
 
   refreshTreeRunningState();
@@ -1199,6 +1321,8 @@ function autoRemoveDeadSession(sessionName) {
   }
 
   state.sessions.delete(sessionName);
+  state.sessionMeta.delete(sessionName);
+  saveSessionMeta();
   if (state.focusedPane === sessionName) {
     state.focusedPane = null;
     const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
@@ -1346,6 +1470,7 @@ if (savedWs) {
   state.isDashboard = savedWs.isDashboard !== false;
   nextWorkspaceId = savedWs.nextId || 1;
 }
+state.sessionMeta = loadSessionMeta();
 
 renderTabs();
 if (state.isDashboard) renderDashboard();

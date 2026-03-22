@@ -1,4 +1,4 @@
-import { readdirSync, statSync, readFileSync, existsSync } from "fs";
+import { readdirSync, statSync, readFileSync, existsSync, mkdirSync } from "fs";
 import { join, basename } from "path";
 import { log } from "./log.js";
 
@@ -91,4 +91,14 @@ export function readIdentity(dir: string): { name: string; server: string } | nu
   } catch {
     return null;
   }
+}
+
+/**
+ * Create a subdirectory inside parentPath.
+ */
+export function createDir(parentPath: string, name: string): string {
+  const fullPath = join(parentPath, name);
+  if (existsSync(fullPath)) throw new Error(`Already exists: ${fullPath}`);
+  mkdirSync(fullPath);
+  return fullPath;
 }

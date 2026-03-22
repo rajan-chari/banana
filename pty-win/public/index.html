@@ -12,7 +12,10 @@
   <div id="sidebar">
     <div id="sidebar-header">
       <span class="sidebar-title">EXPLORER</span>
-      <button id="btn-collapse" title="Collapse (Ctrl+Shift+B)">&lsaquo;</button>
+      <div>
+        <button id="btn-refresh" title="Refresh">&#x21bb;</button>
+        <button id="btn-collapse" title="Collapse (Ctrl+Shift+B)">&lsaquo;</button>
+      </div>
     </div>
     <div id="folder-tree"></div>
     <div id="sidebar-footer">
@@ -49,6 +52,8 @@
     <div class="ctx-item" data-action="open">Open session</div>
     <div class="ctx-item" data-action="open-new-ws">Open in new workspace</div>
     <div class="ctx-item" data-action="open-cmd">Open with command...</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="new-folder">New Folder...</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item" data-action="fav-add">Add to Favorites</div>
     <div class="ctx-item" data-action="fav-remove">Remove from Favorites</div>

@@ -5,7 +5,7 @@ import { join, dirname, resolve, basename } from "path";
 import { fileURLToPath } from "url";
 import { PtySession } from "./session.js";
 import { EmcomClient } from "./emcom/client.js";
-import { listDir, readIdentity } from "./folders.js";
+import { listDir, readIdentity, createDir } from "./folders.js";
 import { DEFAULTS } from "./config.js";
 import type { SessionConfig, ServerConfig } from "./config.js";
 import { log } from "./log.js";
@@ -30,6 +30,18 @@ export async function startServer(config: ServerConfig): Promise<void> {
       return res.status(400).json({ error: "path query parameter required" });
     }
     res.json(listDir(resolve(dirPath)));
+  });
+
+  // Folder browser: create a subdirectory
+  app.post("/api/folders", (req, res) => {
+    const { parentPath, name } = req.body;
+    if (!parentPath || !name) return res.status(400).json({ error: "parentPath and name required" });
+    if (/[/\\:*?"<>|]/.test(name)) return res.status(400).json({ error: "Invalid folder name" });
+    try {
+      res.json({ ok: true, path: createDir(resolve(parentPath), name) });
+    } catch (err) {
+      res.status(409).json({ error: String(err) });
+    }
   });
 
   // Config: return root dirs for initial favorites

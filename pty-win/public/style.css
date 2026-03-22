@@ -101,6 +101,8 @@ html, body {
   color: var(--text-primary);
 }
 
+#sidebar-header > div { display: flex; align-items: center; gap: 2px; }
+
 #folder-tree {
   flex: 1;
   overflow-y: auto;
