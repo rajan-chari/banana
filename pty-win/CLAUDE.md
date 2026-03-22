@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Startup
+
+Before responding to the user's first message:
+
+1. Read `Claude-KB.md` in this directory (domain knowledge, lessons learned).
+2. Read `session-context.md` if it exists (ephemeral state from previous session — what was in flight, what to pick up). Surface relevant items in the greeting.
+3. Look for a `*-private.md` file matching the user's name (e.g., `Rajan-private.md`). If one exists, read it for personal TODOs, preferences, and reminders. If it references a durable location, read that too.
+4. Don't read md files from the parent directory unless the user requests it.
+5. Greet the user covering:
+   - **What's running** — any active sessions or recent changes
+   - **Open items** — TODOs from private notes, session context, or KB
+   - **Quick actions** — common scenarios listed below
+
+### Common Scenarios
+
+- **Start the server** — `npm start` (or `node dist/index.js --root <path>`)
+- **Rebuild after TypeScript changes** — `npm run build` (frontend changes need only a browser refresh)
+- **Add a new REST endpoint** — edit `src/server.ts`, add route, rebuild
+- **Change terminal appearance** — edit `public/style.css` (xterm overrides at bottom) or `TERM_THEME` in `public/app.js`
+- **Fix tiling/layout bugs** — `public/app.js`, look for `buildBalancedTree()`, `renderTileNode()`, `renderActiveWorkspace()`
+- **Debug idle detection** — `src/screen-detector.ts` (regex patterns), `src/session.ts` (heuristic timer)
+
 ## Quick Commands
 
 ```bash
@@ -62,3 +84,34 @@ Lazy-loaded tree via `GET /api/folders?path=...`. Checks each directory for `CLA
 - **`fitAddon.fit()` timing** — ResizeObserver + explicit resize sync to server after every fit
 - **Body needs `width: 100%`** — without it, flexbox body shrink-wraps instead of filling viewport
 - **`.pane-terminal` needs `position: relative; overflow: hidden`** — xterm wrapper uses `position: absolute; inset: 0`
+
+## Lessons Learned
+
+This workspace is a **learning system**. Claude-KB.md contains a `## Lessons Learned` section that persists knowledge across sessions.
+
+### When to add an entry
+
+Proactively add a lesson whenever you encounter:
+
+- **Unexpected behavior** — an API, tool, or workflow didn't work as expected and you found the cause
+- **Workarounds** — a problem required a non-obvious solution that future sessions should know about
+- **User preferences** — the user corrects your approach or states a preference
+- **Process discoveries** — you learn how something actually works vs. how it's documented
+- **Pitfalls** — something that wasted time and could be avoided next time
+
+### How to add an entry
+
+Append to the `## Lessons Learned` section in `Claude-KB.md` using this format:
+
+```markdown
+### YYYY-MM-DD: Short descriptive title
+Description of what happened and what to do differently. Keep it concise and actionable.
+```
+
+### Guidelines
+
+- Write for your future self — assume no prior context from this session
+- Be specific: include tool names, flag names, error messages, or exact steps
+- Don't duplicate existing entries — read the section first
+- One entry per distinct lesson; don't bundle unrelated things
+- Ask the user before adding if you're unsure whether something qualifies

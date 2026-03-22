@@ -1,0 +1,29 @@
+# Claude-KB.md
+
+Domain knowledge and lessons learned for pty-win.
+
+## Lessons Learned
+
+### 2026-03-22: xterm.js open() can only be called once
+xterm.js `term.open(element)` binds the terminal to a DOM element permanently. On workspace re-renders, create a persistent wrapper div on first open, then move it to the new container with `appendChild()`. Never call `open()` twice.
+
+### 2026-03-22: body needs width: 100% for flexbox layout
+Without `width: 100%` on `html, body`, the flexbox body shrink-wraps to content width instead of filling the viewport. This caused terminals to appear as narrow columns (~35% width). The fix is a single CSS line.
+
+### 2026-03-22: fitAddon.fit() must sync resize to server
+`term.onResize` doesn't always fire when `fit()` changes dimensions (e.g., if the terminal was already at those dims from a previous open). Always explicitly send a resize WebSocket message after every `fit()` call via a `fitAndSync()` helper.
+
+### 2026-03-22: Dead sessions must be cleaned up on server
+When a session dies (Claude exits), the server keeps it as "dead". If the user tries to reopen the same folder, the server returns 409 (name conflict). Fix: `autoRemoveDeadSession()` must DELETE from server, and `openFolder()` must clean up dead sessions before creating new ones.
+
+### 2026-03-22: Workspace persistence requires re-render on WS connect
+Workspaces are saved to localStorage, but terminals aren't. After page reload, the workspace layout is restored but terminals need the `sessions` WebSocket message to arrive before they can render. The `sessions` handler must call `renderActiveWorkspace()` (not just dashboard).
+
+### 2026-03-22: Prune orphaned workspace leaves on session list update
+If a session dies between page loads (server restarted), the workspace layout may reference sessions that no longer exist. When the `sessions` WS message arrives, compare leaf names against server session list and remove orphans via `buildBalancedTree()`.
+
+### 2026-03-22: Double-click rename needs delayed single-click
+Tab single-click switches workspace (calls `renderTabs()` which destroys DOM). Double-click to rename can't fire because the DOM element is gone after the first click. Fix: delay single-click by 250ms, cancel it if double-click fires within that window.
+
+### 2026-03-22: Initial PTY dimensions should match browser
+Server spawns PTY at 120x40 by default. Browser terminal may be 200x45. The mismatch causes Claude to render at 120 cols, leaving empty space. Fix: pass `cols`/`rows` in `POST /api/sessions` estimated from the workspace area dimensions.
