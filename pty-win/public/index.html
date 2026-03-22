@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pty-win</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <span class="sidebar-title">EXPLORER</span>
+      <button id="btn-collapse" title="Collapse (Ctrl+Shift+B)">&lsaquo;</button>
+    </div>
+    <div id="folder-tree"></div>
+    <div id="sidebar-footer">
+      <button id="btn-add-root" title="Add folder root">+ Add Root</button>
+    </div>
+    <div id="sidebar-resize-handle"></div>
+  </div>
+
+  <!-- Sidebar collapsed strip -->
+  <div id="sidebar-strip" class="hidden">
+    <button id="btn-expand" title="Expand (Ctrl+Shift+B)">&rsaquo;</button>
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+    <div id="tabbar">
+      <div class="tab-logo">pty-win</div>
+      <div id="tabs"></div>
+      <button id="btn-new-workspace" title="New workspace">+</button>
+    </div>
+    <div id="workspace-area"></div>
+  </div>
+
+  <!-- Quick-open overlay (Ctrl+P) -->
+  <div id="quick-open" class="hidden">
+    <div id="quick-open-box">
+      <input id="quick-open-input" type="text" placeholder="Type folder name to open..." autocomplete="off">
+      <div id="quick-open-results"></div>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <div id="context-menu" class="hidden">
+    <div class="ctx-item" data-action="open">Open session</div>
+    <div class="ctx-item" data-action="open-new-ws">Open in new workspace</div>
+    <div class="ctx-item" data-action="open-cmd">Open with command...</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="fav-add">Add to Favorites</div>
+    <div class="ctx-item" data-action="fav-remove">Remove from Favorites</div>
+  </div>
+
+  <!-- Fallback modal: manual path entry -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <div class="modal-title">Open Folder</div>
+      <label>Path<input id="m-path" type="text" placeholder="C:\projects\my-app"></label>
+      <label>Command<input id="m-cmd" type="text" placeholder="claude" value="claude"></label>
+      <div class="modal-actions">
+        <button id="m-cancel">Cancel</button>
+        <button id="m-create">Open</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0/lib/addon-web-links.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
