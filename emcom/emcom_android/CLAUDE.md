@@ -16,12 +16,47 @@ Before responding to the user's first message:
    - Surface relevant items in the greeting.
 
 3. **Greet the user** — Surface any open TODOs/reminders from private notes, then offer common scenarios:
-   - **Start emcom server** — `source ../emcom/.venv/Scripts/activate && emcom-server` (parent project)
-   - **Start DevTunnel** — `devtunnel port create -p 8800` to expose the server
-   - **Build the app** — `./gradlew assembleDebug`
-   - **Run on device/emulator** — `./gradlew installDebug`
-   - **Run tests** — `./gradlew test`
+   - **Build the app** — see Build section below
+   - **Start DevTunnel** — `devtunnel host -p 8800 --allow-anonymous`
+   - **Connect phone** — pair via WiFi ADB (see Device Connection below)
+   - **Install on device** — `adb -s <device> install -r app/build/outputs/apk/debug/app-debug.apk`
    - **Check server connectivity** — `curl <tunnel-url>/health`
+
+## Environment
+
+These must be set for every Bash call that runs Gradle or adb:
+
+```bash
+export JAVA_HOME="/c/Program Files/Microsoft/jdk-17.0.18.8-hotspot"
+export ANDROID_HOME="/c/Users/ranaras/Android/Sdk"
+```
+
+- **JDK 17**: `/c/Program Files/Microsoft/jdk-17.0.18.8-hotspot` (system default is JDK 8 — won't work)
+- **Android SDK**: `/c/Users/ranaras/Android/Sdk` (platform 35, build-tools 35.0.0)
+- **`local.properties`**: already has `sdk.dir` for Gradle, but `JAVA_HOME` must be set in shell
+- **adb**: `$ANDROID_HOME/platform-tools/adb.exe`
+
+## Build
+
+```bash
+export JAVA_HOME="/c/Program Files/Microsoft/jdk-17.0.18.8-hotspot"
+export ANDROID_HOME="/c/Users/ranaras/Android/Sdk"
+./gradlew.bat -p . assembleDebug
+```
+
+APK output: `app/build/outputs/apk/debug/app-debug.apk`
+
+## Device Connection
+
+WiFi ADB (Android 11+). Port changes every session — user must provide it.
+
+1. Phone: **Settings > Developer Options > Wireless debugging > Pair device with pairing code**
+2. **Disable VPN first** — VPN IPs (e.g., `100.67.x.x`) block ADB pairing
+3. `adb pair <phone-wifi-ip>:<pairing-port> <code>`
+4. `adb connect <phone-wifi-ip>:<connect-port>` (different port shown on main wireless debugging screen)
+5. `adb -s <phone-wifi-ip>:<connect-port> install -r app/build/outputs/apk/debug/app-debug.apk`
+
+Phone WiFi IP: `10.0.0.78` (same subnet as PC `10.0.0.232`)
 
 ## emcom API Reference
 
