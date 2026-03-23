@@ -632,20 +632,22 @@ html, body {
 .pane-topbar {
   display: flex;
   align-items: center;
-  height: 26px;
+  height: 28px;
   padding: 0 10px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border);
+  background: #333333;
+  border-bottom: 2px solid var(--border);
   gap: 10px;
   font-size: 12px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .pane-name {
   font-weight: 600;
-  color: #ffffff;
+  color: #b0b0b0;
   white-space: nowrap;
 }
+.pane.focused .pane-name { color: #ffffff; }
 
 .pane-identity {
   color: var(--identity);
