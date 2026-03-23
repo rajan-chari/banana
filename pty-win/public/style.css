@@ -219,7 +219,9 @@ html, body {
   text-overflow: ellipsis;
   min-width: 0;
 }
-
+.tree-node.running .folder-name {
+  color: #23d18b;
+}
 
 .tree-node .indicator {
   width: 6px;
@@ -273,6 +275,21 @@ html, body {
 
 .tree-node:hover .pwsh-btn { visibility: visible; }
 .tree-node .pwsh-btn:hover { color: var(--accent); }
+
+.tree-node .code-btn {
+  visibility: hidden;
+  background: none;
+  border: none;
+  color: #3b8eea;
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0 3px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+
+.tree-node:hover .code-btn { visibility: visible; }
+.tree-node .code-btn:hover { color: var(--accent); }
 
 .tree-children {
   display: none;

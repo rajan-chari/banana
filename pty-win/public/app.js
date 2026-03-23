@@ -224,6 +224,7 @@ function connect() {
         }
 
 
+        refreshTreeRunningState();
         if (state.isDashboard) renderDashboard();
         else renderActiveWorkspace();
         break;
@@ -235,7 +236,8 @@ function connect() {
           s.unreadCount = msg.payload.unreadCount;
           rebuildPaneGroups();
           updatePaneStatus(msg.session);
-  
+          refreshTreeRunningState();
+
           if (state.isDashboard) renderDashboard();
 
           // Auto-remove dead sessions after a brief flash
@@ -348,6 +350,13 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     // The clickable row
     const row = document.createElement("div");
     row.className = "tree-node";
+    row.dataset.path = normPath(entry.path);
+    for (const [, s] of state.sessions) {
+      if (s.status !== "dead" && normPath(s.workingDir) === row.dataset.path) {
+        row.classList.add("running");
+        break;
+      }
+    }
 
     // Indent
     const indent = document.createElement("span");
@@ -388,6 +397,21 @@ async function loadAndRenderChildren(parentPath, container, depth) {
       openFolder(entry.path, entry.name, "pwsh");
     };
     row.appendChild(pwshBtn);
+
+    // VS Code button (hover reveal)
+    const codeBtn = document.createElement("button");
+    codeBtn.className = "code-btn";
+    codeBtn.innerHTML = "{ }";
+    codeBtn.title = "Open in VS Code";
+    codeBtn.onclick = (e) => {
+      e.stopPropagation();
+      fetch("/api/open-editor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: entry.path }),
+      });
+    };
+    row.appendChild(codeBtn);
 
     // Indicators
     if (entry.hasIdentity) {
@@ -432,6 +456,27 @@ function normPath(p) {
   return p ? p.replace(/\\/g, "/").toLowerCase() : "";
 }
 
+function refreshTreeRunningState() {
+  const running = new Set();
+  for (const [, s] of state.sessions) {
+    if (s.status !== "dead" && s.workingDir) running.add(normPath(s.workingDir));
+  }
+  document.querySelectorAll(".tree-node[data-path]").forEach((node) => {
+    node.classList.toggle("running", running.has(node.dataset.path));
+    const dot = node.querySelector(".unread-dot");
+    if (dot) {
+      let hasUnread = false;
+      for (const [, s] of state.sessions) {
+        if (normPath(s.workingDir) === node.dataset.path && s.unreadCount > 0) {
+          hasUnread = true;
+          break;
+        }
+      }
+      dot.classList.toggle("show", hasUnread);
+    }
+  });
+}
+
 function cssId(path) {
   return path.replace(/[^a-zA-Z0-9]/g, "_");
 }
@@ -456,8 +501,10 @@ async function recreateOrphanedSessions(names) {
     if (!meta) continue;
 
     try {
+      const isClaude = !meta.command || meta.command === "claude";
       const body = { workingDir: meta.workingDir, cols, rows };
       if (meta.command && meta.command !== "claude") body.command = meta.command;
+      if (isClaude) body.args = ["--continue"];
 
       const res = await fetch("/api/sessions", {
         method: "POST",

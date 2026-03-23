@@ -119,7 +119,8 @@ export class PtySession extends EventEmitter {
 
     // Startup grace period
     setTimeout(() => {
-      if (isClaude && this.status !== "dead") {
+      const isResume = config.args.includes("--continue") || config.args.includes("-c");
+      if (isClaude && this.status !== "dead" && !isResume) {
         this.needsStartupKick = true;
         log(`[${this.name}] Startup grace ended — will kick when prompt detected`);
       }

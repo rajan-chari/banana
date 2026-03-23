@@ -35,7 +35,13 @@ Server spawns PTY at 120x40 by default. Browser terminal may be 200x45. The mism
 A folder can have both a Claude session (`myproject`) and a PowerShell session (`myproject~pwsh`). The tiling tree leaf still references the group name (bare folder basename). `state.paneGroups` maps group → `{claude?, pwsh?, activeType}` and is rebuilt from the session list on every WS `sessions` message. The pane header shows toggle buttons (`C` / `>_`) only when both session types exist. Key invariant: `killSession` and `autoRemoveDeadSession` must check for a living sibling before removing the tiling leaf — only remove when the entire group is dead.
 
 ### 2026-03-22: Sidebar folder matching must use full paths, not basenames
-`refreshTreeRunningState()` matched folders to sessions by `nameEl.textContent` (basename only). This caused every folder sharing a name with an active session — across all roots — to flash green. The basename-match approach also races with async tree rendering (nodes load progressively from `/api/folders`). Fix: removed green folder-name feature entirely; rely on dot indicators only. Unread dots now use `normPath()` for path-aware matching.
+`refreshTreeRunningState()` originally matched by basename only, causing false positives across roots. Fix: tree nodes now store `data-path` (normalized full path) and matching uses `normPath(session.workingDir)` against it. Green folder names are back, correctly path-matched. The function also refreshes unread dots dynamically.
+
+### 2026-03-22: Claude --continue for session resume on server restart
+`recreateOrphanedSessions()` now passes `args: ["--continue"]` for Claude sessions. This makes Claude resume the most recent conversation for that working directory automatically. The startup kick (`"hi\r"`) must be skipped for resumed sessions — `session.ts` checks `config.args` for `--continue`/`-c` and suppresses `needsStartupKick`.
+
+### 2026-03-22: VS Code open-editor endpoint is fire-and-forget
+`POST /api/open-editor` runs `code <path>` via `execFile` with `shell: true`. Response is sent immediately (before `code` finishes launching). No PTY session needed — VS Code is a standalone process.
 
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
