@@ -609,12 +609,20 @@ function renderSessionsPanel() {
     dot.className = `status-dot ${bestStatus}`;
     row.appendChild(dot);
 
-    // Name + identity
+    // Name
     const name = document.createElement("span");
     name.className = "session-name";
-    const identity = (g.claudeInfo || g.pwshInfo)?.emcomIdentity;
-    name.textContent = identity ? `${g.group} (@${identity})` : g.group;
+    name.textContent = g.group;
     row.appendChild(name);
+
+    // Identity tag
+    const identity = (g.claudeInfo || g.pwshInfo)?.emcomIdentity;
+    if (identity) {
+      const idTag = document.createElement("span");
+      idTag.className = "identity-tag";
+      idTag.textContent = `@${identity}`;
+      row.appendChild(idTag);
+    }
 
     // Claude tag
     const cTag = document.createElement("span");

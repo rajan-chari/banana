@@ -232,6 +232,13 @@ html, body {
 .session-row .cmd-tag.absent { cursor: pointer; color: #6e3030; background: #383838; }
 .session-row .cmd-tag.absent:hover { color: #f14c4c; background: #3a2020; }
 
+.session-row .identity-tag {
+  font-size: 9px;
+  color: var(--identity);
+  margin-left: 3px;
+  flex-shrink: 0;
+}
+
 .session-row .indicator-slot { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
 
 .session-row .unread-badge {
