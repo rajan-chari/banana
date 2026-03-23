@@ -223,7 +223,7 @@ function connect() {
           recreateOrphanedSessions(recreatable);
         }
 
-        refreshTreeRunningState();
+
         if (state.isDashboard) renderDashboard();
         else renderActiveWorkspace();
         break;
@@ -235,7 +235,7 @@ function connect() {
           s.unreadCount = msg.payload.unreadCount;
           rebuildPaneGroups();
           updatePaneStatus(msg.session);
-          refreshTreeRunningState();
+  
           if (state.isDashboard) renderDashboard();
 
           // Auto-remove dead sessions after a brief flash
@@ -250,7 +250,7 @@ function connect() {
         if (s) {
           s.unreadCount = (s.unreadCount || 0) + msg.payload.count;
           updatePaneStatus(msg.session);
-          refreshTreeRunningState();
+  
           if (state.isDashboard) renderDashboard();
         }
         break;
@@ -348,9 +348,6 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     // The clickable row
     const row = document.createElement("div");
     row.className = "tree-node";
-    const claudeRunning = state.sessions.has(entry.name) && state.sessions.get(entry.name).status !== "dead";
-    const pwshRunning = state.sessions.has(entry.name + "~pwsh") && state.sessions.get(entry.name + "~pwsh").status !== "dead";
-    if (claudeRunning || pwshRunning) row.classList.add("running");
 
     // Indent
     const indent = document.createElement("span");
@@ -410,8 +407,9 @@ async function loadAndRenderChildren(parentPath, container, depth) {
 
     // Unread dot
     const sessionInfo = state.sessions.get(entry.name);
+    const sessionMatchesPath = sessionInfo && normPath(sessionInfo.workingDir) === normPath(entry.path);
     const unreadDot = document.createElement("span");
-    unreadDot.className = `unread-dot ${sessionInfo?.unreadCount > 0 ? "show" : ""}`;
+    unreadDot.className = `unread-dot ${sessionMatchesPath && sessionInfo.unreadCount > 0 ? "show" : ""}`;
     row.appendChild(unreadDot);
 
     // Row click = expand/collapse
@@ -430,18 +428,8 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     if (isExpanded) loadAndRenderChildren(entry.path, childContainer, depth + 1);
   }
 }
-
-function refreshTreeRunningState() {
-  document.querySelectorAll(".tree-node").forEach((node) => {
-    const nameEl = node.querySelector(".folder-name");
-    if (!nameEl) return;
-    const name = nameEl.textContent;
-    const claude = state.sessions.get(name);
-    const pwsh = state.sessions.get(name + "~pwsh");
-    const claudeAlive = claude && claude.status !== "dead";
-    const pwshAlive = pwsh && pwsh.status !== "dead";
-    node.classList.toggle("running", claudeAlive || pwshAlive);
-  });
+function normPath(p) {
+  return p ? p.replace(/\\/g, "/").toLowerCase() : "";
 }
 
 function cssId(path) {

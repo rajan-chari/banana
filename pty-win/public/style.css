@@ -220,9 +220,6 @@ html, body {
   min-width: 0;
 }
 
-.tree-node.running .folder-name {
-  color: #23d18b;
-}
 
 .tree-node .indicator {
   width: 6px;
