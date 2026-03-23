@@ -332,6 +332,17 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     name.textContent = entry.name;
     row.appendChild(name);
 
+    // Play button (hover reveal) — placed before indicators so they don't bounce
+    const playBtn = document.createElement("button");
+    playBtn.className = "play-btn";
+    playBtn.innerHTML = "&#9654;";
+    playBtn.title = "Open session";
+    playBtn.onclick = (e) => {
+      e.stopPropagation();
+      openFolder(entry.path, entry.name);
+    };
+    row.appendChild(playBtn);
+
     // Indicators
     if (entry.hasIdentity) {
       const ind = document.createElement("span");
@@ -353,17 +364,6 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     const unreadDot = document.createElement("span");
     unreadDot.className = `unread-dot ${sessionInfo?.unreadCount > 0 ? "show" : ""}`;
     row.appendChild(unreadDot);
-
-    // Play button (hover reveal)
-    const playBtn = document.createElement("button");
-    playBtn.className = "play-btn";
-    playBtn.innerHTML = "&#9654;";
-    playBtn.title = "Open session";
-    playBtn.onclick = (e) => {
-      e.stopPropagation();
-      openFolder(entry.path, entry.name);
-    };
-    row.appendChild(playBtn);
 
     // Row click = expand/collapse
     row.onclick = () => toggleExpand(entry.path);

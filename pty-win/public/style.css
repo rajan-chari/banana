@@ -249,7 +249,7 @@ html, body {
 .tree-node .unread-dot.show { display: inline-block; }
 
 .tree-node .play-btn {
-  display: none;
+  visibility: hidden;
   background: none;
   border: none;
   color: var(--status-idle-bright);
@@ -259,7 +259,7 @@ html, body {
   flex-shrink: 0;
 }
 
-.tree-node:hover .play-btn { display: inline; }
+.tree-node:hover .play-btn { visibility: visible; }
 .tree-node .play-btn:hover { color: var(--accent); }
 
 .tree-children {
