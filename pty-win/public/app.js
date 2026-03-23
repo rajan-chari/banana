@@ -1293,6 +1293,14 @@ function renderTabs() {
 
     tabsEl.appendChild(tab);
   }
+
+  // New workspace button — inline after last tab
+  const addBtn = document.createElement("button");
+  addBtn.id = "btn-new-workspace";
+  addBtn.title = "New workspace";
+  addBtn.textContent = "+";
+  addBtn.onclick = () => { const ws = createWorkspace(null); switchToWorkspace(ws.id); };
+  tabsEl.appendChild(addBtn);
 }
 
 // ===== Tiling =====
@@ -1918,10 +1926,7 @@ window.addEventListener("resize", () => {
 
 // ===== Workspace button =====
 
-document.getElementById("btn-new-workspace").onclick = () => {
-  const ws = createWorkspace(null);
-  switchToWorkspace(ws.id);
-};
+// btn-new-workspace is now rendered inline in renderTabs()
 
 // ===== Init =====
 
