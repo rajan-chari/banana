@@ -256,6 +256,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
     broadcastSessionList();
   }
 
+  const wsSessionCleanups = new Map<WebSocket, Array<() => void>>();
+
   function attachSessionToWs(session: PtySession, ws: WebSocket): void {
     const onData = (data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -263,7 +265,15 @@ export async function startServer(config: ServerConfig): Promise<void> {
       }
     };
     session.on("data", onData);
-    ws.on("close", () => session.off("data", onData));
+
+    if (!wsSessionCleanups.has(ws)) {
+      wsSessionCleanups.set(ws, []);
+      ws.on("close", () => {
+        for (const fn of wsSessionCleanups.get(ws) || []) fn();
+        wsSessionCleanups.delete(ws);
+      });
+    }
+    wsSessionCleanups.get(ws)!.push(() => session.off("data", onData));
   }
 
   function broadcastSessionList(): void {
