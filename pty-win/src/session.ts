@@ -20,7 +20,7 @@ export interface SessionInfo {
   unreadCount: number;
 }
 
-const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and collaborate with others as needed\r";
+const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
 const STARTUP_KICK = "hi\r";
 const STARTUP_GRACE_MS = 10_000;
 
