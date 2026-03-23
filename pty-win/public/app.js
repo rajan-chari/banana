@@ -609,10 +609,11 @@ function renderSessionsPanel() {
     dot.className = `status-dot ${bestStatus}`;
     row.appendChild(dot);
 
-    // Name
+    // Name + identity
     const name = document.createElement("span");
     name.className = "session-name";
-    name.textContent = g.group;
+    const identity = (g.claudeInfo || g.pwshInfo)?.emcomIdentity;
+    name.textContent = identity ? `${g.group} (@${identity})` : g.group;
     row.appendChild(name);
 
     // Claude tag
