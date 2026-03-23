@@ -955,6 +955,22 @@ html, body {
   margin: 4px 0;
 }
 
+#pane-context-menu {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-focus);
+  z-index: 300;
+  min-width: 180px;
+  padding: 4px 0;
+}
+#pane-context-menu.hidden { display: none; }
+#pane-context-menu .ctx-header {
+  padding: 4px 14px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
 /* --- Modal --- */
 
 #modal-overlay {

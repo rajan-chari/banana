@@ -1512,6 +1512,13 @@ function createPane(groupName) {
     e.stopPropagation();
     killSession(activeSessionName);
   };
+
+  topbar.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showPaneContextMenu(e, groupName);
+  });
+
   pane.appendChild(topbar);
 
   // Terminal
@@ -1635,6 +1642,73 @@ function switchPaneType(groupName, type) {
   pg.activeType = type;
   renderActiveWorkspace();
   focusPane(groupName);
+}
+
+function showPaneContextMenu(e, groupName) {
+  const menu = document.getElementById("pane-context-menu");
+  menu.innerHTML = "";
+  menu.classList.remove("hidden");
+  menu.style.left = `${e.clientX}px`;
+  menu.style.top = `${e.clientY}px`;
+
+  const currentWs = findWorkspaceContaining(groupName);
+
+  // Move to existing workspaces
+  const header = document.createElement("div");
+  header.className = "ctx-header";
+  header.textContent = "Move to";
+  menu.appendChild(header);
+
+  for (const ws of state.workspaces) {
+    if (ws === currentWs) continue;
+    const item = document.createElement("div");
+    item.className = "ctx-item";
+    item.textContent = ws.name;
+    item.onclick = () => {
+      movePaneToWorkspace(groupName, currentWs, ws);
+      menu.classList.add("hidden");
+    };
+    menu.appendChild(item);
+  }
+
+  // Move to new workspace
+  const sep = document.createElement("div");
+  sep.className = "ctx-sep";
+  menu.appendChild(sep);
+
+  const newItem = document.createElement("div");
+  newItem.className = "ctx-item";
+  newItem.textContent = "+ New workspace";
+  newItem.onclick = () => {
+    const newWs = createWorkspace(groupName);
+    movePaneToWorkspace(groupName, currentWs, newWs);
+    switchToWorkspace(newWs.id);
+    menu.classList.add("hidden");
+  };
+  menu.appendChild(newItem);
+
+  // Close on click outside
+  const close = (ev) => {
+    if (!menu.contains(ev.target)) {
+      menu.classList.add("hidden");
+      document.removeEventListener("mousedown", close);
+    }
+  };
+  setTimeout(() => document.addEventListener("mousedown", close), 0);
+}
+
+function movePaneToWorkspace(groupName, fromWs, toWs) {
+  if (fromWs) {
+    fromWs.layout = removeSessionFromLayout(fromWs.layout, groupName);
+    updateWorkspaceTabName(fromWs);
+  }
+  const existing = toWs.layout ? getLeafList(toWs.layout) : [];
+  existing.push(groupName);
+  toWs.layout = buildBalancedTree(existing);
+  updateWorkspaceTabName(toWs);
+  saveWorkspaces();
+  renderTabs();
+  renderActiveWorkspace();
 }
 
 function updatePaneStatus(sessionName) {
