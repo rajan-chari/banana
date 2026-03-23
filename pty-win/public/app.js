@@ -624,6 +624,16 @@ function renderSessionsPanel() {
       row.appendChild(idTag);
     }
 
+    // Unread badge (between identity and action tags)
+    const totalUnread = (g.claudeAlive ? g.claudeInfo.unreadCount || 0 : 0)
+      + (g.pwshAlive ? g.pwshInfo.unreadCount || 0 : 0);
+    if (totalUnread > 0) {
+      const badge = document.createElement("span");
+      badge.className = "unread-badge";
+      badge.textContent = `(${totalUnread})`;
+      row.appendChild(badge);
+    }
+
     // Claude tag
     const cTag = document.createElement("span");
     cTag.className = `cmd-tag ${g.claudeAlive ? "alive" : "absent"}`;
@@ -674,16 +684,6 @@ function renderSessionsPanel() {
           appendIndicators(indicatorSlot, info);
         })
         .catch(() => {});
-    }
-
-    // Unread badge
-    const totalUnread = (g.claudeAlive ? g.claudeInfo.unreadCount || 0 : 0)
-      + (g.pwshAlive ? g.pwshInfo.unreadCount || 0 : 0);
-    if (totalUnread > 0) {
-      const badge = document.createElement("span");
-      badge.className = "unread-badge";
-      badge.textContent = `(${totalUnread})`;
-      row.appendChild(badge);
     }
 
     // Kill button
