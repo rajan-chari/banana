@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { join, dirname, resolve, basename } from "path";
 import { fileURLToPath } from "url";
 import { existsSync, readFileSync } from "fs";
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
 import { PtySession } from "./session.js";
 import { EmcomClient } from "./emcom/client.js";
 import { listDir, readIdentity, createDir } from "./folders.js";
@@ -134,13 +134,14 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path is required" });
     const resolved = resolve(path);
-    execFile("cmd.exe", ["/c", "start", "", "code", resolved], (err) => {
-      if (err) {
-        log(`[server] Failed to open VS Code: ${err.message}`);
-        return res.status(500).json({ error: err.message });
-      }
-      log(`[server] Opened VS Code: ${resolved}`);
+    const child = spawn("code", [resolved], {
+      shell: true,
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
     });
+    child.unref();
+    log(`[server] Opened VS Code: ${resolved}`);
     res.json({ ok: true });
   });
 
