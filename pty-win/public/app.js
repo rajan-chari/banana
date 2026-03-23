@@ -308,6 +308,9 @@ function renderTree() {
   const tree = document.getElementById("folder-tree");
   tree.innerHTML = "";
 
+  const folderCountEl = document.querySelector(".folder-count");
+  if (folderCountEl) folderCountEl.textContent = state.favorites.length > 0 ? `(${state.favorites.length})` : "";
+
   for (const rootPath of state.favorites) {
     const rootName = rootPath.split(/[/\\]/).filter(Boolean).pop() || rootPath;
     const rootEl = document.createElement("div");
@@ -632,6 +635,21 @@ function renderSessionsPanel() {
     }
     row.appendChild(pTag);
 
+    // VS Code tag
+    const codeTag = document.createElement("span");
+    codeTag.className = "cmd-tag code";
+    codeTag.textContent = "{ }";
+    codeTag.title = "Open in VS Code";
+    codeTag.onclick = (e) => {
+      e.stopPropagation();
+      fetch("/api/open-editor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: g.workingDir }),
+      });
+    };
+    row.appendChild(codeTag);
+
     // Indicators (async, cached)
     const indicatorSlot = document.createElement("span");
     indicatorSlot.className = "indicator-slot";
@@ -710,6 +728,24 @@ function appendIndicators(slot, info) {
     const isExpanded = body.classList.toggle("expanded");
     arrow.classList.toggle("expanded", isExpanded);
     localStorage.setItem("pty-win-sessions-expanded", isExpanded);
+  });
+})();
+
+// Folders panel collapse toggle
+(() => {
+  const header = document.getElementById("folders-panel-header");
+  const body = document.getElementById("folder-tree");
+  const arrow = header?.querySelector(".arrow");
+  const stored = localStorage.getItem("pty-win-folders-expanded");
+  if (stored === "false") {
+    body?.classList.remove("expanded");
+    arrow?.classList.remove("expanded");
+  }
+  header?.addEventListener("click", (e) => {
+    if (e.target.closest(".panel-actions")) return; // don't toggle when clicking buttons
+    const isExpanded = body.classList.toggle("expanded");
+    arrow.classList.toggle("expanded", isExpanded);
+    localStorage.setItem("pty-win-folders-expanded", isExpanded);
   });
 })();
 

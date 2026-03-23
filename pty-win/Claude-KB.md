@@ -49,5 +49,8 @@ Root labels in the sidebar initially only had expand/collapse. User expects pari
 ### 2026-03-23: Sessions panel — consolidated rows per pane group
 The sessions panel iterates `state.paneGroups` (not `state.sessions`) so Claude + PowerShell for the same folder appear as one row. Tags (`▶` for Claude, `>_` for pwsh) are bright when alive, dim red when absent. Dim tags are clickable to start that session type. Indicators use `state.folderInfoCache` (Map of normPath → folder-info) to avoid re-fetching `/api/folder-info` on every render. CSS padding/border-radius must be on the base `.cmd-tag` class (not just `.absent`) to keep alive and absent tags aligned.
 
+### 2026-03-23: Sidebar uses two collapsible panels (SESSIONS + FOLDERS)
+The sidebar now has two panels with matching `.panel-header` design: SESSIONS (above) and FOLDERS (below). Each has an arrow toggle, title, count badge, and collapse state persisted to localStorage. The FOLDERS panel wraps the old `#folder-tree` div and holds the collapse-all/refresh buttons in `.panel-actions`. The folders panel uses `flex: 1` + `flex-direction: column` to fill remaining sidebar space; its `.panel-body` overrides `max-height: none`.
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
