@@ -12,6 +12,7 @@ export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
 export interface SessionInfo {
   name: string;
+  group: string;
   command: string;
   workingDir: string;
   pid: number;
@@ -164,6 +165,7 @@ export class PtySession extends EventEmitter {
   getInfo(): SessionInfo {
     return {
       name: this.name,
+      group: this.name.replace(/~pwsh$/, ""),
       command: this.command,
       workingDir: this.workingDir,
       pid: this.ptyProcess.pid,

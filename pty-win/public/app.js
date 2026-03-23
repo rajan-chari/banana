@@ -23,6 +23,7 @@ const state = {
   expandedPaths: new Set(),
   ctxTarget: null,        // path for context menu
   sessionMeta: new Map(), // name -> { workingDir, command } for recreating after restart
+  paneGroups: new Map(),  // group -> { claude?: name, pwsh?: name, activeType: "claude"|"pwsh" }
 };
 
 let nextWorkspaceId = 1;
@@ -126,6 +127,31 @@ function saveSessionMeta() {
   localStorage.setItem("pty-win-session-meta", JSON.stringify(obj));
 }
 
+function rebuildPaneGroups() {
+  // Preserve activeType selections across rebuilds
+  const prevActive = new Map();
+  for (const [g, pg] of state.paneGroups) prevActive.set(g, pg.activeType);
+
+  state.paneGroups.clear();
+  for (const [name, info] of state.sessions) {
+    const group = info.group || name;
+    if (!state.paneGroups.has(group)) {
+      state.paneGroups.set(group, { activeType: prevActive.get(group) || "claude" });
+    }
+    const pg = state.paneGroups.get(group);
+    if (name.endsWith("~pwsh")) {
+      pg.pwsh = name;
+    } else {
+      pg.claude = name;
+    }
+  }
+  // If activeType points to a dead/missing session, flip to the other
+  for (const [, pg] of state.paneGroups) {
+    if (pg.activeType === "pwsh" && !pg.pwsh) pg.activeType = "claude";
+    if (pg.activeType === "claude" && !pg.claude) pg.activeType = "pwsh";
+  }
+}
+
 // ===== WebSocket =====
 
 function connect() {
@@ -156,18 +182,28 @@ function connect() {
         }
         saveSessionMeta();
 
+        // Rebuild pane groups
+        rebuildPaneGroups();
+
         // Collect orphaned workspace leaves (in layout but not on server)
+        const serverGroups = new Set([...state.sessions.values()].map((s) => s.group || s.name));
         const orphans = new Set();
         for (const ws of state.workspaces) {
           if (!ws.layout) continue;
           for (const name of getLeafList(ws.layout)) {
-            if (!serverNames.has(name)) orphans.add(name);
+            if (!serverGroups.has(name)) orphans.add(name);
           }
         }
 
         // Attempt to recreate orphans that have saved metadata; prune the rest
-        const recreatable = [...orphans].filter((n) => state.sessionMeta.has(n));
-        const unrecoverable = [...orphans].filter((n) => !state.sessionMeta.has(n));
+        // Orphans are group names; metadata is keyed by session name (group or group~pwsh)
+        const hasMetaForGroup = (g) => state.sessionMeta.has(g) || state.sessionMeta.has(g + "~pwsh");
+        const recreatable = [];
+        for (const g of orphans) {
+          if (state.sessionMeta.has(g)) recreatable.push(g);
+          if (state.sessionMeta.has(g + "~pwsh")) recreatable.push(g + "~pwsh");
+        }
+        const unrecoverable = [...orphans].filter((n) => !hasMetaForGroup(n));
 
         // Prune leaves with no metadata (truly unknown)
         if (unrecoverable.length > 0) {
@@ -197,6 +233,7 @@ function connect() {
         if (s) {
           s.status = msg.payload.status;
           s.unreadCount = msg.payload.unreadCount;
+          rebuildPaneGroups();
           updatePaneStatus(msg.session);
           refreshTreeRunningState();
           if (state.isDashboard) renderDashboard();
@@ -311,8 +348,9 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     // The clickable row
     const row = document.createElement("div");
     row.className = "tree-node";
-    const sessionRunning = state.sessions.has(entry.name);
-    if (sessionRunning) row.classList.add("running");
+    const claudeRunning = state.sessions.has(entry.name) && state.sessions.get(entry.name).status !== "dead";
+    const pwshRunning = state.sessions.has(entry.name + "~pwsh") && state.sessions.get(entry.name + "~pwsh").status !== "dead";
+    if (claudeRunning || pwshRunning) row.classList.add("running");
 
     // Indent
     const indent = document.createElement("span");
@@ -336,12 +374,23 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     const playBtn = document.createElement("button");
     playBtn.className = "play-btn";
     playBtn.innerHTML = "&#9654;";
-    playBtn.title = "Open session";
+    playBtn.title = "Open Claude session";
     playBtn.onclick = (e) => {
       e.stopPropagation();
       openFolder(entry.path, entry.name);
     };
     row.appendChild(playBtn);
+
+    // PowerShell button (hover reveal)
+    const pwshBtn = document.createElement("button");
+    pwshBtn.className = "pwsh-btn";
+    pwshBtn.textContent = ">_";
+    pwshBtn.title = "Open PowerShell session";
+    pwshBtn.onclick = (e) => {
+      e.stopPropagation();
+      openFolder(entry.path, entry.name, "pwsh");
+    };
+    row.appendChild(pwshBtn);
 
     // Indicators
     if (entry.hasIdentity) {
@@ -387,8 +436,11 @@ function refreshTreeRunningState() {
     const nameEl = node.querySelector(".folder-name");
     if (!nameEl) return;
     const name = nameEl.textContent;
-    const session = state.sessions.get(name);
-    node.classList.toggle("running", !!session && session.status !== "dead");
+    const claude = state.sessions.get(name);
+    const pwsh = state.sessions.get(name + "~pwsh");
+    const claudeAlive = claude && claude.status !== "dead";
+    const pwshAlive = pwsh && pwsh.status !== "dead";
+    node.classList.toggle("running", claudeAlive || pwshAlive);
   });
 }
 
@@ -471,25 +523,31 @@ function getOrCreateActiveWorkspace() {
 
 /** Open a folder as a session, optionally forcing a new workspace */
 async function openFolder(folderPath, folderName, command, newWorkspace = false) {
-  const name = folderName || folderPath.split(/[/\\]/).filter(Boolean).pop();
+  const baseName = folderName || folderPath.split(/[/\\]/).filter(Boolean).pop();
+  const isPwsh = command === "pwsh";
+  const sessionName = isPwsh ? baseName + "~pwsh" : baseName;
 
-  // If session exists and alive, just focus it
-  const existing = state.sessions.get(name);
+  // If this exact session exists and alive, just focus it
+  const existing = state.sessions.get(sessionName);
   if (existing && existing.status !== "dead") {
-    focusExistingSession(name);
+    // Switch the pane group to show this type
+    const pg = state.paneGroups.get(baseName);
+    if (pg) pg.activeType = isPwsh ? "pwsh" : "claude";
+    focusExistingSession(baseName);
+    renderActiveWorkspace();
     return;
   }
 
   // If dead session with same name exists, clean it up first
   if (existing && existing.status === "dead") {
-    await fetch(`/api/sessions/${encodeURIComponent(name)}`, { method: "DELETE" }).catch(() => {});
-    state.sessions.delete(name);
-    const entry = state.terminals.get(name);
+    await fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" }).catch(() => {});
+    state.sessions.delete(sessionName);
+    const entry = state.terminals.get(sessionName);
     if (entry) {
       entry.resizeObserver?.disconnect();
       entry.term.dispose();
       entry.wrapperEl?.remove();
-      state.terminals.delete(name);
+      state.terminals.delete(sessionName);
     }
   }
 
@@ -520,12 +578,37 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false)
 
     const data = await res.json();
 
-    // Always tile into the active workspace (or create one if none)
-    let ws = newWorkspace ? createWorkspace(data.name) : getOrCreateActiveWorkspace();
-    addSessionToWorkspace(ws.id, data.name);
+    // Check if a sibling session already has a pane in a workspace
+    const siblingWs = findWorkspaceContaining(baseName);
+    if (siblingWs && isPwsh) {
+      // Sibling claude session already has a pane — just switch toggle to pwsh
+      const pg = state.paneGroups.get(baseName) || { activeType: "pwsh" };
+      pg.pwsh = sessionName;
+      pg.activeType = "pwsh";
+      state.paneGroups.set(baseName, pg);
+      switchToWorkspace(siblingWs.id);
+      renderActiveWorkspace();
+      focusPane(baseName);
+      return;
+    }
+    if (siblingWs && !isPwsh) {
+      // Sibling pwsh session already has a pane — switch toggle to claude
+      const pg = state.paneGroups.get(baseName) || { activeType: "claude" };
+      pg.claude = sessionName;
+      pg.activeType = "claude";
+      state.paneGroups.set(baseName, pg);
+      switchToWorkspace(siblingWs.id);
+      renderActiveWorkspace();
+      focusPane(baseName);
+      return;
+    }
+
+    // No existing pane — tile into workspace using the group name (baseName)
+    let ws = newWorkspace ? createWorkspace(baseName) : getOrCreateActiveWorkspace();
+    addSessionToWorkspace(ws.id, baseName);
     switchToWorkspace(ws.id);
     renderActiveWorkspace();
-    focusPane(data.name);
+    focusPane(baseName);
     updateWorkspaceTabName(ws);
   } catch (err) {
     alert("Failed to create session");
@@ -533,18 +616,26 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false)
 }
 
 function focusExistingSession(name) {
-  // Find workspace containing this session
-  const ws = findWorkspaceContaining(name);
+  // Map session name to group name (pane leaf name)
+  const groupName = name.replace(/~pwsh$/, "");
+  // If focusing a pwsh session, switch the pane toggle
+  if (name.endsWith("~pwsh")) {
+    const pg = state.paneGroups.get(groupName);
+    if (pg) pg.activeType = "pwsh";
+  }
+  // Find workspace containing this group's pane
+  const ws = findWorkspaceContaining(groupName);
   if (ws) {
     switchToWorkspace(ws.id);
-    focusPane(name);
+    renderActiveWorkspace();
+    focusPane(groupName);
   } else {
     // Not in any workspace — tile into active workspace
     const activeWs = getOrCreateActiveWorkspace();
-    addSessionToWorkspace(activeWs.id, name);
+    addSessionToWorkspace(activeWs.id, groupName);
     switchToWorkspace(activeWs.id);
     renderActiveWorkspace();
-    focusPane(name);
+    focusPane(groupName);
     updateWorkspaceTabName(activeWs);
   }
 }
@@ -1029,7 +1120,10 @@ function setupDragHandle(handle, node, container) {
 function fitAllTerminals(node) {
   if (!node) return;
   if (node.type === "leaf") {
-    const entry = state.terminals.get(node.session);
+    const groupName = node.session;
+    const pg = state.paneGroups.get(groupName);
+    const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
+    const entry = state.terminals.get(activeSessionName || groupName);
     if (entry) { try { entry.fitAddon.fit(); } catch {} }
     return;
   }
@@ -1039,27 +1133,58 @@ function fitAllTerminals(node) {
 
 // ===== Panes =====
 
-function createPane(sessionName) {
-  const info = state.sessions.get(sessionName);
+function createPane(groupName) {
+  // Resolve which session to show via pane group
+  const pg = state.paneGroups.get(groupName);
+  const activeType = pg?.activeType || "claude";
+  const activeSessionName = activeType === "pwsh" ? (pg?.pwsh || groupName) : (pg?.claude || groupName);
+  const info = state.sessions.get(activeSessionName);
+  const hasBoth = pg?.claude && pg?.pwsh;
 
   const pane = document.createElement("div");
-  pane.className = `pane ${sessionName === state.focusedPane ? "focused" : ""} ${info?.status === "dead" ? "dead" : ""}`;
-  pane.dataset.session = sessionName;
-  pane.addEventListener("mousedown", () => focusPane(sessionName));
+  pane.className = `pane ${groupName === state.focusedPane ? "focused" : ""} ${info?.status === "dead" ? "dead" : ""}`;
+  pane.dataset.session = groupName;
+  pane.addEventListener("mousedown", () => focusPane(groupName));
 
   // Top bar
   const topbar = document.createElement("div");
   topbar.className = "pane-topbar";
+
+  // Toggle buttons (only when both session types exist)
+  let toggleHtml = "";
+  if (hasBoth) {
+    const claudeActive = activeType === "claude" ? "active" : "";
+    const pwshActive = activeType === "pwsh" ? "active" : "";
+    toggleHtml = `<span class="pane-toggle">
+      <button class="toggle-btn toggle-claude ${claudeActive}" title="Claude">C</button>
+      <button class="toggle-btn toggle-pwsh ${pwshActive}" title="PowerShell">&gt;_</button>
+    </span>`;
+  }
+
   const identity = info?.emcomIdentity ? `<span class="pane-identity">@${info.emcomIdentity}</span>` : "";
   topbar.innerHTML = `
-    <span class="pane-name">${sessionName}</span>
+    <span class="pane-name">${groupName}</span>
+    ${toggleHtml}
     ${identity}
     <span class="pane-cwd" title="${info?.workingDir || ""}">${truncatePath(info?.workingDir || "")}</span>
     <span class="pane-close" title="Kill session">&times;</span>
   `;
+
+  // Toggle button handlers
+  if (hasBoth) {
+    topbar.querySelector(".toggle-claude")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      switchPaneType(groupName, "claude");
+    });
+    topbar.querySelector(".toggle-pwsh")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      switchPaneType(groupName, "pwsh");
+    });
+  }
+
   topbar.querySelector(".pane-close").onclick = (e) => {
     e.stopPropagation();
-    killSession(sessionName);
+    killSession(activeSessionName);
   };
   pane.appendChild(topbar);
 
@@ -1080,74 +1205,15 @@ function createPane(sessionName) {
   `;
   pane.appendChild(statusbar);
 
-  // Create or reattach xterm
-  let entry = state.terminals.get(sessionName);
-  if (!entry) {
-    const term = new window.Terminal({
-      theme: TERM_THEME,
-      fontFamily: "'Cascadia Code', Consolas, 'Courier New', monospace",
-      fontSize: 13,
-      lineHeight: 1.2,
-      cursorBlink: true,
-      allowProposedApi: true,
-    });
-
-    const fitAddon = new window.FitAddon.FitAddon();
-    term.loadAddon(fitAddon);
-    term.loadAddon(new window.WebLinksAddon.WebLinksAddon());
-
-    term.onData((data) => {
-      state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
-    });
-
-    term.onResize(({ cols, rows }) => {
-      state.ws?.send(JSON.stringify({ type: "resize", session: sessionName, payload: { cols, rows } }));
-    });
-
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.type !== "keydown") return true;
-      if (e.ctrlKey && e.shiftKey) {
-        switch (e.key) {
-          case "D": case "d": switchToDashboard(); return false;
-          case "H": case "h": return false;
-          case "V": case "v": return false;
-          case "W": case "w": closeFocusedPane(); return false;
-          case "B": case "b": toggleSidebar(); return false;
-        }
-        if (e.key >= "1" && e.key <= "9") {
-          const idx = parseInt(e.key) - 1;
-          if (state.workspaces[idx]) switchToWorkspace(state.workspaces[idx].id);
-          return false;
-        }
-        if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-          resizeFocused(e.key); return false;
-        }
-      }
-      if (e.ctrlKey && !e.shiftKey) {
-        if (e.key === "p") { openQuickOpen(); return false; }
-        if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-          navigatePanes(e.key); return false;
-        }
-      }
-      return true;
-    });
-
-    // Create a persistent wrapper that survives re-renders
-    const wrapperEl = document.createElement("div");
-    wrapperEl.style.position = "absolute";
-    wrapperEl.style.inset = "0";
-
-    entry = { term, fitAddon, opened: false, wrapperEl };
-    state.terminals.set(sessionName, entry);
-  }
+  // Create or reattach xterm for the active session
+  let entry = ensureTerminal(activeSessionName);
 
   // Fit terminal and explicitly notify server of new dimensions
   const fitAndSync = () => {
     try {
       entry.fitAddon.fit();
-      // Always send resize to server — onResize may not fire if dims unchanged
       const { cols, rows } = entry.term;
-      state.ws?.send(JSON.stringify({ type: "resize", session: sessionName, payload: { cols, rows } }));
+      state.ws?.send(JSON.stringify({ type: "resize", session: activeSessionName, payload: { cols, rows } }));
     } catch {}
   };
 
@@ -1161,10 +1227,8 @@ function createPane(sessionName) {
       termArea.appendChild(entry.wrapperEl);
     }
     fitAndSync();
-    // Safety net: fit again after layout fully settles
     setTimeout(fitAndSync, 150);
 
-    // ResizeObserver ensures fit() fires when layout settles
     if (!entry.resizeObserver) {
       entry.resizeObserver = new ResizeObserver(fitAndSync);
       entry.resizeObserver.observe(termArea);
@@ -1177,10 +1241,86 @@ function createPane(sessionName) {
   return pane;
 }
 
+function ensureTerminal(sessionName) {
+  let entry = state.terminals.get(sessionName);
+  if (entry) return entry;
+
+  const term = new window.Terminal({
+    theme: TERM_THEME,
+    fontFamily: "'Cascadia Code', Consolas, 'Courier New', monospace",
+    fontSize: 13,
+    lineHeight: 1.2,
+    cursorBlink: true,
+    allowProposedApi: true,
+  });
+
+  const fitAddon = new window.FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(new window.WebLinksAddon.WebLinksAddon());
+
+  term.onData((data) => {
+    state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
+  });
+
+  term.onResize(({ cols, rows }) => {
+    state.ws?.send(JSON.stringify({ type: "resize", session: sessionName, payload: { cols, rows } }));
+  });
+
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type !== "keydown") return true;
+    if (e.ctrlKey && e.shiftKey) {
+      switch (e.key) {
+        case "D": case "d": switchToDashboard(); return false;
+        case "H": case "h": return false;
+        case "V": case "v": return false;
+        case "W": case "w": closeFocusedPane(); return false;
+        case "B": case "b": toggleSidebar(); return false;
+      }
+      if (e.key >= "1" && e.key <= "9") {
+        const idx = parseInt(e.key) - 1;
+        if (state.workspaces[idx]) switchToWorkspace(state.workspaces[idx].id);
+        return false;
+      }
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        resizeFocused(e.key); return false;
+      }
+    }
+    if (e.ctrlKey && !e.shiftKey) {
+      if (e.key === "p") { openQuickOpen(); return false; }
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        navigatePanes(e.key); return false;
+      }
+    }
+    return true;
+  });
+
+  const wrapperEl = document.createElement("div");
+  wrapperEl.style.position = "absolute";
+  wrapperEl.style.inset = "0";
+
+  entry = { term, fitAddon, opened: false, wrapperEl };
+  state.terminals.set(sessionName, entry);
+  return entry;
+}
+
+function switchPaneType(groupName, type) {
+  const pg = state.paneGroups.get(groupName);
+  if (!pg) return;
+  pg.activeType = type;
+  renderActiveWorkspace();
+  focusPane(groupName);
+}
+
 function updatePaneStatus(sessionName) {
   const info = state.sessions.get(sessionName);
   if (!info) return;
-  document.querySelectorAll(`.pane[data-session="${sessionName}"]`).forEach((pane) => {
+  // Pane data-session is the group name
+  const groupName = info.group || sessionName;
+  const pg = state.paneGroups.get(groupName);
+  const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : sessionName;
+  // Only update status bar if this is the currently active session in the pane
+  if (activeSessionName !== sessionName) return;
+  document.querySelectorAll(`.pane[data-session="${groupName}"]`).forEach((pane) => {
     const dot = pane.querySelector(".status-dot");
     const label = pane.querySelector(".pane-status-label");
     const unread = pane.querySelector(".pane-unread");
@@ -1194,12 +1334,15 @@ function updatePaneStatus(sessionName) {
   });
 }
 
-function focusPane(sessionName) {
-  state.focusedPane = sessionName;
+function focusPane(groupName) {
+  state.focusedPane = groupName;
   document.querySelectorAll(".pane").forEach((p) => {
-    p.classList.toggle("focused", p.dataset.session === sessionName);
+    p.classList.toggle("focused", p.dataset.session === groupName);
   });
-  const entry = state.terminals.get(sessionName);
+  // Focus the active session's terminal
+  const pg = state.paneGroups.get(groupName);
+  const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
+  const entry = state.terminals.get(activeSessionName || groupName);
   if (entry) entry.term.focus();
 }
 
@@ -1270,9 +1413,20 @@ async function killSession(sessionName) {
     await fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" });
   } catch {}
 
-  // Remove from all workspaces
-  for (const ws of state.workspaces) {
-    ws.layout = removeSessionFromLayout(ws.layout, sessionName);
+  // Determine group — only remove tiling leaf if no sibling alive
+  const groupName = sessionName.replace(/~pwsh$/, "");
+  const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
+  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName).status !== "dead";
+
+  if (!siblingAlive) {
+    // No sibling — remove pane from all workspaces
+    for (const ws of state.workspaces) {
+      ws.layout = removeSessionFromLayout(ws.layout, groupName);
+    }
+  } else {
+    // Sibling exists — switch to it
+    const pg = state.paneGroups.get(groupName);
+    if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
   }
 
   // Destroy terminal
@@ -1287,7 +1441,8 @@ async function killSession(sessionName) {
   state.sessions.delete(sessionName);
   state.sessionMeta.delete(sessionName);
   saveSessionMeta();
-  if (state.focusedPane === sessionName) state.focusedPane = null;
+  rebuildPaneGroups();
+  if (state.focusedPane === groupName && !siblingAlive) state.focusedPane = null;
 
   refreshTreeRunningState();
   renderActiveWorkspace();
@@ -1302,13 +1457,23 @@ function autoRemoveDeadSession(sessionName) {
   // Delete from server so the name can be reused
   fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" }).catch(() => {});
 
-  // Remove from all workspaces and rebalance
-  for (const ws of state.workspaces) {
-    if (ws.layout && treeContains(ws.layout, sessionName)) {
-      const leaves = getLeafList(ws.layout).filter((n) => n !== sessionName);
-      ws.layout = buildBalancedTree(leaves);
-      updateWorkspaceTabName(ws);
+  const groupName = sessionName.replace(/~pwsh$/, "");
+  const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
+  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName).status !== "dead";
+
+  if (!siblingAlive) {
+    // No sibling — remove pane from all workspaces
+    for (const ws of state.workspaces) {
+      if (ws.layout && treeContains(ws.layout, groupName)) {
+        const leaves = getLeafList(ws.layout).filter((n) => n !== groupName);
+        ws.layout = buildBalancedTree(leaves);
+        updateWorkspaceTabName(ws);
+      }
     }
+  } else {
+    // Sibling alive — switch toggle
+    const pg = state.paneGroups.get(groupName);
+    if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
   }
 
   // Destroy terminal
@@ -1323,7 +1488,9 @@ function autoRemoveDeadSession(sessionName) {
   state.sessions.delete(sessionName);
   state.sessionMeta.delete(sessionName);
   saveSessionMeta();
-  if (state.focusedPane === sessionName) {
+  rebuildPaneGroups();
+
+  if (state.focusedPane === groupName && !siblingAlive) {
     state.focusedPane = null;
     const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
     const leaves = ws?.layout ? getLeafList(ws.layout) : [];

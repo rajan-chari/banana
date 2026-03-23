@@ -262,6 +262,21 @@ html, body {
 .tree-node:hover .play-btn { visibility: visible; }
 .tree-node .play-btn:hover { color: var(--accent); }
 
+.tree-node .pwsh-btn {
+  visibility: hidden;
+  background: none;
+  border: none;
+  color: #11a8cd;
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0 3px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+
+.tree-node:hover .pwsh-btn { visibility: visible; }
+.tree-node .pwsh-btn:hover { color: var(--accent); }
+
 .tree-children {
   display: none;
 }
@@ -494,6 +509,34 @@ html, body {
 
 .pane-topbar:hover .pane-close { display: inline; }
 .pane-close:hover { color: var(--badge-unread); }
+
+.pane-toggle {
+  display: flex;
+  gap: 1px;
+  margin: 0 6px;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  padding: 0 5px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  line-height: 18px;
+  border-radius: 2px;
+}
+
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.toggle-btn:hover:not(.active) {
+  background: #2a2d2e;
+}
 
 .pane-terminal {
   flex: 1;

@@ -61,7 +61,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
     }
 
     const resolvedDir = resolve(workingDir);
-    const name = basename(resolvedDir);
+    const suffix = command === "pwsh" ? "~pwsh" : "";
+    const name = basename(resolvedDir) + suffix;
 
     if (sessions.has(name)) {
       return res.status(409).json({ error: "Session already exists" });
