@@ -204,6 +204,7 @@ html, body {
   position: relative;
 }
 .session-row:hover { background: var(--bg-hover); }
+.session-row.active { background: rgba(255, 255, 255, 0.04); border-left: 2px solid var(--accent); padding-left: 8px; }
 
 .session-row .status-dot { margin-right: 6px; }
 

@@ -599,7 +599,8 @@ function renderSessionsPanel() {
 
   for (const g of groups) {
     const row = document.createElement("div");
-    row.className = "session-row";
+    row.className = `session-row ${g.group === state.focusedPane ? "active" : ""}`;
+    row.dataset.group = g.group;
 
     // Status dot — worst-of status across group
     const bestStatus = g.claudeAlive && g.claudeInfo.status === "busy" || g.pwshAlive && g.pwshInfo.status === "busy"
@@ -1739,6 +1740,9 @@ function focusPane(groupName) {
   document.querySelectorAll(".pane").forEach((p) => {
     p.classList.toggle("focused", p.dataset.session === groupName);
   });
+  // Update sessions panel highlight
+  document.querySelectorAll(".session-row").forEach((r) => r.classList.remove("active"));
+  document.querySelector(`.session-row[data-group="${groupName}"]`)?.classList.add("active");
   // Focus the active session's terminal
   const pg = state.paneGroups.get(groupName);
   const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
