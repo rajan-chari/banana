@@ -31,9 +31,10 @@ npm install          # setup (one-time)
 npm run build        # compile TypeScript → dist/
 npm run dev          # watch mode
 npm start            # run server on http://127.0.0.1:3600
+pty-win              # global command (npm-linked), same as npm start
 
 # With options
-node dist/index.js --port 3602 --root "C:\projects\my-app" --emcom "http://127.0.0.1:8800"
+pty-win --port 3602 --root "C:\projects\my-app" --emcom "http://127.0.0.1:8800"
 ```
 
 No build step for frontend — `public/` files are served as static assets. Edit and refresh.
