@@ -116,3 +116,13 @@ Description of what happened and what to do differently. Keep it concise and act
 - Don't duplicate existing entries — read the section first
 - One entry per distinct lesson; don't bundle unrelated things
 - Ask the user before adding if you're unsure whether something qualifies
+
+## Session End
+
+Before ending a session (or when the user says goodbye / wraps up), run these skills in order:
+
+1. `/rc-save` — commit and push all uncommitted changes, capture learnings to KB
+2. `/rc-session-save` — save session context for the next session
+3. `/rc-greet-save` — save greeting state
+
+Do not wait for the user to remind you. Run these proactively when the session is ending.
