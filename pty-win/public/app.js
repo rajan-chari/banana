@@ -1204,10 +1204,27 @@ function createWorkspace(name) {
 }
 
 function switchToWorkspace(id) {
+  // Save focused pane for current workspace
+  if (state.activeWorkspaceId) {
+    const prevWs = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+    if (prevWs) prevWs.lastFocusedPane = state.focusedPane;
+  }
+
   state.activeWorkspaceId = id;
   state.isDashboard = false;
+
+  // Restore focused pane for target workspace
+  const ws = state.workspaces.find((w) => w.id === id);
+  if (ws?.lastFocusedPane && ws.layout && treeContains(ws.layout, ws.lastFocusedPane)) {
+    state.focusedPane = ws.lastFocusedPane;
+  } else if (ws?.layout) {
+    const leaves = getLeafList(ws.layout);
+    state.focusedPane = leaves.length > 0 ? leaves[0] : null;
+  }
+
   renderTabs();
   renderActiveWorkspace();
+  if (state.focusedPane) focusPane(state.focusedPane);
 }
 
 function switchToDashboard() {
