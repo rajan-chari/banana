@@ -24,6 +24,7 @@ const state = {
   ctxTarget: null,        // path for context menu
   sessionMeta: new Map(), // name -> { workingDir, command } for recreating after restart
   paneGroups: new Map(),  // group -> { claude?: name, pwsh?: name, activeType: "claude"|"pwsh" }
+  folderInfoCache: new Map(), // normPath(workingDir) -> { isClaudeReady, hasIdentity, identityName }
 };
 
 let nextWorkspaceId = 1;
@@ -225,6 +226,7 @@ function connect() {
 
 
         refreshTreeRunningState();
+        renderSessionsPanel();
         if (state.isDashboard) renderDashboard();
         else renderActiveWorkspace();
         break;
@@ -237,6 +239,7 @@ function connect() {
           rebuildPaneGroups();
           updatePaneStatus(msg.session);
           refreshTreeRunningState();
+          renderSessionsPanel();
 
           if (state.isDashboard) renderDashboard();
 
@@ -252,7 +255,8 @@ function connect() {
         if (s) {
           s.unreadCount = (s.unreadCount || 0) + msg.payload.count;
           updatePaneStatus(msg.session);
-  
+          renderSessionsPanel();
+
           if (state.isDashboard) renderDashboard();
         }
         break;
@@ -559,6 +563,155 @@ function refreshTreeRunningState() {
 function cssId(path) {
   return path.replace(/[^a-zA-Z0-9]/g, "_");
 }
+
+// ===== Sessions Panel =====
+
+function renderSessionsPanel() {
+  const list = document.getElementById("sessions-list");
+  const countEl = document.querySelector(".session-count");
+  if (!list) return;
+
+  // Build list of active groups
+  const groups = [];
+  for (const [group, pg] of state.paneGroups) {
+    const claudeInfo = pg.claude ? state.sessions.get(pg.claude) : null;
+    const pwshInfo = pg.pwsh ? state.sessions.get(pg.pwsh) : null;
+    const claudeAlive = claudeInfo && claudeInfo.status !== "dead";
+    const pwshAlive = pwshInfo && pwshInfo.status !== "dead";
+    if (!claudeAlive && !pwshAlive) continue;
+    const workingDir = (claudeInfo || pwshInfo).workingDir;
+    groups.push({ group, pg, claudeInfo, pwshInfo, claudeAlive, pwshAlive, workingDir });
+  }
+
+  if (countEl) countEl.textContent = groups.length > 0 ? `(${groups.length})` : "";
+
+  list.innerHTML = "";
+  if (groups.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "sessions-empty";
+    empty.textContent = "No sessions";
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const g of groups) {
+    const row = document.createElement("div");
+    row.className = "session-row";
+
+    // Status dot — worst-of status across group
+    const bestStatus = g.claudeAlive && g.claudeInfo.status === "busy" || g.pwshAlive && g.pwshInfo.status === "busy"
+      ? "busy" : g.claudeAlive && g.claudeInfo.status === "starting" || g.pwshAlive && g.pwshInfo.status === "starting"
+      ? "starting" : "idle";
+    const dot = document.createElement("span");
+    dot.className = `status-dot ${bestStatus}`;
+    row.appendChild(dot);
+
+    // Name
+    const name = document.createElement("span");
+    name.className = "session-name";
+    name.textContent = g.group;
+    row.appendChild(name);
+
+    // Claude tag
+    const cTag = document.createElement("span");
+    cTag.className = `cmd-tag ${g.claudeAlive ? "alive" : "absent"}`;
+    cTag.innerHTML = "&#9654;";
+    cTag.title = g.claudeAlive ? `Claude: ${g.claudeInfo.status}` : "Start Claude";
+    if (!g.claudeAlive) {
+      cTag.onclick = (e) => { e.stopPropagation(); openFolder(g.workingDir, g.group); };
+    }
+    row.appendChild(cTag);
+
+    // PowerShell tag
+    const pTag = document.createElement("span");
+    pTag.className = `cmd-tag ${g.pwshAlive ? "alive pwsh" : "absent"}`;
+    pTag.textContent = ">_";
+    pTag.title = g.pwshAlive ? `PowerShell: ${g.pwshInfo.status}` : "Start PowerShell";
+    if (!g.pwshAlive) {
+      pTag.onclick = (e) => { e.stopPropagation(); openFolder(g.workingDir, g.group, "pwsh"); };
+    }
+    row.appendChild(pTag);
+
+    // Indicators (async, cached)
+    const indicatorSlot = document.createElement("span");
+    indicatorSlot.className = "indicator-slot";
+    row.appendChild(indicatorSlot);
+    const cacheKey = normPath(g.workingDir);
+    if (state.folderInfoCache.has(cacheKey)) {
+      appendIndicators(indicatorSlot, state.folderInfoCache.get(cacheKey));
+    } else {
+      fetch(`/api/folder-info?path=${encodeURIComponent(g.workingDir)}`)
+        .then((r) => r.json())
+        .then((info) => {
+          state.folderInfoCache.set(cacheKey, info);
+          appendIndicators(indicatorSlot, info);
+        })
+        .catch(() => {});
+    }
+
+    // Unread badge
+    const totalUnread = (g.claudeAlive ? g.claudeInfo.unreadCount || 0 : 0)
+      + (g.pwshAlive ? g.pwshInfo.unreadCount || 0 : 0);
+    if (totalUnread > 0) {
+      const badge = document.createElement("span");
+      badge.className = "unread-badge";
+      badge.textContent = `(${totalUnread})`;
+      row.appendChild(badge);
+    }
+
+    // Kill button
+    const killBtn = document.createElement("button");
+    killBtn.className = "kill-btn";
+    killBtn.textContent = "\u00d7";
+    killBtn.title = "Kill all sessions in group";
+    killBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (g.claudeAlive) killSession(g.pg.claude);
+      if (g.pwshAlive) killSession(g.pg.pwsh);
+    };
+    row.appendChild(killBtn);
+
+    // Click row → focus active session
+    const activeName = g.pg.activeType === "pwsh" && g.pwshAlive ? g.pg.pwsh
+      : g.claudeAlive ? g.pg.claude : g.pg.pwsh;
+    row.onclick = () => focusExistingSession(activeName);
+    list.appendChild(row);
+  }
+}
+
+function appendIndicators(slot, info) {
+  if (info.isClaudeReady) {
+    const ind = document.createElement("span");
+    ind.className = "indicator claude-ready";
+    ind.textContent = "\u25c6";
+    ind.title = "Has CLAUDE.md";
+    slot.appendChild(ind);
+  }
+  if (info.hasIdentity) {
+    const ind = document.createElement("span");
+    ind.className = "indicator identity";
+    ind.textContent = "\u25cf";
+    ind.title = `Identity: ${info.identityName || "yes"}`;
+    slot.appendChild(ind);
+  }
+}
+
+// Sessions panel collapse toggle
+(() => {
+  const header = document.getElementById("sessions-panel-header");
+  const body = document.getElementById("sessions-list");
+  const arrow = header?.querySelector(".arrow");
+  const stored = localStorage.getItem("pty-win-sessions-expanded");
+  if (stored === "false") {
+    body?.classList.remove("expanded");
+    arrow?.classList.remove("expanded");
+  }
+  header?.addEventListener("click", () => {
+    const isExpanded = body.classList.toggle("expanded");
+    arrow.classList.toggle("expanded", isExpanded);
+    localStorage.setItem("pty-win-sessions-expanded", isExpanded);
+  });
+})();
 
 // ===== Session Recreation =====
 

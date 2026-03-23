@@ -46,5 +46,8 @@ A folder can have both a Claude session (`myproject`) and a PowerShell session (
 ### 2026-03-23: Root folders must have same capabilities as child folders
 Root labels in the sidebar initially only had expand/collapse. User expects parity: play, pwsh, VS Code buttons, indicators, green name, unread dots — all identical to child folders. Root names use semibold (600) for subtle visual distinction. Server endpoint `GET /api/folder-info` provides metadata for a single directory (indicators are fetched async).
 
+### 2026-03-23: Sessions panel — consolidated rows per pane group
+The sessions panel iterates `state.paneGroups` (not `state.sessions`) so Claude + PowerShell for the same folder appear as one row. Tags (`▶` for Claude, `>_` for pwsh) are bright when alive, dim red when absent. Dim tags are clickable to start that session type. Indicators use `state.folderInfoCache` (Map of normPath → folder-info) to avoid re-fetching `/api/folder-info` on every render. CSS padding/border-radius must be on the base `.cmd-tag` class (not just `.absent`) to keep alive and absent tags aligned.
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
