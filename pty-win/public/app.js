@@ -1224,7 +1224,16 @@ function switchToWorkspace(id) {
 
   renderTabs();
   renderActiveWorkspace();
-  if (state.focusedPane) focusPane(state.focusedPane);
+  if (state.focusedPane) {
+    focusPane(state.focusedPane);
+    // Terminal DOM needs a frame to be ready for keyboard focus
+    requestAnimationFrame(() => {
+      const pg = state.paneGroups.get(state.focusedPane);
+      const name = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : state.focusedPane;
+      const entry = state.terminals.get(name || state.focusedPane);
+      if (entry) entry.term.focus();
+    });
+  }
 }
 
 function switchToDashboard() {
