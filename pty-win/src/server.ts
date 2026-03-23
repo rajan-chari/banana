@@ -134,7 +134,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path is required" });
     const resolved = resolve(path);
-    execFile("code", [resolved], { shell: true }, (err) => {
+    execFile("cmd.exe", ["/c", "start", "", "code", resolved], (err) => {
       if (err) {
         log(`[server] Failed to open VS Code: ${err.message}`);
         return res.status(500).json({ error: err.message });
