@@ -21,7 +21,7 @@ export interface ServerConfig {
 export const DEFAULTS = {
   port: 3600,
   emcomServer: "http://127.0.0.1:8800",
-  pollIntervalMs: 5000,
+  pollIntervalMs: 1000,
   quietThresholdMs: 1000,
   injectionCooldownMs: 30000,
   defaultCommand: process.platform === "win32" ? "cmd.exe" : "/bin/bash",
