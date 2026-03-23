@@ -61,5 +61,8 @@ The sidebar now has two panels with matching `.panel-header` design: SESSIONS (a
 ### 2026-03-23: Move pane between workspaces via right-click
 Pane topbar has a `contextmenu` handler that builds a dynamic menu listing all other workspaces + "New workspace". `movePaneToWorkspace(groupName, fromWs, toWs)` removes from source layout via `removeSessionFromLayout()`, adds to target via `getLeafList()` + `buildBalancedTree()`, then updates tab names and saves.
 
+### 2026-03-23: Unread count must have a single source of truth
+`unreadCount` was double-counted: server-side `onNewMessages` incremented it, then `onUnreadCount` (from poller) also set it. Frontend `notification` handler also incremented on top of `status` handler. Fix: poller's `onUnreadCount` callback is the sole authority — it reports the actual emcom server count each poll. `onNewMessages` no longer touches `unreadCount`. Frontend `notification` handler no longer increments — just triggers re-render. Also: emcom-server `add_tags("handled")` must remove `unread` tag (commit c72d0ca in emcom repo).
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
