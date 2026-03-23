@@ -146,17 +146,20 @@ html, body {
   display: flex;
   align-items: center;
   height: 22px;
-  padding: 0 4px 0 2px;
-  font-size: 11px;
-  font-weight: 700;
+  padding-right: 8px;
+  padding-left: 2px;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-primary);
-  letter-spacing: 0;
-  text-transform: uppercase;
   cursor: pointer;
-  margin-top: 2px;
+  white-space: nowrap;
 }
 
 .tree-root-label:hover { background: var(--bg-hover); }
+.tree-root-label .root-name { flex: 1; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.tree-root-label .root-name.running { color: #23d18b; }
+
+.tree-root-label .indicator-slot { display: flex; align-items: center; gap: 2px; }
 
 .tree-root-label .arrow,
 .tree-node .arrow {
@@ -223,7 +226,8 @@ html, body {
   color: #23d18b;
 }
 
-.tree-node .indicator {
+.tree-node .indicator,
+.tree-root-label .indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -232,10 +236,13 @@ html, body {
   font-size: 0;
 }
 
-.tree-node .indicator.identity { background: var(--identity); }
-.tree-node .indicator.claude-ready { background: var(--claude-ready); }
+.tree-node .indicator.identity,
+.tree-root-label .indicator.identity { background: var(--identity); }
+.tree-node .indicator.claude-ready,
+.tree-root-label .indicator.claude-ready { background: var(--claude-ready); }
 
-.tree-node .unread-dot {
+.tree-node .unread-dot,
+.tree-root-label .unread-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -245,9 +252,11 @@ html, body {
   flex-shrink: 0;
 }
 
-.tree-node .unread-dot.show { display: inline-block; }
+.tree-node .unread-dot.show,
+.tree-root-label .unread-dot.show { display: inline-block; }
 
-.tree-node .play-btn {
+.tree-node .play-btn,
+.tree-root-label .play-btn {
   visibility: hidden;
   background: none;
   border: none;
@@ -258,10 +267,13 @@ html, body {
   flex-shrink: 0;
 }
 
-.tree-node:hover .play-btn { visibility: visible; }
-.tree-node .play-btn:hover { color: var(--accent); }
+.tree-node:hover .play-btn,
+.tree-root-label:hover .play-btn { visibility: visible; }
+.tree-node .play-btn:hover,
+.tree-root-label .play-btn:hover { color: var(--accent); }
 
-.tree-node .pwsh-btn {
+.tree-node .pwsh-btn,
+.tree-root-label .pwsh-btn {
   visibility: hidden;
   background: none;
   border: none;
@@ -273,10 +285,13 @@ html, body {
   font-family: var(--font-mono);
 }
 
-.tree-node:hover .pwsh-btn { visibility: visible; }
-.tree-node .pwsh-btn:hover { color: var(--accent); }
+.tree-node:hover .pwsh-btn,
+.tree-root-label:hover .pwsh-btn { visibility: visible; }
+.tree-node .pwsh-btn:hover,
+.tree-root-label .pwsh-btn:hover { color: var(--accent); }
 
-.tree-node .code-btn {
+.tree-node .code-btn,
+.tree-root-label .code-btn {
   visibility: hidden;
   background: none;
   border: none;
@@ -288,8 +303,10 @@ html, body {
   font-family: var(--font-mono);
 }
 
-.tree-node:hover .code-btn { visibility: visible; }
-.tree-node .code-btn:hover { color: var(--accent); }
+.tree-node:hover .code-btn,
+.tree-root-label:hover .code-btn { visibility: visible; }
+.tree-node .code-btn:hover,
+.tree-root-label .code-btn:hover { color: var(--accent); }
 
 .tree-children {
   display: none;

@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { join, dirname, resolve, basename } from "path";
 import { fileURLToPath } from "url";
+import { existsSync, readFileSync } from "fs";
 import { execFile } from "child_process";
 import { PtySession } from "./session.js";
 import { EmcomClient } from "./emcom/client.js";
@@ -31,6 +32,31 @@ export async function startServer(config: ServerConfig): Promise<void> {
       return res.status(400).json({ error: "path query parameter required" });
     }
     res.json(listDir(resolve(dirPath)));
+  });
+
+  // Folder info: metadata for a single directory
+  app.get("/api/folder-info", (req, res) => {
+    const dirPath = req.query.path as string;
+    if (!dirPath) return res.status(400).json({ error: "path query parameter required" });
+    const resolved = resolve(dirPath);
+    const name = basename(resolved);
+    try {
+      const isClaudeReady = existsSync(join(resolved, "CLAUDE.md"));
+      const hasClaudeDir = existsSync(join(resolved, ".claude"));
+      let hasIdentity = false;
+      let identityName: string | undefined;
+      const identityPath = join(resolved, "identity.json");
+      if (existsSync(identityPath)) {
+        hasIdentity = true;
+        try {
+          const raw = JSON.parse(readFileSync(identityPath, "utf-8"));
+          if (typeof raw.name === "string" && raw.name.trim()) identityName = raw.name;
+        } catch {}
+      }
+      res.json({ name, path: resolved, isDir: true, isClaudeReady, hasIdentity, identityName, hasClaudeDir });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   // Folder browser: create a subdirectory

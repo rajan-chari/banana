@@ -311,8 +311,86 @@ function renderTree() {
 
     const label = document.createElement("div");
     label.className = "tree-root-label";
+    label.dataset.path = normPath(rootPath);
     const expanded = state.expandedPaths.has(rootPath);
-    label.innerHTML = `<span class="arrow ${expanded ? "expanded" : ""}"></span> ${rootName.toUpperCase()}`;
+
+    // Arrow
+    const arrow = document.createElement("span");
+    arrow.className = `arrow ${expanded ? "expanded" : ""}`;
+    label.appendChild(arrow);
+
+    // Root name
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "root-name";
+    nameSpan.textContent = rootName;
+    label.appendChild(nameSpan);
+
+    // Green name for running sessions
+    for (const [, s] of state.sessions) {
+      if (s.status !== "dead" && normPath(s.workingDir) === label.dataset.path) {
+        nameSpan.classList.add("running");
+        break;
+      }
+    }
+
+    // Action buttons (hover reveal)
+    const playBtn = document.createElement("button");
+    playBtn.className = "play-btn";
+    playBtn.innerHTML = "&#9654;";
+    playBtn.title = "Open Claude session";
+    playBtn.onclick = (e) => { e.stopPropagation(); openFolder(rootPath, rootName); };
+    label.appendChild(playBtn);
+
+    const pwshBtn = document.createElement("button");
+    pwshBtn.className = "pwsh-btn";
+    pwshBtn.textContent = ">_";
+    pwshBtn.title = "Open PowerShell session";
+    pwshBtn.onclick = (e) => { e.stopPropagation(); openFolder(rootPath, rootName, "pwsh"); };
+    label.appendChild(pwshBtn);
+
+    const codeBtn = document.createElement("button");
+    codeBtn.className = "code-btn";
+    codeBtn.innerHTML = "{ }";
+    codeBtn.title = "Open in VS Code";
+    codeBtn.onclick = (e) => {
+      e.stopPropagation();
+      fetch("/api/open-editor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: rootPath }),
+      });
+    };
+    label.appendChild(codeBtn);
+
+    // Indicators (loaded async)
+    const indicatorSlot = document.createElement("span");
+    indicatorSlot.className = "indicator-slot";
+    label.appendChild(indicatorSlot);
+    fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
+      .then((r) => r.json())
+      .then((info) => {
+        if (info.hasIdentity) {
+          const ind = document.createElement("span");
+          ind.className = "indicator identity";
+          ind.textContent = "\u25cf";
+          ind.title = `Identity: ${info.identityName || "yes"}`;
+          indicatorSlot.appendChild(ind);
+        }
+        if (info.isClaudeReady) {
+          const ind = document.createElement("span");
+          ind.className = "indicator claude-ready";
+          ind.textContent = "\u25c6";
+          ind.title = "Has CLAUDE.md";
+          indicatorSlot.appendChild(ind);
+        }
+      })
+      .catch(() => {});
+
+    // Unread dot
+    const unreadDot = document.createElement("span");
+    unreadDot.className = "unread-dot";
+    label.appendChild(unreadDot);
+
     label.onclick = () => toggleExpand(rootPath);
     label.addEventListener("contextmenu", (e) => showContextMenu(e, rootPath));
     rootEl.appendChild(label);
@@ -458,22 +536,23 @@ function normPath(p) {
 
 function refreshTreeRunningState() {
   const running = new Set();
+  const unread = new Set();
   for (const [, s] of state.sessions) {
     if (s.status !== "dead" && s.workingDir) running.add(normPath(s.workingDir));
+    if (s.unreadCount > 0 && s.workingDir) unread.add(normPath(s.workingDir));
   }
+  // Child folder nodes
   document.querySelectorAll(".tree-node[data-path]").forEach((node) => {
     node.classList.toggle("running", running.has(node.dataset.path));
     const dot = node.querySelector(".unread-dot");
-    if (dot) {
-      let hasUnread = false;
-      for (const [, s] of state.sessions) {
-        if (normPath(s.workingDir) === node.dataset.path && s.unreadCount > 0) {
-          hasUnread = true;
-          break;
-        }
-      }
-      dot.classList.toggle("show", hasUnread);
-    }
+    if (dot) dot.classList.toggle("show", unread.has(node.dataset.path));
+  });
+  // Root folder labels
+  document.querySelectorAll(".tree-root-label[data-path]").forEach((label) => {
+    const nameSpan = label.querySelector(".root-name");
+    if (nameSpan) nameSpan.classList.toggle("running", running.has(label.dataset.path));
+    const dot = label.querySelector(".unread-dot");
+    if (dot) dot.classList.toggle("show", unread.has(label.dataset.path));
   });
 }
 
@@ -863,6 +942,12 @@ document.getElementById("btn-expand").onclick = toggleSidebar;
 
 function refreshTree() { state.folderCache.clear(); renderTree(); }
 document.getElementById("btn-refresh").onclick = refreshTree;
+
+document.getElementById("btn-collapse-all").onclick = () => {
+  state.expandedPaths.clear();
+  saveExpandedPaths();
+  renderTree();
+};
 
 // Sidebar resize handle
 (() => {

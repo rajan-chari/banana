@@ -43,5 +43,8 @@ A folder can have both a Claude session (`myproject`) and a PowerShell session (
 ### 2026-03-22: VS Code open-editor endpoint is fire-and-forget
 `POST /api/open-editor` runs `code <path>` via `execFile` with `shell: true`. Response is sent immediately (before `code` finishes launching). No PTY session needed — VS Code is a standalone process.
 
+### 2026-03-23: Root folders must have same capabilities as child folders
+Root labels in the sidebar initially only had expand/collapse. User expects parity: play, pwsh, VS Code buttons, indicators, green name, unread dots — all identical to child folders. Root names use semibold (600) for subtle visual distinction. Server endpoint `GET /api/folder-info` provides metadata for a single directory (indicators are fetched async).
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
