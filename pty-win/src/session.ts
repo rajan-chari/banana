@@ -93,7 +93,6 @@ export class PtySession extends EventEmitter {
 
       this.poller.onNewMessages((emails) => {
         const from = [...new Set(emails.map((e) => e.sender))];
-        this.unreadCount += emails.length;
         log(`[${this.name}] ${emails.length} new message(s) from: ${from.join(", ")}`);
         this.emit("notification", emails.length, from);
         this.pendingMessages = true;
@@ -229,11 +228,18 @@ export class PtySession extends EventEmitter {
 
     this.poller.onNewMessages((emails) => {
       const from = [...new Set(emails.map((e) => e.sender))];
-      this.unreadCount += emails.length;
       log(`[${this.name}] ${emails.length} new message(s) from: ${from.join(", ")}`);
       this.emit("notification", emails.length, from);
       this.pendingMessages = true;
       if (this.status === "idle") this.inject();
+    });
+
+    this.poller.onUnreadCount((count) => {
+      if (count !== this.unreadCount) {
+        this.unreadCount = count;
+        this.pendingMessages = count > 0;
+        this.emit("status-change");
+      }
     });
 
     this.poller.start();
