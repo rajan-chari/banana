@@ -52,5 +52,14 @@ The sessions panel iterates `state.paneGroups` (not `state.sessions`) so Claude 
 ### 2026-03-23: Sidebar uses two collapsible panels (SESSIONS + FOLDERS)
 The sidebar now has two panels with matching `.panel-header` design: SESSIONS (above) and FOLDERS (below). Each has an arrow toggle, title, count badge, and collapse state persisted to localStorage. The FOLDERS panel wraps the old `#folder-tree` div and holds the collapse-all/refresh buttons in `.panel-actions`. The folders panel uses `flex: 1` + `flex-direction: column` to fill remaining sidebar space; its `.panel-body` overrides `max-height: none`.
 
+### 2026-03-23: VS Code launch on Windows — use spawn with windowsHide
+`execFile("cmd.exe", ["/c", "start", "", "code", path])` opens a visible cmd.exe window. Fix: use `spawn("code", [path], { shell: true, detached: true, stdio: "ignore", windowsHide: true })` and call `child.unref()`.
+
+### 2026-03-23: WebSocket close listeners must be consolidated
+`attachSessionToWs()` adds a `close` listener per session per WS client. With 11+ sessions this triggers `MaxListenersExceededWarning`. Fix: use a `wsSessionCleanups` Map to batch all cleanup functions per WS into a single `close` listener.
+
+### 2026-03-23: Move pane between workspaces via right-click
+Pane topbar has a `contextmenu` handler that builds a dynamic menu listing all other workspaces + "New workspace". `movePaneToWorkspace(groupName, fromWs, toWs)` removes from source layout via `removeSessionFromLayout()`, adds to target via `getLeafList()` + `buildBalancedTree()`, then updates tab names and saves.
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
