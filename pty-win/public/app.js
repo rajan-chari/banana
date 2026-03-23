@@ -940,16 +940,14 @@ function focusExistingSession(name) {
   // Find workspace containing this group's pane
   const ws = findWorkspaceContaining(groupName);
   if (ws) {
+    ws.lastFocusedPane = groupName;
     switchToWorkspace(ws.id);
-    renderActiveWorkspace();
-    focusPane(groupName);
   } else {
     // Not in any workspace — tile into active workspace
     const activeWs = getOrCreateActiveWorkspace();
     addSessionToWorkspace(activeWs.id, groupName);
+    activeWs.lastFocusedPane = groupName;
     switchToWorkspace(activeWs.id);
-    renderActiveWorkspace();
-    focusPane(groupName);
     updateWorkspaceTabName(activeWs);
   }
 }
