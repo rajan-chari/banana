@@ -253,7 +253,8 @@ function connect() {
       case "notification": {
         const s = state.sessions.get(msg.session);
         if (s) {
-          s.unreadCount = (s.unreadCount || 0) + msg.payload.count;
+          // Don't increment unreadCount here — status-change carries the authoritative count.
+          // Just trigger UI refresh to show the notification.
           updatePaneStatus(msg.session);
           renderSessionsPanel();
 
