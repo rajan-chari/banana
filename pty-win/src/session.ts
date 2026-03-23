@@ -99,6 +99,14 @@ export class PtySession extends EventEmitter {
         this.pendingMessages = true;
         if (this.status === "idle") this.inject();
       });
+
+      this.poller.onUnreadCount((count) => {
+        if (count !== this.unreadCount) {
+          this.unreadCount = count;
+          this.pendingMessages = count > 0;
+          this.emit("status-change");
+        }
+      });
     }
 
     // Wire PTY output

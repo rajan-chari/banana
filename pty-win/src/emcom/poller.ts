@@ -2,11 +2,13 @@ import { EmcomClient, type EmcomEmail } from "./client.js";
 import { log } from "../log.js";
 
 export type NewMessagesCallback = (emails: EmcomEmail[]) => void;
+export type UnreadCountCallback = (count: number) => void;
 
 export class EmcomPoller {
   private seenIds = new Set<string>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private callback: NewMessagesCallback | null = null;
+  private unreadCallback: UnreadCountCallback | null = null;
   private lastErrorCode: string | null = null;
 
   constructor(
@@ -17,6 +19,10 @@ export class EmcomPoller {
 
   onNewMessages(cb: NewMessagesCallback): void {
     this.callback = cb;
+  }
+
+  onUnreadCount(cb: UnreadCountCallback): void {
+    this.unreadCallback = cb;
   }
 
   start(): void {
@@ -40,6 +46,8 @@ export class EmcomPoller {
         log(`[${this.sessionName}] emcom reconnected`);
       }
       this.lastErrorCode = null;
+
+      this.unreadCallback?.(unread.length);
 
       const newEmails = unread.filter((e) => !this.seenIds.has(e.id));
 
