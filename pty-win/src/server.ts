@@ -137,7 +137,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const resolved = resolve(path);
     const child = spawn("code", [resolved], {
       shell: true,
-      detached: true,
       stdio: "ignore",
       windowsHide: true,
     });
@@ -319,7 +318,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
     }
     sessions.clear();
     clearInterval(heartbeatInterval);
-    for (const ws of wsClients) ws.close(1001, "Server shutting down");
+    for (const ws of wsClients) {
+      try { ws.terminate(); } catch {}
+    }
     wsClients.clear();
     wsAlive.clear();
     wss.close();
@@ -327,7 +328,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
       log("[server] Stopped");
       process.exit(0);
     });
-    setTimeout(() => process.exit(1), 5000).unref();
+    // Force exit after 2s if clean shutdown stalls
+    setTimeout(() => {
+      log("[server] Force exit");
+      process.exit(0);
+    }, 2000);
   };
 
   process.on("SIGINT", shutdown);
