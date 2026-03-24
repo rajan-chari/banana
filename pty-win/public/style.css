@@ -246,6 +246,7 @@ html, body {
 .session-row .indicator-slot,
 .tree-node .indicator-slot { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
 .indicator-slot .indicator { margin-left: 0; }
+.hidden-placeholder { visibility: hidden; }
 
 .session-row .unread-badge,
 .tree-node .unread-badge,

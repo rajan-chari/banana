@@ -359,85 +359,30 @@ function renderTree() {
       }
     }
 
-    // Identity tag + unread badge (loaded async, inserted before action buttons)
-    const identitySlot = document.createElement("span");
-    identitySlot.className = "identity-slot";
-    label.appendChild(identitySlot);
-    fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
-      .then((r) => r.json())
-      .then((info) => {
-        if (info.hasIdentity && info.identityName) {
-          const idTag = document.createElement("span");
-          idTag.className = "identity-tag";
-          idTag.textContent = `@${info.identityName}`;
-          identitySlot.appendChild(idTag);
-        }
-      })
-      .catch(() => {});
-
-    // Unread badge
+    // Shared right-side section (uses cached folder info, fetches async if needed)
     const rootSessionInfo = state.sessions.get(rootName);
     const rootMatchesPath = rootSessionInfo && normPath(rootSessionInfo.workingDir) === normPath(rootPath);
-    if (rootMatchesPath && rootSessionInfo.unreadCount > 0) {
-      const badge = document.createElement("span");
-      badge.className = "unread-badge";
-      badge.textContent = `(${rootSessionInfo.unreadCount})`;
-      label.appendChild(badge);
+    const rootPwshInfo = state.sessions.get(rootName + "~pwsh");
+    const rootPwshMatches = rootPwshInfo && normPath(rootPwshInfo.workingDir) === normPath(rootPath);
+    const rootCacheKey = normPath(rootPath);
+    const rootCached = state.folderInfoCache.get(rootCacheKey);
+    appendRowActions(label, {
+      identityName: rootCached?.identityName || (rootMatchesPath ? rootSessionInfo?.emcomIdentity : null) || null,
+      unreadCount: rootMatchesPath ? (rootSessionInfo?.unreadCount || 0) : 0,
+      workingDir: rootPath,
+      folderName: rootName,
+      claudeAlive: !!(rootMatchesPath && rootSessionInfo?.status !== "dead"),
+      pwshAlive: !!(rootPwshMatches && rootPwshInfo?.status !== "dead"),
+      claudeCommand: rootMatchesPath ? rootSessionInfo?.command : null,
+      isClaudeReady: rootCached?.isClaudeReady || false,
+      hasIdentity: rootCached?.hasIdentity || false,
+    });
+    if (!rootCached) {
+      fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
+        .then((r) => r.json())
+        .then((info) => { state.folderInfoCache.set(rootCacheKey, info); })
+        .catch(() => {});
     }
-
-    // Action buttons (hover reveal)
-    const playBtn = document.createElement("button");
-    playBtn.className = "play-btn";
-    playBtn.innerHTML = "&#9654;";
-    playBtn.title = "Open AI session (right-click for options)";
-    playBtn.onclick = (e) => { e.stopPropagation(); openFolder(rootPath, rootName, getDefaultAiCommand()); };
-    playBtn.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, rootPath, rootName); };
-    label.appendChild(playBtn);
-
-    const pwshBtn = document.createElement("button");
-    pwshBtn.className = "pwsh-btn";
-    pwshBtn.textContent = ">_";
-    pwshBtn.title = "Open PowerShell session";
-    pwshBtn.onclick = (e) => { e.stopPropagation(); openFolder(rootPath, rootName, "pwsh"); };
-    label.appendChild(pwshBtn);
-
-    const codeBtn = document.createElement("button");
-    codeBtn.className = "code-btn";
-    codeBtn.innerHTML = "{ }";
-    codeBtn.title = "Open in VS Code";
-    codeBtn.onclick = (e) => {
-      e.stopPropagation();
-      fetch("/api/open-editor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: rootPath }),
-      });
-    };
-    label.appendChild(codeBtn);
-
-    // Indicators (loaded async)
-    const indicatorSlot = document.createElement("span");
-    indicatorSlot.className = "indicator-slot";
-    label.appendChild(indicatorSlot);
-    fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
-      .then((r) => r.json())
-      .then((info) => {
-        if (info.isClaudeReady) {
-          const ind = document.createElement("span");
-          ind.className = "indicator claude-ready";
-          ind.textContent = "\u25c6";
-          ind.title = "Has CLAUDE.md";
-          indicatorSlot.appendChild(ind);
-        }
-        if (info.hasIdentity) {
-          const ind = document.createElement("span");
-          ind.className = "indicator identity";
-          ind.textContent = "\u25cf";
-          ind.title = `Identity: ${info.identityName || "yes"}`;
-          indicatorSlot.appendChild(ind);
-        }
-      })
-      .catch(() => {});
 
     label.onclick = () => toggleExpand(rootPath);
     label.addEventListener("contextmenu", (e) => showContextMenu(e, rootPath));
@@ -502,74 +447,22 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     name.textContent = entry.name;
     row.appendChild(name);
 
-    // Identity tag (matches sessions panel order)
-    if (entry.hasIdentity) {
-      const idTag = document.createElement("span");
-      idTag.className = "identity-tag";
-      idTag.textContent = `@${entry.identityName || "?"}`;
-      row.appendChild(idTag);
-    }
-
-    // Unread badge (matches sessions panel: between identity and action tags)
+    // Shared right-side section (matches sessions panel layout)
     const sessionInfo = state.sessions.get(entry.name);
     const sessionMatchesPath = sessionInfo && normPath(sessionInfo.workingDir) === normPath(entry.path);
-    if (sessionMatchesPath && sessionInfo.unreadCount > 0) {
-      const badge = document.createElement("span");
-      badge.className = "unread-badge";
-      badge.textContent = `(${sessionInfo.unreadCount})`;
-      row.appendChild(badge);
-    }
-
-    // AI play button (hover reveal)
-    const playBtn = document.createElement("button");
-    playBtn.className = "play-btn";
-    playBtn.innerHTML = "&#9654;";
-    playBtn.title = "Open AI session (right-click for options)";
-    playBtn.onclick = (e) => { e.stopPropagation(); openFolder(entry.path, entry.name, getDefaultAiCommand()); };
-    playBtn.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, entry.path, entry.name); };
-    row.appendChild(playBtn);
-
-    // PowerShell button (hover reveal)
-    const pwshBtn = document.createElement("button");
-    pwshBtn.className = "pwsh-btn";
-    pwshBtn.textContent = ">_";
-    pwshBtn.title = "Open PowerShell session";
-    pwshBtn.onclick = (e) => { e.stopPropagation(); openFolder(entry.path, entry.name, "pwsh"); };
-    row.appendChild(pwshBtn);
-
-    // VS Code button (hover reveal)
-    const codeBtn = document.createElement("button");
-    codeBtn.className = "code-btn";
-    codeBtn.innerHTML = "{ }";
-    codeBtn.title = "Open in VS Code";
-    codeBtn.onclick = (e) => {
-      e.stopPropagation();
-      fetch("/api/open-editor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: entry.path }),
-      });
-    };
-    row.appendChild(codeBtn);
-
-    // Indicators (in slot, matching sessions panel)
-    const indicatorSlot = document.createElement("span");
-    indicatorSlot.className = "indicator-slot";
-    row.appendChild(indicatorSlot);
-    if (entry.isClaudeReady) {
-      const ind = document.createElement("span");
-      ind.className = "indicator claude-ready";
-      ind.textContent = "\u25c6";
-      ind.title = "Has CLAUDE.md";
-      indicatorSlot.appendChild(ind);
-    }
-    if (entry.hasIdentity) {
-      const ind = document.createElement("span");
-      ind.className = "indicator identity";
-      ind.textContent = "\u25cf";
-      ind.title = `Identity: ${entry.identityName || "yes"}`;
-      indicatorSlot.appendChild(ind);
-    }
+    const pwshInfo = state.sessions.get(entry.name + "~pwsh");
+    const pwshMatchesPath = pwshInfo && normPath(pwshInfo.workingDir) === normPath(entry.path);
+    appendRowActions(row, {
+      identityName: entry.hasIdentity ? (entry.identityName || null) : null,
+      unreadCount: sessionMatchesPath ? (sessionInfo.unreadCount || 0) : 0,
+      workingDir: entry.path,
+      folderName: entry.name,
+      claudeAlive: !!(sessionMatchesPath && sessionInfo.status !== "dead"),
+      pwshAlive: !!(pwshMatchesPath && pwshInfo.status !== "dead"),
+      claudeCommand: sessionMatchesPath ? sessionInfo.command : null,
+      isClaudeReady: entry.isClaudeReady,
+      hasIdentity: entry.hasIdentity,
+    });
 
     // Row click = expand/collapse
     row.onclick = () => toggleExpand(entry.path);
@@ -666,90 +559,33 @@ function renderSessionsPanel() {
     name.textContent = g.group;
     row.appendChild(name);
 
-    // Identity tag
-    const identity = (g.claudeInfo || g.pwshInfo)?.emcomIdentity;
-    if (identity) {
-      const idTag = document.createElement("span");
-      idTag.className = "identity-tag";
-      idTag.textContent = `@${identity}`;
-      row.appendChild(idTag);
-    }
-
-    // Unread badge (between identity and action tags)
+    // Shared right-side section
     const totalUnread = (g.claudeAlive ? g.claudeInfo.unreadCount || 0 : 0)
       + (g.pwshAlive ? g.pwshInfo.unreadCount || 0 : 0);
-    if (totalUnread > 0) {
-      const badge = document.createElement("span");
-      badge.className = "unread-badge";
-      badge.textContent = `(${totalUnread})`;
-      row.appendChild(badge);
-    }
-
-    // AI tag (shows icon of running preset, or default when absent)
-    const aiPreset = g.claudeAlive ? getAiPresetForCommand(g.claudeInfo.command) : state.aiPresets[state.aiDefaultIndex];
-    const cTag = document.createElement("span");
-    cTag.className = `cmd-tag ${g.claudeAlive ? "alive" : "absent"}`;
-    cTag.textContent = aiPreset.icon;
-    cTag.title = g.claudeAlive ? `${aiPreset.name}: ${g.claudeInfo.status}` : `Start ${aiPreset.name} (right-click for options)`;
-    if (!g.claudeAlive) {
-      cTag.onclick = (e) => { e.stopPropagation(); openFolder(g.workingDir, g.group, getDefaultAiCommand()); };
-      cTag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, g.workingDir, g.group); };
-    }
-    row.appendChild(cTag);
-
-    // PowerShell tag
-    const pTag = document.createElement("span");
-    pTag.className = `cmd-tag ${g.pwshAlive ? "alive pwsh" : "absent"}`;
-    pTag.textContent = ">_";
-    pTag.title = g.pwshAlive ? `PowerShell: ${g.pwshInfo.status}` : "Start PowerShell";
-    if (!g.pwshAlive) {
-      pTag.onclick = (e) => { e.stopPropagation(); openFolder(g.workingDir, g.group, "pwsh"); };
-    }
-    row.appendChild(pTag);
-
-    // VS Code tag
-    const codeTag = document.createElement("span");
-    codeTag.className = "cmd-tag code";
-    codeTag.textContent = "{ }";
-    codeTag.title = "Open in VS Code";
-    codeTag.onclick = (e) => {
-      e.stopPropagation();
-      fetch("/api/open-editor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: g.workingDir }),
-      });
-    };
-    row.appendChild(codeTag);
-
-    // Indicators (async, cached)
-    const indicatorSlot = document.createElement("span");
-    indicatorSlot.className = "indicator-slot";
-    row.appendChild(indicatorSlot);
     const cacheKey = normPath(g.workingDir);
-    if (state.folderInfoCache.has(cacheKey)) {
-      appendIndicators(indicatorSlot, state.folderInfoCache.get(cacheKey));
-    } else {
+    const cached = state.folderInfoCache.get(cacheKey);
+    appendRowActions(row, {
+      identityName: (g.claudeInfo || g.pwshInfo)?.emcomIdentity || null,
+      unreadCount: totalUnread,
+      workingDir: g.workingDir,
+      folderName: g.group,
+      claudeAlive: g.claudeAlive,
+      pwshAlive: g.pwshAlive,
+      claudeCommand: g.claudeAlive ? g.claudeInfo.command : null,
+      isClaudeReady: cached?.isClaudeReady || false,
+      hasIdentity: cached?.hasIdentity || false,
+      onKill: () => {
+        if (g.claudeAlive) killSession(g.pg.claude);
+        if (g.pwshAlive) killSession(g.pg.pwsh);
+      },
+    });
+    // Fetch folder info if not cached (for indicator dots)
+    if (!cached) {
       fetch(`/api/folder-info?path=${encodeURIComponent(g.workingDir)}`)
         .then((r) => r.json())
-        .then((info) => {
-          state.folderInfoCache.set(cacheKey, info);
-          appendIndicators(indicatorSlot, info);
-        })
+        .then((info) => { state.folderInfoCache.set(cacheKey, info); })
         .catch(() => {});
     }
-
-    // Kill button
-    const killBtn = document.createElement("button");
-    killBtn.className = "kill-btn";
-    killBtn.textContent = "\u00d7";
-    killBtn.title = "Kill all sessions in group";
-    killBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (g.claudeAlive) killSession(g.pg.claude);
-      if (g.pwshAlive) killSession(g.pg.pwsh);
-    };
-    row.appendChild(killBtn);
 
     // Click row → focus active session
     const activeName = g.pg.activeType === "pwsh" && g.pwshAlive ? g.pg.pwsh
@@ -759,20 +595,84 @@ function renderSessionsPanel() {
   }
 }
 
-function appendIndicators(slot, info) {
-  if (info.isClaudeReady) {
-    const ind = document.createElement("span");
-    ind.className = "indicator claude-ready";
-    ind.textContent = "\u25c6";
-    ind.title = "Has CLAUDE.md";
-    slot.appendChild(ind);
+function appendRowActions(container, opts) {
+  const { identityName, unreadCount, workingDir, folderName,
+    claudeAlive, pwshAlive, claudeCommand, isClaudeReady, hasIdentity, onKill } = opts;
+
+  // Identity tag (always rendered for column alignment)
+  const idTag = document.createElement("span");
+  idTag.className = `identity-tag ${identityName ? "" : "hidden-placeholder"}`;
+  idTag.textContent = identityName ? `@${identityName}` : "@";
+  container.appendChild(idTag);
+
+  // Unread badge (always rendered)
+  const badge = document.createElement("span");
+  badge.className = `unread-badge ${unreadCount > 0 ? "" : "hidden-placeholder"}`;
+  badge.textContent = unreadCount > 0 ? `(${unreadCount})` : "(0)";
+  container.appendChild(badge);
+
+  // AI tag
+  const aiPreset = claudeAlive && claudeCommand ? getAiPresetForCommand(claudeCommand) : state.aiPresets[state.aiDefaultIndex];
+  const cTag = document.createElement("span");
+  cTag.className = `cmd-tag ${claudeAlive ? "alive" : "absent"}`;
+  cTag.textContent = aiPreset.icon;
+  cTag.title = claudeAlive ? `${aiPreset.name}: running` : `Start ${aiPreset.name} (right-click for options)`;
+  if (!claudeAlive) {
+    cTag.onclick = (e) => { e.stopPropagation(); openFolder(workingDir, folderName, getDefaultAiCommand()); };
+    cTag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, workingDir, folderName); };
   }
-  if (info.hasIdentity) {
-    const ind = document.createElement("span");
-    ind.className = "indicator identity";
-    ind.textContent = "\u25cf";
-    ind.title = `Identity: ${info.identityName || "yes"}`;
-    slot.appendChild(ind);
+  container.appendChild(cTag);
+
+  // PowerShell tag
+  const pTag = document.createElement("span");
+  pTag.className = `cmd-tag ${pwshAlive ? "alive pwsh" : "absent"}`;
+  pTag.textContent = ">_";
+  pTag.title = pwshAlive ? "PowerShell: running" : "Start PowerShell";
+  if (!pwshAlive) {
+    pTag.onclick = (e) => { e.stopPropagation(); openFolder(workingDir, folderName, "pwsh"); };
+  }
+  container.appendChild(pTag);
+
+  // VS Code tag
+  const codeTag = document.createElement("span");
+  codeTag.className = "cmd-tag code";
+  codeTag.textContent = "{ }";
+  codeTag.title = "Open in VS Code";
+  codeTag.onclick = (e) => {
+    e.stopPropagation();
+    fetch("/api/open-editor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: workingDir }),
+    });
+  };
+  container.appendChild(codeTag);
+
+  // Indicator slot (always render both dots)
+  const indicatorSlot = document.createElement("span");
+  indicatorSlot.className = "indicator-slot";
+  container.appendChild(indicatorSlot);
+
+  const indClaude = document.createElement("span");
+  indClaude.className = `indicator claude-ready ${isClaudeReady ? "" : "hidden-placeholder"}`;
+  indClaude.textContent = "\u25c6";
+  if (isClaudeReady) indClaude.title = "Has CLAUDE.md";
+  indicatorSlot.appendChild(indClaude);
+
+  const indIdentity = document.createElement("span");
+  indIdentity.className = `indicator identity ${hasIdentity ? "" : "hidden-placeholder"}`;
+  indIdentity.textContent = "\u25cf";
+  if (hasIdentity) indIdentity.title = `Identity: ${identityName || "yes"}`;
+  indicatorSlot.appendChild(indIdentity);
+
+  // Kill button (optional)
+  if (onKill) {
+    const killBtn = document.createElement("button");
+    killBtn.className = "kill-btn";
+    killBtn.textContent = "\u00d7";
+    killBtn.title = "Kill session";
+    killBtn.onclick = (e) => { e.stopPropagation(); onKill(); };
+    container.appendChild(killBtn);
   }
 }
 
