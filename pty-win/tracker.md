@@ -1,21 +1,21 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-24 14:50
+Last updated: 2026-03-24 14:53
 
 ## In Motion
 
-| Item | Status | Owner | Details | Links |
-|------|--------|-------|---------|-------|
-| Force-idle server restart | Pending | Rajan | Server needs restart to activate `POST /api/sessions/:name/force-idle` endpoint | commit 8f0340c |
+| Item | Status | Owner | Notes/Links |
+|------|--------|-------|-------------|
+| Force-idle server restart | Pending | Rajan | Server needs restart for `POST /api/sessions/:name/force-idle` — commit 8f0340c |
 
 ## Watching
 
-| Item | Waiting On | Details |
-|------|-----------|---------|
-| AI launcher e2e verification | Next session | Verify agency cc, copilot commands work end-to-end |
-| Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly |
-| Pane topbar AI preset label | Low priority | Show which AI preset is running in pane topbar |
-| Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag |
+| Item | Waiting On | Details | Links |
+|------|-----------|---------|-------|
+| AI launcher e2e verification | Next session | Verify agency cc, copilot commands work end-to-end | |
+| Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly | |
+| Pane topbar AI preset label | Low priority | Show which AI preset is running in pane topbar | |
+| Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag | |
 
 ## Completed
 
