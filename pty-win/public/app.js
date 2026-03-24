@@ -28,8 +28,7 @@ const state = {
   aiPresets: JSON.parse(localStorage.getItem("pty-win-ai-presets") || "null") || [
     { name: "Claude", command: "claude", icon: "\u25b6" },
     { name: "Agency CC", command: "agency cc", icon: "A" },
-    { name: "Copilot", command: "copilot", icon: "GH" },
-    { name: "Agency GH", command: "agency gh", icon: "AG" },
+    { name: "Agency CP", command: "agency cp", icon: "CP" },
   ],
   aiDefaultIndex: parseInt(localStorage.getItem("pty-win-ai-default") || "0") || 0,
 };
