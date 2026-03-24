@@ -376,7 +376,6 @@ function renderTree() {
       claudeCommand: rootMatchesPath ? rootSessionInfo?.command : null,
       isClaudeReady: rootCached?.isClaudeReady || false,
       hasIdentity: rootCached?.hasIdentity || false,
-      context: "folder",
     });
     if (!rootCached) {
       fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
@@ -463,7 +462,6 @@ async function loadAndRenderChildren(parentPath, container, depth) {
       claudeCommand: sessionMatchesPath ? sessionInfo.command : null,
       isClaudeReady: entry.isClaudeReady,
       hasIdentity: entry.hasIdentity,
-      context: "folder",
     });
 
     // Row click = expand/collapse
@@ -580,7 +578,6 @@ function renderSessionsPanel() {
         if (g.claudeAlive) killSession(g.pg.claude);
         if (g.pwshAlive) killSession(g.pg.pwsh);
       },
-      context: "session",
     });
     // Fetch folder info if not cached (for indicator dots)
     if (!cached) {
@@ -600,9 +597,7 @@ function renderSessionsPanel() {
 
 function appendRowActions(container, opts) {
   const { identityName, unreadCount, workingDir, folderName,
-    claudeAlive, pwshAlive, claudeCommand, isClaudeReady, hasIdentity, onKill,
-    context } = opts; // context: "session" | "folder"
-  const isFolder = context === "folder";
+    claudeAlive, pwshAlive, claudeCommand, isClaudeReady, hasIdentity, onKill } = opts;
 
   // Identity tag (always rendered for column alignment)
   const idTag = document.createElement("span");
@@ -619,7 +614,7 @@ function appendRowActions(container, opts) {
   // AI tag
   const aiPreset = claudeAlive && claudeCommand ? getAiPresetForCommand(claudeCommand) : state.aiPresets[state.aiDefaultIndex];
   const cTag = document.createElement("span");
-  cTag.className = `cmd-tag ${claudeAlive ? "alive" : isFolder ? "folder-action" : "absent"}`;
+  cTag.className = `cmd-tag ${claudeAlive ? "alive" : "absent"}`;
   cTag.textContent = aiPreset.icon;
   cTag.title = claudeAlive ? `${aiPreset.name}: running` : `Start ${aiPreset.name} (right-click for options)`;
   if (!claudeAlive) {
@@ -630,7 +625,7 @@ function appendRowActions(container, opts) {
 
   // PowerShell tag
   const pTag = document.createElement("span");
-  pTag.className = `cmd-tag ${pwshAlive ? "alive pwsh" : isFolder ? "folder-action pwsh" : "absent"}`;
+  pTag.className = `cmd-tag ${pwshAlive ? "alive pwsh" : "absent"}`;
   pTag.textContent = ">_";
   pTag.title = pwshAlive ? "PowerShell: running" : "Start PowerShell";
   if (!pwshAlive) {
@@ -640,7 +635,7 @@ function appendRowActions(container, opts) {
 
   // VS Code tag
   const codeTag = document.createElement("span");
-  codeTag.className = `cmd-tag ${isFolder ? "folder-action code" : "code"}`;
+  codeTag.className = "cmd-tag code";
   codeTag.textContent = "{ }";
   codeTag.title = "Open in VS Code";
   codeTag.onclick = (e) => {
