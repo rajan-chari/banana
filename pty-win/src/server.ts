@@ -323,9 +323,69 @@ export async function startServer(config: ServerConfig): Promise<void> {
     console.log(`pty-win: http://127.0.0.1:${config.port}`);
   });
 
-  // Graceful shutdown
-  const shutdown = () => {
+  // Graceful shutdown with save injection
+  const AI_COMMANDS = ["claude", "agency cc", "agency gh", "copilot"];
+  const SHUTDOWN_SAVE_PROMPT = "Server shutting down — update tracker.md, commit and push immediately.\r";
+  const SHUTDOWN_TIMEOUT_MS = 60_000;
+
+  const shutdown = async () => {
     log("[server] Shutting down...");
+
+    // Find active AI sessions to save
+    const aiSessions: Array<[string, PtySession]> = [];
+    for (const [name, session] of sessions) {
+      const info = session.getInfo();
+      if (info.status !== "dead" && AI_COMMANDS.includes(info.command)) {
+        aiSessions.push([name, session]);
+      }
+    }
+
+    if (aiSessions.length > 0) {
+      console.log(`[shutdown] Sending save to ${aiSessions.length} active AI session(s)...`);
+
+      // Inject save prompt into each AI session
+      for (const [name, session] of aiSessions) {
+        const identity = session.getInfo().emcomIdentity;
+        const label = identity ? `${name} (@${identity})` : name;
+        console.log(`[shutdown] ${label}: saving...`);
+        session.forceIdle(); // ensure idle so injection works
+        session.write(SHUTDOWN_SAVE_PROMPT);
+      }
+
+      // Wait for each session to go idle (or timeout)
+      const startTime = Date.now();
+      const pending = new Set(aiSessions.map(([name]) => name));
+
+      await new Promise<void>((resolve) => {
+        const check = setInterval(() => {
+          for (const name of pending) {
+            const session = sessions.get(name);
+            if (!session) { pending.delete(name); continue; }
+            const info = session.getInfo();
+            if (info.status === "idle" || info.status === "dead") {
+              const identity = info.emcomIdentity;
+              const label = identity ? `${name} (@${identity})` : name;
+              console.log(`[shutdown] ${label}: idle, safe to kill`);
+              pending.delete(name);
+            }
+          }
+          if (pending.size === 0) {
+            clearInterval(check);
+            console.log("[shutdown] All sessions saved. Shutting down.");
+            resolve();
+          } else if (Date.now() - startTime > SHUTDOWN_TIMEOUT_MS) {
+            clearInterval(check);
+            for (const name of pending) {
+              console.log(`[shutdown] WARNING: ${name} did not finish saving (timeout)`);
+            }
+            console.log("[shutdown] Timeout reached. Shutting down anyway.");
+            resolve();
+          }
+        }, 1000);
+      });
+    }
+
+    // Kill all sessions and shut down
     for (const [name, session] of sessions) {
       log(`[server] Killing session: ${name}`);
       session.kill();
