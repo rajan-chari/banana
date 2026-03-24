@@ -76,6 +76,12 @@ Pane topbar has a `contextmenu` handler that builds a dynamic menu listing all o
 ### 2026-03-23: Unread count must have a single source of truth
 `unreadCount` was double-counted: server-side `onNewMessages` incremented it, then `onUnreadCount` (from poller) also set it. Frontend `notification` handler also incremented on top of `status` handler. Fix: poller's `onUnreadCount` callback is the sole authority — it reports the actual emcom server count each poll. `onNewMessages` no longer touches `unreadCount`. Frontend `notification` handler no longer increments — just triggers re-render. Also: emcom-server `add_tags("handled")` must remove `unread` tag (commit c72d0ca in emcom repo).
 
+### 2026-03-24: Multi-word commands must be split for Windows PTY spawn
+`config.command` like `"agency cc"` was passed as a single string in `["/c", config.command, ...args]`. node-pty quotes it, making cmd.exe look for a program literally named `"agency cc"`. Fix: `config.command.split(/\s+/)` before building the args array so `"agency cc"` becomes `["agency", "cc"]`.
+
+### 2026-03-24: Async folder-info fetch must patch DOM — applies to ALL panels
+The root folder async fetch bug (fetch stores to cache but never updates rendered DOM) also affected the sessions panel. Any panel that renders indicators from `state.folderInfoCache` and fetches async must patch the DOM in the `.then()` callback. This is now done in three places: root labels, session rows, and (already correct) child folder nodes which get data from the tree API response.
+
 ### 2026-03-23: Root folder-info fetch must update DOM in-place
 Root folders get their indicator data (CLAUDE.md, identity.json) via async `/api/folder-info` fetch, unlike child folders which get it from the `/api/folders` tree response. The fetch stored to `state.folderInfoCache` but never updated the DOM, so root indicators were always hidden. Fix: in the fetch `.then()` callback, query the label's `.indicator-slot` and `.identity-tag` elements and toggle classes/text directly. Don't re-render the whole tree — just patch the specific elements.
 
