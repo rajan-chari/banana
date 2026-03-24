@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-24 21:30
+Last updated: 2026-03-24 22:35
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | Logging + 120s shutdown grace period (a35a115) |
+| Server restart | Needed | Rajan | Timestamps, copilot preset, shutdown fix, self-skip revert (9e425d2) |
 
 ## Watching
 
@@ -21,6 +21,9 @@ Last updated: 2026-03-24 21:30
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-24 | Timestamped console logs | clog() helper: [pty-win HH:MM:SS] on all output (9e425d2) |
+| 2026-03-24 | Revert shutdown self-skip | Agent session should save like any other; freeze was from promise bugs (c6cf0ad) |
+| 2026-03-24 | Copilot preset + shutdown fix | Added copilot back, fixed premature resolve + missing resolve in shutdown (dd38343) |
 | 2026-03-24 | Improved logging + 120s shutdown | [pty-win] console prefix for emcom/checkpoint events, 120s grace with 10s progress (a35a115) |
 | 2026-03-24 | Fix copilot --append-system-prompt | Split AI_COMMANDS vs CLAUDE_COMMANDS — copilot doesn't support preamble flag (0f52ee3) |
 | 2026-03-24 | Fix idle detection for all AI commands | Heuristic timer had local `isClaude === "claude"` check, missed agency cc (5d9f246) |
