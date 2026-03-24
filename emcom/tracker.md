@@ -1,6 +1,6 @@
 # Tracker
 
-Last updated: 2026-03-24 14:52
+Last updated: 2026-03-24 17:40
 
 ## In Motion
 
@@ -18,7 +18,8 @@ Last updated: 2026-03-24 14:52
 
 | Date | Item | Outcome |
 |------|------|---------|
-| 2026-03-24 | Tracker standardization | Migrated to finalized common format |
+| 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |
+| 2026-03-24 | Tracker standardization | Aligned to finalized format, commit `4f36085` |
 | 2026-03-24 | Full save (rc-save/session-save/greet-save) | Committed `c4a1e1f`, pushed |
 | 2026-03-23 | Suppress polling logs | `_SuppressPollingFilter` in `main.py` lifespan, exe rebuilt |
 | 2026-03-23 | Moss's unread-tag fix | Commit `c72d0ca`, included in exe rebuild |
