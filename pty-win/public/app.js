@@ -396,18 +396,18 @@ function renderTree() {
     fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
       .then((r) => r.json())
       .then((info) => {
-        if (info.hasIdentity) {
-          const ind = document.createElement("span");
-          ind.className = "indicator identity";
-          ind.textContent = "\u25cf";
-          ind.title = `Identity: ${info.identityName || "yes"}`;
-          indicatorSlot.appendChild(ind);
-        }
         if (info.isClaudeReady) {
           const ind = document.createElement("span");
           ind.className = "indicator claude-ready";
           ind.textContent = "\u25c6";
           ind.title = "Has CLAUDE.md";
+          indicatorSlot.appendChild(ind);
+        }
+        if (info.hasIdentity) {
+          const ind = document.createElement("span");
+          ind.className = "indicator identity";
+          ind.textContent = "\u25cf";
+          ind.title = `Identity: ${info.identityName || "yes"}`;
           indicatorSlot.appendChild(ind);
         }
       })
@@ -516,19 +516,19 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     };
     row.appendChild(codeBtn);
 
-    // Indicators
-    if (entry.hasIdentity) {
-      const ind = document.createElement("span");
-      ind.className = "indicator identity";
-      ind.textContent = "\u25cf";
-      ind.title = `Identity: ${entry.identityName || "yes"}`;
-      row.appendChild(ind);
-    }
+    // Indicators (order matches sessions panel: claude-ready then identity)
     if (entry.isClaudeReady) {
       const ind = document.createElement("span");
       ind.className = "indicator claude-ready";
       ind.textContent = "\u25c6";
       ind.title = "Has CLAUDE.md";
+      row.appendChild(ind);
+    }
+    if (entry.hasIdentity) {
+      const ind = document.createElement("span");
+      ind.className = "indicator identity";
+      ind.textContent = "\u25cf";
+      ind.title = `Identity: ${entry.identityName || "yes"}`;
       row.appendChild(ind);
     }
 
