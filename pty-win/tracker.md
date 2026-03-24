@@ -1,19 +1,18 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-24 17:40
+Last updated: 2026-03-24 19:00
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Imminent | Rajan | Restart activates: force-idle, checkpoints, dirty detection, graceful shutdown, agency cc fix |
+| (none) | | | |
 
 ## Watching
 
 | Item | Waiting On | Details | Links |
 |------|-----------|---------|-------|
 | Layer 3 (context pressure) | Design decision | Detect context compression events → inject save | emcom thread d96a241e |
-| AI launcher e2e verification | Post-restart | Verify agency cc, copilot commands work end-to-end | |
 | Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly | |
 | Pane topbar AI preset label | Low priority | Show which AI preset is running in pane topbar | |
 | Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag | |
@@ -22,6 +21,11 @@ Last updated: 2026-03-24 17:40
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-24 | Fix copilot --append-system-prompt | Split AI_COMMANDS vs CLAUDE_COMMANDS — copilot doesn't support preamble flag (0f52ee3) |
+| 2026-03-24 | Fix idle detection for all AI commands | Heuristic timer had local `isClaude === "claude"` check, missed agency cc (5d9f246) |
+| 2026-03-24 | Fix session click focus + force-idle | Same-workspace focus race; force-idle checked only "claude" not all presets (1f38e96) |
+| 2026-03-24 | Unified panel styling | Shared appendRowActions(), unscoped .cmd-tag CSS, matching absent/alive states |
+| 2026-03-24 | AI launcher with presets | Configurable presets (Claude, Agency CC, Copilot, Agency GH), right-click picker, default persistence |
 | 2026-03-24 | Layer 5: graceful shutdown | Ctrl+C injects save into all AI sessions, waits for idle, then exits (27037b3) |
 | 2026-03-24 | Fix agency cc launch | Split multi-word commands for Windows cmd.exe args (16c613a) |
 | 2026-03-24 | Layer 2: periodic checkpoints | 30-min light + 2-hr full ceremony injection into AI sessions (b62cc5c) |
