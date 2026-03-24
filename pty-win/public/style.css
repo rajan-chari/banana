@@ -217,7 +217,7 @@ html, body {
   min-width: 0;
 }
 
-.session-row .cmd-tag {
+.cmd-tag {
   font-size: 9px;
   color: var(--text-dim);
   font-family: var(--font-mono);
@@ -229,10 +229,10 @@ html, body {
 .session-row .cmd-tag:first-of-type,
 .tree-node .cmd-tag:first-of-type,
 .tree-root-label .cmd-tag:first-of-type { margin-left: 8px; }
-.session-row .cmd-tag.alive { color: var(--status-idle-bright); font-family: inherit; font-size: 10px; }
-.session-row .cmd-tag.alive.pwsh { color: #23d18b; font-family: var(--font-mono); font-size: 9px; }
-.session-row .cmd-tag.code { cursor: pointer; color: #3b8eea; }
-.session-row .cmd-tag.code:hover { color: var(--accent); }
+.cmd-tag.alive { color: var(--status-idle-bright); font-family: inherit; font-size: 10px; }
+.cmd-tag.alive.pwsh { color: #23d18b; font-family: var(--font-mono); font-size: 9px; }
+.cmd-tag.code { cursor: pointer; color: #3b8eea; }
+.cmd-tag.code:hover { color: var(--accent); }
 .session-row .cmd-tag.absent { cursor: pointer; color: #6e3030; background: #383838; }
 .session-row .cmd-tag.absent:hover { color: #f14c4c; background: #3a2020; }
 
