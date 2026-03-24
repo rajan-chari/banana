@@ -25,9 +25,27 @@ const state = {
   sessionMeta: new Map(), // name -> { workingDir, command } for recreating after restart
   paneGroups: new Map(),  // group -> { claude?: name, pwsh?: name, activeType: "claude"|"pwsh" }
   folderInfoCache: new Map(), // normPath(workingDir) -> { isClaudeReady, hasIdentity, identityName }
+  aiPresets: JSON.parse(localStorage.getItem("pty-win-ai-presets") || "null") || [
+    { name: "Claude", command: "claude", icon: "\u25b6" },
+    { name: "Agency CC", command: "agency cc", icon: "A" },
+    { name: "Copilot", command: "copilot", icon: "GH" },
+    { name: "Agency GH", command: "agency gh", icon: "AG" },
+  ],
+  aiDefaultIndex: parseInt(localStorage.getItem("pty-win-ai-default") || "0") || 0,
 };
 
 let nextWorkspaceId = 1;
+
+function getDefaultAiCommand() {
+  return state.aiPresets[state.aiDefaultIndex]?.command || "claude";
+}
+function getAiPresetForCommand(cmd) {
+  return state.aiPresets.find((p) => p.command === cmd) || { name: cmd, command: cmd, icon: "?" };
+}
+function setAiDefault(index) {
+  state.aiDefaultIndex = index;
+  localStorage.setItem("pty-win-ai-default", String(index));
+}
 
 // ===== xterm theme =====
 
@@ -345,8 +363,9 @@ function renderTree() {
     const playBtn = document.createElement("button");
     playBtn.className = "play-btn";
     playBtn.innerHTML = "&#9654;";
-    playBtn.title = "Open Claude session";
-    playBtn.onclick = (e) => { e.stopPropagation(); openFolder(rootPath, rootName); };
+    playBtn.title = "Open AI session (right-click for options)";
+    playBtn.onclick = (e) => { e.stopPropagation(); openFolder(rootPath, rootName, getDefaultAiCommand()); };
+    playBtn.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, rootPath, rootName); };
     label.appendChild(playBtn);
 
     const pwshBtn = document.createElement("button");
@@ -466,11 +485,9 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     const playBtn = document.createElement("button");
     playBtn.className = "play-btn";
     playBtn.innerHTML = "&#9654;";
-    playBtn.title = "Open Claude session";
-    playBtn.onclick = (e) => {
-      e.stopPropagation();
-      openFolder(entry.path, entry.name);
-    };
+    playBtn.title = "Open AI session (right-click for options)";
+    playBtn.onclick = (e) => { e.stopPropagation(); openFolder(entry.path, entry.name, getDefaultAiCommand()); };
+    playBtn.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, entry.path, entry.name); };
     row.appendChild(playBtn);
 
     // PowerShell button (hover reveal)
@@ -636,13 +653,15 @@ function renderSessionsPanel() {
       row.appendChild(badge);
     }
 
-    // Claude tag
+    // AI tag (shows icon of running preset, or default when absent)
+    const aiPreset = g.claudeAlive ? getAiPresetForCommand(g.claudeInfo.command) : state.aiPresets[state.aiDefaultIndex];
     const cTag = document.createElement("span");
     cTag.className = `cmd-tag ${g.claudeAlive ? "alive" : "absent"}`;
-    cTag.innerHTML = "&#9654;";
-    cTag.title = g.claudeAlive ? `Claude: ${g.claudeInfo.status}` : "Start Claude";
+    cTag.textContent = aiPreset.icon;
+    cTag.title = g.claudeAlive ? `${aiPreset.name}: ${g.claudeInfo.status}` : `Start ${aiPreset.name} (right-click for options)`;
     if (!g.claudeAlive) {
-      cTag.onclick = (e) => { e.stopPropagation(); openFolder(g.workingDir, g.group); };
+      cTag.onclick = (e) => { e.stopPropagation(); openFolder(g.workingDir, g.group, getDefaultAiCommand()); };
+      cTag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, g.workingDir, g.group); };
     }
     row.appendChild(cTag);
 
@@ -877,6 +896,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false)
 
     const body = { workingDir: folderPath, cols, rows };
     if (command) body.command = command;
+    else body.command = getDefaultAiCommand();
 
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -1668,6 +1688,55 @@ function switchPaneType(groupName, type) {
   pg.activeType = type;
   renderActiveWorkspace();
   focusPane(groupName);
+}
+
+function showAiPicker(e, folderPath, folderName) {
+  const menu = document.getElementById("pane-context-menu");
+  menu.innerHTML = "";
+  menu.classList.remove("hidden");
+  menu.style.left = `${e.clientX}px`;
+  menu.style.top = `${e.clientY}px`;
+
+  for (let i = 0; i < state.aiPresets.length; i++) {
+    const preset = state.aiPresets[i];
+    const isDefault = i === state.aiDefaultIndex;
+    const item = document.createElement("div");
+    item.className = "ctx-item ai-picker-item";
+    item.innerHTML = `<span class="default-star">${isDefault ? "\u2605" : ""}</span> ${preset.name} <span class="ai-icon">${preset.icon}</span>`;
+    item.onclick = () => {
+      menu.classList.add("hidden");
+      openFolder(folderPath, folderName, preset.command);
+    };
+    item.oncontextmenu = (ev) => {
+      ev.preventDefault();
+      setAiDefault(i);
+      showAiPicker(e, folderPath, folderName); // re-render to update star
+    };
+    item.title = isDefault ? `${preset.name} (default) — right-click to change` : `Launch ${preset.name} — right-click to set as default`;
+    menu.appendChild(item);
+  }
+
+  const sep = document.createElement("div");
+  sep.className = "ctx-sep";
+  menu.appendChild(sep);
+
+  const customItem = document.createElement("div");
+  customItem.className = "ctx-item";
+  customItem.textContent = "Custom command...";
+  customItem.onclick = () => {
+    menu.classList.add("hidden");
+    const cmd = prompt("Command to run:", "claude");
+    if (cmd) openFolder(folderPath, folderName, cmd);
+  };
+  menu.appendChild(customItem);
+
+  const close = (ev) => {
+    if (!menu.contains(ev.target)) {
+      menu.classList.add("hidden");
+      document.removeEventListener("mousedown", close);
+    }
+  };
+  setTimeout(() => document.addEventListener("mousedown", close), 0);
 }
 
 function showPaneContextMenu(e, groupName) {

@@ -59,7 +59,8 @@ export class PtySession extends EventEmitter {
     this.workingDir = config.workingDir;
 
     // Spawn process in PTY
-    const isClaude = config.command === "claude";
+    const AI_COMMANDS = ["claude", "agency cc", "agency gh", "copilot"];
+    const isClaude = AI_COMMANDS.includes(config.command);
     const hasEmcom = !!(config.emcomIdentity && config.emcomServer);
     const preambleArgs = isClaude && hasEmcom
       ? ["--append-system-prompt", EMCOM_PREAMBLE]

@@ -971,6 +971,10 @@ html, body {
   padding: 4px 0;
 }
 #pane-context-menu.hidden { display: none; }
+.ai-picker-item { display: flex; align-items: center; gap: 6px; }
+.ai-picker-item .default-star { width: 12px; color: #e5c07b; font-size: 10px; text-align: center; }
+.ai-picker-item .ai-icon { margin-left: auto; color: var(--text-dim); font-size: 9px; font-family: var(--font-mono); }
+
 #pane-context-menu .ctx-header {
   padding: 4px 14px;
   font-size: 10px;
