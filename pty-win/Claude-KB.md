@@ -55,6 +55,9 @@ The sidebar now has two panels with matching `.panel-header` design: SESSIONS (a
 ### 2026-03-24: Folder indicators must use .indicator-slot wrapper
 Folder tree indicators were added directly to the row with `margin-left: 4px` each, while sessions panel used a `.indicator-slot` flex wrapper with `gap: 4px` and `margin-left: 0` on children. This caused subtle spacing differences. Fix: wrap folder indicators in the same `.indicator-slot` div. General rule: when two panels show the same elements, use identical DOM structure and CSS classes.
 
+### 2026-03-24: CSS scoped to .session-row won't apply to shared components
+When `appendRowActions()` was extracted as a shared helper for both panels, `.session-row .cmd-tag` styles (font-size, padding) didn't apply to folder rows. Folder tags inherited 13px from parent instead of the intended 9px. Fix: unscope shared CSS selectors (`.cmd-tag`, `.cmd-tag.alive`, `.cmd-tag.absent`, `.cmd-tag.code`) so they apply globally. Only scope styles that genuinely differ between contexts (e.g., `.session-row .cmd-tag.absent` if folders needed different absent styling — but they don't anymore).
+
 ### 2026-03-24: Shell sessions must not get emcom pollers
 Both Claude and PowerShell sessions for the same folder were getting emcom pollers (both auto-detected `identity.json`). When pwsh went idle, emcom prompts were injected into PowerShell. Fix: skip identity detection for `command === "pwsh"` in `POST /api/sessions`.
 
