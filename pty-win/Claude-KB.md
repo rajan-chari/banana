@@ -52,8 +52,17 @@ The sessions panel iterates `state.paneGroups` (not `state.sessions`) so Claude 
 ### 2026-03-23: Sidebar uses two collapsible panels (SESSIONS + FOLDERS)
 The sidebar now has two panels with matching `.panel-header` design: SESSIONS (above) and FOLDERS (below). Each has an arrow toggle, title, count badge, and collapse state persisted to localStorage. The FOLDERS panel wraps the old `#folder-tree` div and holds the collapse-all/refresh buttons in `.panel-actions`. The folders panel uses `flex: 1` + `flex-direction: column` to fill remaining sidebar space; its `.panel-body` overrides `max-height: none`.
 
+### 2026-03-24: Folder indicators must use .indicator-slot wrapper
+Folder tree indicators were added directly to the row with `margin-left: 4px` each, while sessions panel used a `.indicator-slot` flex wrapper with `gap: 4px` and `margin-left: 0` on children. This caused subtle spacing differences. Fix: wrap folder indicators in the same `.indicator-slot` div. General rule: when two panels show the same elements, use identical DOM structure and CSS classes.
+
+### 2026-03-24: Shell sessions must not get emcom pollers
+Both Claude and PowerShell sessions for the same folder were getting emcom pollers (both auto-detected `identity.json`). When pwsh went idle, emcom prompts were injected into PowerShell. Fix: skip identity detection for `command === "pwsh"` in `POST /api/sessions`.
+
+### 2026-03-24: spawn detached:true breaks Ctrl+C on Windows
+`spawn("code", [path], { detached: true, ... })` creates a new process group that interferes with console signal handling. The pty-win server couldn't be stopped with Ctrl+C. Fix: remove `detached: true`, use only `windowsHide: true` + `child.unref()`. Also made shutdown more aggressive: `ws.terminate()` instead of `ws.close()`, 2s force exit timeout.
+
 ### 2026-03-23: VS Code launch on Windows — use spawn with windowsHide
-`execFile("cmd.exe", ["/c", "start", "", "code", path])` opens a visible cmd.exe window. Fix: use `spawn("code", [path], { shell: true, detached: true, stdio: "ignore", windowsHide: true })` and call `child.unref()`.
+`execFile("cmd.exe", ["/c", "start", "", "code", path])` opens a visible cmd.exe window. Fix: use `spawn("code", [path], { shell: true, stdio: "ignore", windowsHide: true })` and call `child.unref()`. Do NOT use `detached: true` (see lesson above).
 
 ### 2026-03-23: WebSocket close listeners must be consolidated
 `attachSessionToWs()` adds a `close` listener per session per WS client. With 11+ sessions this triggers `MaxListenersExceededWarning`. Fix: use a `wsSessionCleanups` Map to batch all cleanup functions per WS into a single `close` listener.
