@@ -42,3 +42,9 @@ Writing "every message you process follows this pattern: 1, 2, 3, 4" caused agen
 
 ### 2026-03-11: Repo ownership — emcom is ours, skills repo is sage's
 The emcom repo (`banana/emcom/`) is ours to commit and push directly. The skills repo (`~/.claude/skills/`) is managed by sage (fellow_scholars workspace) — send sage a message via emcom with what changed and let them handle commits there.
+
+### 2026-03-23: uvicorn.run() clears logging filters — install in lifespan
+Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't work — `uvicorn.run()` calls `dictConfig()` internally which reconfigures the logger and clears filters. Fix: install the filter inside the FastAPI `lifespan` context manager, which runs after uvicorn's logging setup but before requests are served.
+
+### 2026-03-23: PyInstaller can't overwrite a running exe on Windows
+`pyinstaller --noconfirm` fails with `PermissionError: [WinError 5] Access is denied` if the target exe is currently running. The running process holds a file lock. Must stop the process before rebuilding. Plan for this when coordinating exe rebuilds with users.

@@ -13,6 +13,7 @@ Before responding to the user's first message:
 
 2. **Read session context**
    - Read `session-context.md` if it exists. It contains ephemeral state from the previous session: what was in flight, what to pick up, any "don't forget" items.
+   - Read `tracker.md` — persistent work tracker with active items, status, and details. Update it as work progresses.
    - Surface relevant items in the greeting.
 
 3. **Greet the user** — Surface any open TODOs/reminders from private notes, then offer common scenarios:
@@ -112,6 +113,14 @@ Tests use `FastAPI.TestClient` with a temp directory per test (no real server ne
 ## Packaging
 
 PyInstaller spec `emcom-tui.spec` exists for building the TUI as a standalone executable.
+
+## Session End Routine
+
+Before ending a session, run these skills in order:
+
+1. `/rc-save` — Commit/push repos, capture learnings in Claude-KB.md
+2. `/rc-session-save` — Write `session-context.md` for next session pickup
+3. `/rc-greet-save` — Tune the startup greeting if this session revealed gaps
 
 ## Lessons Learned
 

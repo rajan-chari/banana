@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,6 +10,16 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+
+
+class _SuppressPollingFilter(logging.Filter):
+    """Suppress access-log lines for high-frequency polling endpoints."""
+
+    _QUIET_PATHS = ("/email/tags/unread",)
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        return not any(p in msg for p in self._QUIET_PATHS)
 
 from emcom_server.db import Database
 from emcom_server.routers import identity, names, email, threads, tags, search, attachments
@@ -24,6 +35,8 @@ async def lifespan(app: FastAPI):
     data_dir.mkdir(parents=True, exist_ok=True)
     app.state.data_dir = data_dir
     app.state.db = Database(data_dir / "emcom.db")
+    # Install after uvicorn's dictConfig so it doesn't get cleared
+    logging.getLogger("uvicorn.access").addFilter(_SuppressPollingFilter())
     yield
 
 
