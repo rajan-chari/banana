@@ -1087,3 +1087,22 @@ html, body {
 .xterm-viewport::-webkit-scrollbar { width: 6px; }
 .xterm-viewport::-webkit-scrollbar-thumb { background: var(--border-focus); }
 .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+
+/* Dirty workspace toast */
+.dirty-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #3a2020;
+  border: 1px solid #f14c4c;
+  color: #f14c4c;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 10000;
+  cursor: pointer;
+  max-width: 400px;
+  animation: toast-in 0.3s ease;
+}
+.dirty-toast strong { color: #ff8080; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

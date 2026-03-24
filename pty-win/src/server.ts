@@ -293,10 +293,16 @@ export async function startServer(config: ServerConfig): Promise<void> {
   }
 
   function broadcastStatus(session: PtySession): void {
+    const info = session.getInfo();
     const msg = JSON.stringify({
       type: "status",
       session: session.name,
-      payload: { status: session.getStatus(), unreadCount: session.getInfo().unreadCount },
+      payload: {
+        status: info.status,
+        unreadCount: info.unreadCount,
+        dirtyOnExit: info.dirtyOnExit,
+        workingDir: info.workingDir,
+      },
     });
     for (const ws of wsClients) {
       if (ws.readyState === WebSocket.OPEN) ws.send(msg);

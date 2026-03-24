@@ -263,6 +263,10 @@ function connect() {
 
           // Auto-remove dead sessions after a brief flash
           if (msg.payload.status === "dead") {
+            // Layer 4: warn if workspace has uncommitted changes
+            if (msg.payload.dirtyOnExit) {
+              showDirtyWarning(msg.session, msg.payload.workingDir);
+            }
             setTimeout(() => autoRemoveDeadSession(msg.session), 1500);
           }
         }
@@ -1920,6 +1924,18 @@ async function killSession(sessionName) {
   refreshTreeRunningState();
   renderActiveWorkspace();
   renderTabs();
+}
+
+function showDirtyWarning(sessionName, workingDir) {
+  const folderName = workingDir.split(/[/\\]/).filter(Boolean).pop();
+  log(`[dirty] ${sessionName} exited with uncommitted changes in ${folderName}`);
+  const toast = document.createElement("div");
+  toast.className = "dirty-toast";
+  toast.innerHTML = `<strong>⚠ ${folderName}</strong> has uncommitted changes (session ${sessionName} exited)`;
+  toast.onclick = () => toast.remove();
+  document.body.appendChild(toast);
+  // Auto-dismiss after 30s
+  setTimeout(() => toast.remove(), 30000);
 }
 
 function autoRemoveDeadSession(sessionName) {

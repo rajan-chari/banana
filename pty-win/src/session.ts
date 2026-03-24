@@ -1,4 +1,5 @@
 import * as pty from "node-pty";
+import { execFile } from "child_process";
 import { EventEmitter } from "events";
 import { EmcomClient } from "./emcom/client.js";
 import { EmcomPoller } from "./emcom/poller.js";
@@ -19,6 +20,7 @@ export interface SessionInfo {
   status: SessionStatus;
   emcomIdentity?: string;
   unreadCount: number;
+  dirtyOnExit: boolean;
 }
 
 const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
@@ -37,17 +39,29 @@ const EMCOM_PREAMBLE =
   "triage before replying — not every message needs a response.";
 const QUIET_CHECK_INTERVAL_MS = 250;
 
+// Periodic checkpoint injection (Layer 2)
+const CHECKPOINT_LIGHT_INTERVAL_MS = 30 * 60 * 1000; // 30 min
+const CHECKPOINT_FULL_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hrs
+const CHECKPOINT_LIGHT_PROMPT =
+  "Checkpoint: update tracker.md if there are changes, commit and push.\r";
+const CHECKPOINT_FULL_PROMPT =
+  "Full checkpoint: run /rc-save, /rc-session-save, /rc-greet-save.\r";
+
 export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;
   private poller: EmcomPoller | null = null;
   private identityWatcher: ReturnType<typeof setInterval> | null = null;
   private screenDetector: ScreenDetector;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
+  private checkpointLightTimer: ReturnType<typeof setInterval> | null = null;
+  private checkpointFullTimer: ReturnType<typeof setInterval> | null = null;
+  private pendingCheckpoint: "light" | "full" | null = null;
   private status: SessionStatus = "starting";
   private pendingMessages = false;
   private unreadCount = 0;
   private lastOutputTime = Date.now();
   private needsStartupKick = false;
+  private dirtyOnExit = false;
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -122,7 +136,8 @@ export class PtySession extends EventEmitter {
     this.ptyProcess.onExit(({ exitCode }) => {
       this.stop();
       this.setStatus("dead");
-      this.emit("exit", exitCode);
+      // Layer 4: check for uncommitted changes on exit
+      this.checkDirtyState().then(() => this.emit("exit", exitCode));
     });
 
     // Startup grace period
@@ -140,12 +155,14 @@ export class PtySession extends EventEmitter {
     this.poller?.start();
     if (!this.poller) this.watchForIdentity();
     this.startHeuristic();
+    this.startCheckpointTimers();
   }
 
   stop(): void {
     this.poller?.stop();
     this.stopIdentityWatcher();
     this.stopHeuristic();
+    this.stopCheckpointTimers();
     this.screenDetector.dispose();
   }
 
@@ -181,6 +198,7 @@ export class PtySession extends EventEmitter {
       status: this.status,
       emcomIdentity: this.config.emcomIdentity,
       unreadCount: this.unreadCount,
+      dirtyOnExit: this.dirtyOnExit,
     };
   }
 
@@ -284,7 +302,9 @@ export class PtySession extends EventEmitter {
             return;
           }
           this.setStatus("idle");
+          // Priority: emcom messages first, then checkpoint
           if (this.pendingMessages) this.inject();
+          else if (this.pendingCheckpoint) this.injectCheckpoint();
         }
       } else {
         // For generic sessions, just check quiet threshold (longer: 3s)
@@ -310,10 +330,73 @@ export class PtySession extends EventEmitter {
     this.setStatus("busy");
 
     // Cooldown: don't go idle again for a while
-    const prevHeuristic = this.heuristicTimer;
     this.stopHeuristic();
     setTimeout(() => {
       if (this.status !== "dead") this.startHeuristic();
     }, this.config.injectionCooldownMs);
+  }
+
+  // --- Layer 2: Periodic checkpoint injection ---
+
+  private startCheckpointTimers(): void {
+    const AI_COMMANDS = ["claude", "agency cc", "agency gh", "copilot"];
+    if (!AI_COMMANDS.includes(this.config.command)) return;
+
+    this.checkpointLightTimer = setInterval(() => {
+      if (this.status === "dead") return;
+      // Full checkpoint supersedes light
+      if (this.pendingCheckpoint === "full") return;
+      this.pendingCheckpoint = "light";
+      log(`[${this.name}] Checkpoint (light) due`);
+      if (this.status === "idle") this.injectCheckpoint();
+    }, CHECKPOINT_LIGHT_INTERVAL_MS);
+
+    this.checkpointFullTimer = setInterval(() => {
+      if (this.status === "dead") return;
+      this.pendingCheckpoint = "full";
+      log(`[${this.name}] Checkpoint (full) due`);
+      if (this.status === "idle") this.injectCheckpoint();
+    }, CHECKPOINT_FULL_INTERVAL_MS);
+  }
+
+  private stopCheckpointTimers(): void {
+    if (this.checkpointLightTimer) {
+      clearInterval(this.checkpointLightTimer);
+      this.checkpointLightTimer = null;
+    }
+    if (this.checkpointFullTimer) {
+      clearInterval(this.checkpointFullTimer);
+      this.checkpointFullTimer = null;
+    }
+  }
+
+  private injectCheckpoint(): void {
+    if (!this.pendingCheckpoint) return;
+    const type = this.pendingCheckpoint;
+    const prompt = type === "full" ? CHECKPOINT_FULL_PROMPT : CHECKPOINT_LIGHT_PROMPT;
+    this.pendingCheckpoint = null;
+    log(`[${this.name}] Injecting ${type} checkpoint`);
+    this.ptyProcess.write(prompt);
+    this.setStatus("busy");
+
+    this.stopHeuristic();
+    setTimeout(() => {
+      if (this.status !== "dead") this.startHeuristic();
+    }, this.config.injectionCooldownMs);
+  }
+
+  // --- Layer 4: Dirty state detection on exit ---
+
+  private checkDirtyState(): Promise<void> {
+    return new Promise((resolve) => {
+      execFile("git", ["status", "--porcelain"], { cwd: this.workingDir, timeout: 5000 }, (err, stdout) => {
+        if (!err && stdout.trim().length > 0) {
+          this.dirtyOnExit = true;
+          log(`[${this.name}] Dirty workspace on exit (${stdout.trim().split("\n").length} changed files)`);
+          this.emit("status-change", this.status);
+        }
+        resolve();
+      });
+    });
   }
 }
