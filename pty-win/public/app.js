@@ -599,7 +599,17 @@ function renderSessionsPanel() {
     if (!cached) {
       fetch(`/api/folder-info?path=${encodeURIComponent(g.workingDir)}`)
         .then((r) => r.json())
-        .then((info) => { state.folderInfoCache.set(cacheKey, info); })
+        .then((info) => {
+          state.folderInfoCache.set(cacheKey, info);
+          // Update indicators in-place once folder info arrives
+          const slot = row.querySelector(".indicator-slot");
+          if (slot) {
+            const indC = slot.querySelector(".indicator.claude-ready");
+            const indI = slot.querySelector(".indicator.identity");
+            if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
+            if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
+          }
+        })
         .catch(() => {});
     }
 
