@@ -192,6 +192,13 @@ export class PtySession extends EventEmitter {
     this.unreadCount = 0;
   }
 
+  /** Force session to idle — triggers emcom injection if messages are pending. */
+  forceIdle(): void {
+    log(`[${this.name}] Force-idle requested (was ${this.status})`);
+    this.setStatus("idle");
+    if (this.pendingMessages) this.inject();
+  }
+
   /**
    * Periodically check for identity.json appearing in the session's working dir.
    * Once found, attach emcom poller and stop watching.

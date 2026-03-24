@@ -607,6 +607,7 @@ function renderSessionsPanel() {
     const activeName = g.pg.activeType === "pwsh" && g.pwshAlive ? g.pg.pwsh
       : g.claudeAlive ? g.pg.claude : g.pg.pwsh;
     row.onclick = () => focusExistingSession(activeName);
+    row.addEventListener("contextmenu", (e) => showContextMenu(e, g.workingDir));
     list.appendChild(row);
   }
 }
@@ -948,6 +949,13 @@ function showContextMenu(e, path) {
   menu.querySelector('[data-action="fav-add"]').style.display = isFav ? "none" : "";
   menu.querySelector('[data-action="fav-remove"]').style.display = isFav ? "" : "none";
 
+  // Show "Force idle" only when a busy Claude session exists at this path
+  const np = normPath(path);
+  const hasBusyClaude = [...state.sessions.values()].some(
+    (s) => s.command === "claude" && s.status === "busy" && normPath(s.workingDir) === np
+  );
+  menu.querySelector('[data-action="force-idle"]').style.display = hasBusyClaude ? "" : "none";
+
   menu.style.left = `${e.clientX}px`;
   menu.style.top = `${e.clientY}px`;
   menu.classList.remove("hidden");
@@ -975,6 +983,15 @@ document.getElementById("context-menu").addEventListener("click", async (e) => {
     case "open-cmd": {
       const cmd = prompt("Command to run:", "cmd.exe");
       if (cmd) openFolder(path, name, cmd);
+      break;
+    }
+    case "force-idle": {
+      const np = normPath(path);
+      for (const [sName, s] of state.sessions) {
+        if (s.command === "claude" && s.status === "busy" && normPath(s.workingDir) === np) {
+          fetch(`/api/sessions/${encodeURIComponent(sName)}/force-idle`, { method: "POST" });
+        }
+      }
       break;
     }
     case "new-folder": {

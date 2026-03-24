@@ -145,6 +145,14 @@ export async function startServer(config: ServerConfig): Promise<void> {
     res.json({ ok: true });
   });
 
+  app.post("/api/sessions/:name/force-idle", (req, res) => {
+    const session = sessions.get(req.params.name);
+    if (!session) return res.status(404).json({ error: "not found" });
+    session.forceIdle();
+    broadcastSessionList();
+    res.json({ ok: true });
+  });
+
   app.post("/api/sessions/:name/write", (req, res) => {
     const session = sessions.get(req.params.name);
     if (!session) return res.status(404).json({ error: "not found" });
