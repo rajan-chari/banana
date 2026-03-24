@@ -923,12 +923,27 @@ function focusExistingSession(name) {
   // Find workspace containing this group's pane
   const ws = findWorkspaceContaining(groupName);
   if (ws) {
+    // Set focusedPane directly so switchToWorkspace picks it up
+    state.focusedPane = groupName;
     ws.lastFocusedPane = groupName;
-    switchToWorkspace(ws.id);
+    if (ws.id === state.activeWorkspaceId) {
+      // Already on this workspace — just focus the pane, no full switch needed
+      renderActiveWorkspace();
+      focusPane(groupName);
+      requestAnimationFrame(() => {
+        const pg = state.paneGroups.get(groupName);
+        const sName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
+        const entry = state.terminals.get(sName || groupName);
+        if (entry) entry.term.focus();
+      });
+    } else {
+      switchToWorkspace(ws.id);
+    }
   } else {
     // Not in any workspace — tile into active workspace
     const activeWs = getOrCreateActiveWorkspace();
     addSessionToWorkspace(activeWs.id, groupName);
+    state.focusedPane = groupName;
     activeWs.lastFocusedPane = groupName;
     switchToWorkspace(activeWs.id);
     updateWorkspaceTabName(activeWs);
@@ -963,12 +978,13 @@ function showContextMenu(e, path) {
   menu.querySelector('[data-action="fav-add"]').style.display = isFav ? "none" : "";
   menu.querySelector('[data-action="fav-remove"]').style.display = isFav ? "" : "none";
 
-  // Show "Force idle" only when a busy Claude session exists at this path
+  // Show "Force idle" only when a busy AI session exists at this path
   const np = normPath(path);
-  const hasBusyClaude = [...state.sessions.values()].some(
-    (s) => s.command === "claude" && s.status === "busy" && normPath(s.workingDir) === np
+  const aiCommands = new Set(state.aiPresets.map((p) => p.command));
+  const hasBusyAI = [...state.sessions.values()].some(
+    (s) => aiCommands.has(s.command) && s.status === "busy" && normPath(s.workingDir) === np
   );
-  menu.querySelector('[data-action="force-idle"]').style.display = hasBusyClaude ? "" : "none";
+  menu.querySelector('[data-action="force-idle"]').style.display = hasBusyAI ? "" : "none";
 
   menu.style.left = `${e.clientX}px`;
   menu.style.top = `${e.clientY}px`;
@@ -1000,9 +1016,10 @@ document.getElementById("context-menu").addEventListener("click", async (e) => {
       break;
     }
     case "force-idle": {
-      const np = normPath(path);
+      const fnp = normPath(path);
+      const aiCmds = new Set(state.aiPresets.map((p) => p.command));
       for (const [sName, s] of state.sessions) {
-        if (s.command === "claude" && s.status === "busy" && normPath(s.workingDir) === np) {
+        if (aiCmds.has(s.command) && s.status === "busy" && normPath(s.workingDir) === fnp) {
           fetch(`/api/sessions/${encodeURIComponent(sName)}/force-idle`, { method: "POST" });
         }
       }
