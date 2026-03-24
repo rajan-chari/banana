@@ -328,21 +328,14 @@ export async function startServer(config: ServerConfig): Promise<void> {
   const SHUTDOWN_SAVE_PROMPT = "Server shutting down — update tracker.md, commit and push immediately.\r";
   const SHUTDOWN_TIMEOUT_MS = 120_000;
 
-  // Detect our own session name so we skip it during shutdown
-  const ownSessionName = basename(resolve(config.rootDirs?.[0] || process.cwd()));
-
   const shutdown = async () => {
     console.log("[pty-win] Ctrl+C — graceful shutdown starting...");
 
-    // Find active AI sessions to save (skip our own session — deadlock)
+    // Find active AI sessions to save
     const aiSessions: Array<[string, PtySession]> = [];
     for (const [name, session] of sessions) {
       const info = session.getInfo();
       if (info.status !== "dead" && AI_COMMANDS.includes(info.command)) {
-        if (name === ownSessionName) {
-          console.log(`[shutdown] ${name}: skipping (this is our own session)`);
-          continue;
-        }
         aiSessions.push([name, session]);
       }
     }
