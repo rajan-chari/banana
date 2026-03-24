@@ -380,7 +380,23 @@ function renderTree() {
     if (!rootCached) {
       fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
         .then((r) => r.json())
-        .then((info) => { state.folderInfoCache.set(rootCacheKey, info); })
+        .then((info) => {
+          state.folderInfoCache.set(rootCacheKey, info);
+          // Update indicators in-place once folder info arrives
+          const slot = label.querySelector(".indicator-slot");
+          if (slot) {
+            const indC = slot.querySelector(".indicator.claude-ready");
+            const indI = slot.querySelector(".indicator.identity");
+            if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
+            if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
+          }
+          // Update identity tag
+          const idTag = label.querySelector(".identity-tag");
+          if (idTag && info.identityName) {
+            idTag.textContent = info.identityName;
+            idTag.classList.remove("hidden-placeholder");
+          }
+        })
         .catch(() => {});
     }
 
@@ -602,7 +618,7 @@ function appendRowActions(container, opts) {
   // Identity tag (always rendered for column alignment)
   const idTag = document.createElement("span");
   idTag.className = `identity-tag ${identityName ? "" : "hidden-placeholder"}`;
-  idTag.textContent = identityName ? `@${identityName}` : "@";
+  idTag.textContent = identityName ? identityName : "@";
   container.appendChild(idTag);
 
   // Unread badge (always rendered)
@@ -1465,7 +1481,7 @@ function createPane(groupName) {
     </span>`;
   }
 
-  const identity = info?.emcomIdentity ? `<span class="pane-identity">@${info.emcomIdentity}</span>` : "";
+  const identity = info?.emcomIdentity ? `<span class="pane-identity">${info.emcomIdentity}</span>` : "";
   topbar.innerHTML = `
     <span class="pane-name">${groupName}</span>
     ${toggleHtml}
@@ -1961,7 +1977,7 @@ function renderDashboard() {
       <div class="dashboard-card-header">
         <span class="status-dot ${info.status}"></span>
         <span class="dashboard-card-name">${name}</span>
-        <span class="dashboard-card-identity">${info.emcomIdentity ? "@" + info.emcomIdentity : info.command}</span>
+        <span class="dashboard-card-identity">${info.emcomIdentity ? info.emcomIdentity : info.command}</span>
         <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
       </div>
       <div class="dashboard-card-preview" id="preview-${CSS.escape(name)}">Loading...</div>

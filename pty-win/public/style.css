@@ -239,7 +239,7 @@ html, body {
 .session-row .identity-tag,
 .tree-node .identity-tag,
 .tree-root-label .identity-tag {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--identity);
   margin-left: 3px;
   flex-shrink: 0;
@@ -298,7 +298,7 @@ html, body {
 .tree-root-label .root-name { flex: 1; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .tree-root-label .root-name.running { color: #23d18b; }
 
-.tree-root-label .indicator-slot { display: flex; align-items: center; gap: 2px; }
+.tree-root-label .indicator-slot { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
 
 .tree-root-label .arrow,
 .tree-node .arrow,
@@ -653,7 +653,7 @@ html, body {
 .pane-identity {
   color: var(--identity);
   white-space: nowrap;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .pane.focused .pane-topbar {
@@ -815,7 +815,7 @@ html, body {
 
 .dashboard-card-identity {
   color: var(--identity);
-  font-size: 10px;
+  font-size: 12px;
   flex: 1;
 }
 
