@@ -290,9 +290,10 @@ export class PtySession extends EventEmitter {
       const quietMs = Date.now() - this.lastOutputTime;
       if (quietMs < this.config.quietThresholdMs) return;
 
-      // For Claude sessions, use screen-aware detection
-      const isClaude = this.config.command === "claude";
-      if (isClaude) {
+      // For AI sessions, use screen-aware detection
+      const AI_CMDS = ["claude", "agency cc", "agency gh", "copilot"];
+      const isAI = AI_CMDS.includes(this.config.command);
+      if (isAI) {
         const promptType = this.screenDetector.detectPromptType();
         if (promptType === "input") {
           if (this.needsStartupKick) {
