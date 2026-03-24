@@ -25,7 +25,7 @@ const state = {
   sessionMeta: new Map(), // name -> { workingDir, command } for recreating after restart
   paneGroups: new Map(),  // group -> { claude?: name, pwsh?: name, activeType: "claude"|"pwsh" }
   folderInfoCache: new Map(), // normPath(workingDir) -> { isClaudeReady, hasIdentity, identityName }
-  aiPresets: JSON.parse(localStorage.getItem("pty-win-ai-presets") || "null") || [
+  aiPresets: [
     { name: "Claude", command: "claude", icon: "\u25b6" },
     { name: "Agency CC", command: "agency cc", icon: "A" },
     { name: "Agency CP", command: "agency cp", icon: "CP" },
