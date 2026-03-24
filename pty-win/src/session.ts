@@ -83,8 +83,9 @@ export class PtySession extends EventEmitter {
 
     const isWin = process.platform === "win32";
     const shell = isWin ? "cmd.exe" : "/bin/sh";
+    const commandParts = config.command.split(/\s+/);
     const shellArgs = isWin
-      ? ["/c", config.command, ...allArgs]
+      ? ["/c", ...commandParts, ...allArgs]
       : ["-c", `${config.command} ${allArgs.map((a) => `'${a}'`).join(" ")}`];
 
     const cols = config.cols || 120;
