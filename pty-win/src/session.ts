@@ -7,7 +7,7 @@ import { ScreenDetector } from "./screen-detector.js";
 import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
-import { log } from "./log.js";
+import { log, clog } from "./log.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
@@ -331,7 +331,7 @@ export class PtySession extends EventEmitter {
     this.unreadCount = 0;
     const identity = this.config.emcomIdentity;
     const label = identity ? `${this.name} (@${identity})` : this.name;
-    console.log(`[pty-win] emcom check → ${label}`);
+    clog(`emcom check → ${label}`);
     this.ptyProcess.write(INJECTION_PROMPT);
     this.setStatus("busy");
 
@@ -353,14 +353,14 @@ export class PtySession extends EventEmitter {
       // Full checkpoint supersedes light
       if (this.pendingCheckpoint === "full") return;
       this.pendingCheckpoint = "light";
-      console.log(`[pty-win] checkpoint (light) → ${this.name}`);
+      clog(`checkpoint (light) → ${this.name}`);
       if (this.status === "idle") this.injectCheckpoint();
     }, CHECKPOINT_LIGHT_INTERVAL_MS);
 
     this.checkpointFullTimer = setInterval(() => {
       if (this.status === "dead") return;
       this.pendingCheckpoint = "full";
-      console.log(`[pty-win] checkpoint (full) → ${this.name}`);
+      clog(`checkpoint (full) → ${this.name}`);
       if (this.status === "idle") this.injectCheckpoint();
     }, CHECKPOINT_FULL_INTERVAL_MS);
   }
@@ -381,7 +381,7 @@ export class PtySession extends EventEmitter {
     const type = this.pendingCheckpoint;
     const prompt = type === "full" ? CHECKPOINT_FULL_PROMPT : CHECKPOINT_LIGHT_PROMPT;
     this.pendingCheckpoint = null;
-    console.log(`[pty-win] injecting ${type} checkpoint → ${this.name}`);
+    clog(`injecting ${type} checkpoint → ${this.name}`);
     this.ptyProcess.write(prompt);
     this.setStatus("busy");
 

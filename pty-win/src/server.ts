@@ -10,7 +10,7 @@ import { EmcomClient } from "./emcom/client.js";
 import { listDir, readIdentity, createDir } from "./folders.js";
 import { DEFAULTS } from "./config.js";
 import type { SessionConfig, ServerConfig } from "./config.js";
-import { log } from "./log.js";
+import { log, clog } from "./log.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -329,7 +329,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
   const SHUTDOWN_TIMEOUT_MS = 120_000;
 
   const shutdown = async () => {
-    console.log("[pty-win] Ctrl+C — graceful shutdown starting...");
+    clog("Ctrl+C — graceful shutdown starting...");
 
     // Find active AI sessions to save
     const aiSessions: Array<[string, PtySession]> = [];
@@ -341,13 +341,13 @@ export async function startServer(config: ServerConfig): Promise<void> {
     }
 
     if (aiSessions.length > 0) {
-      console.log(`[shutdown] Sending save to ${aiSessions.length} active AI session(s)...`);
+      clog(`Sending save to ${aiSessions.length} active AI session(s)...`);
 
       // Inject save prompt into each AI session
       for (const [name, session] of aiSessions) {
         const identity = session.getInfo().emcomIdentity;
         const label = identity ? `${name} (@${identity})` : name;
-        console.log(`[shutdown] ${label}: saving...`);
+        clog(`${label}: saving...`);
         session.forceIdle(); // ensure idle so injection works
         session.write(SHUTDOWN_SAVE_PROMPT);
       }
@@ -365,25 +365,25 @@ export async function startServer(config: ServerConfig): Promise<void> {
             if (info.status === "idle" || info.status === "dead") {
               const identity = info.emcomIdentity;
               const label = identity ? `${name} (@${identity})` : name;
-              console.log(`[shutdown] ${label}: idle ✓`);
+              clog(`${label}: idle ✓`);
               pending.delete(name);
             }
           }
           const elapsed = Math.round((Date.now() - startTime) / 1000);
           if (pending.size === 0) {
             clearInterval(check);
-            console.log(`[shutdown] All sessions saved (${elapsed}s). Shutting down.`);
+            clog(`All sessions saved (${elapsed}s). Shutting down.`);
             resolve();
           } else if (Date.now() - startTime > SHUTDOWN_TIMEOUT_MS) {
             clearInterval(check);
             for (const name of pending) {
-              console.log(`[shutdown] WARNING: ${name} did not finish saving (${elapsed}s timeout)`);
+              clog(`WARNING: ${name} did not finish saving (${elapsed}s timeout)`);
             }
-            console.log(`[shutdown] Timeout (${elapsed}s). Shutting down anyway.`);
+            clog(`Timeout (${elapsed}s). Shutting down anyway.`);
             resolve();
           } else if (elapsed > 0 && elapsed % 10 === 0) {
             const waiting = [...pending].join(", ");
-            console.log(`[shutdown] ${elapsed}s — waiting on: ${waiting}`);
+            clog(`${elapsed}s — waiting on: ${waiting}`);
           }
         }, 1000);
       });
