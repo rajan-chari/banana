@@ -243,7 +243,8 @@ html, body {
   flex-shrink: 0;
 }
 
-.session-row .indicator-slot { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
+.session-row .indicator-slot,
+.tree-node .indicator-slot { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
 .indicator-slot .indicator { margin-left: 0; }
 
 .session-row .unread-badge,
