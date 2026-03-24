@@ -332,8 +332,8 @@ html, body {
 .tree-node {
   display: flex;
   align-items: center;
-  height: 22px;
-  padding-right: 8px;
+  height: 24px;
+  padding-right: 4px;
   padding-left: 2px;
   cursor: pointer;
   white-space: nowrap;
@@ -398,7 +398,6 @@ html, body {
 
 .tree-node .play-btn,
 .tree-root-label .play-btn {
-  visibility: hidden;
   background: none;
   border: none;
   color: var(--status-idle-bright);
@@ -408,45 +407,37 @@ html, body {
   margin-left: 8px;
   flex-shrink: 0;
 }
-
-.tree-node:hover .play-btn,
-.tree-root-label:hover .play-btn { visibility: visible; }
 .tree-node .play-btn:hover,
 .tree-root-label .play-btn:hover { color: var(--accent); }
 
 .tree-node .pwsh-btn,
 .tree-root-label .pwsh-btn {
-  visibility: hidden;
   background: none;
   border: none;
   color: #11a8cd;
   font-size: 9px;
   cursor: pointer;
-  padding: 0 3px;
+  padding: 0 2px;
+  margin-left: 2px;
   flex-shrink: 0;
   font-family: var(--font-mono);
 }
-
-.tree-node:hover .pwsh-btn,
-.tree-root-label:hover .pwsh-btn { visibility: visible; }
 .tree-node .pwsh-btn:hover,
 .tree-root-label .pwsh-btn:hover { color: var(--accent); }
 
 .tree-node .code-btn,
 .tree-root-label .code-btn {
-  visibility: hidden;
   background: none;
   border: none;
   color: #3b8eea;
   font-size: 9px;
   cursor: pointer;
-  padding: 0 3px;
+  padding: 0 2px;
+  margin-left: 2px;
   flex-shrink: 0;
   font-family: var(--font-mono);
 }
 
-.tree-node:hover .code-btn,
-.tree-root-label:hover .code-btn { visibility: visible; }
 .tree-node .code-btn:hover,
 .tree-root-label .code-btn:hover { color: var(--accent); }
 
