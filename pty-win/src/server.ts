@@ -95,8 +95,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
       return res.status(409).json({ error: "Session already exists" });
     }
 
-    // Auto-detect identity from folder
-    const identity = readIdentity(resolvedDir);
+    // Auto-detect identity from folder (only for AI sessions, not shells)
+    const isShell = command === "pwsh";
+    const identity = isShell ? null : readIdentity(resolvedDir);
 
     const sessionConfig: SessionConfig = {
       name,
