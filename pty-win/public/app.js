@@ -359,6 +359,32 @@ function renderTree() {
       }
     }
 
+    // Identity tag + unread badge (loaded async, inserted before action buttons)
+    const identitySlot = document.createElement("span");
+    identitySlot.className = "identity-slot";
+    label.appendChild(identitySlot);
+    fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
+      .then((r) => r.json())
+      .then((info) => {
+        if (info.hasIdentity && info.identityName) {
+          const idTag = document.createElement("span");
+          idTag.className = "identity-tag";
+          idTag.textContent = `@${info.identityName}`;
+          identitySlot.appendChild(idTag);
+        }
+      })
+      .catch(() => {});
+
+    // Unread badge
+    const rootSessionInfo = state.sessions.get(rootName);
+    const rootMatchesPath = rootSessionInfo && normPath(rootSessionInfo.workingDir) === normPath(rootPath);
+    if (rootMatchesPath && rootSessionInfo.unreadCount > 0) {
+      const badge = document.createElement("span");
+      badge.className = "unread-badge";
+      badge.textContent = `(${rootSessionInfo.unreadCount})`;
+      label.appendChild(badge);
+    }
+
     // Action buttons (hover reveal)
     const playBtn = document.createElement("button");
     playBtn.className = "play-btn";
@@ -412,11 +438,6 @@ function renderTree() {
         }
       })
       .catch(() => {});
-
-    // Unread dot
-    const unreadDot = document.createElement("span");
-    unreadDot.className = "unread-dot";
-    label.appendChild(unreadDot);
 
     label.onclick = () => toggleExpand(rootPath);
     label.addEventListener("contextmenu", (e) => showContextMenu(e, rootPath));
@@ -481,7 +502,25 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     name.textContent = entry.name;
     row.appendChild(name);
 
-    // Play button (hover reveal) — placed before indicators so they don't bounce
+    // Identity tag (matches sessions panel order)
+    if (entry.hasIdentity) {
+      const idTag = document.createElement("span");
+      idTag.className = "identity-tag";
+      idTag.textContent = `@${entry.identityName || "?"}`;
+      row.appendChild(idTag);
+    }
+
+    // Unread badge (matches sessions panel: between identity and action tags)
+    const sessionInfo = state.sessions.get(entry.name);
+    const sessionMatchesPath = sessionInfo && normPath(sessionInfo.workingDir) === normPath(entry.path);
+    if (sessionMatchesPath && sessionInfo.unreadCount > 0) {
+      const badge = document.createElement("span");
+      badge.className = "unread-badge";
+      badge.textContent = `(${sessionInfo.unreadCount})`;
+      row.appendChild(badge);
+    }
+
+    // AI play button (hover reveal)
     const playBtn = document.createElement("button");
     playBtn.className = "play-btn";
     playBtn.innerHTML = "&#9654;";
@@ -495,10 +534,7 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     pwshBtn.className = "pwsh-btn";
     pwshBtn.textContent = ">_";
     pwshBtn.title = "Open PowerShell session";
-    pwshBtn.onclick = (e) => {
-      e.stopPropagation();
-      openFolder(entry.path, entry.name, "pwsh");
-    };
+    pwshBtn.onclick = (e) => { e.stopPropagation(); openFolder(entry.path, entry.name, "pwsh"); };
     row.appendChild(pwshBtn);
 
     // VS Code button (hover reveal)
@@ -531,13 +567,6 @@ async function loadAndRenderChildren(parentPath, container, depth) {
       ind.title = `Identity: ${entry.identityName || "yes"}`;
       row.appendChild(ind);
     }
-
-    // Unread dot
-    const sessionInfo = state.sessions.get(entry.name);
-    const sessionMatchesPath = sessionInfo && normPath(sessionInfo.workingDir) === normPath(entry.path);
-    const unreadDot = document.createElement("span");
-    unreadDot.className = `unread-dot ${sessionMatchesPath && sessionInfo.unreadCount > 0 ? "show" : ""}`;
-    row.appendChild(unreadDot);
 
     // Row click = expand/collapse
     row.onclick = () => toggleExpand(entry.path);

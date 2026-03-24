@@ -234,7 +234,9 @@ html, body {
 .session-row .cmd-tag.absent { cursor: pointer; color: #6e3030; background: #383838; }
 .session-row .cmd-tag.absent:hover { color: #f14c4c; background: #3a2020; }
 
-.session-row .identity-tag {
+.session-row .identity-tag,
+.tree-node .identity-tag,
+.tree-root-label .identity-tag {
   font-size: 9px;
   color: var(--identity);
   margin-left: 3px;
@@ -244,7 +246,9 @@ html, body {
 .session-row .indicator-slot { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
 .indicator-slot .indicator { margin-left: 0; }
 
-.session-row .unread-badge {
+.session-row .unread-badge,
+.tree-node .unread-badge,
+.tree-root-label .unread-badge {
   font-size: 9px;
   color: var(--badge-unread);
   margin-left: 4px;
@@ -400,7 +404,8 @@ html, body {
   color: var(--status-idle-bright);
   font-size: 10px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 2px;
+  margin-left: 8px;
   flex-shrink: 0;
 }
 
