@@ -326,10 +326,10 @@ export async function startServer(config: ServerConfig): Promise<void> {
   // Graceful shutdown with save injection
   const AI_COMMANDS = ["claude", "agency cc", "agency gh", "copilot"];
   const SHUTDOWN_SAVE_PROMPT = "Server shutting down — update tracker.md, commit and push immediately.\r";
-  const SHUTDOWN_TIMEOUT_MS = 60_000;
+  const SHUTDOWN_TIMEOUT_MS = 120_000;
 
   const shutdown = async () => {
-    log("[server] Shutting down...");
+    console.log("[pty-win] Ctrl+C — graceful shutdown starting...");
 
     // Find active AI sessions to save
     const aiSessions: Array<[string, PtySession]> = [];
@@ -365,20 +365,24 @@ export async function startServer(config: ServerConfig): Promise<void> {
             if (info.status === "idle" || info.status === "dead") {
               const identity = info.emcomIdentity;
               const label = identity ? `${name} (@${identity})` : name;
-              console.log(`[shutdown] ${label}: idle, safe to kill`);
+              console.log(`[shutdown] ${label}: idle ✓`);
               pending.delete(name);
             }
           }
+          const elapsed = Math.round((Date.now() - startTime) / 1000);
           if (pending.size === 0) {
             clearInterval(check);
-            console.log("[shutdown] All sessions saved. Shutting down.");
+            console.log(`[shutdown] All sessions saved (${elapsed}s). Shutting down.`);
             resolve();
           } else if (Date.now() - startTime > SHUTDOWN_TIMEOUT_MS) {
             clearInterval(check);
             for (const name of pending) {
-              console.log(`[shutdown] WARNING: ${name} did not finish saving (timeout)`);
+              console.log(`[shutdown] WARNING: ${name} did not finish saving (${elapsed}s timeout)`);
             }
-            console.log("[shutdown] Timeout reached. Shutting down anyway.");
+            console.log(`[shutdown] Timeout (${elapsed}s). Shutting down anyway.`);
+          } else if (elapsed > 0 && elapsed % 10 === 0) {
+            const waiting = [...pending].join(", ");
+            console.log(`[shutdown] ${elapsed}s — waiting on: ${waiting}`);
             resolve();
           }
         }, 1000);

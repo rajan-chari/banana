@@ -329,7 +329,9 @@ export class PtySession extends EventEmitter {
   private inject(): void {
     this.pendingMessages = false;
     this.unreadCount = 0;
-    log(`[${this.name}] Injecting emcom inbox check`);
+    const identity = this.config.emcomIdentity;
+    const label = identity ? `${this.name} (@${identity})` : this.name;
+    console.log(`[pty-win] emcom check → ${label}`);
     this.ptyProcess.write(INJECTION_PROMPT);
     this.setStatus("busy");
 
@@ -351,14 +353,14 @@ export class PtySession extends EventEmitter {
       // Full checkpoint supersedes light
       if (this.pendingCheckpoint === "full") return;
       this.pendingCheckpoint = "light";
-      log(`[${this.name}] Checkpoint (light) due`);
+      console.log(`[pty-win] checkpoint (light) → ${this.name}`);
       if (this.status === "idle") this.injectCheckpoint();
     }, CHECKPOINT_LIGHT_INTERVAL_MS);
 
     this.checkpointFullTimer = setInterval(() => {
       if (this.status === "dead") return;
       this.pendingCheckpoint = "full";
-      log(`[${this.name}] Checkpoint (full) due`);
+      console.log(`[pty-win] checkpoint (full) → ${this.name}`);
       if (this.status === "idle") this.injectCheckpoint();
     }, CHECKPOINT_FULL_INTERVAL_MS);
   }
@@ -379,7 +381,7 @@ export class PtySession extends EventEmitter {
     const type = this.pendingCheckpoint;
     const prompt = type === "full" ? CHECKPOINT_FULL_PROMPT : CHECKPOINT_LIGHT_PROMPT;
     this.pendingCheckpoint = null;
-    log(`[${this.name}] Injecting ${type} checkpoint`);
+    console.log(`[pty-win] injecting ${type} checkpoint → ${this.name}`);
     this.ptyProcess.write(prompt);
     this.setStatus("busy");
 
