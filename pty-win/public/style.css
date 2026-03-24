@@ -236,8 +236,8 @@ html, body {
 .session-row .cmd-tag.absent { cursor: pointer; color: #6e3030; background: #383838; }
 .session-row .cmd-tag.absent:hover { color: #f14c4c; background: #3a2020; }
 
-.cmd-tag.folder-action { cursor: pointer; color: var(--status-idle-bright); }
-.cmd-tag.folder-action.pwsh { color: #11a8cd; }
+.cmd-tag.folder-action { cursor: pointer; color: var(--status-idle-bright); font-family: inherit; font-size: 10px; }
+.cmd-tag.folder-action.pwsh { color: #11a8cd; font-family: var(--font-mono); font-size: 9px; }
 .cmd-tag.folder-action.code { color: #3b8eea; }
 .cmd-tag.folder-action:hover { color: var(--accent); }
 
