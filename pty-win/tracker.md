@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-24 19:00
+Last updated: 2026-03-24 21:30
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| (none) | | | |
+| Server restart | Needed | Rajan | Logging + 120s shutdown grace period (a35a115) |
 
 ## Watching
 
@@ -21,6 +21,7 @@ Last updated: 2026-03-24 19:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-24 | Improved logging + 120s shutdown | [pty-win] console prefix for emcom/checkpoint events, 120s grace with 10s progress (a35a115) |
 | 2026-03-24 | Fix copilot --append-system-prompt | Split AI_COMMANDS vs CLAUDE_COMMANDS — copilot doesn't support preamble flag (0f52ee3) |
 | 2026-03-24 | Fix idle detection for all AI commands | Heuristic timer had local `isClaude === "claude"` check, missed agency cc (5d9f246) |
 | 2026-03-24 | Fix session click focus + force-idle | Same-workspace focus race; force-idle checked only "claude" not all presets (1f38e96) |
