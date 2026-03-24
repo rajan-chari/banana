@@ -114,9 +114,21 @@ Tests use `FastAPI.TestClient` with a temp directory per test (no real server ne
 
 PyInstaller spec `emcom-tui.spec` exists for building the TUI as a standalone executable.
 
-## Session End Routine
+## Auto-Save Strategy
 
-Before ending a session, run these skills in order:
+Sessions can die without warning. Saves must happen DURING the session, not at the end.
+
+### Layer 1: Milestone saves
+After completing any In Motion item in `tracker.md`, immediately:
+- Update `tracker.md` (move item to Completed, update timestamp)
+- Commit and push
+
+### Layer 2: Periodic checkpoints
+- **Every 30 min** — lightweight: update `tracker.md` + commit/push
+- **Every 2 hrs** — full ceremony: `/rc-save`, `/rc-session-save`, `/rc-greet-save`
+
+### Session End Routine
+If you know a session is ending, run these skills in order:
 
 1. `/rc-save` — Commit/push repos, capture learnings in Claude-KB.md
 2. `/rc-session-save` — Write `session-context.md` for next session pickup
