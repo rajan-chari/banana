@@ -1,27 +1,29 @@
 # pty-win Work Tracker
 
-## Completed This Session (2026-03-24)
-
-| Item | Status | Details |
-|------|--------|---------|
-| Identity font size | Done | Bumped to 12px across sidebar, pane topbar, dashboard |
-| Remove @ prefix | Done | Identity names render without @ in all locations |
-| Root indicator alignment | Done | Unified indicator-slot CSS (gap/margin) between root and child nodes |
-| Root async indicator update | Done | folder-info fetch now patches DOM in-place for root folders |
-| Force-idle context menu | Done | Right-click session/folder row to force idle + trigger emcom inject |
-| Session row context menu | Done | Sessions panel rows now support right-click (shares folder context menu) |
+Last updated: 2026-03-24 14:50
 
 ## In Motion
 
-| Item | Status | Details |
-|------|--------|---------|
-| Force-idle server restart | Pending | Server needs restart to activate `POST /api/sessions/:name/force-idle` endpoint |
+| Item | Status | Owner | Details | Links |
+|------|--------|-------|---------|-------|
+| Force-idle server restart | Pending | Rajan | Server needs restart to activate `POST /api/sessions/:name/force-idle` endpoint | commit 8f0340c |
 
-## Open / Next Up
+## Watching
 
-| Item | Priority | Details |
-|------|----------|---------|
-| Root folder indent alignment | Low | Root vs child arrow/indent offset may still differ slightly |
-| AI launcher e2e verification | Medium | Verify agency cc, copilot commands work end-to-end |
-| Pane topbar AI preset label | Low | Show which AI preset is running in pane topbar |
-| Drag-and-drop pane reorder | Low | Reorder panes within a workspace via drag |
+| Item | Waiting On | Details |
+|------|-----------|---------|
+| AI launcher e2e verification | Next session | Verify agency cc, copilot commands work end-to-end |
+| Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly |
+| Pane topbar AI preset label | Low priority | Show which AI preset is running in pane topbar |
+| Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag |
+
+## Completed
+
+| Date | Item | Outcome |
+|------|------|---------|
+| 2026-03-24 | Force-idle context menu | Right-click session/folder row → force idle + trigger emcom inject (8f0340c) |
+| 2026-03-24 | Session row context menu | Sessions panel rows now support right-click context menu |
+| 2026-03-24 | Root async indicator update | folder-info fetch patches DOM in-place for root folders (a3a9b2a) |
+| 2026-03-24 | Root indicator alignment | Unified indicator-slot CSS gap/margin between root and child nodes |
+| 2026-03-24 | Identity font + @ prefix | Bumped to 12px, removed @ prefix across sidebar/topbar/dashboard (b614c4f) |
+| 2026-03-24 | Tracker.md standard | Adopted common tracker format per Rajan's proposal |
