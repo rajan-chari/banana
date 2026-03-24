@@ -73,7 +73,7 @@ export class PtySession extends EventEmitter {
     this.workingDir = config.workingDir;
 
     // Spawn process in PTY
-    const AI_COMMANDS = ["claude", "agency cc", "agency cp"];
+    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
     const CLAUDE_COMMANDS = ["claude", "agency cc", "agency cp"]; // support --append-system-prompt
     const isClaude = AI_COMMANDS.includes(config.command);
     const supportsPreamble = CLAUDE_COMMANDS.includes(config.command);
@@ -293,7 +293,7 @@ export class PtySession extends EventEmitter {
       if (quietMs < this.config.quietThresholdMs) return;
 
       // For AI sessions, use screen-aware detection
-      const AI_CMDS = ["claude", "agency cc", "agency cp"];
+      const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
       const isAI = AI_CMDS.includes(this.config.command);
       if (isAI) {
         const promptType = this.screenDetector.detectPromptType();
@@ -345,7 +345,7 @@ export class PtySession extends EventEmitter {
   // --- Layer 2: Periodic checkpoint injection ---
 
   private startCheckpointTimers(): void {
-    const AI_COMMANDS = ["claude", "agency cc", "agency cp"];
+    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
     if (!AI_COMMANDS.includes(this.config.command)) return;
 
     this.checkpointLightTimer = setInterval(() => {

@@ -29,6 +29,7 @@ const state = {
     { name: "Claude", command: "claude", icon: "\u25b6" },
     { name: "Agency CC", command: "agency cc", icon: "A" },
     { name: "Agency CP", command: "agency cp", icon: "CP" },
+    { name: "Copilot", command: "copilot", icon: "GH" },
   ],
   aiDefaultIndex: parseInt(localStorage.getItem("pty-win-ai-default") || "0") || 0,
 };
