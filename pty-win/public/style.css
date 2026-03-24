@@ -233,7 +233,7 @@ html, body {
 .cmd-tag.alive.pwsh { color: #23d18b; font-family: var(--font-mono); font-size: 9px; }
 .cmd-tag.code { cursor: pointer; color: #3b8eea; }
 .cmd-tag.code:hover { color: var(--accent); }
-.cmd-tag.absent { cursor: pointer; color: #6e3030; background: #383838; }
+.cmd-tag.absent { cursor: pointer; color: #944040; background: #383838; }
 .cmd-tag.absent:hover { color: #f14c4c; background: #3a2020; }
 
 .session-row .identity-tag,
