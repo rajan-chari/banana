@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before responding to the user's first message:
 
-1. Read `Claude-KB.md`, recent `LOG.md` entries, and `progress.md`.
+1. Read `Claude-KB.md`, recent `LOG.md` entries, `progress.md`, and `tracker.md`.
 2. Greet the user covering three things:
    - **What's here** — project summary table with columns: Project, Path, Components (list packages/subpackages, not status/phase)
    - **How to use it** — key commands to run things, what's working end-to-end
@@ -86,6 +86,16 @@ cd python && python -m venv .venv && source .venv/Scripts/activate && pip instal
 
 **Agents:** EM (coordinator), Coder, Runner, Planner, Reviewer, Security
 **Flow:** User → Assistant → EM → Team → EM → User
+
+## Session End
+
+Before ending a session, run these skills in order:
+
+1. `/rc-save` — commit and push all repos
+2. `/rc-session-save` — save session context
+3. `/rc-greet-save` — review greeting
+
+---
 
 ## Notes
 

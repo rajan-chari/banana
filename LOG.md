@@ -152,3 +152,10 @@ Added `location` field (last 3 CWD segments) to identity registration so `emcom 
 | `tests/test_server.py` | Updated register/who tests with location assertions |
 
 66 tests passing (was 63). Rebuilt `emcom.exe` and `emcom-server.exe`.
+
+### 2026-03-24 15:17 — emcom registration + tracker.md + session-end routine
+
+- Registered as **milo** on emcom
+- Created `tracker.md` with standard format (In Motion / Watching / Completed sections)
+- Added `tracker.md` to CLAUDE.md on-load reads
+- Added Session End section to CLAUDE.md (`/rc-save`, `/rc-session-save`, `/rc-greet-save`)
