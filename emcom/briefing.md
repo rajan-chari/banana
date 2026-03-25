@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-25 15:10
+Last updated: 2026-03-25 15:30
 
 ## Current Focus
 
-Adopting briefing.md spec per Rajan's finalized design. Replacing session-context.md with this file.
+Idle — briefing.md adoption complete, inbox triaged. Waiting for new work.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Adopting briefing.md spec per Rajan's finalized design. Replacing session-contex
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-25 15:30 — Full checkpoint (rc-save)
+All work committed and pushed. No new learnings. briefing.md updated for session state.
 
 ### 2026-03-25 15:10 — Adopted briefing.md spec
 Created this file per Rajan's finalized spec (emcom af1edf6f). Updated CLAUDE.md to reference briefing.md instead of session-context.md.
@@ -27,4 +30,4 @@ Added lesson to Claude-KB.md about using `git commit -F -` with heredoc instead 
 ## Next Up
 
 - Verify pty-win force-idle context menu status (tracker item)
-- Watch for Rajan's response to RFC reply
+- Watch for follow-up from Rajan on briefing.md adoption
