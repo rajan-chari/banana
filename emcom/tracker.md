@@ -1,6 +1,6 @@
 # Tracker
 
-Last updated: 2026-03-24 18:02
+Last updated: 2026-03-25 15:15
 
 ## In Motion
 
@@ -18,6 +18,7 @@ Last updated: 2026-03-24 18:02
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-25 | Adopt briefing.md spec | Created briefing.md, updated CLAUDE.md startup + session-end, commit `4cdeb73` |
 | 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |
 | 2026-03-24 | Tracker standardization | Aligned to finalized format, commit `4f36085` |
 | 2026-03-24 | Full save (rc-save/session-save/greet-save) | Committed `c4a1e1f`, pushed |
