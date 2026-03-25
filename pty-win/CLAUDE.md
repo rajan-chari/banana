@@ -121,6 +121,20 @@ Description of what happened and what to do differently. Keep it concise and act
 - One entry per distinct lesson; don't bundle unrelated things
 - Ask the user before adding if you're unsure whether something qualifies
 
+## Git Commit Style
+
+**Always use `-F -` with heredoc** for commit messages — never `$(cat <<'EOF'...)`:
+
+```bash
+git commit -F - <<'EOF'
+Commit message here.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+```
+
+Using `$(cat <<'EOF'...)` triggers a permission prompt every time. `-F -` reads from stdin, heredoc provides it, no command substitution needed.
+
 ## Session End
 
 Before ending a session (or when the user says goodbye / wraps up), run these skills in order:
