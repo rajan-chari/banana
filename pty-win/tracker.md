@@ -1,12 +1,13 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-24 22:35
+Last updated: 2026-03-25 15:05
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | Timestamps, copilot preset, shutdown fix, self-skip revert (9e425d2) |
+| Server restart | Needed | Rajan | Timestamps, copilot preset, shutdown fix, briefing.md prompts |
+| Idle detection logging | Design ready | Moss | NDJSON log on idle transitions, force-idle = labeled false negative |
 
 ## Watching
 
@@ -21,6 +22,7 @@ Last updated: 2026-03-24 22:35
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-25 | Adopt briefing.md | Replaced session-context.md; updated checkpoint/shutdown injection prompts + CLAUDE.md startup |
 | 2026-03-24 | Timestamped console logs | clog() helper: [pty-win HH:MM:SS] on all output (9e425d2) |
 | 2026-03-24 | Revert shutdown self-skip | Agent session should save like any other; freeze was from promise bugs (c6cf0ad) |
 | 2026-03-24 | Copilot preset + shutdown fix | Added copilot back, fixed premature resolve + missing resolve in shutdown (dd38343) |

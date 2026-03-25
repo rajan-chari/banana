@@ -43,9 +43,9 @@ const QUIET_CHECK_INTERVAL_MS = 250;
 const CHECKPOINT_LIGHT_INTERVAL_MS = 30 * 60 * 1000; // 30 min
 const CHECKPOINT_FULL_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hrs
 const CHECKPOINT_LIGHT_PROMPT =
-  "Checkpoint: update tracker.md if there are changes, commit and push.\r";
+  "Checkpoint: update tracker.md and briefing.md if there are changes, commit and push.\r";
 const CHECKPOINT_FULL_PROMPT =
-  "Full checkpoint: run /rc-save, /rc-session-save, /rc-greet-save.\r";
+  "Full checkpoint: update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save.\r";
 
 export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;

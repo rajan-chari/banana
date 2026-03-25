@@ -7,13 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Before responding to the user's first message:
 
 1. Read `Claude-KB.md` in this directory (domain knowledge, lessons learned).
-2. Read `session-context.md` if it exists (ephemeral state from previous session — what was in flight, what to pick up). Surface relevant items in the greeting.
+2. Read `briefing.md` (rolling narrative — current focus, recent decisions, next up). Prune stale entries on startup.
 3. Read `tracker.md` for current work items, status, and what's next. Update it as work progresses.
 4. Look for a `*-private.md` file matching the user's name (e.g., `Rajan-private.md`). If one exists, read it for personal TODOs, preferences, and reminders. If it references a durable location, read that too.
 5. Don't read md files from the parent directory unless the user requests it.
 6. Greet the user covering:
    - **What's running** — any active sessions or recent changes
-   - **Open items** — TODOs from private notes, session context, or KB
+   - **Open items** — TODOs from private notes, briefing, or KB
    - **Quick actions** — common scenarios listed below
 
 ### Common Scenarios

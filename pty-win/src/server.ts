@@ -325,7 +325,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
   // Graceful shutdown with save injection
   const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
-  const SHUTDOWN_SAVE_PROMPT = "Server shutting down — update tracker.md, commit and push immediately.\r";
+  const SHUTDOWN_SAVE_PROMPT = "Server shutting down — update tracker.md and briefing.md, commit and push immediately.\r";
   const SHUTDOWN_TIMEOUT_MS = 120_000;
 
   const shutdown = async () => {
