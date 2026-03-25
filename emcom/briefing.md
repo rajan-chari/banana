@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-25 19:00
+Last updated: 2026-03-25 20:35
 
 ## Current Focus
 
-Idle — responded to team operating manual RFC with emcom-specific feedback. Offered to draft emcom/communication section. Waiting for Rajan's next steps.
+Idle — team operating manual shipped (three-tier: global rule + onboarding + full manual). My CLAUDE.md is clean. Waiting for tagged injections from moss and any new work.
 
 ## Don't Forget
 
@@ -13,7 +13,10 @@ Idle — responded to team operating manual RFC with emcom-specific feedback. Of
 
 ## Recent
 
-### 2026-03-25 19:00 — Full checkpoint (rc-save)
+### 2026-03-25 20:35 — Full checkpoint (rc-save)
+Team operating manual shipped by Rajan (three-tier design). Confirmed my CLAUDE.md is clean — no stale refs. No new learnings. All committed and pushed.
+
+### 2026-03-25 19:00 — Previous checkpoint (rc-save)
 Added Claude-KB lesson (emcom --cc comma-separated names fail). Updated briefing.md. All work committed and pushed.
 
 ### 2026-03-25 18:50 — Replied to team operating manual RFC
@@ -36,5 +39,5 @@ Added lesson to Claude-KB.md about using `git commit -F -` with heredoc instead 
 ## Next Up
 
 - Verify pty-win force-idle context menu status (tracker item)
-- Watch for Rajan's next steps on team operating manual (may draft emcom section)
-- Watch for follow-up from Rajan on briefing.md adoption
+- Watch for tagged injections from moss (pty-win injection tagging)
+- Watch for any new work from Rajan
