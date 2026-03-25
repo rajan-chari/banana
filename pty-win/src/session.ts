@@ -23,8 +23,8 @@ export interface SessionInfo {
   dirtyOnExit: boolean;
 }
 
-const INJECTION_PROMPT = "Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
-const STARTUP_KICK = "hi\r";
+const INJECTION_PROMPT = "[pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
+const STARTUP_KICK = "[pty-win:startup-kick:routine:brief]\nhi\r";
 const STARTUP_GRACE_MS = 10_000;
 
 const EMCOM_PREAMBLE =
@@ -43,9 +43,9 @@ const QUIET_CHECK_INTERVAL_MS = 250;
 const CHECKPOINT_LIGHT_INTERVAL_MS = 30 * 60 * 1000; // 30 min
 const CHECKPOINT_FULL_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hrs
 const CHECKPOINT_LIGHT_PROMPT =
-  "Checkpoint: update tracker.md and briefing.md if there are changes, commit and push.\r";
+  "[pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint: update tracker.md and briefing.md if there are changes, commit and push.\r";
 const CHECKPOINT_FULL_PROMPT =
-  "Full checkpoint: update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save.\r";
+  "[pty-win:checkpoint-full:normal:normal]\nFull checkpoint: update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save.\r";
 
 export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;
