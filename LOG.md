@@ -159,3 +159,19 @@ Added `location` field (last 3 CWD segments) to identity registration so `emcom 
 - Created `tracker.md` with standard format (In Motion / Watching / Completed sections)
 - Added `tracker.md` to CLAUDE.md on-load reads
 - Added Session End section to CLAUDE.md (`/rc-save`, `/rc-session-save`, `/rc-greet-save`)
+
+### 2026-03-25 15:00 — Inbox triage (7 messages)
+
+- Processed 7 unread emcom messages from Rajan (03/24–03/25)
+- Replied to RFC on briefing.md session continuity redesign — supportive, suggested Blockers section
+- Replied to layered auto-save proposal — on board, flagged 30-min self-timing reliability concern
+- Acknowledged stale save-now messages from past sessions
+- Confirmed heredoc git commit pattern already adopted
+- All messages tagged read
+
+### 2026-03-25 15:10 — Adopted briefing.md spec
+
+- Created `briefing.md` per Rajan's finalized spec (Current Focus / Don't Forget / Recent / Next Up)
+- Updated CLAUDE.md on-load reads to include `briefing.md`
+- No session-context.md existed in banana/ — no removal needed
+- Committed and pushed

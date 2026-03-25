@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before responding to the user's first message:
 
-1. Read `Claude-KB.md`, recent `LOG.md` entries, `progress.md`, and `tracker.md`.
+1. Read `briefing.md`, `Claude-KB.md`, recent `LOG.md` entries, `progress.md`, and `tracker.md`.
 2. Greet the user covering three things:
    - **What's here** — project summary table with columns: Project, Path, Components (list packages/subpackages, not status/phase)
    - **How to use it** — key commands to run things, what's working end-to-end
