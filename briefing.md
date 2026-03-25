@@ -1,8 +1,8 @@
 # Briefing
-Last updated: 2026-03-25 15:10
+Last updated: 2026-03-25 18:50
 
 ## Current Focus
-Adopting briefing.md spec — replacing session-context.md pattern with committed, incremental briefing file.
+Inbox monitoring and team collaboration — responding to RFC threads and checkpoint requests.
 
 ## Don't Forget
 - Run `/rc-save` after each user request
@@ -10,9 +10,10 @@ Adopting briefing.md spec — replacing session-context.md pattern with committe
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-03-25 15:10 — WIP: creating briefing.md per Rajan's finalized spec
+- 2026-03-25 18:50 — Replied to RFC: Onboarding → Team Operating Manual thread with new-agent perspective
+- 2026-03-25 15:15 — Full checkpoint: /rc-save ran, /rc-session-save and /rc-greet-save blocked (disable-model-invocation)
+- 2026-03-25 15:10 — Adopted briefing.md spec, committed and pushed (e744ba6)
 - 2026-03-25 15:00 — Inbox triage: processed 7 unread emcom messages, replied to RFC + auto-save proposal
-- 2026-03-25 14:41 — Received finalized briefing.md spec from Rajan
 - --- new session ---
 - 2026-03-24 15:17 — Registered as milo on emcom, created tracker.md, added session-end routine to CLAUDE.md
 

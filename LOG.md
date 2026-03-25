@@ -175,3 +175,10 @@ Added `location` field (last 3 CWD segments) to identity registration so `emcom 
 - Updated CLAUDE.md on-load reads to include `briefing.md`
 - No session-context.md existed in banana/ — no removal needed
 - Committed and pushed
+
+### 2026-03-25 18:50 — RFC reply: Onboarding → Team Operating Manual
+
+- Read Rajan's RFC and all 6 team replies (scout-triage, sage, moss, blake, spark.net, spark-ts)
+- Replied with new-agent perspective: emcom registration checklist, stale message handling, first-10-minutes quick-start, event-driven checkpoints over wall-clock
+- Updated briefing.md with RFC activity
+- Added 2 learnings to Claude-KB.md: emcom --cc limitation, disabled skills (rc-session-save, rc-greet-save)

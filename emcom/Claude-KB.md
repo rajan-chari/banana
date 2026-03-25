@@ -49,5 +49,8 @@ Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't wor
 ### 2026-03-23: PyInstaller can't overwrite a running exe on Windows
 `pyinstaller --noconfirm` fails with `PermissionError: [WinError 5] Access is denied` if the target exe is currently running. The running process holds a file lock. Must stop the process before rebuilding. Plan for this when coordinating exe rebuilds with users.
 
+### 2026-03-25: emcom --cc does not accept comma-separated names
+`emcom send --cc moss,blake,sage` fails with "Recipient 'moss,blake,sage' is not registered" — the CLI treats the entire comma-separated string as a single recipient name. If CC support is needed, use separate `--cc` flags per recipient or omit CC and send to the primary recipient (replies in-thread are visible to all participants anyway).
+
 ### 2026-03-25: Use `git commit -F -` with heredoc instead of `$(cat <<'EOF')`
 `git commit -m "$(cat <<'EOF'...EOF)"` triggers a permission prompt every time due to the `$()` command substitution. Use `git commit -F - <<'EOF'` instead — `-F -` reads the message from stdin, heredoc provides it, no subshell needed. No more permission interruptions.
