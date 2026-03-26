@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-25 22:30
+Last updated: 2026-03-26 00:10
 
 ## Current Focus
 
-Session ending (server shutdown). All work saved. Idle since ~20:35.
+Idle session, no new work since 2026-03-25 20:35. Awaiting tasks.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending (server shutdown). All work saved. Idle since ~20:35.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-26 00:10 — Full checkpoint (overnight)
+No new work. Briefing refreshed for new day.
 
 ### 2026-03-25 22:30 — Shutdown save
 Server shutting down. All work committed. Session was idle since last checkpoint.
