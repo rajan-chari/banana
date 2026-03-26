@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-25 15:05
+Last updated: 2026-03-26 00:15
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
@@ -8,6 +8,9 @@ Idle detection data collection — logging screen snapshots on idle transitions 
 - Server restart still needed — all fixes through 4fae99e (timestamps, copilot preset, shutdown fix)
 
 ## Recent
+### 2026-03-26 00:15 — Q&A session: state storage architecture
+Rajan asked where pty-win persists its config. Documented: server-side state is all CLI args + in-memory (no config file), client-side is browser localStorage keyed by origin. Multiple instances get isolated storage via different ports. No code changes.
+
 ### 2026-03-25 20:30 — Implemented injection tagging
 All pty-win injection prompts now prefixed with `[pty-win:<type>:<priority>:<response>[:skip-if-busy]]`. Types: emcom, startup-kick, checkpoint-light, checkpoint-full, shutdown. Agents can distinguish automated injections from user input and calibrate response effort. Commit 23c03ca.
 
