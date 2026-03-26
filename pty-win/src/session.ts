@@ -57,6 +57,7 @@ export class PtySession extends EventEmitter {
   private checkpointLightTimer: ReturnType<typeof setInterval> | null = null;
   private checkpointFullTimer: ReturnType<typeof setInterval> | null = null;
   private pendingCheckpoint: "light" | "full" | null = null;
+  private lastCheckpointTime = 0;
   private status: SessionStatus = "starting";
   private pendingMessages = false;
   private unreadCount = 0;
@@ -360,8 +361,12 @@ export class PtySession extends EventEmitter {
 
       this.checkpointLightTimer = setInterval(() => {
         if (this.status === "dead") return;
-        // Full checkpoint supersedes light
         if (this.pendingCheckpoint === "full") return;
+        // Skip if no activity since last checkpoint
+        if (this.lastOutputTime <= this.lastCheckpointTime) {
+          clog(`checkpoint (light) skipped → ${this.name} (no activity)`);
+          return;
+        }
         this.pendingCheckpoint = "light";
         clog(`checkpoint (light) → ${this.name}`);
         if (this.status === "idle") this.injectCheckpoint();
@@ -369,6 +374,11 @@ export class PtySession extends EventEmitter {
 
       this.checkpointFullTimer = setInterval(() => {
         if (this.status === "dead") return;
+        // Skip if no activity since last checkpoint
+        if (this.lastOutputTime <= this.lastCheckpointTime) {
+          clog(`checkpoint (full) skipped → ${this.name} (no activity)`);
+          return;
+        }
         this.pendingCheckpoint = "full";
         clog(`checkpoint (full) → ${this.name}`);
         if (this.status === "idle") this.injectCheckpoint();
@@ -396,6 +406,7 @@ export class PtySession extends EventEmitter {
     const type = this.pendingCheckpoint;
     const prompt = type === "full" ? CHECKPOINT_FULL_PROMPT : CHECKPOINT_LIGHT_PROMPT;
     this.pendingCheckpoint = null;
+    this.lastCheckpointTime = Date.now();
     clog(`injecting ${type} checkpoint → ${this.name}`);
     this.ptyProcess.write(prompt);
     this.setStatus("busy");

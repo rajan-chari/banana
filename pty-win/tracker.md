@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-26 01:00
+Last updated: 2026-03-26 20:30
 
 ## In Motion
 
@@ -22,6 +22,7 @@ Last updated: 2026-03-26 01:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-26 | Skip idle checkpoints | Skip checkpoint injection when no activity since last checkpoint |
 | 2026-03-26 | Repo-aware checkpoint stagger | Auto-detect git root, stagger checkpoints 10s apart for shared repos |
 | 2026-03-25 | Injection tagging | All prompts tagged [pty-win:type:priority:response] (23c03ca) |
 | 2026-03-25 | Adopt briefing.md | Replaced session-context.md; updated checkpoint/shutdown injection prompts + CLAUDE.md startup |

@@ -1,13 +1,16 @@
 # Briefing
-Last updated: 2026-03-26 01:00
+Last updated: 2026-03-26 20:30
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through repo stagger commit
+- Server restart still needed — all fixes through idle-skip commit
 
 ## Recent
+### 2026-03-26 20:30 — Skip checkpoints on idle sessions
+Sessions now track `lastCheckpointTime` vs `lastOutputTime`. If no PTY output since the last checkpoint, both light and full checkpoints are skipped with a log message. Saves tokens and reduces noise from "No changes. Skipping." responses.
+
 ### 2026-03-26 01:00 — Implemented repo-aware checkpoint staggering
 Rajan reported index.lock conflicts when multiple agents on fellow-scholars checkpoint simultaneously. Fix: auto-detect git repo root per session (`git rev-parse --show-toplevel`), count siblings on same repo, assign checkpoint timer offset (position × 10s). Shutdown saves also staggered per repo group. No config file needed — fully automatic.
 
