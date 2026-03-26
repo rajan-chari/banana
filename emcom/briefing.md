@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-26 00:10
+Last updated: 2026-03-26 20:30
 
 ## Current Focus
 
-Idle session, no new work since 2026-03-25 20:35. Awaiting tasks.
+Idle session. Replied to Rajan's check-in. Awaiting tasks.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Idle session, no new work since 2026-03-25 20:35. Awaiting tasks.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-26 20:30 — Full checkpoint
+Replied to Rajan's check-in (emcom 96d4a83b → 6b59dcd9). Otherwise idle.
 
 ### 2026-03-26 00:10 — Full checkpoint (overnight)
 No new work. Briefing refreshed for new day.
