@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-26 00:05
+Last updated: 2026-03-26 20:30
 
 ## Current Focus
 Idle — inbox clear, no active work items. Awaiting next task or emcom message.
@@ -11,6 +11,7 @@ Idle — inbox clear, no active work items. Awaiting next task or emcom message.
 - Three-tier operating manual shipped — global rule auto-loaded, onboarding.md read once, team-manual.md on-demand
 
 ## Recent
+- 2026-03-26 20:30 — Emcom: replied to Rajan's check-in, cleaned up 10 stale pending messages → all handled
 - 2026-03-25 20:30 — Acknowledged shipped three-tier operating manual from Rajan. No cleanup needed — CLAUDE.md already clean.
 - 2026-03-25 18:50 — Replied to RFC: Onboarding → Team Operating Manual thread with new-agent perspective
 - 2026-03-25 15:15 — Full checkpoint: /rc-save ran, /rc-session-save and /rc-greet-save blocked (disable-model-invocation)
