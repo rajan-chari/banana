@@ -1,5 +1,5 @@
 # Tracker
-Last updated: 2026-03-25 15:15
+Last updated: 2026-03-25 22:00
 
 ## In Motion
 | Item | Status | Owner | Notes/Links |
@@ -16,6 +16,7 @@ Last updated: 2026-03-25 15:15
 | Date | Item | Outcome |
 |------|------|---------|
 | 2026-03-25 | briefing.md adoption | Created per finalized spec, added to CLAUDE.md on-load |
+| 2026-03-25 | RFC: Onboarding → Team Operating Manual | Replied with new-agent feedback; manual shipped by Rajan (3-tier) |
 | 2026-03-25 | Inbox triage (7 msgs) | Replied to RFC, auto-save proposal, acknowledged stale saves |
 | 2026-03-24 | emcom registration | Registered as milo |
 | 2026-02-21 | EM coordination bug fixes | 5 bugs fixed across 3 files |
