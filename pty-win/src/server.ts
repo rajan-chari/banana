@@ -182,6 +182,16 @@ export async function startServer(config: ServerConfig): Promise<void> {
     child.unref();
     log(`[server] Opened VS Code: ${resolved}`);
     res.json({ ok: true });
+
+    // On Windows, bring VS Code to foreground after it launches
+    if (process.platform === "win32") {
+      setTimeout(() => {
+        const ps = spawn("powershell", ["-NoProfile", "-Command",
+          `(New-Object -ComObject WScript.Shell).AppActivate('Visual Studio Code')`],
+          { stdio: "ignore", windowsHide: true });
+        ps.unref();
+      }, 2000);
+    }
   });
 
   app.post("/api/sessions/:name/force-idle", (req, res) => {

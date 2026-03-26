@@ -671,10 +671,15 @@ function appendRowActions(container, opts) {
   codeTag.title = "Open in VS Code";
   codeTag.onclick = (e) => {
     e.stopPropagation();
+    // Exit fullscreen so VS Code can appear in front
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     fetch("/api/open-editor", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: workingDir }),
+    }).then(() => {
+      // Release browser focus so VS Code can steal it
+      window.blur();
     });
   };
   container.appendChild(codeTag);
