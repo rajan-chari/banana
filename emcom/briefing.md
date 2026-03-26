@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-25 20:35
+Last updated: 2026-03-25 22:30
 
 ## Current Focus
 
-Idle — team operating manual shipped (three-tier: global rule + onboarding + full manual). My CLAUDE.md is clean. Waiting for tagged injections from moss and any new work.
+Session ending (server shutdown). All work saved. Idle since ~20:35.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Idle — team operating manual shipped (three-tier: global rule + onboarding + f
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-25 22:30 — Shutdown save
+Server shutting down. All work committed. Session was idle since last checkpoint.
 
 ### 2026-03-25 20:35 — Full checkpoint (rc-save)
 Team operating manual shipped by Rajan (three-tier design). Confirmed my CLAUDE.md is clean — no stale refs. No new learnings. All committed and pushed.
