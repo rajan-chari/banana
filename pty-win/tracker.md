@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-25 15:05
+Last updated: 2026-03-26 01:00
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | Timestamps, copilot preset, shutdown fix, briefing.md prompts |
+| Server restart | Needed | Rajan | All pending changes including repo stagger |
 | Idle detection logging | Design ready | Moss | NDJSON log on idle transitions, force-idle = labeled false negative |
 
 ## Watching
@@ -22,6 +22,7 @@ Last updated: 2026-03-25 15:05
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-26 | Repo-aware checkpoint stagger | Auto-detect git root, stagger checkpoints 10s apart for shared repos |
 | 2026-03-25 | Injection tagging | All prompts tagged [pty-win:type:priority:response] (23c03ca) |
 | 2026-03-25 | Adopt briefing.md | Replaced session-context.md; updated checkpoint/shutdown injection prompts + CLAUDE.md startup |
 | 2026-03-24 | Timestamped console logs | clog() helper: [pty-win HH:MM:SS] on all output (9e425d2) |

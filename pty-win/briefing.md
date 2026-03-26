@@ -1,13 +1,16 @@
 # Briefing
-Last updated: 2026-03-26 00:15
+Last updated: 2026-03-26 01:00
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through 4fae99e (timestamps, copilot preset, shutdown fix)
+- Server restart still needed — all fixes through repo stagger commit
 
 ## Recent
+### 2026-03-26 01:00 — Implemented repo-aware checkpoint staggering
+Rajan reported index.lock conflicts when multiple agents on fellow-scholars checkpoint simultaneously. Fix: auto-detect git repo root per session (`git rev-parse --show-toplevel`), count siblings on same repo, assign checkpoint timer offset (position × 10s). Shutdown saves also staggered per repo group. No config file needed — fully automatic.
+
 ### 2026-03-26 00:15 — Q&A session: state storage architecture
 Rajan asked where pty-win persists its config. Documented: server-side state is all CLI args + in-memory (no config file), client-side is browser localStorage keyed by origin. Multiple instances get isolated storage via different ports. No code changes.
 

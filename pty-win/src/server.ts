@@ -15,6 +15,31 @@ import { log, clog } from "./log.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const sessions = new Map<string, PtySession>();
+const sessionRepoRoots = new Map<string, string>(); // session name → normalized repo root
+
+const CHECKPOINT_STAGGER_MS = 10_000; // 10s between sessions on same repo
+
+/** Detect git repo root for a directory. Returns normalized path or null. */
+function detectRepoRoot(dir: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile("git", ["rev-parse", "--show-toplevel"], { cwd: dir, timeout: 5000 }, (err, stdout) => {
+      if (err || !stdout.trim()) return resolve(null);
+      resolve(stdout.trim().replace(/\\/g, "/").toLowerCase());
+    });
+  });
+}
+
+/** Count how many existing live sessions share the same repo root. */
+function countRepoSiblings(repoRoot: string): number {
+  let count = 0;
+  for (const [name, root] of sessionRepoRoots) {
+    const session = sessions.get(name);
+    if (root === repoRoot && session && session.getInfo().status !== "dead") {
+      count++;
+    }
+  }
+  return count;
+}
 
 export async function startServer(config: ServerConfig): Promise<void> {
   const app = express();
@@ -81,7 +106,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     res.json(list);
   });
 
-  app.post("/api/sessions", (req, res) => {
+  app.post("/api/sessions", async (req, res) => {
     const { workingDir, command, args = [], cols, rows } = req.body;
     if (!workingDir) {
       return res.status(400).json({ error: "workingDir is required" });
@@ -99,6 +124,18 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const isShell = command === "pwsh";
     const identity = isShell ? null : readIdentity(resolvedDir);
 
+    // Detect git repo root for checkpoint staggering
+    const repoRoot = await detectRepoRoot(resolvedDir);
+    const siblingCount = repoRoot ? countRepoSiblings(repoRoot) : 0;
+    const checkpointOffsetMs = siblingCount * CHECKPOINT_STAGGER_MS;
+
+    if (repoRoot) {
+      sessionRepoRoots.set(name, repoRoot);
+      if (siblingCount > 0) {
+        clog(`${name}: shares repo with ${siblingCount} session(s), checkpoint offset ${checkpointOffsetMs / 1000}s`);
+      }
+    }
+
     const sessionConfig: SessionConfig = {
       name,
       command: command || "claude",
@@ -111,13 +148,14 @@ export async function startServer(config: ServerConfig): Promise<void> {
       pollIntervalMs: DEFAULTS.pollIntervalMs,
       quietThresholdMs: DEFAULTS.quietThresholdMs,
       injectionCooldownMs: DEFAULTS.injectionCooldownMs,
+      checkpointOffsetMs,
     };
 
     const session = new PtySession(sessionConfig);
     addSession(session);
     session.start();
 
-    log(`[server] Created session: ${name} (${sessionConfig.command})${identity ? ` identity=${identity.name}` : ""}`);
+    log(`[server] Created session: ${name} (${sessionConfig.command})${identity ? ` identity=${identity.name}` : ""}${repoRoot ? ` repo=${repoRoot}` : ""}`);
     res.json({ ok: true, name, pid: session.getPid(), identity: identity?.name });
   });
 
@@ -126,6 +164,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     if (!session) return res.status(404).json({ error: "not found" });
     session.kill();
     sessions.delete(req.params.name);
+    sessionRepoRoots.delete(req.params.name);
     broadcastSessionList();
     log(`[server] Killed session: ${req.params.name}`);
     res.json({ ok: true });
@@ -343,14 +382,33 @@ export async function startServer(config: ServerConfig): Promise<void> {
     if (aiSessions.length > 0) {
       clog(`Sending save to ${aiSessions.length} active AI session(s)...`);
 
-      // Inject save prompt into each AI session
+      // Group sessions by repo root for staggered injection
+      const repoGroups = new Map<string, Array<[string, PtySession]>>();
       for (const [name, session] of aiSessions) {
-        const identity = session.getInfo().emcomIdentity;
-        const label = identity ? `${name} (@${identity})` : name;
-        clog(`${label}: saving...`);
-        session.forceIdle(); // ensure idle so injection works
-        session.write(SHUTDOWN_SAVE_PROMPT);
+        const repo = sessionRepoRoots.get(name) || `__solo_${name}`;
+        if (!repoGroups.has(repo)) repoGroups.set(repo, []);
+        repoGroups.get(repo)!.push([name, session]);
       }
+
+      // Inject save prompts, staggered within each repo group
+      const injectPromises: Promise<void>[] = [];
+      for (const [, group] of repoGroups) {
+        for (let i = 0; i < group.length; i++) {
+          const [name, session] = group[i];
+          const delay = i * CHECKPOINT_STAGGER_MS;
+          injectPromises.push(new Promise((resolve) => {
+            setTimeout(() => {
+              const identity = session.getInfo().emcomIdentity;
+              const label = identity ? `${name} (@${identity})` : name;
+              clog(`${label}: saving...${delay > 0 ? ` (delayed ${delay / 1000}s)` : ""}`);
+              session.forceIdle();
+              session.write(SHUTDOWN_SAVE_PROMPT);
+              resolve();
+            }, delay);
+          }));
+        }
+      }
+      await Promise.all(injectPromises);
 
       // Wait for each session to go idle (or timeout)
       const startTime = Date.now();
@@ -395,6 +453,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
       session.kill();
     }
     sessions.clear();
+    sessionRepoRoots.clear();
     clearInterval(heartbeatInterval);
     for (const ws of wsClients) {
       try { ws.terminate(); } catch {}

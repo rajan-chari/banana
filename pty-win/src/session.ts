@@ -53,6 +53,7 @@ export class PtySession extends EventEmitter {
   private identityWatcher: ReturnType<typeof setInterval> | null = null;
   private screenDetector: ScreenDetector;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
+  private checkpointStartDelay: ReturnType<typeof setTimeout> | null = null;
   private checkpointLightTimer: ReturnType<typeof setInterval> | null = null;
   private checkpointFullTimer: ReturnType<typeof setInterval> | null = null;
   private pendingCheckpoint: "light" | "full" | null = null;
@@ -348,24 +349,38 @@ export class PtySession extends EventEmitter {
     const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
     if (!AI_COMMANDS.includes(this.config.command)) return;
 
-    this.checkpointLightTimer = setInterval(() => {
-      if (this.status === "dead") return;
-      // Full checkpoint supersedes light
-      if (this.pendingCheckpoint === "full") return;
-      this.pendingCheckpoint = "light";
-      clog(`checkpoint (light) → ${this.name}`);
-      if (this.status === "idle") this.injectCheckpoint();
-    }, CHECKPOINT_LIGHT_INTERVAL_MS);
+    const offset = this.config.checkpointOffsetMs || 0;
+    if (offset > 0) {
+      clog(`checkpoint timers for ${this.name} delayed by ${offset / 1000}s (repo stagger)`);
+    }
 
-    this.checkpointFullTimer = setInterval(() => {
-      if (this.status === "dead") return;
-      this.pendingCheckpoint = "full";
-      clog(`checkpoint (full) → ${this.name}`);
-      if (this.status === "idle") this.injectCheckpoint();
-    }, CHECKPOINT_FULL_INTERVAL_MS);
+    // Delay timer start by offset so sessions sharing a repo don't fire simultaneously
+    this.checkpointStartDelay = setTimeout(() => {
+      this.checkpointStartDelay = null;
+
+      this.checkpointLightTimer = setInterval(() => {
+        if (this.status === "dead") return;
+        // Full checkpoint supersedes light
+        if (this.pendingCheckpoint === "full") return;
+        this.pendingCheckpoint = "light";
+        clog(`checkpoint (light) → ${this.name}`);
+        if (this.status === "idle") this.injectCheckpoint();
+      }, CHECKPOINT_LIGHT_INTERVAL_MS);
+
+      this.checkpointFullTimer = setInterval(() => {
+        if (this.status === "dead") return;
+        this.pendingCheckpoint = "full";
+        clog(`checkpoint (full) → ${this.name}`);
+        if (this.status === "idle") this.injectCheckpoint();
+      }, CHECKPOINT_FULL_INTERVAL_MS);
+    }, offset);
   }
 
   private stopCheckpointTimers(): void {
+    if (this.checkpointStartDelay) {
+      clearTimeout(this.checkpointStartDelay);
+      this.checkpointStartDelay = null;
+    }
     if (this.checkpointLightTimer) {
       clearInterval(this.checkpointLightTimer);
       this.checkpointLightTimer = null;

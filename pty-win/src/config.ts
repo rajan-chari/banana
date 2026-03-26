@@ -10,6 +10,7 @@ export interface SessionConfig {
   pollIntervalMs: number;
   quietThresholdMs: number;
   injectionCooldownMs: number;
+  checkpointOffsetMs: number;
 }
 
 export interface ServerConfig {
