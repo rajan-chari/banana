@@ -1,13 +1,16 @@
 # Briefing
-Last updated: 2026-03-26 20:30
+Last updated: 2026-03-26 22:15
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through idle-skip commit
+- Server restart still needed — all fixes through VS Code focus fix
 
 ## Recent
+### 2026-03-26 22:10 — Fix VS Code opening behind fullscreen browser
+Client exits fullscreen + blurs window; server uses PowerShell AppActivate after 2s delay. Commit 8d73790.
+
 ### 2026-03-26 20:30 — Skip checkpoints on idle sessions
 Sessions now track `lastCheckpointTime` vs `lastOutputTime`. If no PTY output since the last checkpoint, both light and full checkpoints are skipped with a log message. Saves tokens and reduces noise from "No changes. Skipping." responses.
 

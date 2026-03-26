@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-26 20:30
+Last updated: 2026-03-26 22:15
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes including repo stagger |
+| Server restart | Needed | Rajan | All pending changes through VS Code focus fix |
 | Idle detection logging | Design ready | Moss | NDJSON log on idle transitions, force-idle = labeled false negative |
 
 ## Watching
@@ -22,6 +22,7 @@ Last updated: 2026-03-26 20:30
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-26 | VS Code focus fix | Exit fullscreen + AppActivate so VS Code appears in front (8d73790) |
 | 2026-03-26 | Skip idle checkpoints | Skip checkpoint injection when no activity since last checkpoint |
 | 2026-03-26 | Repo-aware checkpoint stagger | Auto-detect git root, stagger checkpoints 10s apart for shared repos |
 | 2026-03-25 | Injection tagging | All prompts tagged [pty-win:type:priority:response] (23c03ca) |
