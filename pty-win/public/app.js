@@ -568,33 +568,57 @@ function renderQuickAccess() {
     star.textContent = "\u2605";
     row.appendChild(star);
 
-    // Name
+    // Name — click to focus/open
     const label = document.createElement("span");
     label.className = "quick-access-name";
     label.textContent = name;
-    row.appendChild(label);
-
-    // Status indicator — check if a session is running for this path
-    const hasSession = [...state.sessions.values()].some(
-      (s) => normPath(s.workingDir) === np && s.status !== "dead"
-    );
-    if (hasSession) {
-      const dot = document.createElement("span");
-      dot.className = "quick-access-dot";
-      row.appendChild(dot);
-    }
-
-    // Click → focus existing session or open new one
-    row.onclick = () => {
+    label.onclick = () => {
       const existing = [...state.sessions.values()].find(
         (s) => normPath(s.workingDir) === np && s.status !== "dead"
       );
-      if (existing) {
-        focusExistingSession(existing.name);
-      } else {
-        openFolder(folderPath, name);
-      }
+      if (existing) focusExistingSession(existing.name);
+      else openFolder(folderPath, name);
     };
+    row.appendChild(label);
+
+    // Action pills — same as sessions/folders panels
+    const claudeSession = [...state.sessions.values()].find(
+      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command !== "pwsh"
+    );
+    const pwshSession = [...state.sessions.values()].find(
+      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command === "pwsh"
+    );
+    const cached = state.folderInfoCache.get(np);
+
+    appendRowActions(row, {
+      identityName: claudeSession?.emcomIdentity || cached?.identityName || null,
+      unreadCount: claudeSession?.unreadCount || 0,
+      workingDir: folderPath,
+      folderName: name,
+      claudeAlive: !!claudeSession,
+      pwshAlive: !!pwshSession,
+      claudeCommand: claudeSession?.command || null,
+      isClaudeReady: cached?.isClaudeReady || false,
+      hasIdentity: cached?.hasIdentity || false,
+      onKill: null,
+    });
+
+    // Fetch folder info if not cached
+    if (!cached) {
+      fetch(`/api/folder-info?path=${encodeURIComponent(folderPath)}`)
+        .then((r) => r.json())
+        .then((info) => {
+          state.folderInfoCache.set(np, info);
+          const slot = row.querySelector(".indicator-slot");
+          if (slot) {
+            const indC = slot.querySelector(".indicator.claude-ready");
+            const indI = slot.querySelector(".indicator.identity");
+            if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
+            if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
+          }
+        })
+        .catch(() => {});
+    }
 
     // Right-click → context menu
     row.addEventListener("contextmenu", (e) => showContextMenu(e, folderPath));

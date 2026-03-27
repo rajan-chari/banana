@@ -171,16 +171,10 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  flex: 1;
 }
 
-.quick-access-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #4ec9b0;
-  flex-shrink: 0;
-  margin-left: auto;
-}
 
 /* --- Sessions panel --- */
 
