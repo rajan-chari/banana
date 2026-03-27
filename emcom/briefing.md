@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-27
+Last updated: 2026-03-27 14:20
 
 ## Current Focus
 
-Session ending (shutdown). Idle since 2026-03-26 20:30. No new work.
+Replied to Rajan's utility script workspaces RFC. Awaiting tasks.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending (shutdown). Idle since 2026-03-26 20:30. No new work.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-27 14:20 — Replied to utility scripts RFC
+Rajan RFC on creator/tester/runner workspaces for utility scripts. Replied with 4 script ideas (server health checker, briefing pruner, exe rebuild orchestrator, stale message tagger) + questions on tester access and graduation process.
 
 ### 2026-03-27 — Shutdown save
 Idle since last checkpoint. No new work.
