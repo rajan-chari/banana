@@ -1,13 +1,16 @@
 # Briefing
-Last updated: 2026-03-27 14:00
+Last updated: 2026-03-27 18:45
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through b86b1f8
+- Server restart still needed — all fixes through bc8c205
 
 ## Recent
+### 2026-03-27 18:30 — Fix VS Code button + launch logging + scroll styles
+VS Code button was broken by `\\$hwnd` in JS template literal producing `\$hwnd` (invalid PowerShell). Fixed escaping, added full clog() logging for launch flow, unified scrollbar styles across panels. Commits 49cf4c3, bc8c205.
+
 ### 2026-03-27 13:50 — Fix checkpoint stagger: per-injection, not per-timer-start
 Previous setTimeout→setInterval approach only staggered the first round. Now uses scheduleCheckpointInjection() to delay each actual inject by the repo offset every round. Idle-detection pathway also routes through stagger. Commit b86b1f8.
 

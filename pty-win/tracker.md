@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-27 14:00
+Last updated: 2026-03-27 18:45
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through b86b1f8 |
+| Server restart | Needed | Rajan | All pending changes through bc8c205 |
 | Idle detection logging | Design ready | Moss | NDJSON log on idle transitions, force-idle = labeled false negative |
 
 ## Watching
@@ -22,6 +22,7 @@ Last updated: 2026-03-27 14:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-27 | Fix VS Code button + logging + scroll | Bad \\$ escaping broke PS script; added clog(); unified scrollbar (49cf4c3, bc8c205) |
 | 2026-03-27 | Fix stagger: per-injection offset | scheduleCheckpointInjection() applies offset every round (b86b1f8) |
 | 2026-03-27 | Process lifecycle logging | clog() for started/exited/killed with pid, cmd, exit code (b772c8f) |
 | 2026-03-27 | Quick Access panel | Pinned folders at top of sidebar, one-click open/focus (605d1e4) |
