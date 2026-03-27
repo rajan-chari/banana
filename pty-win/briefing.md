@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-27 20:00
+Last updated: 2026-03-27 20:30
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
@@ -9,6 +9,9 @@ Idle detection data collection — logging screen snapshots on idle transitions 
 - Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-27 20:20 — Consistent pill hover across all action buttons
+play (green), pwsh (cyan), code (blue), absent (red), kill (red) — all same padding/radius/transition. Commits 869fb54, e7aa911.
+
 ### 2026-03-27 19:30 — Fix context menu item shifting
 display:none on fav-add/fav-remove caused pin items to shift into their click positions — misclicks made favorites look broken. Fixed with ctx-disabled class (greyed, pointer-events:none) + separator between sections. Commit 77fb746.
 
