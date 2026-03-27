@@ -5,7 +5,7 @@ Last updated: 2026-03-27 01:30
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through VS Code focus fix
+- Server restart still needed — all fixes through verbose checkpoint logging (1e572da)
 
 ## Recent
 ### 2026-03-27 01:30 — Fix idle-skip + verbose checkpoint logging

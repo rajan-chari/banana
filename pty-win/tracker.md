@@ -6,7 +6,7 @@ Last updated: 2026-03-26 22:15
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through VS Code focus fix |
+| Server restart | Needed | Rajan | All pending changes through 1e572da |
 | Idle detection logging | Design ready | Moss | NDJSON log on idle transitions, force-idle = labeled false negative |
 
 ## Watching
@@ -22,6 +22,7 @@ Last updated: 2026-03-26 22:15
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-27 | Idle-skip fix + verbose logging | Stamp checkpoint time after response, log every timer outcome (089de84, 4154f8f) |
 | 2026-03-26 | VS Code focus fix | Exit fullscreen + AppActivate so VS Code appears in front (8d73790) |
 | 2026-03-26 | Skip idle checkpoints | Skip checkpoint injection when no activity since last checkpoint |
 | 2026-03-26 | Repo-aware checkpoint stagger | Auto-detect git root, stagger checkpoints 10s apart for shared repos |
