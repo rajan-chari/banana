@@ -1,8 +1,9 @@
 # Briefing
-Last updated: 2026-03-26 20:30
+Last updated: 2026-03-27 shutdown
 
 ## Current Focus
 Idle — inbox clear, no active work items. Awaiting next task or emcom message.
+Session was mostly idle (2026-03-26 → 2026-03-27). Only activity: replied to Rajan's check-in, cleaned stale inbox.
 
 ## Don't Forget
 - Run `/rc-save` after each user request
