@@ -273,7 +273,7 @@ html, body {
 .session-row .cmd-tag:first-of-type,
 .tree-node .cmd-tag:first-of-type,
 .tree-root-label .cmd-tag:first-of-type { margin-left: 8px; }
-.cmd-tag.alive { color: var(--status-idle-bright); font-family: inherit; font-size: 10px; }
+.cmd-tag.alive { color: var(--status-idle-bright); font-family: inherit; font-size: 9px; }
 .cmd-tag.alive.pwsh { color: #23d18b; font-family: var(--font-mono); font-size: 9px; }
 .cmd-tag.code {
   cursor: pointer;
@@ -296,7 +296,7 @@ html, body {
   border-radius: 10px;
   transition: background 0.1s, color 0.1s;
 }
-.cmd-tag.absent:hover { color: #f14c4c; background: #3a2020; }
+.cmd-tag.absent:hover { color: #fff; background: #e03131; }
 
 .session-row .identity-tag,
 .tree-node .identity-tag,
@@ -335,7 +335,7 @@ html, body {
   transition: background 0.1s, color 0.1s;
 }
 .session-row:hover .kill-btn { visibility: visible; }
-.session-row .kill-btn:hover { color: #fff; background: #f14c4c; border-radius: 3px; }
+.session-row .kill-btn:hover { color: #fff; background: #e03131; }
 
 .sessions-empty {
   font-size: 11px;
@@ -478,7 +478,7 @@ html, body {
   transition: background 0.1s, color 0.1s;
 }
 .tree-node .play-btn:hover,
-.tree-root-label .play-btn:hover { color: #fff; background: var(--status-idle-bright); }
+.tree-root-label .play-btn:hover { color: #fff; background: #2ea043; }
 
 .tree-node .pwsh-btn,
 .tree-root-label .pwsh-btn {
@@ -495,7 +495,7 @@ html, body {
   transition: background 0.1s, color 0.1s;
 }
 .tree-node .pwsh-btn:hover,
-.tree-root-label .pwsh-btn:hover { color: #fff; background: #11a8cd; }
+.tree-root-label .pwsh-btn:hover { color: #fff; background: #0891b2; }
 
 .tree-node .code-btn,
 .tree-root-label .code-btn {
