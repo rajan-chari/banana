@@ -367,27 +367,34 @@ export class PtySession extends EventEmitter {
 
       this.checkpointLightTimer = setInterval(() => {
         if (this.status === "dead") return;
-        if (this.pendingCheckpoint === "full") return;
-        // Skip if no activity since last checkpoint
+        if (this.pendingCheckpoint === "full") {
+          clog(`checkpoint (light) skipped → ${this.name} (full pending)`);
+          return;
+        }
         if (this.lastOutputTime <= this.lastCheckpointTime) {
           clog(`checkpoint (light) skipped → ${this.name} (no activity)`);
           return;
         }
         this.pendingCheckpoint = "light";
-        clog(`checkpoint (light) → ${this.name}`);
-        if (this.status === "idle") this.injectCheckpoint();
+        if (this.status === "idle") {
+          this.injectCheckpoint();
+        } else {
+          clog(`checkpoint (light) queued → ${this.name} (status: ${this.status})`);
+        }
       }, CHECKPOINT_LIGHT_INTERVAL_MS);
 
       this.checkpointFullTimer = setInterval(() => {
         if (this.status === "dead") return;
-        // Skip if no activity since last checkpoint
         if (this.lastOutputTime <= this.lastCheckpointTime) {
           clog(`checkpoint (full) skipped → ${this.name} (no activity)`);
           return;
         }
         this.pendingCheckpoint = "full";
-        clog(`checkpoint (full) → ${this.name}`);
-        if (this.status === "idle") this.injectCheckpoint();
+        if (this.status === "idle") {
+          this.injectCheckpoint();
+        } else {
+          clog(`checkpoint (full) queued → ${this.name} (status: ${this.status})`);
+        }
       }, CHECKPOINT_FULL_INTERVAL_MS);
     }, offset);
   }
