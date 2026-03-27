@@ -308,7 +308,8 @@ html, body {
 
 .session-row .identity-tag,
 .tree-node .identity-tag,
-.tree-root-label .identity-tag {
+.tree-root-label .identity-tag,
+.quick-access-row .identity-tag {
   font-size: 12px;
   color: var(--identity);
   margin-left: 3px;
@@ -316,7 +317,8 @@ html, body {
 }
 
 .session-row .indicator-slot,
-.tree-node .indicator-slot { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
+.tree-node .indicator-slot,
+.quick-access-row .indicator-slot { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
 .indicator-slot .indicator { margin-left: 0; }
 .hidden-placeholder { visibility: hidden; }
 
@@ -442,7 +444,8 @@ html, body {
 
 .tree-node .indicator,
 .tree-root-label .indicator,
-.session-row .indicator {
+.session-row .indicator,
+.quick-access-row .indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -453,10 +456,12 @@ html, body {
 
 .tree-node .indicator.identity,
 .tree-root-label .indicator.identity,
-.session-row .indicator.identity { background: var(--identity); }
+.session-row .indicator.identity,
+.quick-access-row .indicator.identity { background: var(--identity); }
 .tree-node .indicator.claude-ready,
 .tree-root-label .indicator.claude-ready,
-.session-row .indicator.claude-ready { background: var(--claude-ready); }
+.session-row .indicator.claude-ready,
+.quick-access-row .indicator.claude-ready { background: var(--claude-ready); }
 
 .tree-node .unread-dot,
 .tree-root-label .unread-dot {
