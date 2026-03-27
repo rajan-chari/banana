@@ -108,9 +108,9 @@ html, body {
   padding: 4px 0;
 }
 
-#folder-tree::-webkit-scrollbar { width: 4px; }
-#folder-tree::-webkit-scrollbar-thumb { background: var(--border-focus); }
-#folder-tree::-webkit-scrollbar-track { background: transparent; }
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--border-focus); }
+.panel-body::-webkit-scrollbar-track { background: transparent; }
 
 #sidebar-footer {
   border-top: 1px solid var(--border);

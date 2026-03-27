@@ -174,6 +174,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path is required" });
     const resolved = resolve(path);
+    clog(`vscode: opening ${resolved}`);
     res.json({ ok: true });
 
     if (process.platform === "win32") {
@@ -192,10 +193,17 @@ public class Win32Focus {
         [Win32Focus]::ShowWindow($hwnd, 6)  # SW_MINIMIZE
         Start-Process code -ArgumentList '${resolved.replace(/'/g, "''")}'
       `;
+      clog(`vscode: launching via PowerShell (minimize + Start-Process)`);
       const ps = spawn("powershell", ["-NoProfile", "-Command", psScript],
-        { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+        { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+      ps.stdout?.on("data", (data: Buffer) => {
+        clog(`vscode: stdout: ${data.toString().trim()}`);
+      });
       ps.stderr?.on("data", (data: Buffer) => {
-        log(`[server] VS Code launch error: ${data.toString().trim()}`);
+        clog(`vscode: stderr: ${data.toString().trim()}`);
+      });
+      ps.on("exit", (code) => {
+        clog(`vscode: PowerShell exited (code ${code})`);
       });
       ps.unref();
     } else {
@@ -204,8 +212,8 @@ public class Win32Focus {
         stdio: "ignore",
       });
       child.unref();
+      clog(`vscode: launched via shell`);
     }
-    log(`[server] Opened VS Code: ${resolved}`);
   });
 
   app.post("/api/sessions/:name/force-idle", (req, res) => {
