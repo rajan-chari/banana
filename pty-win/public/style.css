@@ -263,12 +263,12 @@ html, body {
 
 .cmd-tag {
   /* Fixed-width container — always same size regardless of state */
-  font-size: 10px;
+  font-size: 9px;
   font-family: var(--font-mono);
   margin-left: 2px;
   flex-shrink: 0;
-  padding: 2px 7px;
-  border-radius: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
   box-sizing: border-box;
 }
@@ -481,10 +481,10 @@ html, body {
   color: var(--text-dim);
   font-size: 10px;
   cursor: pointer;
-  padding: 2px 7px;
+  padding: 1px 5px;
   margin-left: 8px;
   flex-shrink: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 .tree-node .play-btn:hover,
@@ -495,13 +495,13 @@ html, body {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
-  padding: 2px 7px;
+  padding: 1px 5px;
   margin-left: 2px;
   flex-shrink: 0;
   font-family: var(--font-mono);
-  border-radius: 10px;
+  border-radius: 8px;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 .tree-node .pwsh-btn:hover,
@@ -512,13 +512,13 @@ html, body {
   background: rgba(59, 142, 234, 0.1);
   border: 1px solid rgba(59, 142, 234, 0.2);
   color: #3b8eea;
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
-  padding: 2px 7px;
+  padding: 1px 5px;
   margin-left: 2px;
   flex-shrink: 0;
   font-family: var(--font-mono);
-  border-radius: 10px;
+  border-radius: 8px;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 
