@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-27 21:30
+Last updated: 2026-03-27 21:45
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
@@ -9,6 +9,9 @@ Idle detection data collection — logging screen snapshots on idle transitions 
 - Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-27 21:40 — Fix Quick Access column alignment
+quick-access-row had gap:6px vs session-row margin-based spacing; cmd-tag had no min-width so >_ vs </> were different widths. Fixed with height/padding match + min-width:30px + inline-flex centering. Commit 41b5a26.
+
 ### 2026-03-27 21:20 — UI polish sprint: action button pills
 Multiple iterations with Rajan: fixed-width pill containers for all buttons (same size regardless of state), vivid fill colors on hover, square border-radius for >_ cmd tag, Quick Access action pills, identity tag colors + indicator dots for Quick Access rows. Commits 78ed3a7 through 8b6a9a0.
 
