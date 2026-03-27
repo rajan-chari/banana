@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-26 22:15
+Last updated: 2026-03-27 01:30
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
@@ -8,6 +8,9 @@ Idle detection data collection — logging screen snapshots on idle transitions 
 - Server restart still needed — all fixes through VS Code focus fix
 
 ## Recent
+### 2026-03-27 01:30 — Fix idle-skip + verbose checkpoint logging
+Fixed bug where checkpoint response output defeated the skip (stamped lastCheckpointTime at injection instead of after response). Added checkpointInFlight flag — timestamp now set when session goes idle post-response. Also made every timer fire log its outcome (skipped/queued/injecting). Commits 089de84, 4154f8f.
+
 ### 2026-03-26 22:10 — Fix VS Code opening behind fullscreen browser
 Client exits fullscreen + blurs window; server uses PowerShell AppActivate after 2s delay. Commit 8d73790.
 
