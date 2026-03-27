@@ -275,8 +275,17 @@ html, body {
 .tree-root-label .cmd-tag:first-of-type { margin-left: 8px; }
 .cmd-tag.alive { color: var(--status-idle-bright); font-family: inherit; font-size: 10px; }
 .cmd-tag.alive.pwsh { color: #23d18b; font-family: var(--font-mono); font-size: 9px; }
-.cmd-tag.code { cursor: pointer; color: #3b8eea; }
-.cmd-tag.code:hover { color: var(--accent); }
+.cmd-tag.code {
+  cursor: pointer;
+  color: #3b8eea;
+  padding: 1px 4px;
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s;
+}
+.cmd-tag.code:hover {
+  color: #fff;
+  background: #1f6feb;
+}
 .cmd-tag.absent { cursor: pointer; color: #944040; background: #383838; }
 .cmd-tag.absent:hover { color: #f14c4c; background: #3a2020; }
 
@@ -480,14 +489,19 @@ html, body {
   color: #3b8eea;
   font-size: 9px;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 1px 4px;
   margin-left: 2px;
   flex-shrink: 0;
   font-family: var(--font-mono);
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s;
 }
 
 .tree-node .code-btn:hover,
-.tree-root-label .code-btn:hover { color: var(--accent); }
+.tree-root-label .code-btn:hover {
+  color: #fff;
+  background: #1f6feb;
+}
 
 .tree-children {
   display: none;

@@ -740,8 +740,8 @@ function appendRowActions(container, opts) {
   // VS Code tag
   const codeTag = document.createElement("span");
   codeTag.className = "cmd-tag code";
-  codeTag.textContent = "{ }";
-  codeTag.title = "Open in VS Code";
+  codeTag.textContent = "\u003c/\u003e";
+  codeTag.title = "Open in VS Code (click to launch)";
   codeTag.onclick = (e) => {
     e.stopPropagation();
     // Exit Fullscreen API mode (server handles F11/minimize via Win32)
