@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-27 18:45
+Last updated: 2026-03-27 20:00
 
 ## In Motion
 
@@ -22,6 +22,7 @@ Last updated: 2026-03-27 18:45
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-27 | Fix context menu item shifting | ctx-disabled replaces display:none; pin/fav items no longer misalign (77fb746) |
 | 2026-03-27 | Fix VS Code button + logging + scroll | Bad \\$ escaping broke PS script; added clog(); unified scrollbar (49cf4c3, bc8c205) |
 | 2026-03-27 | Fix stagger: per-injection offset | scheduleCheckpointInjection() applies offset every round (b86b1f8) |
 | 2026-03-27 | Process lifecycle logging | clog() for started/exited/killed with pid, cmd, exit code (b772c8f) |

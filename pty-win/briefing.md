@@ -1,13 +1,17 @@
 # Briefing
-Last updated: 2026-03-27 18:45
+Last updated: 2026-03-27 20:00
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through bc8c205
+- Server restart still needed — all server-side fixes through b86b1f8
+- Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-27 19:30 — Fix context menu item shifting
+display:none on fav-add/fav-remove caused pin items to shift into their click positions — misclicks made favorites look broken. Fixed with ctx-disabled class (greyed, pointer-events:none) + separator between sections. Commit 77fb746.
+
 ### 2026-03-27 18:30 — Fix VS Code button + launch logging + scroll styles
 VS Code button was broken by `\\$hwnd` in JS template literal producing `\$hwnd` (invalid PowerShell). Fixed escaping, added full clog() logging for launch flow, unified scrollbar styles across panels. Commits 49cf4c3, bc8c205.
 
