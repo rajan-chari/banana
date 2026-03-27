@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-27 19:15
+Last updated: 2026-03-27 19:30
 
 ## Current Focus
 
-Read updated onboarding.md. Roster has new agents (heidi, thorn, researcher). No action needed.
+Session ending (shutdown). Idle since onboarding read.
 
 ## Don't Forget
 
