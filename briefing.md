@@ -1,9 +1,8 @@
 # Briefing
-Last updated: 2026-03-27 shutdown
+Last updated: 2026-03-27 14:20
 
 ## Current Focus
-Idle — inbox clear, no active work items. Awaiting next task or emcom message.
-Session was mostly idle (2026-03-26 → 2026-03-27). Only activity: replied to Rajan's check-in, cleaned stale inbox.
+Idle — inbox clear. Replied to RFC on utility script workspaces.
 
 ## Don't Forget
 - Run `/rc-save` after each user request
@@ -12,6 +11,7 @@ Session was mostly idle (2026-03-26 → 2026-03-27). Only activity: replied to R
 - Three-tier operating manual shipped — global rule auto-loaded, onboarding.md read once, team-manual.md on-demand
 
 ## Recent
+- 2026-03-27 14:20 — Emcom: replied to RFC on utility script workspaces (4 script ideas, structural feedback)
 - 2026-03-26 20:30 — Emcom: replied to Rajan's check-in, cleaned up 10 stale pending messages → all handled
 - 2026-03-25 20:30 — Acknowledged shipped three-tier operating manual from Rajan. No cleanup needed — CLAUDE.md already clean.
 - 2026-03-25 18:50 — Replied to RFC: Onboarding → Team Operating Manual thread with new-agent perspective
