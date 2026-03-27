@@ -25,6 +25,7 @@ const state = {
   sessionMeta: new Map(), // name -> { workingDir, command } for recreating after restart
   paneGroups: new Map(),  // group -> { claude?: name, pwsh?: name, activeType: "claude"|"pwsh" }
   folderInfoCache: new Map(), // normPath(workingDir) -> { isClaudeReady, hasIdentity, identityName }
+  pinnedFolders: [],          // string[] — paths pinned to Quick Access
   aiPresets: [
     { name: "Claude", command: "claude", icon: "\u25b6" },
     { name: "Agency CC", command: "agency cc", icon: "A" },
@@ -84,6 +85,17 @@ function loadFavorites() {
 
 function saveFavorites() {
   localStorage.setItem("pty-win-favorites", JSON.stringify(state.favorites));
+}
+
+function loadPinnedFolders() {
+  try {
+    const raw = localStorage.getItem("pty-win-pinned");
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function savePinnedFolders() {
+  localStorage.setItem("pty-win-pinned", JSON.stringify(state.pinnedFolders));
 }
 
 function loadExpandedPaths() {
@@ -245,6 +257,7 @@ function connect() {
 
         refreshTreeRunningState();
         renderSessionsPanel();
+        renderQuickAccess();
         if (state.isDashboard) renderDashboard();
         else renderActiveWorkspace();
         break;
@@ -258,6 +271,7 @@ function connect() {
           updatePaneStatus(msg.session);
           refreshTreeRunningState();
           renderSessionsPanel();
+          renderQuickAccess();
 
           if (state.isDashboard) renderDashboard();
 
@@ -279,6 +293,7 @@ function connect() {
           // Just trigger UI refresh to show the notification.
           updatePaneStatus(msg.session);
           renderSessionsPanel();
+          renderQuickAccess();
 
           if (state.isDashboard) renderDashboard();
         }
@@ -302,6 +317,7 @@ async function initApp() {
   } catch {}
 
   renderTree();
+  renderQuickAccess();
   renderTabs();
   if (state.isDashboard) renderDashboard();
   else renderActiveWorkspace();
@@ -528,6 +544,63 @@ function refreshTreeRunningState() {
 
 function cssId(path) {
   return path.replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+// ===== Quick Access Panel =====
+
+function renderQuickAccess() {
+  const panel = document.getElementById("quick-access-panel");
+  if (!panel) return;
+  panel.innerHTML = "";
+
+  if (state.pinnedFolders.length === 0) return;
+
+  for (const folderPath of state.pinnedFolders) {
+    const name = folderPath.split(/[/\\]/).filter(Boolean).pop();
+    const np = normPath(folderPath);
+
+    const row = document.createElement("div");
+    row.className = "quick-access-row";
+
+    // Star icon
+    const star = document.createElement("span");
+    star.className = "quick-access-star";
+    star.textContent = "\u2605";
+    row.appendChild(star);
+
+    // Name
+    const label = document.createElement("span");
+    label.className = "quick-access-name";
+    label.textContent = name;
+    row.appendChild(label);
+
+    // Status indicator — check if a session is running for this path
+    const hasSession = [...state.sessions.values()].some(
+      (s) => normPath(s.workingDir) === np && s.status !== "dead"
+    );
+    if (hasSession) {
+      const dot = document.createElement("span");
+      dot.className = "quick-access-dot";
+      row.appendChild(dot);
+    }
+
+    // Click → focus existing session or open new one
+    row.onclick = () => {
+      const existing = [...state.sessions.values()].find(
+        (s) => normPath(s.workingDir) === np && s.status !== "dead"
+      );
+      if (existing) {
+        focusExistingSession(existing.name);
+      } else {
+        openFolder(folderPath, name);
+      }
+    };
+
+    // Right-click → context menu
+    row.addEventListener("contextmenu", (e) => showContextMenu(e, folderPath));
+
+    panel.appendChild(row);
+  }
 }
 
 // ===== Sessions Panel =====
@@ -980,6 +1053,10 @@ function showContextMenu(e, path) {
   menu.querySelector('[data-action="fav-add"]').style.display = isFav ? "none" : "";
   menu.querySelector('[data-action="fav-remove"]').style.display = isFav ? "" : "none";
 
+  const isPinned = state.pinnedFolders.includes(path);
+  menu.querySelector('[data-action="pin-add"]').style.display = isPinned ? "none" : "";
+  menu.querySelector('[data-action="pin-remove"]').style.display = isPinned ? "" : "none";
+
   // Show "Force idle" only when a busy AI session exists at this path
   const np = normPath(path);
   const aiCommands = new Set(state.aiPresets.map((p) => p.command));
@@ -1058,6 +1135,22 @@ document.getElementById("context-menu").addEventListener("click", async (e) => {
         state.favorites.splice(idx, 1);
         saveFavorites();
         renderTree();
+      }
+      break;
+    }
+    case "pin-add":
+      if (!state.pinnedFolders.includes(path)) {
+        state.pinnedFolders.push(path);
+        savePinnedFolders();
+        renderQuickAccess();
+      }
+      break;
+    case "pin-remove": {
+      const pidx = state.pinnedFolders.indexOf(path);
+      if (pidx !== -1) {
+        state.pinnedFolders.splice(pidx, 1);
+        savePinnedFolders();
+        renderQuickAccess();
       }
       break;
     }
@@ -2122,6 +2215,7 @@ window.addEventListener("resize", () => {
 // ===== Init =====
 
 state.favorites = loadFavorites();
+state.pinnedFolders = loadPinnedFolders();
 state.expandedPaths = loadExpandedPaths();
 // Auto-expand favorites that haven't been explicitly collapsed
 for (const f of state.favorites) {

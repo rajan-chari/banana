@@ -138,6 +138,50 @@ html, body {
 
 #sidebar-strip.hidden { display: none; }
 
+/* --- Quick Access panel --- */
+
+#quick-access-panel:empty { display: none; }
+
+#quick-access-panel {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 4px 0;
+}
+
+.quick-access-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px 3px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.quick-access-row:hover { background: var(--bg-hover); }
+
+.quick-access-star {
+  color: #e8a317;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.quick-access-name {
+  color: #dcdcaa;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-access-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ec9b0;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 /* --- Sessions panel --- */
 
 #sessions-panel {
