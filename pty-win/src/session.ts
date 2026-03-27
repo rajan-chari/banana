@@ -320,7 +320,9 @@ export class PtySession extends EventEmitter {
           this.setStatus("idle");
           // Priority: emcom messages first, then checkpoint
           if (this.pendingMessages) this.inject();
-          else if (this.pendingCheckpoint) this.injectCheckpoint();
+          else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
+            this.scheduleCheckpointInjection(this.pendingCheckpoint);
+          }
         }
       } else {
         // For generic sessions, just check quiet threshold (longer: 3s)
@@ -362,45 +364,54 @@ export class PtySession extends EventEmitter {
 
     const offset = this.config.checkpointOffsetMs || 0;
     if (offset > 0) {
-      clog(`checkpoint timers for ${this.name} delayed by ${offset / 1000}s (repo stagger)`);
+      clog(`checkpoint stagger for ${this.name}: ${offset / 1000}s offset per round`);
     }
 
-    // Delay timer start by offset so sessions sharing a repo don't fire simultaneously
-    this.checkpointStartDelay = setTimeout(() => {
-      this.checkpointStartDelay = null;
+    this.checkpointLightTimer = setInterval(() => {
+      if (this.status === "dead") return;
+      if (this.pendingCheckpoint === "full") {
+        clog(`checkpoint (light) skipped → ${this.name} (full pending)`);
+        return;
+      }
+      if (this.lastOutputTime <= this.lastCheckpointTime) {
+        clog(`checkpoint (light) skipped → ${this.name} (no activity)`);
+        return;
+      }
+      this.pendingCheckpoint = "light";
+      this.scheduleCheckpointInjection("light");
+    }, CHECKPOINT_LIGHT_INTERVAL_MS);
 
-      this.checkpointLightTimer = setInterval(() => {
-        if (this.status === "dead") return;
-        if (this.pendingCheckpoint === "full") {
-          clog(`checkpoint (light) skipped → ${this.name} (full pending)`);
-          return;
-        }
-        if (this.lastOutputTime <= this.lastCheckpointTime) {
-          clog(`checkpoint (light) skipped → ${this.name} (no activity)`);
-          return;
-        }
-        this.pendingCheckpoint = "light";
+    this.checkpointFullTimer = setInterval(() => {
+      if (this.status === "dead") return;
+      if (this.lastOutputTime <= this.lastCheckpointTime) {
+        clog(`checkpoint (full) skipped → ${this.name} (no activity)`);
+        return;
+      }
+      this.pendingCheckpoint = "full";
+      this.scheduleCheckpointInjection("full");
+    }, CHECKPOINT_FULL_INTERVAL_MS);
+  }
+
+  /** Stagger checkpoint injection by repo offset — runs every round, not just the first. */
+  private scheduleCheckpointInjection(type: string): void {
+    const offset = this.config.checkpointOffsetMs || 0;
+    if (offset > 0) {
+      clog(`checkpoint (${type}) scheduled → ${this.name} (in ${offset / 1000}s)`);
+      this.checkpointStartDelay = setTimeout(() => {
+        this.checkpointStartDelay = null;
         if (this.status === "idle") {
           this.injectCheckpoint();
         } else {
-          clog(`checkpoint (light) queued → ${this.name} (status: ${this.status})`);
+          clog(`checkpoint (${type}) queued → ${this.name} (status: ${this.status})`);
         }
-      }, CHECKPOINT_LIGHT_INTERVAL_MS);
-
-      this.checkpointFullTimer = setInterval(() => {
-        if (this.status === "dead") return;
-        if (this.lastOutputTime <= this.lastCheckpointTime) {
-          clog(`checkpoint (full) skipped → ${this.name} (no activity)`);
-          return;
-        }
-        this.pendingCheckpoint = "full";
-        if (this.status === "idle") {
-          this.injectCheckpoint();
-        } else {
-          clog(`checkpoint (full) queued → ${this.name} (status: ${this.status})`);
-        }
-      }, CHECKPOINT_FULL_INTERVAL_MS);
-    }, offset);
+      }, offset);
+    } else {
+      if (this.status === "idle") {
+        this.injectCheckpoint();
+      } else {
+        clog(`checkpoint (${type}) queued → ${this.name} (status: ${this.status})`);
+      }
+    }
   }
 
   private stopCheckpointTimers(): void {
