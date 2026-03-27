@@ -85,5 +85,8 @@ The root folder async fetch bug (fetch stores to cache but never updates rendere
 ### 2026-03-23: Root folder-info fetch must update DOM in-place
 Root folders get their indicator data (CLAUDE.md, identity.json) via async `/api/folder-info` fetch, unlike child folders which get it from the `/api/folders` tree response. The fetch stored to `state.folderInfoCache` but never updated the DOM, so root indicators were always hidden. Fix: in the fetch `.then()` callback, query the label's `.indicator-slot` and `.identity-tag` elements and toggle classes/text directly. Don't re-render the whole tree — just patch the specific elements.
 
+### 2026-03-27: JS template literals don't need \\ before $ (unless followed by {)
+In JS template literals, `$hwnd` is the literal string `$hwnd` — template interpolation only triggers on `${...}`. Using `\\$hwnd` produces `\$hwnd` which broke a PowerShell script embedded in a template literal. Only escape `$` when it precedes `{` for interpolation. This caused the VS Code launch button to be completely broken.
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.

@@ -188,12 +188,15 @@ public class Win32Focus {
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }
 "@
-        \\$hwnd = [Win32Focus]::GetForegroundWindow()
-        [Win32Focus]::ShowWindow(\\$hwnd, 6)  # SW_MINIMIZE
+        $hwnd = [Win32Focus]::GetForegroundWindow()
+        [Win32Focus]::ShowWindow($hwnd, 6)  # SW_MINIMIZE
         Start-Process code -ArgumentList '${resolved.replace(/'/g, "''")}'
       `;
       const ps = spawn("powershell", ["-NoProfile", "-Command", psScript],
-        { stdio: "ignore", windowsHide: true });
+        { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+      ps.stderr?.on("data", (data: Buffer) => {
+        log(`[server] VS Code launch error: ${data.toString().trim()}`);
+      });
       ps.unref();
     } else {
       const child = spawn("code", [resolved], {
