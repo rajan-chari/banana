@@ -282,7 +282,11 @@ html, body {
   color: #23d18b;
   background: rgba(35, 209, 139, 0.12);
   border: 1px solid rgba(35, 209, 139, 0.25);
+  border-radius: 3px;
 }
+
+/* Terminal/cmd tags always square — looks like a terminal window icon */
+.cmd-tag.pwsh { border-radius: 3px; font-family: var(--font-mono); }
 
 /* Unstarted — ghost style, same size as alive */
 .cmd-tag.absent {
@@ -495,7 +499,7 @@ html, body {
   margin-left: 2px;
   flex-shrink: 0;
   font-family: var(--font-mono);
-  border-radius: 8px;
+  border-radius: 3px;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 .tree-node .pwsh-btn:hover,

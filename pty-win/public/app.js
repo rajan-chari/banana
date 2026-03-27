@@ -753,7 +753,7 @@ function appendRowActions(container, opts) {
 
   // PowerShell tag
   const pTag = document.createElement("span");
-  pTag.className = `cmd-tag ${pwshAlive ? "alive pwsh" : "absent"}`;
+  pTag.className = `cmd-tag pwsh ${pwshAlive ? "alive" : "absent"}`;
   pTag.textContent = ">_";
   pTag.title = pwshAlive ? "PowerShell: running" : "Start PowerShell";
   if (!pwshAlive) {
