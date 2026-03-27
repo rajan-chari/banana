@@ -104,6 +104,8 @@ export class PtySession extends EventEmitter {
       env: process.env as Record<string, string>,
     });
 
+    clog(`process started: ${this.name} (pid ${this.ptyProcess.pid}, cmd: ${config.command}, cwd: ${config.workingDir})`);
+
     // Screen detector
     this.screenDetector = new ScreenDetector(cols, rows, config.name);
 
@@ -140,6 +142,7 @@ export class PtySession extends EventEmitter {
     });
 
     this.ptyProcess.onExit(({ exitCode }) => {
+      clog(`process exited: ${this.name} (pid ${this.ptyProcess.pid}, exit code: ${exitCode})`);
       this.stop();
       this.setStatus("dead");
       // Layer 4: check for uncommitted changes on exit
@@ -182,6 +185,7 @@ export class PtySession extends EventEmitter {
   }
 
   kill(): void {
+    clog(`process killed: ${this.name} (pid ${this.ptyProcess.pid})`);
     this.stop();
     this.ptyProcess.kill();
   }
