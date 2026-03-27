@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-27 14:45
+Last updated: 2026-03-27 19:15
 
 ## Current Focus
 
-Session ending (shutdown). Replied to utility scripts RFC earlier. No other work.
+Read updated onboarding.md. Roster has new agents (heidi, thorn, researcher). No action needed.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending (shutdown). Replied to utility scripts RFC earlier. No other work
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-27 19:15 — Read updated onboarding.md
+New agents on roster: heidi (async-messaging), thorn (tomato), researcher (on-demand research). Frost/emcom listed correctly. No changes needed.
 
 ### 2026-03-27 14:20 — Replied to utility scripts RFC
 Rajan RFC on creator/tester/runner workspaces for utility scripts. Replied with 4 script ideas (server health checker, briefing pruner, exe rebuild orchestrator, stale message tagger) + questions on tester access and graduation process.
