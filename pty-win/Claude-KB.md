@@ -85,6 +85,15 @@ The root folder async fetch bug (fetch stores to cache but never updates rendere
 ### 2026-03-23: Root folder-info fetch must update DOM in-place
 Root folders get their indicator data (CLAUDE.md, identity.json) via async `/api/folder-info` fetch, unlike child folders which get it from the `/api/folders` tree response. The fetch stored to `state.folderInfoCache` but never updated the DOM, so root indicators were always hidden. Fix: in the fetch `.then()` callback, query the label's `.indicator-slot` and `.identity-tag` elements and toggle classes/text directly. Don't re-render the whole tree — just patch the specific elements.
 
+### 2026-03-27: CSS display:none on menu items causes click target shifting
+Hiding context menu items with `display:none` collapses them, causing items below to shift up and occupy their click positions. A user clicking item A can unknowingly click item B (which shifted up). Fix: use a `.ctx-disabled` class with `opacity: 0.35; pointer-events: none` instead — items stay in the DOM at their position, just visually greyed out.
+
+### 2026-03-27: CSS selectors scoped to specific parent classes miss new parent classes
+When adding a new container (e.g., `.quick-access-row`) that reuses shared components, check all CSS selectors that target those components. Selectors like `.session-row .identity-tag, .tree-node .identity-tag` won't apply to `.quick-access-row .identity-tag` — you must explicitly add the new parent to each rule.
+
+### 2026-03-27: gap: vs margin-left: on flex rows causes column misalignment
+Using `gap: 6px` on one row type and `margin-left: 2px` on another causes pill columns to be spaced differently. When two row types (e.g., quick-access-row and session-row) need aligned columns, they must use identical spacing mechanisms. Also: pill elements without `min-width` render at variable widths based on text content (`>_` vs `</>`), breaking column alignment. Fix: add `min-width` + `inline-flex` centering to all fixed-column elements.
+
 ### 2026-03-27: JS template literals don't need \\ before $ (unless followed by {)
 In JS template literals, `$hwnd` is the literal string `$hwnd` — template interpolation only triggers on `${...}`. Using `\\$hwnd` produces `\$hwnd` which broke a PowerShell script embedded in a template literal. Only escape `$` when it precedes `{` for interpolation. This caused the VS Code launch button to be completely broken.
 
