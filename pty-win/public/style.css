@@ -1001,6 +1001,12 @@ html, body {
   background: var(--bg-hover);
 }
 
+.ctx-item.ctx-disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
 .ctx-sep {
   height: 1px;
   background: var(--border);

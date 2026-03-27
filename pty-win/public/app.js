@@ -1050,12 +1050,16 @@ function showContextMenu(e, path) {
   const menu = document.getElementById("context-menu");
   const isFav = state.favorites.includes(path);
 
-  menu.querySelector('[data-action="fav-add"]').style.display = isFav ? "none" : "";
-  menu.querySelector('[data-action="fav-remove"]').style.display = isFav ? "" : "none";
+  menu.querySelector('[data-action="fav-add"]').classList.toggle("ctx-disabled", isFav);
+  menu.querySelector('[data-action="fav-remove"]').classList.toggle("ctx-disabled", !isFav);
 
   const isPinned = state.pinnedFolders.includes(path);
-  menu.querySelector('[data-action="pin-add"]').style.display = isPinned ? "none" : "";
-  menu.querySelector('[data-action="pin-remove"]').style.display = isPinned ? "" : "none";
+  menu.querySelector('[data-action="pin-add"]').classList.toggle("ctx-disabled", isPinned);
+  menu.querySelector('[data-action="pin-remove"]').classList.toggle("ctx-disabled", !isPinned);
+
+  // Hide separator only when both pin items are disabled (nothing meaningful to show)
+  const pinSep = menu.querySelector(".ctx-sep-pin");
+  if (pinSep) pinSep.style.display = "";
 
   // Show "Force idle" only when a busy AI session exists at this path
   const np = normPath(path);
@@ -1075,8 +1079,9 @@ document.addEventListener("click", () => {
 });
 
 document.getElementById("context-menu").addEventListener("click", async (e) => {
-  const action = e.target.closest(".ctx-item")?.dataset.action;
-  if (!action || !state.ctxTarget) return;
+  const item = e.target.closest(".ctx-item");
+  const action = item?.dataset.action;
+  if (!action || !state.ctxTarget || item.classList.contains("ctx-disabled")) return;
 
   const path = state.ctxTarget;
   const name = path.split(/[/\\]/).filter(Boolean).pop();
