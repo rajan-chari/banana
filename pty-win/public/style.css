@@ -262,41 +262,51 @@ html, body {
 }
 
 .cmd-tag {
-  font-size: 9px;
-  color: var(--text-dim);
+  /* Fixed-width container — always same size regardless of state */
+  font-size: 10px;
   font-family: var(--font-mono);
   margin-left: 2px;
   flex-shrink: 0;
-  padding: 0 2px;
-  border-radius: 3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  box-sizing: border-box;
 }
 .session-row .cmd-tag:first-of-type,
 .tree-node .cmd-tag:first-of-type,
 .tree-root-label .cmd-tag:first-of-type { margin-left: 8px; }
-.cmd-tag.alive { color: var(--status-idle-bright); font-family: inherit; font-size: 9px; }
-.cmd-tag.alive.pwsh { color: #23d18b; font-family: var(--font-mono); font-size: 9px; }
+
+/* Running — soft colored fill */
+.cmd-tag.alive {
+  font-family: inherit;
+  color: var(--status-idle-bright);
+  background: rgba(115, 209, 130, 0.12);
+  border: 1px solid rgba(115, 209, 130, 0.25);
+}
+.cmd-tag.alive.pwsh {
+  font-family: var(--font-mono);
+  color: #23d18b;
+  background: rgba(35, 209, 139, 0.12);
+  border: 1px solid rgba(35, 209, 139, 0.25);
+}
+
+/* Unstarted — ghost style, same size as alive */
+.cmd-tag.absent {
+  cursor: pointer;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.cmd-tag.absent:hover { color: #fff; background: #e03131; border-color: transparent; }
+
+/* VS Code — always present, subtle blue tint */
 .cmd-tag.code {
   cursor: pointer;
   color: #3b8eea;
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 10px;
-  transition: background 0.1s, color 0.1s;
+  background: rgba(59, 142, 234, 0.1);
+  border: 1px solid rgba(59, 142, 234, 0.2);
 }
-.cmd-tag.code:hover {
-  color: #fff;
-  background: #1f6feb;
-}
-.cmd-tag.absent {
-  cursor: pointer;
-  color: #c07070;
-  background: #3a2a2a;
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 10px;
-  transition: background 0.1s, color 0.1s;
-}
-.cmd-tag.absent:hover { color: #fff; background: #e03131; }
+.cmd-tag.code:hover { color: #fff; background: #1f6feb; border-color: transparent; }
 
 .session-row .identity-tag,
 .tree-node .identity-tag,
@@ -466,25 +476,25 @@ html, body {
 
 .tree-node .play-btn,
 .tree-root-label .play-btn {
-  background: none;
-  border: none;
-  color: var(--status-idle-bright);
-  font-size: 11px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-dim);
+  font-size: 10px;
   cursor: pointer;
   padding: 2px 7px;
   margin-left: 8px;
   flex-shrink: 0;
   border-radius: 10px;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 .tree-node .play-btn:hover,
-.tree-root-label .play-btn:hover { color: #fff; background: #2ea043; }
+.tree-root-label .play-btn:hover { color: #fff; background: #2ea043; border-color: transparent; }
 
 .tree-node .pwsh-btn,
 .tree-root-label .pwsh-btn {
-  background: none;
-  border: none;
-  color: #11a8cd;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-dim);
   font-size: 10px;
   cursor: pointer;
   padding: 2px 7px;
@@ -492,15 +502,15 @@ html, body {
   flex-shrink: 0;
   font-family: var(--font-mono);
   border-radius: 10px;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 .tree-node .pwsh-btn:hover,
-.tree-root-label .pwsh-btn:hover { color: #fff; background: #0891b2; }
+.tree-root-label .pwsh-btn:hover { color: #fff; background: #0891b2; border-color: transparent; }
 
 .tree-node .code-btn,
 .tree-root-label .code-btn {
-  background: none;
-  border: none;
+  background: rgba(59, 142, 234, 0.1);
+  border: 1px solid rgba(59, 142, 234, 0.2);
   color: #3b8eea;
   font-size: 10px;
   cursor: pointer;
@@ -509,13 +519,14 @@ html, body {
   flex-shrink: 0;
   font-family: var(--font-mono);
   border-radius: 10px;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 
 .tree-node .code-btn:hover,
 .tree-root-label .code-btn:hover {
   color: #fff;
   background: #1f6feb;
+  border-color: transparent;
 }
 
 .tree-children {
