@@ -57,6 +57,7 @@ export class PtySession extends EventEmitter {
   private checkpointLightTimer: ReturnType<typeof setInterval> | null = null;
   private checkpointFullTimer: ReturnType<typeof setInterval> | null = null;
   private pendingCheckpoint: "light" | "full" | null = null;
+  private checkpointInFlight = false;
   private lastCheckpointTime = 0;
   private status: SessionStatus = "starting";
   private pendingMessages = false;
@@ -283,6 +284,11 @@ export class PtySession extends EventEmitter {
   private setStatus(s: SessionStatus): void {
     if (this.status === s) return;
     this.status = s;
+    // Stamp checkpoint time when session goes idle after a checkpoint response
+    if (s === "idle" && this.checkpointInFlight) {
+      this.checkpointInFlight = false;
+      this.lastCheckpointTime = Date.now();
+    }
     this.emit("status-change", s);
   }
 
@@ -406,7 +412,7 @@ export class PtySession extends EventEmitter {
     const type = this.pendingCheckpoint;
     const prompt = type === "full" ? CHECKPOINT_FULL_PROMPT : CHECKPOINT_LIGHT_PROMPT;
     this.pendingCheckpoint = null;
-    this.lastCheckpointTime = Date.now();
+    this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
     this.ptyProcess.write(prompt);
     this.setStatus("busy");
