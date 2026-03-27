@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-27 20:30
+Last updated: 2026-03-27 21:30
 
 ## In Motion
 
@@ -22,6 +22,7 @@ Last updated: 2026-03-27 20:30
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-27 | Action button UI polish sprint | Fixed containers, vivid fills, square cmd, QA pills, QA identity/dots (→8b6a9a0) |
 | 2026-03-27 | Consistent pill hover for all buttons | play/pwsh/code/absent/kill all get filled pill on hover (869fb54, e7aa911) |
 | 2026-03-27 | Fix context menu item shifting | ctx-disabled replaces display:none; pin/fav items no longer misalign (77fb746) |
 | 2026-03-27 | Fix VS Code button + logging + scroll | Bad \\$ escaping broke PS script; added clog(); unified scrollbar (49cf4c3, bc8c205) |
