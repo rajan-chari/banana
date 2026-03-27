@@ -174,24 +174,35 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path is required" });
     const resolved = resolve(path);
-    const child = spawn("code", [resolved], {
-      shell: true,
-      stdio: "ignore",
-      windowsHide: true,
-    });
-    child.unref();
-    log(`[server] Opened VS Code: ${resolved}`);
     res.json({ ok: true });
 
-    // On Windows, bring VS Code to foreground after it launches
     if (process.platform === "win32") {
-      setTimeout(() => {
-        const ps = spawn("powershell", ["-NoProfile", "-Command",
-          `(New-Object -ComObject WScript.Shell).AppActivate('Visual Studio Code')`],
-          { stdio: "ignore", windowsHide: true });
-        ps.unref();
-      }, 2000);
+      // Minimize the foreground window (the browser) then launch VS Code
+      // This ensures VS Code appears in front even when browser is fullscreen
+      const psScript = `
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32Focus {
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+"@
+        \\$hwnd = [Win32Focus]::GetForegroundWindow()
+        [Win32Focus]::ShowWindow(\\$hwnd, 6)  # SW_MINIMIZE
+        Start-Process code -ArgumentList '${resolved.replace(/'/g, "''")}'
+      `;
+      const ps = spawn("powershell", ["-NoProfile", "-Command", psScript],
+        { stdio: "ignore", windowsHide: true });
+      ps.unref();
+    } else {
+      const child = spawn("code", [resolved], {
+        shell: true,
+        stdio: "ignore",
+      });
+      child.unref();
     }
+    log(`[server] Opened VS Code: ${resolved}`);
   });
 
   app.post("/api/sessions/:name/force-idle", (req, res) => {
