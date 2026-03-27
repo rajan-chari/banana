@@ -1,13 +1,16 @@
 # Briefing
-Last updated: 2026-03-27 13:15
+Last updated: 2026-03-27 14:00
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through b772c8f
+- Server restart still needed — all fixes through b86b1f8
 
 ## Recent
+### 2026-03-27 13:50 — Fix checkpoint stagger: per-injection, not per-timer-start
+Previous setTimeout→setInterval approach only staggered the first round. Now uses scheduleCheckpointInjection() to delay each actual inject by the repo offset every round. Idle-detection pathway also routes through stagger. Commit b86b1f8.
+
 ### 2026-03-27 13:10 — Process lifecycle logging
 Added clog() for process started/exited/killed with pid, cmd, cwd, exit code. Commit b772c8f.
 
