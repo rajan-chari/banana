@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-26 22:15
+Last updated: 2026-03-27 13:15
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through 1e572da |
+| Server restart | Needed | Rajan | All pending changes through b772c8f |
 | Idle detection logging | Design ready | Moss | NDJSON log on idle transitions, force-idle = labeled false negative |
 
 ## Watching
@@ -22,6 +22,9 @@ Last updated: 2026-03-26 22:15
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-27 | Process lifecycle logging | clog() for started/exited/killed with pid, cmd, exit code (b772c8f) |
+| 2026-03-27 | Quick Access panel | Pinned folders at top of sidebar, one-click open/focus (605d1e4) |
+| 2026-03-27 | VS Code focus fix v2 | Win32 minimize browser before launch — tested working (3285252) |
 | 2026-03-27 | Idle-skip fix + verbose logging | Stamp checkpoint time after response, log every timer outcome (089de84, 4154f8f) |
 | 2026-03-26 | VS Code focus fix | Exit fullscreen + AppActivate so VS Code appears in front (8d73790) |
 | 2026-03-26 | Skip idle checkpoints | Skip checkpoint injection when no activity since last checkpoint |

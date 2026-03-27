@@ -1,13 +1,22 @@
 # Briefing
-Last updated: 2026-03-27 01:30
+Last updated: 2026-03-27 13:15
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
 
 ## Don't Forget
-- Server restart still needed — all fixes through verbose checkpoint logging (1e572da)
+- Server restart still needed — all fixes through b772c8f
 
 ## Recent
+### 2026-03-27 13:10 — Process lifecycle logging
+Added clog() for process started/exited/killed with pid, cmd, cwd, exit code. Commit b772c8f.
+
+### 2026-03-27 13:05 — Quick Access panel
+New sidebar panel above SESSIONS for pinned folders. Gold star, one-click open/focus, green dot for active sessions. Right-click pin/unpin. localStorage persisted. Commit 605d1e4.
+
+### 2026-03-27 12:50 — VS Code focus fix v2
+Replaced AppActivate with Win32 GetForegroundWindow + ShowWindow(SW_MINIMIZE). Minimizes browser before launching VS Code. Tested live — works. Commit 3285252.
+
 ### 2026-03-27 01:30 — Fix idle-skip + verbose checkpoint logging
 Fixed bug where checkpoint response output defeated the skip (stamped lastCheckpointTime at injection instead of after response). Added checkpointInFlight flag — timestamp now set when session goes idle post-response. Also made every timer fire log its outcome (skipped/queued/injecting). Commits 089de84, 4154f8f.
 
