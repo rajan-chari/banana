@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-28 04:25
+Last updated: 2026-03-28 05:00
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through 48e9e9b |
+| Server restart | Needed | Rajan | All pending changes through a8a9d4f |
 
 ## Watching
 
@@ -21,6 +21,8 @@ Last updated: 2026-03-28 04:25
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-28 | Quick-message popup on AI action button | Click ▶ on running session → floating input → injects text into PTY (→a8a9d4f) |
+| 2026-03-28 | Full checkpoint interval 2h → 3h | Per Rajan request (→48e9e9b) |
 | 2026-03-28 | ML dataset rolling files + auto_detect cap | 250 records/file, 1000 sample cap, durable across restarts (→36016e6) |
 | 2026-03-28 | ML sample throttling | Transition + 60s periodic; lastSavedLabel/lastSavedAt per session (→58ae20a) |
 | 2026-03-28 | ML data collection layer | saveMlSample JSONL, auto_detect/force_idle/timeout_flag, applyMLInference stub (→7c007fe) |

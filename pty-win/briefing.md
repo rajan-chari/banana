@@ -1,14 +1,20 @@
 # Briefing
-Last updated: 2026-03-28 04:25
+Last updated: 2026-03-28 05:00
 
 ## Current Focus
-ML data collection complete. Server restart needed to go live.
+Quick-message popup shipped. Server restart needed to pick up all backend changes.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through 48e9e9b pending
+- Server restart needed — all server-side changes through a8a9d4f pending
 - Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-28 05:00 — Quick-message: simplify to direct PTY inject
+Rajan simplified: drop emcom send entirely, just write text + "respond to Rajan via emcom.\r" into the PTY. No senderIdentityDir, no identity required. Works for any running AI session. Commit a8a9d4f.
+
+### 2026-03-28 04:50 — Quick-message input on AI session action button
+Click the AI tag (▶) on a running session → floating popup → type message → Enter injects into PTY. Esc cancels. Shows sent ✓ on success. Initially used emcom send (0560a23), then simplified to direct PTY inject (a8a9d4f).
+
 ### 2026-03-28 04:25 — Full checkpoint interval 2h → 3h
 Rajan requested change. Commit 48e9e9b.
 
