@@ -14,6 +14,7 @@ export interface SessionConfig {
   busyTimeoutMs: number;
   mlServiceUrl: string;
   mlDataDir: string;
+  mlCollectionMaxSamples: number;
 }
 
 export interface ServerConfig {
@@ -31,4 +32,5 @@ export const DEFAULTS = {
   defaultCommand: process.platform === "win32" ? "cmd.exe" : "/bin/bash",
   busyTimeoutMs: 5 * 60 * 1000,
   mlServiceUrl: "http://127.0.0.1:8710",
+  mlCollectionMaxSamples: 1000,
 };

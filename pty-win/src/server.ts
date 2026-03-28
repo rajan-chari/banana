@@ -153,6 +153,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
       busyTimeoutMs: DEFAULTS.busyTimeoutMs,
       mlServiceUrl: DEFAULTS.mlServiceUrl,
       mlDataDir: join(__dirname, "..", "ml-dataset"),
+      mlCollectionMaxSamples: DEFAULTS.mlCollectionMaxSamples,
     };
 
     const session = new PtySession(sessionConfig);

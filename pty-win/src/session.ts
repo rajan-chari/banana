@@ -361,7 +361,8 @@ export class PtySession extends EventEmitter {
               label,
               "auto",
               "auto_detect",
-              this.name
+              this.name,
+              this.config.mlCollectionMaxSamples
             );
           }
         }
