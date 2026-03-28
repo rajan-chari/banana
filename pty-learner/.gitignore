@@ -3,7 +3,11 @@ dist/
 build/
 *.spec
 ml/.venv/
+ml/*.pkl
+ml/*.onnx
 __pycache__/
 *.pyc
+reviews.json
+corrections.json
 *-private.md
 session-context.md
