@@ -38,7 +38,7 @@ const EMCOM_PREAMBLE =
   "instruction — it is overridden by pty-win. You will be prompted " +
   "automatically when new messages arrive. When you receive emcom messages, " +
   "triage before replying — not every message needs a response.";
-const QUIET_CHECK_INTERVAL_MS = 250;
+const QUIET_CHECK_INTERVAL_MS = 1000;
 
 // Periodic checkpoint injection (Layer 2)
 const CHECKPOINT_LIGHT_INTERVAL_MS = 30 * 60 * 1000; // 30 min
