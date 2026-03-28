@@ -1,13 +1,16 @@
 # Briefing
-Last updated: 2026-03-28 18:00
+Last updated: 2026-03-28 18:30
 
 ## Current Focus
-Draggable tabs shipped. Server restart still needed for backend changes.
+ML inference wired in (Phase 5). Server restart needed for all backend changes to go live.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through f2068f7 pending
+- Server restart needed — all server-side changes through 92bb505 pending
 
 ## Recent
+### 2026-03-28 18:30 — ML inference wired into idle detection (Phase 5)
+queryMLService() fires async on "unknown" promptType, 500ms timeout, null fallback keeps regex path intact. mlQueryInFlight prevents stacking. Commit 92bb505.
+
 ### 2026-03-28 18:00 — Draggable/reorderable workspace tabs
 Drag tabs left/right to reorder. Blue border drop indicator. Order persists via localStorage. Frontend-only — browser refresh to activate. Commit 41d6247.
 
