@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-28 03:30
+Last updated: 2026-03-28 04:10
 
 ## Current Focus
 ML data collection layer implemented — JSONL samples to ml-dataset/labels.jsonl. Server restart needed to go live.
@@ -9,6 +9,9 @@ ML data collection layer implemented — JSONL samples to ml-dataset/labels.json
 - Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-28 04:10 — ML dataset rolling files + auto_detect cap
+Rolling file rotation every 250 records (labels-001.jsonl, labels-002.jsonl...). Auto-stop cap: mlCollectionMaxSamples (default 1000) stops auto_detect once reached; force_idle/timeout_flag always save. Lazy-init scans files on restart to recover counts. Commit 36016e6.
+
 ### 2026-03-28 03:30 — ML sample throttling
 Rajan requested throttle on auto_detect samples. Added lastSavedLabel + lastSavedAt per session — save on label transition OR >= 60s same label. force_idle/timeout_flag unaffected. Commit 58ae20a.
 
@@ -43,6 +46,6 @@ Auto-detect git repo root per session, count siblings, assign checkpoint timer o
 All pty-win injection prompts now prefixed with `[pty-win:<type>:<priority>:<response>[:skip-if-busy]]`. Commit 23c03ca.
 
 ## Next Up
-1. Restart server to pick up all pending changes (through 58ae20a)
+1. Restart server to pick up all pending changes (through 36016e6)
 2. Layer 3 (context pressure detection) — waiting on design decision
 3. Root folder indent alignment (low priority)

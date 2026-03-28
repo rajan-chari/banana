@@ -1,13 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-27 23:00
+Last updated: 2026-03-28 04:10
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through bc8c205 |
-| Idle detection logging | Design ready | Moss | NDJSON log on idle transitions, force-idle = labeled false negative |
+| Server restart | Needed | Rajan | All pending changes through 36016e6 |
 
 ## Watching
 
@@ -22,6 +21,9 @@ Last updated: 2026-03-27 23:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-28 | ML dataset rolling files + auto_detect cap | 250 records/file, 1000 sample cap, durable across restarts (→36016e6) |
+| 2026-03-28 | ML sample throttling | Transition + 60s periodic; lastSavedLabel/lastSavedAt per session (→58ae20a) |
+| 2026-03-28 | ML data collection layer | saveMlSample JSONL, auto_detect/force_idle/timeout_flag, applyMLInference stub (→7c007fe) |
 | 2026-03-27 | QA column alignment + kill-btn spacer | DevTools-verified pixel-perfect alignment; kill-btn always rendered as spacer (→128dc50) |
 | 2026-03-27 | Action button UI polish sprint | Fixed containers, vivid fills, square cmd, QA pills, QA identity/dots (→8b6a9a0) |
 | 2026-03-27 | Consistent pill hover for all buttons | play/pwsh/code/absent/kill all get filled pill on hover (869fb54, e7aa911) |
