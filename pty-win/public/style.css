@@ -338,6 +338,9 @@ html, body {
   flex-shrink: 0;
 }
 
+.tree-node .kill-btn,
+.tree-root-label .kill-btn { display: none; }
+
 .session-row .kill-btn,
 .quick-access-row .kill-btn {
   visibility: hidden;
