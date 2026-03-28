@@ -42,7 +42,7 @@ const QUIET_CHECK_INTERVAL_MS = 250;
 
 // Periodic checkpoint injection (Layer 2)
 const CHECKPOINT_LIGHT_INTERVAL_MS = 30 * 60 * 1000; // 30 min
-const CHECKPOINT_FULL_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hrs
+const CHECKPOINT_FULL_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hrs
 const CHECKPOINT_LIGHT_PROMPT =
   "[pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint: update tracker.md and briefing.md if there are changes, commit and push.\r";
 const CHECKPOINT_FULL_PROMPT =
