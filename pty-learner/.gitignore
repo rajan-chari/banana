@@ -1,0 +1,7 @@
+bin/
+dist/
+build/
+*.spec
+ml/.venv/
+__pycache__/
+*.pyc
