@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-28
+Last updated: 2026-03-28 shutdown
 
 ## Current Focus
 
-Session ending (shutdown). Extended idle since 2026-03-27 19:30.
+Session ending (shutdown). Idle all day.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending (shutdown). Extended idle since 2026-03-27 19:30.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-28 shutdown — Shutdown save
+Idle all day. No new work.
 
 ### 2026-03-28 — Shutdown save
 Extended idle. No new work since onboarding read.
