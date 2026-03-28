@@ -1,14 +1,17 @@
 # Briefing
-Last updated: 2026-03-28 04:10
+Last updated: 2026-03-28 04:25
 
 ## Current Focus
-ML data collection layer implemented — JSONL samples to ml-dataset/labels.jsonl. Server restart needed to go live.
+ML data collection complete. Server restart needed to go live.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through 58ae20a pending
+- Server restart needed — all server-side changes through 48e9e9b pending
 - Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-28 04:25 — Full checkpoint interval 2h → 3h
+Rajan requested change. Commit 48e9e9b.
+
 ### 2026-03-28 04:10 — ML dataset rolling files + auto_detect cap
 Rolling file rotation every 250 records (labels-001.jsonl, labels-002.jsonl...). Auto-stop cap: mlCollectionMaxSamples (default 1000) stops auto_detect once reached; force_idle/timeout_flag always save. Lazy-init scans files on restart to recover counts. Commit 36016e6.
 
