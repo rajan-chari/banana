@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-27 21:45
+Last updated: 2026-03-27 23:00
 
 ## Current Focus
 Idle detection data collection — logging screen snapshots on idle transitions to build a labeled dataset for tuning detection heuristics.
@@ -9,6 +9,9 @@ Idle detection data collection — logging screen snapshots on idle transitions 
 - Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-27 22:50 — Fix QA column alignment (DevTools-assisted)
+Used Chrome DevTools MCP to measure pill X positions live. Root causes: (1) kill-btn missing from QA rows (21px gap), (2) kill-btn CSS not scoped to QA rows. Fix: always render kill-btn as spacer, extended CSS to .quick-access-row, hid kill-btn in tree-node rows with display:none. Also fixed × appearing in folder tree. Pixel-perfect alignment confirmed. Commits 0c78ee2, 999de49, 128dc50.
+
 ### 2026-03-27 21:40 — Fix Quick Access column alignment
 quick-access-row had gap:6px vs session-row margin-based spacing; cmd-tag had no min-width so >_ vs </> were different widths. Fixed with height/padding match + min-width:30px + inline-flex centering. Commit 41b5a26.
 
