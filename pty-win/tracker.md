@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-28 05:10
+Last updated: 2026-03-28 18:00
 
 ## In Motion
 
@@ -15,12 +15,13 @@ Last updated: 2026-03-28 05:10
 | Layer 3 (context pressure) | Design decision | Detect context compression events → inject save | emcom thread d96a241e |
 | Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly | |
 | Pane topbar AI preset label | Low priority | Show which AI preset is running in pane topbar | |
-| Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag | |
+| Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag (tabs done; panes still open) | |
 
 ## Completed
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-28 | Draggable/reorderable workspace tabs | Drag left/right, blue drop indicator, localStorage persist (→41d6247) |
 | 2026-03-28 | Heuristic poll interval 250ms → 1s | Matches quiet threshold, reduces redundant checks (→f2068f7) |
 | 2026-03-28 | Quick-message popup on AI action button | Click ▶ on running session → floating input → injects text into PTY (→a8a9d4f) |
 | 2026-03-28 | Full checkpoint interval 2h → 3h | Per Rajan request (→48e9e9b) |

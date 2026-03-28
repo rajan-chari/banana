@@ -1,14 +1,16 @@
 # Briefing
-Last updated: 2026-03-28 05:10
+Last updated: 2026-03-28 18:00
 
 ## Current Focus
-Quick-message live-tested and working. Server restart needed for all backend changes.
+Draggable tabs shipped. Server restart still needed for backend changes.
 
 ## Don't Forget
 - Server restart needed — all server-side changes through f2068f7 pending
-- Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-28 18:00 — Draggable/reorderable workspace tabs
+Drag tabs left/right to reorder. Blue border drop indicator. Order persists via localStorage. Frontend-only — browser refresh to activate. Commit 41d6247.
+
 ### 2026-03-28 05:10 — Heuristic poll interval 250ms → 1s
 Redundant to poll faster than the 1s quiet threshold. Commit f2068f7.
 
