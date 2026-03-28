@@ -338,7 +338,8 @@ html, body {
   flex-shrink: 0;
 }
 
-.session-row .kill-btn {
+.session-row .kill-btn,
+.quick-access-row .kill-btn {
   visibility: hidden;
   background: none;
   border: none;
@@ -352,7 +353,10 @@ html, body {
   transition: background 0.1s, color 0.1s;
 }
 .session-row:hover .kill-btn { visibility: visible; }
-.session-row .kill-btn:hover { color: #fff; background: #e03131; }
+.session-row .kill-btn:hover,
+.quick-access-row .kill-btn:hover { color: #fff; background: #e03131; }
+.session-row:hover .kill-btn,
+.quick-access-row:hover .kill-btn { visibility: visible; }
 
 .sessions-empty {
   font-size: 11px;

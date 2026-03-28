@@ -798,15 +798,17 @@ function appendRowActions(container, opts) {
   if (hasIdentity) indIdentity.title = `Identity: ${identityName || "yes"}`;
   indicatorSlot.appendChild(indIdentity);
 
-  // Kill button (optional)
+  // Kill button — always render as spacer to keep column alignment
+  const killBtn = document.createElement("button");
+  killBtn.className = "kill-btn";
+  killBtn.textContent = "\u00d7";
   if (onKill) {
-    const killBtn = document.createElement("button");
-    killBtn.className = "kill-btn";
-    killBtn.textContent = "\u00d7";
     killBtn.title = "Kill session";
     killBtn.onclick = (e) => { e.stopPropagation(); onKill(); };
-    container.appendChild(killBtn);
+  } else {
+    killBtn.style.pointerEvents = "none";
   }
+  container.appendChild(killBtn);
 }
 
 // Sessions panel collapse toggle
