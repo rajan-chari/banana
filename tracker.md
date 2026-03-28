@@ -4,7 +4,7 @@ Last updated: 2026-03-28
 ## In Motion
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| pty-learner: first training run | Waiting | milo | Need ~300 samples from pty-win data collection |
+| pty-learner: first training run | Waiting | milo | Waiting for amber's label corrections |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 | Layered auto-save rules | Pending | milo | Waiting on Rajan's confirmation to add to CLAUDE.md |
 
@@ -16,6 +16,8 @@ Last updated: 2026-03-28
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-28 | pty-learner agent_review.py | Export/apply modes for amber's AI labeling (9b88b0c) |
+| 2026-03-28 | pty-learner PyInstaller build | build.ps1 + bin/ exes (pty-browse/train/evaluate/export/agent-review) |
 | 2026-03-28 | pty-learner browse.py | Lazy loading, regex opinion, priority ordering, rolling file support (c5e298e) |
 | 2026-03-28 | pty-learner workspace | ML pipeline scaffold + data format aligned with pty-win (6ec51ba) |
 | 2026-03-27 | RFC: utility script workspaces | Replied with 4 script ideas + structural feedback |
