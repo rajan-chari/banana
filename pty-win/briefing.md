@@ -1,15 +1,18 @@
 # Briefing
-Last updated: 2026-03-28 18:30
+Last updated: 2026-03-28 19:15
 
 ## Current Focus
-ML inference wired in (Phase 5). Server restart needed for all backend changes to go live.
+ONNX local inference integrated. Server restart needed.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through 92bb505 pending
+- Server restart needed — all server-side changes through d7de3df pending
 
 ## Recent
-### 2026-03-28 18:30 — ML inference wired into idle detection (Phase 5)
-queryMLService() fires async on "unknown" promptType, 500ms timeout, null fallback keeps regex path intact. mlQueryInFlight prevents stacking. Commit 92bb505.
+### 2026-03-28 19:15 — ONNX local inference replaces HTTP service call
+onnxruntime-node installed. runLocalMLInference() lazy-loads classifier.onnx, string_input → output_label + output_probability['busy']. mlModelPath config + --ml-model-path CLI flag. Coordinated with amber + milo. Commit d7de3df.
+
+### 2026-03-28 18:30 — ML inference wired into idle detection (Phase 5, HTTP)
+queryMLService() on "unknown" promptType — superseded by ONNX local (d7de3df). Commit 92bb505.
 
 ### 2026-03-28 18:00 — Draggable/reorderable workspace tabs
 Drag tabs left/right to reorder. Blue border drop indicator. Order persists via localStorage. Frontend-only — browser refresh to activate. Commit 41d6247.

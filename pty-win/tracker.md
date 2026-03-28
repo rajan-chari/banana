@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-28 18:00
+Last updated: 2026-03-28 19:15
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through f2068f7 |
+| Server restart | Needed | Rajan | All pending changes through d7de3df |
 
 ## Watching
 
@@ -21,6 +21,8 @@ Last updated: 2026-03-28 18:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-28 | ONNX local inference (Phase 5 final) | runLocalMLInference() via onnxruntime-node; replaces HTTP path (→d7de3df) |
+| 2026-03-28 | ML inference HTTP path (Phase 5 initial) | queryMLService() on unknown promptType — superseded by ONNX (→92bb505) |
 | 2026-03-28 | Draggable/reorderable workspace tabs | Drag left/right, blue drop indicator, localStorage persist (→41d6247) |
 | 2026-03-28 | Heuristic poll interval 250ms → 1s | Matches quiet threshold, reduces redundant checks (→f2068f7) |
 | 2026-03-28 | Quick-message popup on AI action button | Click ▶ on running session → floating input → injects text into PTY (→a8a9d4f) |
