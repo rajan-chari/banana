@@ -1,6 +1,6 @@
 # build.ps1 — Build standalone executables for pty-learner scripts
 # Run from: banana/pty-learner/
-# Output: bin/pty-browse.exe, bin/pty-train.exe, bin/pty-evaluate.exe, bin/pty-export.exe
+# Output: bin/pty-browse.exe, bin/pty-train.exe, bin/pty-evaluate.exe, bin/pty-export.exe, bin/pty-agent-review.exe
 
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
@@ -25,10 +25,11 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
 # 4. Build each script
 $Scripts = @(
-    @{ Name = "pty-browse";   Script = "ml\browse.py" },
-    @{ Name = "pty-train";    Script = "ml\train.py" },
-    @{ Name = "pty-evaluate"; Script = "ml\evaluate.py" },
-    @{ Name = "pty-export";   Script = "ml\export_onnx.py" }
+    @{ Name = "pty-browse";        Script = "ml\browse.py" },
+    @{ Name = "pty-train";         Script = "ml\train.py" },
+    @{ Name = "pty-evaluate";      Script = "ml\evaluate.py" },
+    @{ Name = "pty-export";        Script = "ml\export_onnx.py" },
+    @{ Name = "pty-agent-review";  Script = "ml\agent_review.py" }
 )
 
 foreach ($entry in $Scripts) {
