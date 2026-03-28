@@ -68,6 +68,8 @@ export class PtySession extends EventEmitter {
   private dirtyOnExit = false;
   private busyStartTime = 0;
   private busyTimeoutSaved = false;
+  private lastSavedLabel: string | null = null;
+  private lastSavedAt = 0;
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -346,14 +348,22 @@ export class PtySession extends EventEmitter {
 
         const promptType = this.screenDetector.detectPromptType();
         if (promptType === "input" || promptType === "busy") {
-          saveMlSample(
-            this.config.mlDataDir,
-            this.screenDetector.getContentLines(20),
-            promptType === "input" ? "not_busy" : "busy",
-            "auto",
-            "auto_detect",
-            this.name
-          );
+          const label = promptType === "input" ? "not_busy" : "busy";
+          const now = Date.now();
+          const isTransition = label !== this.lastSavedLabel;
+          const isPeriodicDue = now - this.lastSavedAt >= 60_000;
+          if (isTransition || isPeriodicDue) {
+            this.lastSavedLabel = label;
+            this.lastSavedAt = now;
+            saveMlSample(
+              this.config.mlDataDir,
+              this.screenDetector.getContentLines(20),
+              label,
+              "auto",
+              "auto_detect",
+              this.name
+            );
+          }
         }
         if (promptType === "input") {
           if (this.needsStartupKick) {
