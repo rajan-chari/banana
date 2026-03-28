@@ -15,12 +15,14 @@ export interface SessionConfig {
   mlServiceUrl: string;
   mlDataDir: string;
   mlCollectionMaxSamples: number;
+  mlModelPath: string;
 }
 
 export interface ServerConfig {
   port: number;
   emcomServer: string;
   rootDirs: string[];
+  mlModelPath: string;
 }
 
 export const DEFAULTS = {

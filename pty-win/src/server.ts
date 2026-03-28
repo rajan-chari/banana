@@ -154,6 +154,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
       mlServiceUrl: DEFAULTS.mlServiceUrl,
       mlDataDir: join(__dirname, "..", "ml-dataset"),
       mlCollectionMaxSamples: DEFAULTS.mlCollectionMaxSamples,
+      mlModelPath: config.mlModelPath || join(__dirname, "..", "..", "pty-learner", "ml", "classifier.onnx"),
     };
 
     const session = new PtySession(sessionConfig);

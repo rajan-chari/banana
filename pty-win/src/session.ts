@@ -9,25 +9,33 @@ import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
 import { saveMlSample } from "./ml-dataset.js";
+import * as ort from "onnxruntime-node";
 
-async function queryMLService(
-  url: string,
+let onnxSession: ort.InferenceSession | null = null;
+let onnxSessionPath = "";
+
+async function getOnnxSession(modelPath: string): Promise<ort.InferenceSession> {
+  if (!onnxSession || onnxSessionPath !== modelPath) {
+    onnxSession = await ort.InferenceSession.create(modelPath);
+    onnxSessionPath = modelPath;
+  }
+  return onnxSession;
+}
+
+async function runLocalMLInference(
+  modelPath: string,
   lines: string[]
 ): Promise<{ label: string; confidence: number } | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 500);
   try {
-    const res = await fetch(`${url}/predict`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text_lines: lines }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    return await res.json() as { label: string; confidence: number };
+    const sess = await getOnnxSession(modelPath);
+    const text = lines.join("\n");
+    const inputTensor = new ort.Tensor("string", [text], [1, 1]);
+    const result = await sess.run({ string_input: inputTensor });
+    const label = result["output_label"].data[0] as string;
+    const probs = result["output_probability"].data[0] as unknown as Record<string, number>;
+    const confidence = probs["busy"];
+    return { label, confidence };
   } catch {
-    clearTimeout(timeout);
     return null;
   }
 }
@@ -409,11 +417,11 @@ export class PtySession extends EventEmitter {
           else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
             this.scheduleCheckpointInjection(this.pendingCheckpoint);
           }
-        } else if (promptType === "unknown" && !this.mlQueryInFlight) {
-          // Regex inconclusive — ask ML service
+        } else if (promptType === "unknown" && !this.mlQueryInFlight && this.config.mlModelPath) {
+          // Regex inconclusive — ask local ONNX model
           this.mlQueryInFlight = true;
           const lines = this.screenDetector.getContentLines(20);
-          queryMLService(this.config.mlServiceUrl, lines).then((result) => {
+          runLocalMLInference(this.config.mlModelPath, lines).then((result) => {
             this.mlQueryInFlight = false;
             if (result && result.label === "not_busy" && result.confidence > 0.75 && this.status === "busy") {
               log(`[${this.name}] ML inference: not_busy (conf=${result.confidence.toFixed(2)}) → idle`);
