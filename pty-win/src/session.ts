@@ -10,6 +10,28 @@ import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
 import { saveMlSample } from "./ml-dataset.js";
 
+async function queryMLService(
+  url: string,
+  lines: string[]
+): Promise<{ label: string; confidence: number } | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 500);
+  try {
+    const res = await fetch(`${url}/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text_lines: lines }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    return await res.json() as { label: string; confidence: number };
+  } catch {
+    clearTimeout(timeout);
+    return null;
+  }
+}
+
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
 export interface SessionInfo {
@@ -70,6 +92,7 @@ export class PtySession extends EventEmitter {
   private busyTimeoutSaved = false;
   private lastSavedLabel: string | null = null;
   private lastSavedAt = 0;
+  private mlQueryInFlight = false;
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -386,6 +409,21 @@ export class PtySession extends EventEmitter {
           else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
             this.scheduleCheckpointInjection(this.pendingCheckpoint);
           }
+        } else if (promptType === "unknown" && !this.mlQueryInFlight) {
+          // Regex inconclusive — ask ML service
+          this.mlQueryInFlight = true;
+          const lines = this.screenDetector.getContentLines(20);
+          queryMLService(this.config.mlServiceUrl, lines).then((result) => {
+            this.mlQueryInFlight = false;
+            if (result && result.label === "not_busy" && result.confidence > 0.75 && this.status === "busy") {
+              log(`[${this.name}] ML inference: not_busy (conf=${result.confidence.toFixed(2)}) → idle`);
+              this.setStatus("idle");
+              if (this.pendingMessages) this.inject();
+              else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
+                this.scheduleCheckpointInjection(this.pendingCheckpoint);
+              }
+            }
+          });
         }
       } else {
         // For generic sessions, just check quiet threshold (longer: 3s)
