@@ -1,15 +1,14 @@
 # Tracker
-Last updated: 2026-03-28 19:15
+Last updated: 2026-03-28 19:20
 
 ## In Motion
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| ONNX integration into pty-win | Implementing | moss | Full spec sent; moss implementing runLocalMLInference in session.ts |
 
 ## Watching
 | Item | Waiting On | Details | Links |
 |------|------------|---------|-------|
-| pty-win integration complete | moss | Replacing queryMLService with ONNX local call | |
+| pty-win live with ONNX | moss/Rajan | Needs server restart to go live | commit d7de3df |
 
 ## Completed
 | Date | Item | Outcome |
@@ -18,6 +17,5 @@ Last updated: 2026-03-28 19:15
 | 2026-03-28 | Onboarding setup | Registered as amber, .gitignore + CLAUDE.md updated |
 | 2026-03-28 | Dataset label review | 54 corrections (51 relabeled, 3 deleted); busy: 37, not_busy: 544 |
 | 2026-03-28 | First training run | busy recall=1.00, accuracy=0.98 on 117 test samples (run by milo) |
-| 2026-03-28 | ONNX export | classifier.onnx at pty-learner/ml/; char_wb→word tokenizer fix, accuracy unchanged |
-| 2026-03-28 | Architecture decision | Option A confirmed by Rajan: ONNX local via onnxruntime-node (no HTTP service) |
-| 2026-03-28 | ONNX tensor spec | Confirmed with milo: output_label + output_probability (dict-keyed), path ../pty-learner/ml/classifier.onnx |
+| 2026-03-28 | ONNX export | classifier.onnx at pty-learner/ml/; char_wb→word tokenizer fix |
+| 2026-03-28 | ONNX integration into pty-win | Done (moss d7de3df) — runLocalMLInference(), mlModelPath flag, 0.75 threshold |
