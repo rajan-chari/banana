@@ -5,3 +5,5 @@ build/
 ml/.venv/
 __pycache__/
 *.pyc
+*-private.md
+session-context.md

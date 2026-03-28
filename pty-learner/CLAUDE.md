@@ -68,3 +68,10 @@ EOF
 ## Session End
 
 Before ending a session, run `/rc-save` to commit and push changes.
+
+## Lessons Learned
+
+Errors, workarounds, and gotchas go in `Claude-KB.md` — update it immediately when encountered. Key items:
+
+- Label schema is `busy`/`not_busy` (not `busy`/`idle`) — always check the actual JSONL before assuming
+- ML service port is 8710 (original spec said 3601 — use 8710)
