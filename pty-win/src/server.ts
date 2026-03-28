@@ -240,25 +240,10 @@ public class Win32Focus {
   app.post("/api/sessions/:name/quick-message", (req, res) => {
     const session = sessions.get(req.params.name);
     if (!session) return res.status(404).json({ error: "not found" });
-    const info = session.getInfo();
-    if (!info.emcomIdentity) return res.status(400).json({ error: "session has no emcom identity" });
-    if (!config.senderIdentityDir) return res.status(400).json({ error: "senderIdentityDir not configured (use --sender-identity-dir)" });
     const { text } = req.body;
     if (typeof text !== "string" || !text.trim()) return res.status(400).json({ error: "text required" });
-
-    execFile(
-      "emcom",
-      ["send", "--to", info.emcomIdentity, "--subject", "Quick message", "--body", text.trim()],
-      { cwd: config.senderIdentityDir, timeout: 10_000 },
-      (err) => {
-        if (err) {
-          clog(`quick-message: emcom send failed for ${req.params.name}: ${err.message}`);
-          return res.status(500).json({ error: `emcom send failed: ${err.message}` });
-        }
-        session.injectEmcom();
-        res.json({ ok: true });
-      }
-    );
+    session.write(`${text.trim()} respond to Rajan via emcom.\r`);
+    res.json({ ok: true });
   });
 
   app.post("/api/sessions/:name/write", (req, res) => {

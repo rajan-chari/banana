@@ -748,12 +748,8 @@ function appendRowActions(container, opts) {
   cTag.className = `cmd-tag ${claudeAlive ? "alive" : "absent"}`;
   cTag.textContent = aiPreset.icon;
   if (claudeAlive) {
-    if (identityName) {
-      cTag.title = `${aiPreset.name}: running — click to send message`;
-      cTag.onclick = (e) => { e.stopPropagation(); showQuickMessageInput(folderName, identityName, cTag); };
-    } else {
-      cTag.title = `${aiPreset.name}: running`;
-    }
+    cTag.title = `${aiPreset.name}: running — click to send message`;
+    cTag.onclick = (e) => { e.stopPropagation(); showQuickMessageInput(folderName, cTag); };
   } else {
     cTag.title = `Start ${aiPreset.name} (right-click for options)`;
     cTag.onclick = (e) => { e.stopPropagation(); openFolder(workingDir, folderName, getDefaultAiCommand()); };
@@ -1078,7 +1074,7 @@ function updateWorkspaceTabName(ws) {
 
 // ===== Context Menu =====
 
-function showQuickMessageInput(sessionName, identityName, anchorEl) {
+function showQuickMessageInput(sessionName, anchorEl) {
   // Remove any existing popup
   document.getElementById("quick-msg-popup")?.remove();
 
@@ -1088,7 +1084,7 @@ function showQuickMessageInput(sessionName, identityName, anchorEl) {
 
   const title = document.createElement("div");
   title.className = "quick-msg-title";
-  title.textContent = `→ ${identityName}`;
+  title.textContent = `→ ${sessionName}`;
   popup.appendChild(title);
 
   const row = document.createElement("div");

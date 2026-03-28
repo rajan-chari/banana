@@ -21,7 +21,6 @@ export interface ServerConfig {
   port: number;
   emcomServer: string;
   rootDirs: string[];
-  senderIdentityDir: string;
 }
 
 export const DEFAULTS = {

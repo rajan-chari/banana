@@ -7,7 +7,6 @@ const args = process.argv.slice(2);
 
 let port = DEFAULTS.port;
 let emcomServer = DEFAULTS.emcomServer;
-let senderIdentityDir = "";
 const rootDirs: string[] = [];
 
 for (let i = 0; i < args.length; i++) {
@@ -17,9 +16,7 @@ for (let i = 0; i < args.length; i++) {
     emcomServer = args[++i];
   } else if (args[i] === "--root" && args[i + 1]) {
     rootDirs.push(args[++i]);
-  } else if (args[i] === "--sender-identity-dir" && args[i + 1]) {
-    senderIdentityDir = args[++i];
   }
 }
 
-startServer({ port, emcomServer, rootDirs, senderIdentityDir });
+startServer({ port, emcomServer, rootDirs });
