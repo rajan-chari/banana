@@ -1195,6 +1195,54 @@ html, body {
 .xterm-viewport::-webkit-scrollbar-thumb { background: var(--border-focus); }
 .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 
+/* Quick-message popup */
+.quick-msg-popup {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-focus);
+  padding: 8px 10px;
+  width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  animation: toast-in 0.15s ease;
+}
+.quick-msg-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.quick-msg-row {
+  display: flex;
+  gap: 6px;
+}
+.quick-msg-input {
+  flex: 1;
+  padding: 4px 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  outline: none;
+  min-width: 0;
+}
+.quick-msg-input:focus { border-color: var(--border-focus); }
+.quick-msg-send {
+  padding: 4px 10px;
+  background: #0e639c;
+  border: none;
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.quick-msg-send:hover { background: #1177bb; }
+.quick-msg-send:disabled { opacity: 0.5; cursor: default; }
+
 /* Dirty workspace toast */
 .dirty-toast {
   position: fixed;

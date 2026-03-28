@@ -232,6 +232,12 @@ export class PtySession extends EventEmitter {
     if (this.pendingMessages) this.inject();
   }
 
+  /** Trigger emcom injection immediately (for quick-message send from UI). */
+  injectEmcom(): void {
+    this.pendingMessages = true;
+    if (this.status === "idle") this.inject();
+  }
+
   getContentLines(n: number): string[] {
     return this.screenDetector.getContentLines(n);
   }

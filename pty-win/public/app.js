@@ -747,8 +747,15 @@ function appendRowActions(container, opts) {
   const cTag = document.createElement("span");
   cTag.className = `cmd-tag ${claudeAlive ? "alive" : "absent"}`;
   cTag.textContent = aiPreset.icon;
-  cTag.title = claudeAlive ? `${aiPreset.name}: running` : `Start ${aiPreset.name} (right-click for options)`;
-  if (!claudeAlive) {
+  if (claudeAlive) {
+    if (identityName) {
+      cTag.title = `${aiPreset.name}: running — click to send message`;
+      cTag.onclick = (e) => { e.stopPropagation(); showQuickMessageInput(folderName, identityName, cTag); };
+    } else {
+      cTag.title = `${aiPreset.name}: running`;
+    }
+  } else {
+    cTag.title = `Start ${aiPreset.name} (right-click for options)`;
     cTag.onclick = (e) => { e.stopPropagation(); openFolder(workingDir, folderName, getDefaultAiCommand()); };
     cTag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, workingDir, folderName); };
   }
@@ -1070,6 +1077,91 @@ function updateWorkspaceTabName(ws) {
 }
 
 // ===== Context Menu =====
+
+function showQuickMessageInput(sessionName, identityName, anchorEl) {
+  // Remove any existing popup
+  document.getElementById("quick-msg-popup")?.remove();
+
+  const popup = document.createElement("div");
+  popup.id = "quick-msg-popup";
+  popup.className = "quick-msg-popup";
+
+  const title = document.createElement("div");
+  title.className = "quick-msg-title";
+  title.textContent = `→ ${identityName}`;
+  popup.appendChild(title);
+
+  const row = document.createElement("div");
+  row.className = "quick-msg-row";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "quick-msg-input";
+  input.placeholder = "Type a message…";
+
+  const sendBtn = document.createElement("button");
+  sendBtn.className = "quick-msg-send";
+  sendBtn.textContent = "Send";
+
+  row.appendChild(input);
+  row.appendChild(sendBtn);
+  popup.appendChild(row);
+  document.body.appendChild(popup);
+
+  // Position below the anchor element
+  const rect = anchorEl.getBoundingClientRect();
+  popup.style.left = `${Math.min(rect.left, window.innerWidth - 260)}px`;
+  popup.style.top = `${rect.bottom + 4}px`;
+
+  input.focus();
+
+  const dismiss = () => popup.remove();
+
+  const send = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    sendBtn.disabled = true;
+    input.disabled = true;
+    fetch(`/api/sessions/${encodeURIComponent(sessionName)}/quick-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) {
+          title.textContent = "sent ✓";
+          title.style.color = "#4ec94e";
+          setTimeout(dismiss, 1200);
+        } else {
+          title.textContent = `error: ${data.error || "failed"}`;
+          title.style.color = "#ff6060";
+          sendBtn.disabled = false;
+          input.disabled = false;
+          input.focus();
+        }
+      })
+      .catch((err) => {
+        title.textContent = `error: ${err.message}`;
+        title.style.color = "#ff6060";
+        sendBtn.disabled = false;
+        input.disabled = false;
+        input.focus();
+      });
+  };
+
+  sendBtn.onclick = send;
+  input.onkeydown = (e) => {
+    if (e.key === "Enter") send();
+    if (e.key === "Escape") dismiss();
+  };
+
+  // Click outside to dismiss
+  const outside = (e) => {
+    if (!popup.contains(e.target)) { dismiss(); document.removeEventListener("mousedown", outside); }
+  };
+  setTimeout(() => document.addEventListener("mousedown", outside), 0);
+}
 
 function showContextMenu(e, path) {
   e.preventDefault();
