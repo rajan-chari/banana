@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-27 19:30
+Last updated: 2026-03-28
 
 ## Current Focus
 
-Session ending (shutdown). Idle since onboarding read.
+Session ending (shutdown). Extended idle since 2026-03-27 19:30.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending (shutdown). Idle since onboarding read.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-28 — Shutdown save
+Extended idle. No new work since onboarding read.
 
 ### 2026-03-27 19:15 — Read updated onboarding.md
 New agents on roster: heidi (async-messaging), thorn (tomato), researcher (on-demand research). Frost/emcom listed correctly. No changes needed.
