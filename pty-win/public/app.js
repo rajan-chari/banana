@@ -600,7 +600,10 @@ function renderQuickAccess() {
       claudeCommand: claudeSession?.command || null,
       isClaudeReady: cached?.isClaudeReady || false,
       hasIdentity: cached?.hasIdentity || false,
-      onKill: null,
+      onKill: (claudeSession || pwshSession) ? () => {
+        if (claudeSession) killSession(claudeSession.name);
+        if (pwshSession) killSession(pwshSession.name);
+      } : null,
     });
 
     // Fetch folder info if not cached
