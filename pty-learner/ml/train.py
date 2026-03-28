@@ -1,11 +1,24 @@
 """
-train.py — Train a busy/idle classifier on pty-win terminal buffer text.
+train.py — Train a busy/not_busy classifier on pty-win terminal buffer text.
 
 Usage:
-    python train.py [--data data.jsonl] [--output model.pkl]
+    python train.py [--data PATH] [--output model.pkl]
 
-Data format (JSONL, one record per line):
-    {"text": "<terminal buffer text>", "label": "busy|idle"}
+Default data path: ../../pty-win/ml-dataset/labels.jsonl
+
+Data format (JSONL, one record per line — written by pty-win/src/ml-dataset.ts):
+    {
+        "text_lines": ["line1", ..., "line20"],  # 20-line terminal buffer snapshot
+        "label": "busy|not_busy",
+        "confidence": "auto|strong|uncertain",
+        "source": "auto_detect|force_idle|timeout_flag",
+        "timestamp": "...",
+        "session_id": "..."
+    }
+
+Filtering:
+    - source=timeout_flag excluded by default (uncertain boundary cases)
+    - confidence=auto and strong are both used for training
 """
 import argparse
 import json
@@ -18,14 +31,31 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 
+DEFAULT_DATA = Path(__file__).parent.parent.parent / "pty-win" / "ml-dataset" / "labels.jsonl"
 
-def load_data(path: str) -> tuple[list[str], list[str]]:
+
+def load_data(path: str, exclude_sources: list[str] | None = None) -> tuple[list[str], list[str]]:
+    if exclude_sources is None:
+        exclude_sources = ["timeout_flag"]
+
     texts, labels = [], []
+    skipped = 0
     with open(path) as f:
         for line in f:
+            line = line.strip()
+            if not line:
+                continue
             rec = json.loads(line)
-            texts.append(rec["text"])
+            if rec.get("source") in exclude_sources:
+                skipped += 1
+                continue
+            # Join text_lines into a single string for the vectorizer
+            text = "\n".join(rec["text_lines"])
+            texts.append(text)
             labels.append(rec["label"])
+
+    if skipped:
+        print(f"Skipped {skipped} samples (source in {exclude_sources})")
     return texts, labels
 
 
@@ -43,12 +73,21 @@ def build_pipeline() -> Pipeline:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default="data.jsonl")
+    parser.add_argument("--data", default=str(DEFAULT_DATA))
     parser.add_argument("--output", default="model.pkl")
+    parser.add_argument("--include-timeout-flag", action="store_true",
+                        help="Include timeout_flag samples (excluded by default)")
     args = parser.parse_args()
 
-    texts, labels = load_data(args.data)
-    print(f"Loaded {len(texts)} samples ({labels.count('busy')} busy, {labels.count('idle')} idle)")
+    exclude = [] if args.include_timeout_flag else ["timeout_flag"]
+    texts, labels = load_data(args.data, exclude_sources=exclude)
+
+    busy = labels.count("busy")
+    not_busy = labels.count("not_busy")
+    print(f"Loaded {len(texts)} samples ({busy} busy, {not_busy} not_busy)")
+
+    if len(texts) < 10:
+        print("WARNING: very few samples — collect more before training")
 
     X_train, X_test, y_train, y_test = train_test_split(
         texts, labels, test_size=0.2, random_state=42, stratify=labels
