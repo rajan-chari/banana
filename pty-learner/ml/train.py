@@ -46,6 +46,9 @@ def load_data(path: str, exclude_sources: list[str] | None = None) -> tuple[list
             if not line:
                 continue
             rec = json.loads(line)
+            if rec.get("deleted"):
+                skipped += 1
+                continue
             if rec.get("source") in exclude_sources:
                 skipped += 1
                 continue
