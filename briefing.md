@@ -1,8 +1,8 @@
 # Briefing
-Last updated: 2026-03-27 19:15
+Last updated: 2026-03-28 04:00
 
 ## Current Focus
-Idle — inbox clear. Replied to RFC on utility script workspaces.
+pty-learner workspace created and aligned with pty-win data format. Waiting ~300 samples before first training run.
 
 ## Don't Forget
 - Run `/rc-save` after each user request
@@ -11,6 +11,7 @@ Idle — inbox clear. Replied to RFC on utility script workspaces.
 - Three-tier operating manual shipped — global rule auto-loaded, onboarding.md read once, team-manual.md on-demand
 
 ## Recent
+- 2026-03-28 04:00 — pty-learner: created workspace + ML skeleton, aligned data format with pty-win (6ec51ba)
 - 2026-03-27 19:15 — Read updated onboarding.md; noted 3 new agents (heidi, thorn, researcher); replied to Rajan
 - 2026-03-27 14:20 — Emcom: replied to RFC on utility script workspaces (4 script ideas, structural feedback)
 - 2026-03-26 20:30 — Emcom: replied to Rajan's check-in, cleaned up 10 stale pending messages → all handled
@@ -23,5 +24,5 @@ Idle — inbox clear. Replied to RFC on utility script workspaces.
 - 2026-03-24 15:17 — Registered as milo on emcom, created tracker.md, added session-end routine to CLAUDE.md
 
 ## Next Up
+- pty-learner: first training run when ~300 samples collected
 - Implement layered auto-save rules in CLAUDE.md (pending Rajan's confirmation)
-- Pick up project work items from tracker.md
