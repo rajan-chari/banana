@@ -11,6 +11,9 @@ export interface SessionConfig {
   quietThresholdMs: number;
   injectionCooldownMs: number;
   checkpointOffsetMs: number;
+  busyTimeoutMs: number;
+  mlServiceUrl: string;
+  mlDataDir: string;
 }
 
 export interface ServerConfig {
@@ -26,4 +29,6 @@ export const DEFAULTS = {
   quietThresholdMs: 1000,
   injectionCooldownMs: 30000,
   defaultCommand: process.platform === "win32" ? "cmd.exe" : "/bin/bash",
+  busyTimeoutMs: 5 * 60 * 1000,
+  mlServiceUrl: "http://127.0.0.1:3601",
 };

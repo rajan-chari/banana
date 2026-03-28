@@ -8,6 +8,7 @@ import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
+import { saveMlSample } from "./ml-dataset.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
@@ -65,6 +66,8 @@ export class PtySession extends EventEmitter {
   private lastOutputTime = Date.now();
   private needsStartupKick = false;
   private dirtyOnExit = false;
+  private busyStartTime = 0;
+  private busyTimeoutSaved = false;
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -227,6 +230,21 @@ export class PtySession extends EventEmitter {
     if (this.pendingMessages) this.inject();
   }
 
+  getContentLines(n: number): string[] {
+    return this.screenDetector.getContentLines(n);
+  }
+
+  applyMLInference(label: string, confidence: number): void {
+    if (this.status !== "busy") return;
+    if (label === "not_busy" && confidence > 0.75) {
+      const crossCheck = this.screenDetector.detectPromptType();
+      if (crossCheck === "input" || crossCheck === "unknown") {
+        log(`[${this.name}] ML inference: not_busy (conf=${confidence.toFixed(2)}) confirmed by screen → going idle`);
+        this.setStatus("idle");
+      }
+    }
+  }
+
   /**
    * Periodically check for identity.json appearing in the session's working dir.
    * Once found, attach emcom poller and stop watching.
@@ -288,6 +306,10 @@ export class PtySession extends EventEmitter {
   private setStatus(s: SessionStatus): void {
     if (this.status === s) return;
     this.status = s;
+    if (s === "busy") {
+      this.busyStartTime = Date.now();
+      this.busyTimeoutSaved = false;
+    }
     // Stamp checkpoint time when session goes idle after a checkpoint response
     if (s === "idle" && this.checkpointInFlight) {
       this.checkpointInFlight = false;
@@ -308,7 +330,31 @@ export class PtySession extends EventEmitter {
       const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
       const isAI = AI_CMDS.includes(this.config.command);
       if (isAI) {
+        // Busy timeout: save a sample once if busy too long
+        const busyTimeoutMs = this.config.busyTimeoutMs;
+        if (!this.busyTimeoutSaved && this.busyStartTime > 0 && Date.now() - this.busyStartTime > busyTimeoutMs) {
+          this.busyTimeoutSaved = true;
+          saveMlSample(
+            this.config.mlDataDir,
+            this.screenDetector.getContentLines(20),
+            "busy",
+            "uncertain",
+            "timeout_flag",
+            this.name
+          );
+        }
+
         const promptType = this.screenDetector.detectPromptType();
+        if (promptType === "input" || promptType === "busy") {
+          saveMlSample(
+            this.config.mlDataDir,
+            this.screenDetector.getContentLines(20),
+            promptType === "input" ? "not_busy" : "busy",
+            "auto",
+            "auto_detect",
+            this.name
+          );
+        }
         if (promptType === "input") {
           if (this.needsStartupKick) {
             this.needsStartupKick = false;

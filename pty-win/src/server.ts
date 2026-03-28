@@ -11,6 +11,7 @@ import { listDir, readIdentity, createDir } from "./folders.js";
 import { DEFAULTS } from "./config.js";
 import type { SessionConfig, ServerConfig } from "./config.js";
 import { log, clog } from "./log.js";
+import { saveMlSample } from "./ml-dataset.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -149,6 +150,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
       quietThresholdMs: DEFAULTS.quietThresholdMs,
       injectionCooldownMs: DEFAULTS.injectionCooldownMs,
       checkpointOffsetMs,
+      busyTimeoutMs: DEFAULTS.busyTimeoutMs,
+      mlServiceUrl: DEFAULTS.mlServiceUrl,
+      mlDataDir: join(__dirname, "..", "ml-dataset"),
     };
 
     const session = new PtySession(sessionConfig);
@@ -219,6 +223,14 @@ public class Win32Focus {
   app.post("/api/sessions/:name/force-idle", (req, res) => {
     const session = sessions.get(req.params.name);
     if (!session) return res.status(404).json({ error: "not found" });
+    saveMlSample(
+      join(__dirname, "..", "ml-dataset"),
+      session.getContentLines(20),
+      "not_busy",
+      "strong",
+      "force_idle",
+      req.params.name
+    );
     session.forceIdle();
     broadcastSessionList();
     res.json({ ok: true });

@@ -66,7 +66,7 @@ export class ScreenDetector {
     return "unknown";
   }
 
-  private getContentLines(n: number): string[] {
+  getContentLines(n: number): string[] {
     const buf = this.terminal.buffer.active;
     const lines: string[] = [];
 
