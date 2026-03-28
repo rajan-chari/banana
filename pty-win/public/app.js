@@ -36,6 +36,7 @@ const state = {
 };
 
 let nextWorkspaceId = 1;
+let dragSrcWsId = null;
 
 function getDefaultAiCommand() {
   return state.aiPresets[state.aiDefaultIndex]?.command || "claude";
@@ -1521,6 +1522,42 @@ function renderTabs() {
     close.textContent = "\u00d7";
     close.onclick = (e) => { e.stopPropagation(); removeWorkspace(ws.id); };
     tab.appendChild(close);
+
+    // Drag-to-reorder
+    tab.draggable = true;
+    tab.addEventListener("dragstart", (e) => {
+      dragSrcWsId = ws.id;
+      tab.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+    });
+    tab.addEventListener("dragend", () => {
+      dragSrcWsId = null;
+      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("drag-over-left", "drag-over-right", "dragging"));
+    });
+    tab.addEventListener("dragover", (e) => {
+      if (!dragSrcWsId || dragSrcWsId === ws.id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = tab.getBoundingClientRect();
+      const isLeft = e.clientX < rect.left + rect.width / 2;
+      tab.classList.toggle("drag-over-left", isLeft);
+      tab.classList.toggle("drag-over-right", !isLeft);
+    });
+    tab.addEventListener("dragleave", () => {
+      tab.classList.remove("drag-over-left", "drag-over-right");
+    });
+    tab.addEventListener("drop", (e) => {
+      if (!dragSrcWsId || dragSrcWsId === ws.id) return;
+      e.preventDefault();
+      const rect = tab.getBoundingClientRect();
+      const isLeft = e.clientX < rect.left + rect.width / 2;
+      const srcIdx = state.workspaces.findIndex((w) => w.id === dragSrcWsId);
+      const [removed] = state.workspaces.splice(srcIdx, 1);
+      const tgtIdx = state.workspaces.findIndex((w) => w.id === ws.id);
+      state.workspaces.splice(isLeft ? tgtIdx : tgtIdx + 1, 0, removed);
+      dragSrcWsId = null;
+      renderTabs();
+    });
 
     // Single-click delayed to allow double-click to cancel it
     let clickTimer = null;

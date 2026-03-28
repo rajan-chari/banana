@@ -609,6 +609,9 @@ html, body {
 }
 
 .tab:hover { color: var(--text-primary); }
+.tab.dragging { opacity: 0.4; cursor: grabbing; }
+.tab.drag-over-left { border-left: 2px solid var(--border-focus); }
+.tab.drag-over-right { border-right: 2px solid var(--border-focus); }
 
 .tab.active {
   color: #ffffff;
