@@ -1,14 +1,20 @@
 # Briefing
-Last updated: 2026-03-28 05:00
+Last updated: 2026-03-28 05:10
 
 ## Current Focus
-Quick-message popup shipped. Server restart needed to pick up all backend changes.
+Quick-message live-tested and working. Server restart needed for all backend changes.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through a8a9d4f pending
+- Server restart needed — all server-side changes through f2068f7 pending
 - Frontend-only fixes (77fb746, bc8c205) active after browser refresh
 
 ## Recent
+### 2026-03-28 05:10 — Heuristic poll interval 250ms → 1s
+Redundant to poll faster than the 1s quiet threshold. Commit f2068f7.
+
+### 2026-03-28 05:05 — Quick-message live-tested
+Rajan sent "hi is this working" via the popup — injected correctly into PTY.
+
 ### 2026-03-28 05:00 — Quick-message: simplify to direct PTY inject
 Rajan simplified: drop emcom send entirely, just write text + "respond to Rajan via emcom.\r" into the PTY. No senderIdentityDir, no identity required. Works for any running AI session. Commit a8a9d4f.
 

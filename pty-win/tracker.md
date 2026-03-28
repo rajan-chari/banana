@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-28 05:00
+Last updated: 2026-03-28 05:10
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through a8a9d4f |
+| Server restart | Needed | Rajan | All pending changes through f2068f7 |
 
 ## Watching
 
@@ -21,6 +21,7 @@ Last updated: 2026-03-28 05:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-28 | Heuristic poll interval 250ms → 1s | Matches quiet threshold, reduces redundant checks (→f2068f7) |
 | 2026-03-28 | Quick-message popup on AI action button | Click ▶ on running session → floating input → injects text into PTY (→a8a9d4f) |
 | 2026-03-28 | Full checkpoint interval 2h → 3h | Per Rajan request (→48e9e9b) |
 | 2026-03-28 | ML dataset rolling files + auto_detect cap | 250 records/file, 1000 sample cap, durable across restarts (→36016e6) |
