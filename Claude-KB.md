@@ -94,7 +94,7 @@ my-assist
 - **`query_db.py` helper**: Use `python query_db.py "SELECT * FROM table"` to inspect SQLite databases.
 - **httpx + localhost on Windows is slow (~2s per request)**: httpx tries IPv6 DNS for "localhost" first. Use `127.0.0.1` instead. This applies to any httpx client, not just emcom.
 - **emcom-server port is 8800**: Data in `~/.emcom/`. Start: `source emcom/.venv/Scripts/activate && emcom-server`.
-- **emcom identity is CWD-based**: `identity.json` lives in the working directory. Each agent folder gets its own identity — don't use `--identity` to point at another folder's file.
+- **emcom identity is CWD-based**: `identity.json` lives in the working directory. Each agent folder gets its own identity. If CWD doesn't have identity.json (e.g. after running Python scripts in a subdir), use `emcom --identity <absolute-path-to-identity.json> <command>` — the `--identity` flag must come before the subcommand.
 - **argparse global flags before subcommand**: `emcom --identity foo.json inbox` works; `emcom inbox --identity foo.json` fails. Global args are on the main parser, not subparsers.
 - **PyInstaller --onefile for emcom**: `pyinstaller --onefile --name emcom --console emcom/cli.py` produces a ~12M standalone exe. Clean up `dist/`, `build/`, `*.spec` after. User skill exes live at `~/.claude/skills/emcom/bin/`.
 - **PyInstaller + Windows cp1252 stdout**: PyInstaller freezes `sys.stdout` encoding to cp1252 on Windows, ignoring `PYTHONUTF8=1` env var. Fix: `sys.stdout.reconfigure(encoding="utf-8")` at top of `main()`. Without this, any Unicode char outside cp1252 (e.g. `→` U+2192) crashes with `UnicodeEncodeError`.
