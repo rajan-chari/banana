@@ -74,14 +74,17 @@ def load_data(data_dir: Path, exclude_timeout_flag: bool = False) -> tuple[list[
     return texts, labels
 
 
-def build_pipeline() -> Pipeline:
+def build_pipeline(onnx_compatible: bool = False) -> Pipeline:
+    # char_wb gives slightly better precision; word tokenizer required for ONNX export
+    # (skl2onnx only supports analyzer='word')
+    if onnx_compatible:
+        tfidf = TfidfVectorizer(analyzer="word", ngram_range=(1, 2),
+                                max_features=10_000, sublinear_tf=True)
+    else:
+        tfidf = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4),
+                                max_features=10_000, sublinear_tf=True)
     return Pipeline([
-        ("tfidf", TfidfVectorizer(
-            analyzer="char_wb",
-            ngram_range=(2, 4),
-            max_features=10_000,
-            sublinear_tf=True,
-        )),
+        ("tfidf", tfidf),
         ("clf", LogisticRegression(max_iter=1000, C=1.0, class_weight="balanced")),
     ])
 
@@ -92,6 +95,8 @@ def main():
     parser.add_argument("--output", default="model.pkl")
     parser.add_argument("--exclude-timeout-flag", action="store_true",
                         help="Exclude timeout_flag samples (included by default — amber reviewed them)")
+    parser.add_argument("--onnx-compatible", action="store_true",
+                        help="Use word tokenizer (required for ONNX export via skl2onnx)")
     args = parser.parse_args()
 
     texts, labels = load_data(Path(args.data_dir), exclude_timeout_flag=args.exclude_timeout_flag)
@@ -100,6 +105,8 @@ def main():
     not_busy = labels.count("not_busy")
     print(f"Loaded {len(texts)} samples — busy: {busy} ({busy/len(texts)*100:.1f}%), "
           f"not_busy: {not_busy} ({not_busy/len(texts)*100:.1f}%)")
+    if args.onnx_compatible:
+        print("Using word tokenizer (ONNX-compatible mode)")
 
     if len(texts) < 10:
         print("WARNING: very few samples — collect more before training")
@@ -108,7 +115,7 @@ def main():
         texts, labels, test_size=0.2, random_state=42, stratify=labels
     )
 
-    pipeline = build_pipeline()
+    pipeline = build_pipeline(onnx_compatible=args.onnx_compatible)
     pipeline.fit(X_train, y_train)
 
     y_pred = pipeline.predict(X_test)
