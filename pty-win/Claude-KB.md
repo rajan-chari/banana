@@ -97,5 +97,8 @@ Using `gap: 6px` on one row type and `margin-left: 2px` on another causes pill c
 ### 2026-03-27: JS template literals don't need \\ before $ (unless followed by {)
 In JS template literals, `$hwnd` is the literal string `$hwnd` — template interpolation only triggers on `${...}`. Using `\\$hwnd` produces `\$hwnd` which broke a PowerShell script embedded in a template literal. Only escape `$` when it precedes `{` for interpolation. This caused the VS Code launch button to be completely broken.
 
+### 2026-03-29: onnxruntime-node seq(map) output requires double cast
+When an ONNX model outputs `seq(map(string, float))` (e.g. sklearn pipeline probability maps), the TypeScript type for `tensor.data[0]` is `string | number | bigint` — it doesn't know about map types. Cast with `as unknown as Record<string, number>` to access keyed probabilities. This is a known gap in the ort type definitions, not a runtime issue.
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
