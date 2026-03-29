@@ -45,3 +45,15 @@ Written by `pty-win/src/ml-dataset.ts` → `pty-win/ml-dataset/labels.jsonl` (gi
 
 ### 2026-03-28: Label schema is "busy"/"not_busy" not "busy"/"idle"
 pty-win's data collector uses `not_busy` (not `idle`). Original scaffold used `busy`/`idle` — corrected in train.py and evaluate.py. Always check the actual JSONL file before assuming label names.
+
+### 2026-03-28: timeout_flag samples are systematically mislabeled busy
+`source=timeout_flag` means the 5-min busy timer fired — but by the time the snapshot is captured, the session has often already gone idle (shows `❯` prompt). These get labeled `busy` incorrectly. Always review timeout_flag samples separately; most should be flipped to `not_busy`.
+
+### 2026-03-28: emcom --body backticks are eaten by bash
+Backticks inside `emcom send/reply --body "..."` are interpreted as command substitution by bash, stripping code blocks. Avoid backticks in emcom message bodies — use indented plain text instead.
+
+### 2026-03-28: ONNX seq(map) output type in onnxruntime-node
+`output_probability` from skl2onnx is type `seq(map(string, float))` — ort TypeScript type defs don't cover this. Access as: `result['output_probability'].data[0] as unknown as Record<string, number>`. Functionally correct, just needs the cast.
+
+### 2026-03-28: ONNX input must be full 20-line buffer
+Model was trained on full 20-line terminal buffers joined with `\n`. Single-line or partial inputs produce unreliable results. Always pass all 20 lines joined as one string.
