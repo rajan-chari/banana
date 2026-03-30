@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-30 03:10
+Last updated: 2026-03-30 16:20
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart + browser refresh | Needed | Rajan | All pending changes through e96c6bd |
+| Server restart + browser refresh | Needed | Rajan | All pending changes through f25c199; feed needs --feed-identity Rajan |
 
 ## Watching
 
@@ -21,6 +21,10 @@ Last updated: 2026-03-30 03:10
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-30 | Emcom feed: fix /email/all endpoint + REST-only | Corrected endpoint from frost's source; no CLI (→f25c199) |
+| 2026-03-30 | Checkpoint improvements | Light 2h, full 4h; light no git; next time in prompt (→055b315) |
+| 2026-03-30 | Ctrl+V paste in AI sessions | Clipboard paste via attachCustomKeyEventHandler (→055b315) |
+| 2026-03-30 | Emcom feed panel (right side) | Collapsible, 10s poll, thread-grouped, unread bold (→055b315) |
 | 2026-03-30 | Quick Access: status dots + spacing fix | Stars → blinking dots, margin-right: 6px; DevTools-verified (→dbdeef2) |
 | 2026-03-30 | Stagger session startups at boot by repo group | 7s between groups, spreads spawn syscalls + resume floods (→e96c6bd) |
 | 2026-03-30 | Perf: batching + async writes + ONNX worker | 16ms WS batch, appendFile async, ONNX on worker_threads (→d921ae0) |
