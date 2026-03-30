@@ -842,6 +842,15 @@ html, body {
   flex-shrink: 0;
 }
 
+.sessions-pin-star {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  font-size: 9px;
+  color: #c8a800;
+  line-height: 1;
+}
+
 .status-dot.idle { background: var(--status-idle-bright); }
 .status-dot.busy {
   background: var(--status-busy-bright);
