@@ -1198,6 +1198,69 @@ html, body {
 .xterm-viewport::-webkit-scrollbar-thumb { background: var(--border-focus); }
 .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 
+/* Diagnostics view */
+.diag-view {
+  padding: 20px 24px;
+  overflow-y: auto;
+  height: 100%;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+}
+.diag-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.diag-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+}
+.diag-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+.diag-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.diag-table th {
+  text-align: left;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.diag-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+}
+.diag-table tr:hover td { background: var(--bg-tertiary); }
+.diag-name { color: var(--text-primary); font-weight: 500; }
+.diag-status { font-size: 11px; }
+.diag-status.busy { color: #f0a040; }
+.diag-status.idle { color: #4ec94e; }
+.diag-status.starting { color: var(--text-dim); }
+.diag-hot td { background: rgba(240, 80, 80, 0.08); }
+.diag-hot-val { color: #ff6060; font-weight: 600; }
+.diag-empty { color: var(--text-muted); font-size: 12px; padding: 12px 10px; }
+
 /* Quick-message popup */
 .quick-msg-popup {
   position: fixed;

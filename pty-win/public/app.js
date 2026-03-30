@@ -16,6 +16,7 @@ const state = {
   terminals: new Map(),   // sessionName -> { term, fitAddon, opened: boolean }
   focusedPane: null,
   isDashboard: true,
+  isDiag: false,
   sidebarVisible: true,
   favorites: [],          // string[] — favorite root paths
   folderCache: new Map(), // path -> FolderEntry[]
@@ -37,6 +38,7 @@ const state = {
 
 let nextWorkspaceId = 1;
 let dragSrcWsId = null;
+let diagPollTimer = null;
 
 function getDefaultAiCommand() {
   return state.aiPresets[state.aiDefaultIndex]?.command || "claude";
@@ -1442,8 +1444,10 @@ function switchToWorkspace(id) {
     if (prevWs) prevWs.lastFocusedPane = state.focusedPane;
   }
 
+  stopDiagPoll();
   state.activeWorkspaceId = id;
   state.isDashboard = false;
+  state.isDiag = false;
 
   // Restore focused pane for target workspace
   const ws = state.workspaces.find((w) => w.id === id);
@@ -1468,11 +1472,27 @@ function switchToWorkspace(id) {
   }
 }
 
+function stopDiagPoll() {
+  if (diagPollTimer) { clearInterval(diagPollTimer); diagPollTimer = null; }
+}
+
 function switchToDashboard() {
+  stopDiagPoll();
   state.activeWorkspaceId = null;
   state.isDashboard = true;
+  state.isDiag = false;
   renderTabs();
   renderDashboard();
+}
+
+function switchToDiag() {
+  stopDiagPoll();
+  state.activeWorkspaceId = null;
+  state.isDashboard = false;
+  state.isDiag = true;
+  renderTabs();
+  renderDiag();
+  diagPollTimer = setInterval(renderDiag, 5000);
 }
 
 function findWorkspaceContaining(sessionName) {
@@ -1507,6 +1527,12 @@ function renderTabs() {
   dashTab.textContent = "Dashboard";
   dashTab.onclick = () => switchToDashboard();
   tabsEl.appendChild(dashTab);
+
+  const diagTab = document.createElement("div");
+  diagTab.className = `tab ${state.isDiag ? "active" : ""}`;
+  diagTab.textContent = "Diag";
+  diagTab.onclick = () => switchToDiag();
+  tabsEl.appendChild(diagTab);
 
   for (const ws of state.workspaces) {
     const tab = document.createElement("div");
@@ -2309,6 +2335,68 @@ async function loadSnapshot(sessionName) {
     const el = document.getElementById(`preview-${CSS.escape(sessionName)}`);
     if (el) el.textContent = data.lines.join("\n") || "(no output yet)";
   } catch {}
+}
+
+// ===== Diagnostics =====
+
+function renderDiag() {
+  if (!state.isDiag) return;
+  const area = document.getElementById("workspace-area");
+
+  let container = area.querySelector(".diag-view");
+  if (!container) {
+    area.innerHTML = "";
+    container = document.createElement("div");
+    container.className = "diag-view";
+    area.appendChild(container);
+  }
+
+  fetch("/api/stats")
+    .then((r) => r.json())
+    .then((stats) => {
+      if (!state.isDiag) return;
+      container.innerHTML = `
+        <div class="diag-header">
+          <span class="diag-title">DIAGNOSTICS</span>
+          <span class="diag-subtitle">Rolling 5s averages · auto-refresh 5s</span>
+        </div>
+        <div class="diag-section-title">Session Stats</div>
+        <table class="diag-table">
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>Status</th>
+              <th colspan="3">Busy</th>
+              <th colspan="3">Not Busy</th>
+            </tr>
+            <tr>
+              <th></th><th></th>
+              <th>cb/s</th><th>KB/s</th><th>avg b</th>
+              <th>cb/s</th><th>KB/s</th><th>avg b</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stats.length === 0 ? '<tr><td colspan="8" class="diag-empty">No active sessions</td></tr>' :
+              stats.map((s) => {
+                const hot = s.busy.callbacksPerSec > 100;
+                return `<tr class="${hot ? "diag-hot" : ""}">
+                  <td class="diag-name">${s.name}</td>
+                  <td class="diag-status ${s.status}">${s.status}</td>
+                  <td class="${hot ? "diag-hot-val" : ""}">${s.busy.callbacksPerSec}</td>
+                  <td>${(s.busy.bytesPerSec / 1024).toFixed(1)}</td>
+                  <td>${s.busy.avgChunkBytes}</td>
+                  <td>${s.notBusy.callbacksPerSec}</td>
+                  <td>${(s.notBusy.bytesPerSec / 1024).toFixed(1)}</td>
+                  <td>${s.notBusy.avgChunkBytes}</td>
+                </tr>`;
+              }).join("")}
+          </tbody>
+        </table>`;
+    })
+    .catch(() => {
+      if (!state.isDiag) return;
+      container.innerHTML = `<div class="diag-header"><span class="diag-title">DIAGNOSTICS</span></div><div class="diag-empty">Failed to load stats</div>`;
+    });
 }
 
 // ===== Modal =====
