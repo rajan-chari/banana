@@ -40,8 +40,8 @@ export class EmcomClient {
     return this.get<EmcomEmail[]>(`/email/inbox`);
   }
 
-  async getAll(limit = 30): Promise<EmcomEmail[]> {
-    return this.get<EmcomEmail[]>(`/email?limit=${limit}`);
+  async getAll(): Promise<EmcomEmail[]> {
+    return this.get<EmcomEmail[]>(`/email/all`);
   }
 
   async getWho(): Promise<EmcomIdentity[]> {

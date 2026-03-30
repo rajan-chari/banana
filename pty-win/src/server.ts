@@ -268,7 +268,7 @@ public class Win32Focus {
     if (!config.feedIdentity) return res.status(400).json({ error: "feedIdentity not configured (use --feed-identity)" });
     try {
       const client = new EmcomClient(config.emcomServer, config.feedIdentity);
-      const emails = await client.getAll(30);
+      const emails = await client.getAll();
       res.json(emails);
     } catch (err) {
       res.status(500).json({ error: String(err) });
