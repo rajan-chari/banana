@@ -565,11 +565,19 @@ function renderQuickAccess() {
     const row = document.createElement("div");
     row.className = "quick-access-row";
 
-    // Star icon
-    const star = document.createElement("span");
-    star.className = "quick-access-star";
-    star.textContent = "\u2605";
-    row.appendChild(star);
+    // Status dot (mirrors Sessions panel)
+    const claudeStatusSession = [...state.sessions.values()].find(
+      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command !== "pwsh"
+    );
+    const pwshStatusSession = [...state.sessions.values()].find(
+      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command === "pwsh"
+    );
+    const qaStatus = claudeStatusSession?.status === "busy" || pwshStatusSession?.status === "busy"
+      ? "busy" : claudeStatusSession?.status === "starting" || pwshStatusSession?.status === "starting"
+      ? "starting" : claudeStatusSession || pwshStatusSession ? "idle" : "dead";
+    const dot = document.createElement("span");
+    dot.className = `status-dot ${qaStatus}`;
+    row.appendChild(dot);
 
     // Name — click to focus/open
     const label = document.createElement("span");
