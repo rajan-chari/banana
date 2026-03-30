@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-29 shutdown
+Last updated: 2026-03-30 15:35
 
 ## Current Focus
 
-Session ending (shutdown). Idle.
+Answered Rajan's question about emcom-tui web support — directed him to REST API for pty-win feed panel.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending (shutdown). Idle.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-03-30 15:35 — Replied to pty-win feed panel question
+Rajan asked if emcom-tui has web/REST components for a pty-win feed panel. TUI is terminal-only, but pointed him to the emcom-server REST API (port 8800) — all endpoints moss needs are there.
 
 ### 2026-03-28 shutdown — Shutdown save
 Idle all day. No new work.
