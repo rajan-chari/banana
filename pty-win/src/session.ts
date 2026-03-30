@@ -42,6 +42,22 @@ async function runLocalMLInference(
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
+interface DataEvent { t: number; bytes: number; isBusy: boolean; }
+
+export interface StatsBucket {
+  callbacksPerSec: number;
+  bytesPerSec: number;
+  avgChunkBytes: number;
+}
+
+export interface SessionStats {
+  name: string;
+  status: SessionStatus;
+  overall: StatsBucket;
+  busy: StatsBucket;
+  notBusy: StatsBucket;
+}
+
 export interface SessionInfo {
   name: string;
   group: string;
@@ -101,6 +117,7 @@ export class PtySession extends EventEmitter {
   private lastSavedLabel: string | null = null;
   private lastSavedAt = 0;
   private mlQueryInFlight = false;
+  private dataEvents: DataEvent[] = [];
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -169,7 +186,9 @@ export class PtySession extends EventEmitter {
 
     // Wire PTY output
     this.ptyProcess.onData((data) => {
-      this.lastOutputTime = Date.now();
+      const now = Date.now();
+      this.lastOutputTime = now;
+      this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
       this.screenDetector.write(data);
       this.emit("data", data);
       if (this.status === "idle" || this.status === "starting") {
@@ -271,6 +290,31 @@ export class PtySession extends EventEmitter {
 
   getContentLines(n: number): string[] {
     return this.screenDetector.getContentLines(n);
+  }
+
+  getStats(): SessionStats {
+    const WINDOW_MS = 5000;
+    const cutoff = Date.now() - WINDOW_MS;
+    // Prune old events
+    this.dataEvents = this.dataEvents.filter((e) => e.t >= cutoff);
+
+    const bucket = (events: DataEvent[]): StatsBucket => {
+      const cbs = events.length;
+      const bytes = events.reduce((s, e) => s + e.bytes, 0);
+      return {
+        callbacksPerSec: Math.round(cbs / (WINDOW_MS / 1000) * 10) / 10,
+        bytesPerSec: Math.round(bytes / (WINDOW_MS / 1000)),
+        avgChunkBytes: cbs > 0 ? Math.round(bytes / cbs) : 0,
+      };
+    };
+
+    return {
+      name: this.name,
+      status: this.status,
+      overall: bucket(this.dataEvents),
+      busy: bucket(this.dataEvents.filter((e) => e.isBusy)),
+      notBusy: bucket(this.dataEvents.filter((e) => !e.isBusy)),
+    };
   }
 
   applyMLInference(label: string, confidence: number): void {

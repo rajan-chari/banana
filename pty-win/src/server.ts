@@ -263,6 +263,12 @@ public class Win32Focus {
     res.json({ lines: session.getSnapshot(n) });
   });
 
+  // Stats: rolling 5s averages per session
+  app.get("/api/stats", (_req, res) => {
+    const stats = [...sessions.values()].map((s) => s.getStats());
+    res.json(stats);
+  });
+
   // emcom/who kept for dashboard reference
   app.get("/api/emcom/who", async (_req, res) => {
     try {
@@ -416,6 +422,17 @@ public class Win32Focus {
     log(`[server] pty-win listening on http://127.0.0.1:${config.port}`);
     console.log(`pty-win: http://127.0.0.1:${config.port}`);
   });
+
+  // 30s stats logger
+  setInterval(() => {
+    for (const session of sessions.values()) {
+      const s = session.getStats();
+      if (s.overall.callbacksPerSec === 0) continue;
+      const state = s.status === "busy" ? "busy" : s.status;
+      const bucket = s.status === "busy" ? s.busy : s.notBusy;
+      clog(`[stats] ${s.name}: ${bucket.callbacksPerSec} cb/s, ${Math.round(bucket.bytesPerSec / 1024)}KB/s, avg ${bucket.avgChunkBytes}b/cb (${state})`);
+    }
+  }, 30_000);
 
   // Graceful shutdown with save injection
   const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
