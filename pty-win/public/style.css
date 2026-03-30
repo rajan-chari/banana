@@ -158,6 +158,7 @@ html, body {
 }
 
 .quick-access-row:hover { background: var(--bg-hover); }
+.quick-access-row .status-dot { margin-right: 6px; }
 
 .quick-access-star {
   color: #e8a317;
