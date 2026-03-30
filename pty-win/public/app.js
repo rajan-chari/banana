@@ -860,6 +860,8 @@ async function recreateOrphanedSessions(names) {
   if (recreationInProgress) return;
   recreationInProgress = true;
 
+  const STARTUP_STAGGER_MS = 7000;
+
   const mainEl = document.getElementById("main");
   const charW = 7.6, charH = 18;
   const availW = (mainEl?.clientWidth || 800) - 4;
@@ -867,30 +869,51 @@ async function recreateOrphanedSessions(names) {
   const cols = Math.max(80, Math.floor(availW / charW));
   const rows = Math.max(24, Math.floor(availH / charH));
 
-  for (const name of names) {
+  // Fetch repo root for each session, group by repo
+  const repoGroups = new Map(); // repoRoot -> [name, ...]
+  await Promise.all(names.map(async (name) => {
     const meta = state.sessionMeta.get(name);
-    if (!meta) continue;
-
+    if (!meta) return;
+    let repoRoot = null;
     try {
-      const isClaude = !meta.command || meta.command === "claude";
-      const body = { workingDir: meta.workingDir, cols, rows };
-      if (meta.command && meta.command !== "claude") body.command = meta.command;
-      if (isClaude) body.args = ["--continue"];
+      const r = await fetch(`/api/repo-root?path=${encodeURIComponent(meta.workingDir)}`);
+      if (r.ok) repoRoot = (await r.json()).repoRoot;
+    } catch {}
+    const key = repoRoot || meta.workingDir;
+    if (!repoGroups.has(key)) repoGroups.set(key, []);
+    repoGroups.get(key).push(name);
+  }));
 
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+  const groups = [...repoGroups.values()];
 
-      if (!res.ok) {
-        console.warn(`Failed to recreate session "${name}":`, await res.text());
+  async function launchGroup(group) {
+    for (const name of group) {
+      const meta = state.sessionMeta.get(name);
+      if (!meta) continue;
+      try {
+        const isClaude = !meta.command || meta.command === "claude";
+        const body = { workingDir: meta.workingDir, cols, rows };
+        if (meta.command && meta.command !== "claude") body.command = meta.command;
+        if (isClaude) body.args = ["--continue"];
+        const res = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) { console.warn(`Failed to recreate session "${name}":`, await res.text()); pruneFailedSession(name); }
+      } catch (err) {
+        console.warn(`Error recreating session "${name}":`, err);
         pruneFailedSession(name);
       }
-      // Success: server will broadcast updated sessions list, triggering re-render
-    } catch (err) {
-      console.warn(`Error recreating session "${name}":`, err);
-      pruneFailedSession(name);
+    }
+  }
+
+  // Launch groups staggered by STARTUP_STAGGER_MS
+  for (let i = 0; i < groups.length; i++) {
+    if (i === 0) {
+      await launchGroup(groups[i]);
+    } else {
+      setTimeout(() => launchGroup(groups[i]), i * STARTUP_STAGGER_MS);
     }
   }
 

@@ -263,6 +263,14 @@ public class Win32Focus {
     res.json({ lines: session.getSnapshot(n) });
   });
 
+  // Repo root detection for startup stagger
+  app.get("/api/repo-root", async (req, res) => {
+    const dirPath = req.query.path as string;
+    if (!dirPath) return res.status(400).json({ error: "path required" });
+    const repoRoot = await detectRepoRoot(resolve(dirPath));
+    res.json({ repoRoot });
+  });
+
   // Stats: rolling 5s averages per session
   app.get("/api/stats", (_req, res) => {
     const stats = [...sessions.values()].map((s) => s.getStats());
