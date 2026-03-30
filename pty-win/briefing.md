@@ -1,14 +1,17 @@
 # Briefing
-Last updated: 2026-03-30 02:40
+Last updated: 2026-03-30 03:10
 
 ## Current Focus
-Startup stagger + perf fixes all shipped. Server restart + browser refresh needed.
+Quick Access UI polished. Server restart + browser refresh needed.
 
 ## Don't Forget
 - Server restart needed — all server-side changes through e96c6bd pending
-- Browser refresh needed for startup stagger (frontend change)
+- Browser refresh needed for all frontend changes
 
 ## Recent
+### 2026-03-30 03:10 — Quick Access panel: status dots + spacing fix
+Replace stars with blinking status dots (matches Sessions panel). Fixed dot-to-name margin-right: 6px. Verified with DevTools. Commits 8fdb0ef, dbdeef2.
+
 ### 2026-03-30 02:40 — Stagger session startups at boot by repo group
 Groups sessions by repo root, launches each group 7s apart. Spreads both pty.spawn() syscalls and --resume onData floods. Commit e96c6bd.
 

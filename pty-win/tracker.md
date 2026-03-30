@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-30 02:40
+Last updated: 2026-03-30 03:10
 
 ## In Motion
 
@@ -21,6 +21,7 @@ Last updated: 2026-03-30 02:40
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-30 | Quick Access: status dots + spacing fix | Stars → blinking dots, margin-right: 6px; DevTools-verified (→dbdeef2) |
 | 2026-03-30 | Stagger session startups at boot by repo group | 7s between groups, spreads spawn syscalls + resume floods (→e96c6bd) |
 | 2026-03-30 | Perf: batching + async writes + ONNX worker | 16ms WS batch, appendFile async, ONNX on worker_threads (→d921ae0) |
 | 2026-03-30 | Diagnostics tab | Fixed "Diag" tab, live stats table, 5s poll, hot-row highlight (→8e59976) |
