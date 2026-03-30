@@ -97,6 +97,12 @@ Using `gap: 6px` on one row type and `margin-left: 2px` on another causes pill c
 ### 2026-03-27: JS template literals don't need \\ before $ (unless followed by {)
 In JS template literals, `$hwnd` is the literal string `$hwnd` — template interpolation only triggers on `${...}`. Using `\\$hwnd` produces `\$hwnd` which broke a PowerShell script embedded in a template literal. Only escape `$` when it precedes `{` for interpolation. This caused the VS Code launch button to be completely broken.
 
+### 2026-03-30: emcom REST API endpoint is /email/all, not /email?limit=N
+When implementing the emcom feed panel, the correct endpoint for all messages is `GET /email/all` (no query params). `/email?limit=N` doesn't exist. Routers mount without prefix in emcom_server/main.py. Auth via `X-Emcom-Name` header — same as all other endpoints. Source of truth: `emcom_server/routers/email.py`.
+
+### 2026-03-30: emcom-tui is Textual (Python), not web-reusable
+frost's emcom-tui is built with Textual — a Python terminal UI framework. Can't be adapted for browser/web contexts. The REST API (port 8800) is the correct integration point for web UIs.
+
 ### 2026-03-29: onnxruntime-node seq(map) output requires double cast
 When an ONNX model outputs `seq(map(string, float))` (e.g. sklearn pipeline probability maps), the TypeScript type for `tensor.data[0]` is `string | number | bigint` — it doesn't know about map types. Cast with `as unknown as Record<string, number>` to access keyed probabilities. This is a known gap in the ort type definitions, not a runtime issue.
 

@@ -1,14 +1,20 @@
 # Briefing
-Last updated: 2026-03-30 03:10
+Last updated: 2026-03-30 16:15
 
 ## Current Focus
-Quick Access UI polished. Server restart + browser refresh needed.
+Checkpoint improvements + ctrl+v paste + emcom feed panel all shipped. Server restart + browser refresh needed.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through e96c6bd pending
-- Browser refresh needed for all frontend changes
+- Server restart needed — all server-side changes through f25c199 pending
+- Feed panel needs --feed-identity <name> CLI flag (e.g. --feed-identity Rajan)
 
 ## Recent
+### 2026-03-30 16:15 — Emcom feed: fix endpoint /email/all + REST-only clarification
+No CLI, REST-only via EmcomClient. Fixed endpoint /email?limit → /email/all (from frost's source). Commit f25c199.
+
+### 2026-03-30 15:30 — Checkpoint improvements + ctrl+v paste + emcom feed panel
+Light 30m→2h, full 3h→4h; light prompts no git; next time in prompt. Ctrl+v paste in AI sessions. Collapsible feed panel right side, 10s poll, thread-grouped. Commit 055b315.
+
 ### 2026-03-30 03:10 — Quick Access panel: status dots + spacing fix
 Replace stars with blinking status dots (matches Sessions panel). Fixed dot-to-name margin-right: 6px. Verified with DevTools. Commits 8fdb0ef, dbdeef2.
 
