@@ -668,18 +668,12 @@ function renderSessionsPanel() {
     row.className = `session-row ${g.group === state.focusedPane ? "active" : ""}`;
     row.dataset.group = g.group;
 
-    // Status dot — worst-of status across group; pinned sessions get a star instead
-    const isPinned = state.pinnedFolders.some((p) => normPath(p) === normPath(g.workingDir));
+    // Status dot — worst-of status across group
     const bestStatus = g.claudeAlive && g.claudeInfo.status === "busy" || g.pwshAlive && g.pwshInfo.status === "busy"
       ? "busy" : g.claudeAlive && g.claudeInfo.status === "starting" || g.pwshAlive && g.pwshInfo.status === "starting"
       ? "starting" : "idle";
     const dot = document.createElement("span");
-    if (isPinned) {
-      dot.className = "sessions-pin-star";
-      dot.textContent = "\u2605";
-    } else {
-      dot.className = `status-dot ${bestStatus}`;
-    }
+    dot.className = `status-dot ${bestStatus}`;
     row.appendChild(dot);
 
     // Name
