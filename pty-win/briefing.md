@@ -1,13 +1,17 @@
 # Briefing
-Last updated: 2026-03-30 02:20
+Last updated: 2026-03-30 02:40
 
 ## Current Focus
-Perf fixes shipped (batching + async writes + ONNX worker). Server restart needed.
+Startup stagger + perf fixes all shipped. Server restart + browser refresh needed.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through d921ae0 pending
+- Server restart needed — all server-side changes through e96c6bd pending
+- Browser refresh needed for startup stagger (frontend change)
 
 ## Recent
+### 2026-03-30 02:40 — Stagger session startups at boot by repo group
+Groups sessions by repo root, launches each group 7s apart. Spreads both pty.spawn() syscalls and --resume onData floods. Commit e96c6bd.
+
 ### 2026-03-30 02:20 — Perf: output batching, async writes, ONNX worker thread
 16ms WS send batching, appendFile async, ONNX moved to worker_threads. Commit d921ae0.
 

@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-30 02:20
+Last updated: 2026-03-30 02:40
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through d921ae0 |
+| Server restart + browser refresh | Needed | Rajan | All pending changes through e96c6bd |
 
 ## Watching
 
@@ -21,6 +21,7 @@ Last updated: 2026-03-30 02:20
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-30 | Stagger session startups at boot by repo group | 7s between groups, spreads spawn syscalls + resume floods (→e96c6bd) |
 | 2026-03-30 | Perf: batching + async writes + ONNX worker | 16ms WS batch, appendFile async, ONNX on worker_threads (→d921ae0) |
 | 2026-03-30 | Diagnostics tab | Fixed "Diag" tab, live stats table, 5s poll, hot-row highlight (→8e59976) |
 | 2026-03-30 | Rolling stats collector | 5s window cb/s+bytes/s per session, /api/stats endpoint, 30s clog (→98c94e5) |
