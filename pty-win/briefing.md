@@ -1,13 +1,17 @@
 # Briefing
-Last updated: 2026-03-30 02:00
+Last updated: 2026-03-30 02:20
 
 ## Current Focus
-Diagnostics tab + stats collector shipped. Server restart needed for backend changes.
+Perf fixes shipped (batching + async writes + ONNX worker). Server restart needed.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through 98c94e5 pending
+- Server restart needed — all server-side changes through d921ae0 pending
 
 ## Recent
+### 2026-03-30 02:20 — Perf: output batching, async writes, ONNX worker thread
+16ms WS send batching, appendFile async, ONNX moved to worker_threads. Commit d921ae0.
+
+
 ### 2026-03-30 02:00 — Diagnostics tab with live stats table
 Fixed "Diag" tab next to Dashboard. Polls /api/stats every 5s, shows busy vs not-busy cb/s / KB/s / avg chunk. Red highlight for sessions >100 cb/s busy. Frontend-only. Commit 8e59976.
 
