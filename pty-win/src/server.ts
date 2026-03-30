@@ -263,6 +263,18 @@ public class Win32Focus {
     res.json({ lines: session.getSnapshot(n) });
   });
 
+  // Emcom feed for right panel
+  app.get("/api/emcom-feed", async (_req, res) => {
+    if (!config.feedIdentity) return res.status(400).json({ error: "feedIdentity not configured (use --feed-identity)" });
+    try {
+      const client = new EmcomClient(config.emcomServer, config.feedIdentity);
+      const emails = await client.getAll(30);
+      res.json(emails);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // Repo root detection for startup stagger
   app.get("/api/repo-root", async (req, res) => {
     const dirPath = req.query.path as string;

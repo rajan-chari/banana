@@ -99,12 +99,21 @@ const EMCOM_PREAMBLE =
 const QUIET_CHECK_INTERVAL_MS = 1000;
 
 // Periodic checkpoint injection (Layer 2)
-const CHECKPOINT_LIGHT_INTERVAL_MS = 30 * 60 * 1000; // 30 min
-const CHECKPOINT_FULL_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hrs
-const CHECKPOINT_LIGHT_PROMPT =
-  "[pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint: update tracker.md and briefing.md if there are changes, commit and push.\r";
-const CHECKPOINT_FULL_PROMPT =
-  "[pty-win:checkpoint-full:normal:normal]\nFull checkpoint: update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save.\r";
+const CHECKPOINT_LIGHT_INTERVAL_MS = 2 * 60 * 60 * 1000;  // 2 hrs
+const CHECKPOINT_FULL_INTERVAL_MS  = 4 * 60 * 60 * 1000;  // 4 hrs
+
+function fmtNextTime(intervalMs: number): string {
+  const d = new Date(Date.now() + intervalMs);
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}
+
+function makeCheckpointLightPrompt(nextTime: string): string {
+  return `[pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes.\r`;
+}
+
+function makeCheckpointFullPrompt(nextTime: string): string {
+  return `[pty-win:checkpoint-full:normal:normal]\nFull checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save.\r`;
+}
 
 export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;
@@ -597,7 +606,9 @@ export class PtySession extends EventEmitter {
   private injectCheckpoint(): void {
     if (!this.pendingCheckpoint) return;
     const type = this.pendingCheckpoint;
-    const prompt = type === "full" ? CHECKPOINT_FULL_PROMPT : CHECKPOINT_LIGHT_PROMPT;
+    const intervalMs = type === "full" ? CHECKPOINT_FULL_INTERVAL_MS : CHECKPOINT_LIGHT_INTERVAL_MS;
+    const nextTime = fmtNextTime(intervalMs);
+    const prompt = type === "full" ? makeCheckpointFullPrompt(nextTime) : makeCheckpointLightPrompt(nextTime);
     this.pendingCheckpoint = null;
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);

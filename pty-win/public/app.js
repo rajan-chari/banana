@@ -1976,6 +1976,16 @@ function ensureTerminal(sessionName) {
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
         navigatePanes(e.key); return false;
       }
+      if (e.key === "v") {
+        const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
+        const sessionInfo = state.sessions.get(sessionName);
+        if (sessionInfo && AI_CMDS.includes(sessionInfo.command)) {
+          navigator.clipboard.readText().then((text) => {
+            if (text) state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
+          }).catch(() => {});
+          return false;
+        }
+      }
     }
     return true;
   });
@@ -2520,3 +2530,113 @@ renderTabs();
 if (state.isDashboard) renderDashboard();
 else renderActiveWorkspace();
 connect();
+
+// ===== Emcom feed panel =====
+
+(function initFeedPanel() {
+  const FEED_POLL_MS = 10_000;
+  const panel = document.getElementById("feed-panel");
+  const strip = document.getElementById("feed-strip");
+  const body = document.getElementById("feed-body");
+  const collapseBtn = document.getElementById("feed-collapse-btn");
+  const expandBtn = document.getElementById("feed-expand-btn");
+
+  const isOpen = localStorage.getItem("pty-win-feed-open") !== "false";
+  if (!isOpen) { panel.classList.add("hidden"); strip.classList.remove("hidden"); }
+  else { strip.classList.add("hidden"); }
+
+  collapseBtn.onclick = () => {
+    panel.classList.add("hidden");
+    strip.classList.remove("hidden");
+    localStorage.setItem("pty-win-feed-open", "false");
+  };
+  expandBtn.onclick = () => {
+    panel.classList.remove("hidden");
+    strip.classList.add("hidden");
+    localStorage.setItem("pty-win-feed-open", "true");
+    renderFeed();
+  };
+
+  const expandedItems = new Set();
+
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
+  }
+
+  function renderFeed() {
+    if (panel.classList.contains("hidden")) return;
+    fetch("/api/emcom-feed")
+      .then(r => r.json())
+      .then(emails => {
+        if (!Array.isArray(emails)) { body.innerHTML = `<div class="feed-empty">${emails.error || "Unavailable"}</div>`; return; }
+        if (emails.length === 0) { body.innerHTML = '<div class="feed-empty">No messages</div>'; return; }
+
+        // Sort newest first, build thread map
+        emails.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const threadMap = new Map();
+        const roots = [];
+        for (const e of emails) {
+          if (!threadMap.has(e.thread_id)) threadMap.set(e.thread_id, []);
+          threadMap.get(e.thread_id).push(e);
+        }
+        // Deduplicate: one entry per thread (most recent message), thread root first
+        const seen = new Set();
+        const items = [];
+        for (const e of emails) {
+          if (!seen.has(e.thread_id)) {
+            seen.add(e.thread_id);
+            items.push({ root: e, replies: threadMap.get(e.thread_id).slice(1) });
+          }
+        }
+
+        body.innerHTML = "";
+        for (const { root, replies } of items) {
+          const isUnread = root.tags?.includes("unread");
+          const isExpanded = expandedItems.has(root.id);
+          const div = document.createElement("div");
+          div.className = `feed-item${isUnread ? " unread" : ""}${isExpanded ? " expanded" : ""}`;
+          div.innerHTML = `
+            <div class="feed-meta">
+              <span class="feed-time">${fmtTime(root.created_at)}</span>
+              <span class="feed-participants">${root.sender} → ${(root.to || []).join(", ")}</span>
+            </div>
+            <div class="feed-subject">${root.subject}</div>
+            <div class="feed-preview">${(root.body || "").slice(0, 80)}</div>
+            <div class="feed-body-text">${root.body || ""}</div>`;
+          div.onclick = () => {
+            if (expandedItems.has(root.id)) expandedItems.delete(root.id);
+            else expandedItems.add(root.id);
+            div.classList.toggle("expanded");
+            div.querySelector(".feed-body-text").style.display =
+              expandedItems.has(root.id) ? "block" : "none";
+          };
+          body.appendChild(div);
+
+          for (const reply of replies) {
+            const rdiv = document.createElement("div");
+            rdiv.className = `feed-item feed-reply${reply.tags?.includes("unread") ? " unread" : ""}`;
+            rdiv.innerHTML = `
+              <div class="feed-meta">
+                <span class="feed-time">${fmtTime(reply.created_at)}</span>
+                <span class="feed-participants">${reply.sender} → ${(reply.to || []).join(", ")}</span>
+              </div>
+              <div class="feed-preview">${(reply.body || "").slice(0, 80)}</div>
+              <div class="feed-body-text">${reply.body || ""}</div>`;
+            rdiv.onclick = () => {
+              if (expandedItems.has(reply.id)) expandedItems.delete(reply.id);
+              else expandedItems.add(reply.id);
+              rdiv.classList.toggle("expanded");
+              rdiv.querySelector(".feed-body-text").style.display =
+                expandedItems.has(reply.id) ? "block" : "none";
+            };
+            body.appendChild(rdiv);
+          }
+        }
+      })
+      .catch(() => { body.innerHTML = '<div class="feed-empty">Server unavailable</div>'; });
+  }
+
+  renderFeed();
+  setInterval(renderFeed, FEED_POLL_MS);
+})();

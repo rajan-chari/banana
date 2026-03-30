@@ -138,6 +138,110 @@ html, body {
 
 #sidebar-strip.hidden { display: none; }
 
+/* --- Emcom feed panel (right side) --- */
+
+#feed-panel {
+  width: 300px;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  user-select: none;
+  overflow: hidden;
+}
+#feed-panel.hidden { display: none; }
+
+#feed-strip {
+  width: 24px;
+  min-width: 24px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+}
+#feed-strip.hidden { display: none; }
+
+#feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  height: 35px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#feed-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-dim);
+}
+#feed-collapse-btn, #feed-expand-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  line-height: 1;
+}
+#feed-collapse-btn:hover, #feed-expand-btn:hover { color: var(--text-primary); }
+
+#feed-body {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+.feed-item {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.feed-item:hover { background: var(--bg-hover); }
+.feed-item.unread .feed-subject { font-weight: 700; color: var(--text-primary); }
+.feed-item.expanded .feed-body-text { display: block; }
+
+.feed-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.feed-participants { color: var(--text-dim); }
+.feed-time { float: right; }
+.feed-subject {
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feed-preview {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+.feed-body-text {
+  display: none;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-primary);
+  padding: 6px 8px;
+  border-left: 2px solid var(--border-focus);
+}
+.feed-reply { margin-left: 12px; border-left: 2px solid rgba(255,255,255,0.06); }
+.feed-empty { padding: 16px 10px; color: var(--text-muted); font-size: 11px; }
+
 /* --- Quick Access panel --- */
 
 #quick-access-panel:empty { display: none; }
