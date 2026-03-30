@@ -9,35 +9,47 @@ import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
 import { saveMlSample } from "./ml-dataset.js";
-import * as ort from "onnxruntime-node";
+import { Worker } from "worker_threads";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-let onnxSession: ort.InferenceSession | null = null;
-let onnxSessionPath = "";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-async function getOnnxSession(modelPath: string): Promise<ort.InferenceSession> {
-  if (!onnxSession || onnxSessionPath !== modelPath) {
-    onnxSession = await ort.InferenceSession.create(modelPath);
-    onnxSessionPath = modelPath;
+let mlWorker: Worker | null = null;
+let mlWorkerReady = false;
+let mlReqId = 0;
+const mlPending = new Map<number, (r: { label: string; confidence: number } | null) => void>();
+
+function getMLWorker(): Worker | null {
+  if (mlWorker) return mlWorker;
+  try {
+    mlWorker = new Worker(join(__dirname, "ml-worker.js"));
+    mlWorker.on("message", ({ id, label, confidence, error }) => {
+      const resolve = mlPending.get(id);
+      mlPending.delete(id);
+      if (resolve) resolve(error || !label ? null : { label, confidence });
+    });
+    mlWorker.on("error", () => { mlWorker = null; mlWorkerReady = false; });
+    mlWorker.on("exit", () => { mlWorker = null; mlWorkerReady = false; });
+    mlWorkerReady = true;
+    return mlWorker;
+  } catch {
+    return null;
   }
-  return onnxSession;
 }
 
 async function runLocalMLInference(
   modelPath: string,
   lines: string[]
 ): Promise<{ label: string; confidence: number } | null> {
-  try {
-    const sess = await getOnnxSession(modelPath);
-    const text = lines.join("\n");
-    const inputTensor = new ort.Tensor("string", [text], [1, 1]);
-    const result = await sess.run({ string_input: inputTensor });
-    const label = result["output_label"].data[0] as string;
-    const probs = result["output_probability"].data[0] as unknown as Record<string, number>;
-    const confidence = probs["busy"];
-    return { label, confidence };
-  } catch {
-    return null;
-  }
+  const worker = getMLWorker();
+  if (!worker) return null;
+  return new Promise((resolve) => {
+    const id = ++mlReqId;
+    mlPending.set(id, resolve);
+    worker.postMessage({ id, modelPath, lines });
+  });
 }
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";

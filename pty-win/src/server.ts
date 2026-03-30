@@ -367,10 +367,21 @@ public class Win32Focus {
   const wsSessionCleanups = new Map<WebSocket, Array<() => void>>();
 
   function attachSessionToWs(session: PtySession, ws: WebSocket): void {
-    const onData = (data: string) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "data", session: session.name, payload: data }));
+    const BATCH_MS = 16;
+    let buf = "";
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const flush = () => {
+      flushTimer = null;
+      if (buf && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "data", session: session.name, payload: buf }));
+        buf = "";
       }
+    };
+
+    const onData = (data: string) => {
+      buf += data;
+      if (!flushTimer) flushTimer = setTimeout(flush, BATCH_MS);
     };
     session.on("data", onData);
 
@@ -381,7 +392,10 @@ public class Win32Focus {
         wsSessionCleanups.delete(ws);
       });
     }
-    wsSessionCleanups.get(ws)!.push(() => session.off("data", onData));
+    wsSessionCleanups.get(ws)!.push(() => {
+      session.off("data", onData);
+      if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    });
   }
 
   function broadcastSessionList(): void {

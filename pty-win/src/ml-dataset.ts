@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, existsSync, readdirSync, readFileSync } from "fs";
+import { appendFile, mkdirSync, existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 
 export type MlLabel = "busy" | "not_busy";
@@ -82,7 +82,7 @@ export function saveMlSample(
     timestamp: new Date().toISOString(),
     session_id: sessionId,
   };
-  appendFileSync(join(dataDir, filename), JSON.stringify(record) + "\n", "utf8");
+  appendFile(join(dataDir, filename), JSON.stringify(record) + "\n", "utf8", () => {});
 
   currentFileRecords++;
   if (source === "auto_detect") autoDetectCount++;
