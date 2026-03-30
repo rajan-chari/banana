@@ -1,13 +1,19 @@
 # Briefing
-Last updated: 2026-03-28 19:15
+Last updated: 2026-03-30 02:00
 
 ## Current Focus
-ONNX local inference integrated. Server restart needed.
+Diagnostics tab + stats collector shipped. Server restart needed for backend changes.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through d7de3df pending
+- Server restart needed — all server-side changes through 98c94e5 pending
 
 ## Recent
+### 2026-03-30 02:00 — Diagnostics tab with live stats table
+Fixed "Diag" tab next to Dashboard. Polls /api/stats every 5s, shows busy vs not-busy cb/s / KB/s / avg chunk. Red highlight for sessions >100 cb/s busy. Frontend-only. Commit 8e59976.
+
+### 2026-03-30 01:50 — Rolling stats collector
+Per-session 5s rolling window: onData cb/s, bytes/s, avg chunk, split by busy/not-busy. GET /api/stats endpoint + 30s clog summary. Commit 98c94e5.
+
 ### 2026-03-28 19:15 — ONNX local inference replaces HTTP service call
 onnxruntime-node installed. runLocalMLInference() lazy-loads classifier.onnx, string_input → output_label + output_probability['busy']. mlModelPath config + --ml-model-path CLI flag. Coordinated with amber + milo. Commit d7de3df.
 

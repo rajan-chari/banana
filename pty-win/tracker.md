@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-28 19:15
+Last updated: 2026-03-30 02:00
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart | Needed | Rajan | All pending changes through d7de3df |
+| Server restart | Needed | Rajan | All pending changes through 98c94e5 |
 
 ## Watching
 
@@ -21,6 +21,8 @@ Last updated: 2026-03-28 19:15
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-30 | Diagnostics tab | Fixed "Diag" tab, live stats table, 5s poll, hot-row highlight (→8e59976) |
+| 2026-03-30 | Rolling stats collector | 5s window cb/s+bytes/s per session, /api/stats endpoint, 30s clog (→98c94e5) |
 | 2026-03-28 | ONNX local inference (Phase 5 final) | runLocalMLInference() via onnxruntime-node; replaces HTTP path (→d7de3df) |
 | 2026-03-28 | ML inference HTTP path (Phase 5 initial) | queryMLService() on unknown promptType — superseded by ONNX (→92bb505) |
 | 2026-03-28 | Draggable/reorderable workspace tabs | Drag left/right, blue drop indicator, localStorage persist (→41d6247) |
