@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-28 shutdown
+Last updated: 2026-03-29 shutdown
 
 ## Current Focus
 
-Session ending (shutdown). Idle all day.
+Session ending (shutdown). Idle.
 
 ## Don't Forget
 
