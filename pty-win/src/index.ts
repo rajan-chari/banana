@@ -5,6 +5,26 @@ import { DEFAULTS } from "./config.js";
 
 const args = process.argv.slice(2);
 
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`pty-win — browser-based terminal multiplexer
+
+Usage: pty-win [options]
+
+Options:
+  --port <number>          HTTP server port (default: ${DEFAULTS.port})
+  --root <path>            Add a folder root to the sidebar (repeatable)
+  --emcom <url>            Emcom server URL (default: ${DEFAULTS.emcomServer})
+  --ml-model-path <path>   Path to ONNX classifier model (default: auto-detect)
+  -h, --help               Show this help message
+
+Examples:
+  pty-win
+  pty-win --port 3602
+  pty-win --root "C:\\projects\\my-app" --root "C:\\projects\\other"
+  pty-win --port 3602 --emcom http://127.0.0.1:8800`);
+  process.exit(0);
+}
+
 let port = DEFAULTS.port;
 let emcomServer = DEFAULTS.emcomServer;
 let mlModelPath = "";
