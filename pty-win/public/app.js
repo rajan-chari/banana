@@ -2910,6 +2910,7 @@ connect();
         const currentIds = new Set(emails.map(e => e.id));
         const scrollTop = body.scrollTop;
 
+        body.classList.add("feed-no-transition");
         body.innerHTML = "";
         for (const { root, replies } of items) {
           const threadDiv = document.createElement("div");
@@ -2966,6 +2967,7 @@ connect();
         }
 
         body.scrollTop = scrollTop;
+        requestAnimationFrame(() => body.classList.remove("feed-no-transition"));
         previousIds = currentIds;
       })
       .catch(() => {
