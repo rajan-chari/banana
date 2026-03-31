@@ -84,7 +84,7 @@ export interface SessionInfo {
 
 const INJECTION_PROMPT = "[pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
 const STARTUP_KICK = "[pty-win:startup-kick:routine:brief]\nhi\r";
-const RESUME_KICK = "[pty-win:session-resumed:normal:normal]\nSession resumed after shutdown. Re-read briefing.md, restart any loops/crons that were running, check emcom inbox, and greet the user.\r";
+const RESUME_KICK = "[pty-win:session-resumed:normal:brief]\nSession resumed. Restart any loops or crons that were running before shutdown.\r";
 const STARTUP_GRACE_MS = 10_000;
 
 const EMCOM_PREAMBLE =
