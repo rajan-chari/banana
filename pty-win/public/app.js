@@ -2687,6 +2687,7 @@ window.addEventListener("resize", () => {
 // ===== Init =====
 
 state.favorites = loadFavorites();
+if (state.favorites.length === 0) state.favorites.push("C:\\");
 state.pinnedFolders = loadPinnedFolders();
 state.expandedPaths = loadExpandedPaths();
 // Auto-expand favorites that haven't been explicitly collapsed
