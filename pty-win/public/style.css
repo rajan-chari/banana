@@ -142,14 +142,29 @@ html, body {
 
 #feed-panel {
   width: 300px;
-  min-width: 300px;
+  min-width: 150px;
+  max-width: 600px;
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
   user-select: none;
   overflow: hidden;
+  position: relative;
 }
+
+#feed-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s;
+}
+#feed-resize-handle:hover { background: var(--border-drag); }
 #feed-panel.hidden { display: none; }
 
 #feed-strip {

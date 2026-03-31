@@ -2728,6 +2728,35 @@ connect();
 
   let feedIdentity = localStorage.getItem("pty-win-feed-identity") || "";
 
+  // Restore saved width
+  const savedFeedWidth = parseInt(localStorage.getItem("pty-win-feed-width"), 10);
+  if (savedFeedWidth && savedFeedWidth >= 150 && savedFeedWidth <= 600) {
+    panel.style.width = `${savedFeedWidth}px`;
+  }
+
+  // Resize handle
+  const feedHandle = document.getElementById("feed-resize-handle");
+  feedHandle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const onMove = (ev) => {
+      const newWidth = Math.max(150, Math.min(600, window.innerWidth - ev.clientX));
+      panel.style.width = `${newWidth}px`;
+    };
+    const onUp = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      localStorage.setItem("pty-win-feed-width", parseInt(panel.style.width, 10));
+      const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
+      if (ws?.layout) requestAnimationFrame(() => fitAllTerminals(ws.layout));
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+
   const isOpen = localStorage.getItem("pty-win-feed-open") !== "false";
   if (!isOpen) { panel.classList.add("hidden"); strip.classList.remove("hidden"); }
   else { strip.classList.add("hidden"); }
