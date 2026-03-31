@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-30 shutdown
+Last updated: 2026-03-31 checkpoint
 
 ## Current Focus
 
-Session ending (shutdown). Idle since REST API reply to Rajan.
+Idle. New session started, no work requests yet.
 
 ## Don't Forget
 
