@@ -84,6 +84,7 @@ export interface SessionInfo {
 
 const INJECTION_PROMPT = "[pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
 const STARTUP_KICK = "[pty-win:startup-kick:routine:brief]\nhi\r";
+const RESUME_KICK = "[pty-win:session-resumed:normal:normal]\nSession resumed after shutdown. Re-read briefing.md, restart any loops/crons that were running, check emcom inbox, and greet the user.\r";
 const STARTUP_GRACE_MS = 10_000;
 
 const EMCOM_PREAMBLE =
@@ -132,6 +133,7 @@ export class PtySession extends EventEmitter {
   private unreadCount = 0;
   private lastOutputTime = Date.now();
   private needsStartupKick = false;
+  private isResumedSession = false;
   private dirtyOnExit = false;
   private busyStartTime = 0;
   private busyTimeoutSaved = false;
@@ -228,9 +230,10 @@ export class PtySession extends EventEmitter {
     // Startup grace period
     setTimeout(() => {
       const isResume = config.args.includes("--continue") || config.args.includes("-c");
-      if (isClaude && this.status !== "dead" && !isResume) {
+      if (isClaude && this.status !== "dead") {
         this.needsStartupKick = true;
-        log(`[${this.name}] Startup grace ended — will kick when prompt detected`);
+        this.isResumedSession = isResume;
+        log(`[${this.name}] Startup grace ended — will kick when prompt detected (${isResume ? "resume" : "fresh"})`);
       }
       if (this.status === "starting") this.setStatus("busy");
     }, isClaude ? STARTUP_GRACE_MS : 5000);
@@ -471,8 +474,9 @@ export class PtySession extends EventEmitter {
         if (promptType === "input") {
           if (this.needsStartupKick) {
             this.needsStartupKick = false;
-            log(`[${this.name}] Injecting startup kick (quiet ${quietMs}ms)`);
-            this.ptyProcess.write(STARTUP_KICK);
+            const kick = this.isResumedSession ? RESUME_KICK : STARTUP_KICK;
+            log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
+            this.ptyProcess.write(kick);
             this.setStatus("busy");
             return;
           }
