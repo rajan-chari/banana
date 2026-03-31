@@ -2748,7 +2748,7 @@ connect();
 
   // --- Restore saved width ---
   const savedFeedWidth = parseInt(localStorage.getItem("pty-win-feed-width"), 10);
-  if (savedFeedWidth && savedFeedWidth >= 150 && savedFeedWidth <= 600) panel.style.width = `${savedFeedWidth}px`;
+  if (savedFeedWidth && savedFeedWidth >= 150) panel.style.width = `${savedFeedWidth}px`;
 
   // --- Resize handle ---
   const feedHandle = document.getElementById("feed-resize-handle");
@@ -2756,9 +2756,15 @@ connect();
     e.preventDefault();
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+    let rafPending = false;
     const onMove = (ev) => {
-      const newWidth = Math.max(150, Math.min(600, window.innerWidth - ev.clientX));
-      panel.style.width = `${newWidth}px`;
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        const newWidth = Math.max(150, window.innerWidth - ev.clientX);
+        panel.style.width = `${newWidth}px`;
+      });
     };
     const onUp = () => {
       document.body.style.cursor = "";

@@ -157,7 +157,6 @@ html, body {
 #feed-panel {
   width: 300px;
   min-width: 150px;
-  max-width: 600px;
   display: flex;
   flex-direction: column;
   background: var(--emcom-bg);
