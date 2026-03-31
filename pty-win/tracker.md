@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-31 02:30
+Last updated: 2026-03-31 04:35
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart + browser refresh | Needed | Rajan | All pending changes through 962e205 |
+| Server restart + browser refresh | Needed | Rajan | Server: 6a1cd5f; frontend: fbb0de3 |
 
 ## Watching
 
@@ -21,6 +21,10 @@ Last updated: 2026-03-31 02:30
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-31 | Resume-aware startup injection | Resumed sessions get loop/cron restart kick (→6a1cd5f) |
+| 2026-03-31 | Feed toolbar: sort/filter/search/threads | 4 controls in toolbar row (→fbb0de3) |
+| 2026-03-31 | Feed panel bug fixes (11 commits) | Resize perf, expand state, picker stability, cache-bust, --help, unread badge, etc. |
+| 2026-03-31 | Emcom feed panel redesign | Neo-terminal: IBM Plex Mono, green accents, sender colors, animations (→f9e0c2e) |
 | 2026-03-31 | Feed identity picker in UI | Dropdown from /who, localStorage persist, --feed-identity removed (→962e205) |
 | 2026-03-30 | Drag-to-move panes + layout presets | Drop zones, insertAdjacentToPane, ⊞ preset menu (→6296387) |
 | 2026-03-30 | Emcom feed: fix /email/all endpoint + REST-only | Corrected endpoint from frost's source; no CLI (→f25c199) |

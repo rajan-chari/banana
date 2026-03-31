@@ -1,16 +1,28 @@
 # Briefing
-Last updated: 2026-03-31 02:30
+Last updated: 2026-03-31 04:35
 
 ## Current Focus
-Feed identity picker shipped. Server restart + browser refresh needed.
+Resume-aware startup injection shipped. Server restart + browser refresh needed.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through 962e205 pending
-- --feed-identity flag REMOVED — identity now selected in UI (localStorage)
+- Server restart needed — server changes through 6a1cd5f (resume kick + --help)
+- Browser refresh for all frontend changes through fbb0de3
 
 ## Recent
+### 2026-03-31 04:35 — Resume-aware startup injection
+Resumed sessions get "Session resumed. Restart any loops or crons..." instead of silence. Fresh sessions still get "hi". Commits b4b41f1, 6a1cd5f.
+
+### 2026-03-31 00:30 — Feed toolbar: sort, sender filter, search, thread collapse
+4 controls in toolbar row. Text search, sender dropdown, sort toggle, thread collapse. Commit fbb0de3.
+
+### 2026-03-31 — Feed panel bug fixes (batch)
+Cache-bust /who fetch (7d6861e), default C:\ root (8c2355e), --help flag (136c19f), unread badge alignment (5cf73a3), compact diag table (17296e3), expand/collapse all buttons (216196c), identity toggle (78a1c47), skip re-render if data unchanged (3a3b1fa), picker stays open during poll (9e9e59b), resize perf + no max-width (e1d616a, 03fb4c5, 6d28c7b), expand state preserved across poll (bfdeddb).
+
+### 2026-03-31 — Emcom feed panel redesign (neo-terminal)
+IBM Plex Mono, phosphor green accents, sender-colored accent bars, CSS animations, noise texture, thread viz, XSS prevention, scroll preservation. Commit f9e0c2e.
+
 ### 2026-03-31 02:30 — Feed identity picker in UI
-Identity dropdown populated from /who, saved to localStorage. Click identity name in header to change. --feed-identity CLI flag removed. Server accepts ?identity= query param. Commit 962e205.
+Dropdown from /who, localStorage, --feed-identity removed. Commit 962e205.
 
 
 
