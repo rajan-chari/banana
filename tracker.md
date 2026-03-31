@@ -1,21 +1,25 @@
 # Tracker
-Last updated: 2026-03-29
+Last updated: 2026-03-31
 
 ## In Motion
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
+| Next pty-win polish item | Not started | milo→moss | Root folder indent or drag-and-drop pane reorder |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
-| Layered auto-save rules | Pending | milo | Waiting on Rajan's confirmation to add to CLAUDE.md |
 
 ## Watching
 | Item | Waiting On | Details | Links |
 |------|------------|---------|-------|
-| pty-win live with ONNX | Server restart | moss d7de3df — inference ready, needs restart | |
+| pty-win server restart | Done | Verified 2026-03-31: feed toolbar, resume kick, identity picker all live | |
+| Root folder indent alignment | Next item | Low priority polish | |
+| Drag-and-drop pane reorder | Next item | Tab reorder done, pane reorder open | |
 | EM coordination efficiency | Next work session | 36 msgs → target ~8-10 | LOG.md 2026-02-21 |
 
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-31 | AI preset label in pane topbar | Spec→moss→implemented→verified. Frontend-only change. |
+| 2026-03-31 | pty-win post-restart verification | Feed toolbar, resume kick, identity picker, dashboard all live |
 | 2026-03-28 | pty-learner ML pipeline | End-to-end: train→ONNX→pty-win integration (moss d7de3df) |
 | 2026-03-28 | pty-learner agent_review.py | Export/apply modes for amber's AI labeling (9b88b0c) |
 | 2026-03-28 | pty-learner PyInstaller build | build.ps1 + 5 exes (browse/train/evaluate/export/agent-review) |

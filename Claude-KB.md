@@ -84,6 +84,7 @@ my-assist
 ## Gotchas
 
 ### Environment
+- **Chrome DevTools MCP port assignments**: Port 3600 = Rajan's session (rajan-private), Port 3601 = milo's session (banana). Always use `http://localhost:3601` for pty-win UI verification.
 - **`os.kill(pid, 0)` doesn't work on Windows**: Always returns `OSError`, even for running processes. Use `tasklist /FI "PID eq {pid}"` instead. See `cli.py:_is_process_running()`.
 - **Workspace root vs Python dir**: Docs (`CLAUDE.md`, `progress.md`, `specs.md`) are in `banana/`. All code is in `banana/python/`. Always `cd python` before running Python commands.
 - **Venv activation is mandatory**: Every bash session must `source .venv/Scripts/activate` before running any Python command. Forgetting this causes `ModuleNotFoundError`.
@@ -96,6 +97,7 @@ my-assist
 - **emcom-server port is 8800**: Data in `~/.emcom/`. Start: `source emcom/.venv/Scripts/activate && emcom-server`.
 - **emcom identity is CWD-based**: `identity.json` lives in the working directory. Each agent folder gets its own identity. If CWD doesn't have identity.json (e.g. after running Python scripts in a subdir), use `emcom --identity <absolute-path-to-identity.json> <command>` — the `--identity` flag must come before the subcommand.
 - **argparse global flags before subcommand**: `emcom --identity foo.json inbox` works; `emcom inbox --identity foo.json` fails. Global args are on the main parser, not subparsers.
+- **emcom usernames are case-sensitive**: `emcom send --to rajan` fails ("not registered"), must use `--to Rajan` matching the exact registered name from `emcom who`.
 - **PyInstaller --onefile for emcom**: `pyinstaller --onefile --name emcom --console emcom/cli.py` produces a ~12M standalone exe. Clean up `dist/`, `build/`, `*.spec` after. User skill exes live at `~/.claude/skills/emcom/bin/`.
 - **PyInstaller + Windows cp1252 stdout**: PyInstaller freezes `sys.stdout` encoding to cp1252 on Windows, ignoring `PYTHONUTF8=1` env var. Fix: `sys.stdout.reconfigure(encoding="utf-8")` at top of `main()`. Without this, any Unicode char outside cp1252 (e.g. `→` U+2192) crashes with `UnicodeEncodeError`.
 - **SKILL.md must be explicit about autonomy**: Claude will ask the user to pick names, confirm actions, etc. unless SKILL.md says "choose yourself, don't ask". Be directive.
