@@ -2756,6 +2756,8 @@ connect();
     e.preventDefault();
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+    // Pause ResizeObservers during drag to prevent fit() on every frame
+    for (const entry of state.terminals.values()) entry.resizeObserver?.disconnect();
     let rafPending = false;
     const onMove = (ev) => {
       if (rafPending) return;
@@ -2772,8 +2774,12 @@ connect();
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       localStorage.setItem("pty-win-feed-width", parseInt(panel.style.width, 10));
-      // Double-rAF: ensure layout reflow from width change before fitting terminals
+      // Reconnect ResizeObservers + fit once
       const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
+      for (const [name, entry] of state.terminals) {
+        const el = document.querySelector(`.pane[data-session="${name}"] .pane-terminal`);
+        if (el && entry.resizeObserver) entry.resizeObserver.observe(el);
+      }
       if (ws?.layout) requestAnimationFrame(() => requestAnimationFrame(() => fitAllTerminals(ws.layout)));
     };
     document.addEventListener("mousemove", onMove);
