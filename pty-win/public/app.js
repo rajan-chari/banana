@@ -764,7 +764,7 @@ function appendRowActions(container, opts) {
   } else {
     cTag.title = `Start ${aiPreset.name} (right-click for options)`;
     cTag.onclick = (e) => { e.stopPropagation(); openFolder(workingDir, folderName, getDefaultAiCommand()); };
-    cTag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiPicker(e, workingDir, folderName); };
+    cTag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiTagContextMenu(e, workingDir, folderName); };
   }
   container.appendChild(cTag);
 
@@ -959,7 +959,7 @@ function getOrCreateActiveWorkspace() {
 }
 
 /** Open a folder as a session, optionally forcing a new workspace */
-async function openFolder(folderPath, folderName, command, newWorkspace = false) {
+async function openFolder(folderPath, folderName, command, newWorkspace = false, args = []) {
   const baseName = folderName || folderPath.split(/[/\\]/).filter(Boolean).pop();
   const isPwsh = command === "pwsh";
   const sessionName = isPwsh ? baseName + "~pwsh" : baseName;
@@ -1001,6 +1001,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false)
     const body = { workingDir: folderPath, cols, rows };
     if (command) body.command = command;
     else body.command = getDefaultAiCommand();
+    if (args.length) body.args = args;
 
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -2019,9 +2020,13 @@ function createPane(groupName) {
   }
 
   const identity = info?.emcomIdentity ? `<span class="pane-identity">${info.emcomIdentity}</span>` : "";
+  const aiPreset = (activeType !== "pwsh" && info?.command) ? getAiPresetForCommand(info.command) : null;
+  const presetBadge = aiPreset ? `<span class="pane-ai-preset" title="${aiPreset.name}">${aiPreset.icon} ${aiPreset.name}</span>` : "";
   topbar.innerHTML = `
     <span class="pane-name">${groupName}</span>
     ${toggleHtml}
+    ${presetBadge}
+    <span class="pane-action cmd-tag code" title="Open in VS Code">&lt;/&gt;</span>
     ${identity}
     <span class="pane-cwd" title="${info?.workingDir || ""}">${truncatePath(info?.workingDir || "")}</span>
     <span class="pane-close" title="Kill session">&times;</span>
@@ -2039,6 +2044,16 @@ function createPane(groupName) {
     });
   }
 
+  topbar.querySelector(".pane-action.code").onclick = (e) => {
+    e.stopPropagation();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    fetch("/api/open-editor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: info?.workingDir || "" }),
+    });
+  };
+
   topbar.querySelector(".pane-close").onclick = (e) => {
     e.stopPropagation();
     killSession(activeSessionName);
@@ -2050,8 +2065,19 @@ function createPane(groupName) {
     showPaneContextMenu(e, groupName);
   });
 
+  const identityEl = topbar.querySelector(".pane-identity");
+  if (identityEl) {
+    identityEl.style.cursor = "pointer";
+    identityEl.title = `Switch feed to ${info.emcomIdentity}`;
+    identityEl.onclick = (e) => {
+      e.stopPropagation();
+      localStorage.setItem("pty-win-feed-identity", info.emcomIdentity);
+      window.dispatchEvent(new CustomEvent("feed-identity-change", { detail: info.emcomIdentity }));
+    };
+  }
+
   topbar.addEventListener("mousedown", (e) => {
-    if (e.target.closest("button, .pane-close, .toggle-btn")) return;
+    if (e.target.closest("button, .pane-close, .pane-action, .pane-identity, .toggle-btn")) return;
     if (e.button !== 0) return;
     startPaneDrag(e, groupName);
   });
@@ -2191,6 +2217,44 @@ function switchPaneType(groupName, type) {
   focusPane(groupName);
 }
 
+function showAiTagContextMenu(e, folderPath, folderName) {
+  const menu = document.getElementById("pane-context-menu");
+  menu.innerHTML = "";
+  menu.classList.remove("hidden");
+  menu.style.left = `${e.clientX}px`;
+  menu.style.top = `${e.clientY}px`;
+
+  const resumeItem = document.createElement("div");
+  resumeItem.className = "ctx-item";
+  resumeItem.textContent = "\u25b6 Resume session";
+  resumeItem.onclick = () => {
+    menu.classList.add("hidden");
+    openFolder(folderPath, folderName, "claude", false, ["--resume"]);
+  };
+  menu.appendChild(resumeItem);
+
+  const sep = document.createElement("div");
+  sep.className = "ctx-sep";
+  menu.appendChild(sep);
+
+  const pickerItem = document.createElement("div");
+  pickerItem.className = "ctx-item";
+  pickerItem.textContent = "\u2699 Choose AI preset\u2026";
+  pickerItem.onclick = () => {
+    menu.classList.add("hidden");
+    showAiPicker(e, folderPath, folderName);
+  };
+  menu.appendChild(pickerItem);
+
+  const close = (ev) => {
+    if (!menu.contains(ev.target)) {
+      menu.classList.add("hidden");
+      document.removeEventListener("mousedown", close);
+    }
+  };
+  setTimeout(() => document.addEventListener("mousedown", close), 0);
+}
+
 function showAiPicker(e, folderPath, folderName) {
   const menu = document.getElementById("pane-context-menu");
   menu.innerHTML = "";
@@ -2248,6 +2312,29 @@ function showPaneContextMenu(e, groupName) {
   menu.style.top = `${e.clientY}px`;
 
   const currentWs = findWorkspaceContaining(groupName);
+
+  // Resume Claude session (only for dead AI sessions)
+  const pg = state.paneGroups.get(groupName);
+  const claudeSession = pg?.claude ? state.sessions.get(pg.claude) : null;
+  const aiCommands = new Set(state.aiPresets.map((p) => p.command));
+  const isDeadAi = claudeSession?.status === "dead" && aiCommands.has(claudeSession.command);
+  const isNoAi = !claudeSession || claudeSession.status === "dead";
+  if (isDeadAi || isNoAi) {
+    const resumeItem = document.createElement("div");
+    resumeItem.className = `ctx-item ${isDeadAi ? "" : "ctx-disabled"}`;
+    resumeItem.textContent = "\u25b6 Resume Claude session";
+    if (isDeadAi) {
+      resumeItem.onclick = () => {
+        menu.classList.add("hidden");
+        openFolder(claudeSession.workingDir, groupName, "claude", false, ["--resume"]);
+      };
+    }
+    menu.appendChild(resumeItem);
+
+    const resumeSep = document.createElement("div");
+    resumeSep.className = "ctx-sep";
+    menu.appendChild(resumeSep);
+  }
 
   // Move to existing workspaces
   const header = document.createElement("div");
@@ -3073,4 +3160,13 @@ connect();
   if (feedIdentity) { renderFeed(); }
   else if (isOpen) showIdentityPicker();
   setInterval(() => { if (feedIdentity) renderFeed(); }, FEED_POLL_MS);
+
+  // Listen for identity changes from pane topbar clicks
+  window.addEventListener("feed-identity-change", (e) => {
+    feedIdentity = e.detail;
+    pickerOpen = false;
+    lastFeedJson = "";
+    updateTitle();
+    renderFeed();
+  });
 })();

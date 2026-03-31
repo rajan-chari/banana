@@ -1,14 +1,32 @@
 # Briefing
-Last updated: 2026-03-31 04:35
+Last updated: 2026-03-31 14:25
 
 ## Current Focus
-Resume-aware startup injection shipped. Server restart + browser refresh needed.
+Implementing UI polish items from milo (coordinating for Rajan). All frontend-only.
 
 ## Don't Forget
 - Server restart needed — server changes through 6a1cd5f (resume kick + --help)
-- Browser refresh for all frontend changes through fbb0de3
+- Browser refresh for all frontend changes (growing list — preset label, highlight, VS Code btn, resume, identity click)
 
 ## Recent
+### 2026-03-31 14:22 — Pane topbar tweaks: VS Code btn + identity click
+Moved VS Code button to left side (after preset badge). Click pane identity → switches feed panel via custom event.
+
+### 2026-03-31 13:55 — Revision: brighter highlight + always-visible VS Code
+Session row highlight bumped to rgba(0,122,204,0.22). VS Code pane button now always visible (not hover-only).
+
+### 2026-03-31 13:50 — Session row highlight + pane topbar VS Code button
+Active row highlight rgba(0,122,204,0.12), VS Code </> button in pane topbar (hover-to-show). Both revised shortly after.
+
+### 2026-03-31 14:01 — Claude --resume in context menus
+Right-click absent AI tag → Resume session + Choose preset. Pane context menu → Resume at top. openFolder now accepts args array passed to server.
+
+### 2026-03-31 05:10 — Pane topbar AI preset label
+Implemented milo's spec: preset icon+name badge in pane topbar for AI sessions. Frontend-only. Verified by milo.
+
+### 2026-03-31 05:00 — Layer 3 closed + milo sync
+Removed Layer 3 (context pressure) from tracker — superseded by other solutions. Synced status with milo (new UI coordinator). milo picked up preset label, will nudge Rajan on restart.
+
 ### 2026-03-31 04:35 — Resume-aware startup injection
 Resumed sessions get "Session resumed. Restart any loops or crons..." instead of silence. Fresh sessions still get "hi". Commits b4b41f1, 6a1cd5f.
 
@@ -114,5 +132,4 @@ All pty-win injection prompts now prefixed with `[pty-win:<type>:<priority>:<res
 
 ## Next Up
 1. Restart server to pick up all pending changes (through 36016e6)
-2. Layer 3 (context pressure detection) — waiting on design decision
-3. Root folder indent alignment (low priority)
+2. Root folder indent alignment (low priority)

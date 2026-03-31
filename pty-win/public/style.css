@@ -621,7 +621,7 @@ html, body {
   position: relative;
 }
 .session-row:hover { background: var(--bg-hover); }
-.session-row.active { background: rgba(255, 255, 255, 0.04); border-left: 2px solid var(--accent); padding-left: 8px; }
+.session-row.active { background: rgba(0, 122, 204, 0.22); border-left: 2px solid var(--accent); padding-left: 8px; }
 
 .session-row .status-dot { margin-right: 6px; }
 
@@ -1196,6 +1196,14 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 }
 .pane.focused .pane-name { color: #ffffff; }
 
+.pane-ai-preset {
+  color: #888;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+.pane.focused .pane-ai-preset { opacity: 1; color: #aaa; }
+
 .pane-identity {
   color: var(--identity);
   white-space: nowrap;
@@ -1215,6 +1223,14 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   flex: 1;
   min-width: 0;
   font-size: 10px;
+}
+
+.pane-action {
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 4px;
+  margin-right: 4px;
+  display: inline-flex;
 }
 
 .pane-close {

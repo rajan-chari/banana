@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-31 04:35
+Last updated: 2026-03-31 14:25
 
 ## In Motion
 
@@ -12,15 +12,17 @@ Last updated: 2026-03-31 04:35
 
 | Item | Waiting On | Details | Links |
 |------|-----------|---------|-------|
-| Layer 3 (context pressure) | Design decision | Detect context compression events → inject save | emcom thread d96a241e |
 | Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly | |
-| Pane topbar AI preset label | Low priority | Show which AI preset is running in pane topbar | |
 | Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag (tabs done; panes still open) | |
 
 ## Completed
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-31 | Pane topbar tweaks (VS Code btn, identity click) | VS Code button moved left, click identity switches feed panel |
+| 2026-03-31 | Claude --resume in context menus | Right-click AI tag or pane topbar → Resume session with --resume flag |
+| 2026-03-31 | Session row highlight + topbar visibility | Brighter active row (0.22), VS Code button always visible |
+| 2026-03-31 | Pane topbar AI preset label | Preset icon+name badge in pane topbar for AI sessions (milo spec) |
 | 2026-03-31 | Resume-aware startup injection | Resumed sessions get loop/cron restart kick (→6a1cd5f) |
 | 2026-03-31 | Feed toolbar: sort/filter/search/threads | 4 controls in toolbar row (→fbb0de3) |
 | 2026-03-31 | Feed panel bug fixes (11 commits) | Resize perf, expand state, picker stability, cache-bust, --help, unread badge, etc. |

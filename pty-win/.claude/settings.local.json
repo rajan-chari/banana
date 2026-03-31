@@ -16,7 +16,22 @@
       "Bash(git:*)",
       "Bash(find C:sprojectsworkteamsworkingbananapty-win -maxdepth 2 -type f \\\\\\(-name README* -o -name *.md \\\\\\))",
       "Bash(~/.claude/skills/emcom/bin/emcom :*)",
-      "Bash(emcom:*)"
+      "Bash(emcom:*)",
+      "Read(//c/s/projects/work/teams/working/banana/pty-win/$\\(npm prefix -g\\)/**)",
+      "Read(//c/s/projects/work/teams/working/banana/pty-win/$\\(npm prefix -g\\)/node_modules/**)",
+      "Bash(tasklist)",
+      "WebSearch",
+      "mcp__chrome-devtools__new_page",
+      "Bash(git -C:*)",
+      "Bash(for id:*)",
+      "Bash(do emcom:*)",
+      "Bash(done)",
+      "Bash(curl:*)",
+      "Bash(where agency:*)",
+      "Bash(agency cc:*)",
+      "Bash(powershell -NoProfile -Command '\nAdd-Type -TypeDefinition @\"\nusing System;\nusing System.Runtime.InteropServices;\npublic class Win32Focus {\n    [DllImport\\(\"user32.dll\"\\)] public static extern IntPtr GetForegroundWindow\\(\\);\n    [DllImport\\(\"user32.dll\"\\)] public static extern bool ShowWindow\\(IntPtr hWnd, int nCmdShow\\);\n}\n\"@\n$hwnd = [Win32Focus]::GetForegroundWindow\\(\\)\n[Win32Focus]::ShowWindow\\($hwnd, 6\\)\nStart-Process code -ArgumentList \"c:\\\\s\\\\projects\\\\work\\\\teams\\\\working\\\\banana\\\\pty-win\"\n')",
+      "Bash(grep -v \"//\")",
+      "Bash(find /c/s/projects/work/teams/working/banana/pty-win/ -type f -name *.html -o -name *.js -o -name *.css)"
     ]
   }
 }
