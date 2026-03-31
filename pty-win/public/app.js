@@ -2843,7 +2843,7 @@ connect();
   function showIdentityPicker() {
     pickerOpen = true;
     body.innerHTML = '<div class="feed-empty">// LOADING IDENTITIES...</div>';
-    fetch("/api/emcom/who")
+    fetch(`/api/emcom/who?_=${Date.now()}`)
       .then(r => r.json())
       .then(identities => {
         body.innerHTML = "";
