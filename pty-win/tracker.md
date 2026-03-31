@@ -21,6 +21,7 @@ Last updated: 2026-03-30 16:20
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-30 | Drag-to-move panes + layout presets | Drop zones, insertAdjacentToPane, ⊞ preset menu (→6296387) |
 | 2026-03-30 | Emcom feed: fix /email/all endpoint + REST-only | Corrected endpoint from frost's source; no CLI (→f25c199) |
 | 2026-03-30 | Checkpoint improvements | Light 2h, full 4h; light no git; next time in prompt (→055b315) |
 | 2026-03-30 | Ctrl+V paste in AI sessions | Clipboard paste via attachCustomKeyEventHandler (→055b315) |

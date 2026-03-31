@@ -1,14 +1,17 @@
 # Briefing
-Last updated: 2026-03-30 16:15
+Last updated: 2026-03-30 22:00
 
 ## Current Focus
-Checkpoint improvements + ctrl+v paste + emcom feed panel all shipped. Server restart + browser refresh needed.
+Drag-to-move panes + layout presets shipped. Browser refresh needed.
 
 ## Don't Forget
 - Server restart needed — all server-side changes through f25c199 pending
 - Feed panel needs --feed-identity <name> CLI flag (e.g. --feed-identity Rajan)
 
 ## Recent
+### 2026-03-30 22:00 — Drag-to-move panes + layout presets
+Drag pane topbar → 4 drop zones on other panes → insert on that edge. ⊞ layout button on active tab: Auto/2-col/3-col/2-top+1-bottom/1-top+2-bottom/Large-left+stack. appendLeafToTree preserves manual layouts. DevTools-verified. Commit 6296387.
+
 ### 2026-03-30 16:15 — Emcom feed: fix endpoint /email/all + REST-only clarification
 No CLI, REST-only via EmcomClient. Fixed endpoint /email?limit → /email/all (from frost's source). Commit f25c199.
 
