@@ -2869,6 +2869,7 @@ connect();
   // --- State ---
   const expandedItems = new Set();
   let previousIds = new Set();
+  let lastFeedJson = "";
 
   function fmtTime(iso) {
     const d = new Date(iso);
@@ -2891,8 +2892,12 @@ connect();
     if (pickerOpen) return;
     if (!feedIdentity) { showIdentityPicker(); return; }
     fetch(`/api/emcom-feed?identity=${encodeURIComponent(feedIdentity)}`)
-      .then(r => r.json())
-      .then(emails => {
+      .then(r => r.text())
+      .then(text => {
+        if (text === lastFeedJson) return; // skip re-render if unchanged
+        lastFeedJson = text;
+        let emails;
+        try { emails = JSON.parse(text); } catch { emails = { error: "parse error" }; }
         if (!Array.isArray(emails)) {
           body.innerHTML = `<div class="feed-empty">// ${(emails.error || "UNAVAILABLE").toUpperCase()}</div>`;
           updateUnreadBadge(0);
