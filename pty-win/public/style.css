@@ -1635,7 +1635,7 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   margin-bottom: 8px;
 }
 .diag-table {
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
   font-size: 12px;
 }
