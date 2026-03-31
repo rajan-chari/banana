@@ -23,7 +23,6 @@ export interface ServerConfig {
   emcomServer: string;
   rootDirs: string[];
   mlModelPath: string;
-  feedIdentity: string;
 }
 
 export const DEFAULTS = {

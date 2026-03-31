@@ -242,6 +242,33 @@ html, body {
 .feed-reply { margin-left: 12px; border-left: 2px solid rgba(255,255,255,0.06); }
 .feed-empty { padding: 16px 10px; color: var(--text-muted); font-size: 11px; }
 
+.feed-identity-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 400;
+}
+.feed-identity-label:hover { color: var(--text-primary); text-decoration: underline; }
+
+.feed-identity-picker { padding: 12px 10px; }
+.feed-picker-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.feed-identity-option {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+.feed-identity-option:hover { background: var(--bg-hover); color: var(--text-primary); }
+.feed-identity-option.active { border-left-color: var(--accent); color: var(--text-primary); font-weight: 500; }
+
 /* --- Quick Access panel --- */
 
 #quick-access-panel:empty { display: none; }

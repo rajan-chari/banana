@@ -2724,6 +2724,9 @@ connect();
   const body = document.getElementById("feed-body");
   const collapseBtn = document.getElementById("feed-collapse-btn");
   const expandBtn = document.getElementById("feed-expand-btn");
+  const titleEl = document.getElementById("feed-title");
+
+  let feedIdentity = localStorage.getItem("pty-win-feed-identity") || "";
 
   const isOpen = localStorage.getItem("pty-win-feed-open") !== "false";
   if (!isOpen) { panel.classList.add("hidden"); strip.classList.remove("hidden"); }
@@ -2738,8 +2741,47 @@ connect();
     panel.classList.remove("hidden");
     strip.classList.add("hidden");
     localStorage.setItem("pty-win-feed-open", "true");
-    renderFeed();
+    if (feedIdentity) renderFeed(); else showIdentityPicker();
   };
+
+  function updateTitle() {
+    titleEl.innerHTML = feedIdentity
+      ? `EMCOM FEED <span class="feed-identity-label" title="Click to change identity">(${feedIdentity})</span>`
+      : "EMCOM FEED";
+    const label = titleEl.querySelector(".feed-identity-label");
+    if (label) label.onclick = (e) => { e.stopPropagation(); showIdentityPicker(); };
+  }
+
+  function showIdentityPicker() {
+    body.innerHTML = '<div class="feed-empty">Loading identities...</div>';
+    fetch("/api/emcom/who")
+      .then(r => r.json())
+      .then(identities => {
+        body.innerHTML = "";
+        if (!identities || identities.length === 0) {
+          body.innerHTML = '<div class="feed-empty">No registered identities</div>';
+          return;
+        }
+        const picker = document.createElement("div");
+        picker.className = "feed-identity-picker";
+        picker.innerHTML = '<div class="feed-picker-title">Select identity for feed:</div>';
+        for (const id of identities) {
+          const btn = document.createElement("div");
+          btn.className = `feed-identity-option${id.name === feedIdentity ? " active" : ""}`;
+          btn.textContent = id.name;
+          if (id.description) btn.title = id.description;
+          btn.onclick = () => {
+            feedIdentity = id.name;
+            localStorage.setItem("pty-win-feed-identity", feedIdentity);
+            updateTitle();
+            renderFeed();
+          };
+          picker.appendChild(btn);
+        }
+        body.appendChild(picker);
+      })
+      .catch(() => { body.innerHTML = '<div class="feed-empty">Failed to load identities</div>'; });
+  }
 
   const expandedItems = new Set();
 
@@ -2750,21 +2792,19 @@ connect();
 
   function renderFeed() {
     if (panel.classList.contains("hidden")) return;
-    fetch("/api/emcom-feed")
+    if (!feedIdentity) { showIdentityPicker(); return; }
+    fetch(`/api/emcom-feed?identity=${encodeURIComponent(feedIdentity)}`)
       .then(r => r.json())
       .then(emails => {
         if (!Array.isArray(emails)) { body.innerHTML = `<div class="feed-empty">${emails.error || "Unavailable"}</div>`; return; }
         if (emails.length === 0) { body.innerHTML = '<div class="feed-empty">No messages</div>'; return; }
 
-        // Sort newest first, build thread map
         emails.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         const threadMap = new Map();
-        const roots = [];
         for (const e of emails) {
           if (!threadMap.has(e.thread_id)) threadMap.set(e.thread_id, []);
           threadMap.get(e.thread_id).push(e);
         }
-        // Deduplicate: one entry per thread (most recent message), thread root first
         const seen = new Set();
         const items = [];
         for (const e of emails) {
@@ -2821,6 +2861,9 @@ connect();
       .catch(() => { body.innerHTML = '<div class="feed-empty">Server unavailable</div>'; });
   }
 
-  renderFeed();
-  setInterval(renderFeed, FEED_POLL_MS);
+  updateTitle();
+  if (feedIdentity) { renderFeed(); setInterval(renderFeed, FEED_POLL_MS); }
+  else if (isOpen) showIdentityPicker();
+  // Start polling once identity is set (re-check after picker)
+  setInterval(() => { if (feedIdentity) renderFeed(); }, FEED_POLL_MS);
 })();

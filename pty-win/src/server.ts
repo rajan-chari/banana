@@ -263,11 +263,12 @@ public class Win32Focus {
     res.json({ lines: session.getSnapshot(n) });
   });
 
-  // Emcom feed for right panel
-  app.get("/api/emcom-feed", async (_req, res) => {
-    if (!config.feedIdentity) return res.status(400).json({ error: "feedIdentity not configured (use --feed-identity)" });
+  // Emcom feed for right panel — identity passed as query param
+  app.get("/api/emcom-feed", async (req, res) => {
+    const identity = req.query.identity as string;
+    if (!identity) return res.status(400).json({ error: "identity query param required" });
     try {
-      const client = new EmcomClient(config.emcomServer, config.feedIdentity);
+      const client = new EmcomClient(config.emcomServer, identity);
       const emails = await client.getAll();
       res.json(emails);
     } catch (err) {

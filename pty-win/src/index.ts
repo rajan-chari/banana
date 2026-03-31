@@ -8,7 +8,6 @@ const args = process.argv.slice(2);
 let port = DEFAULTS.port;
 let emcomServer = DEFAULTS.emcomServer;
 let mlModelPath = "";
-let feedIdentity = "";
 const rootDirs: string[] = [];
 
 for (let i = 0; i < args.length; i++) {
@@ -20,9 +19,7 @@ for (let i = 0; i < args.length; i++) {
     rootDirs.push(args[++i]);
   } else if (args[i] === "--ml-model-path" && args[i + 1]) {
     mlModelPath = args[++i];
-  } else if (args[i] === "--feed-identity" && args[i + 1]) {
-    feedIdentity = args[++i];
   }
 }
 
-startServer({ port, emcomServer, rootDirs, mlModelPath, feedIdentity });
+startServer({ port, emcomServer, rootDirs, mlModelPath });
