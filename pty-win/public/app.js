@@ -2888,6 +2888,33 @@ connect();
   const expandedItems = new Set();
   let previousIds = new Set();
   let lastFeedJson = "";
+  let sortNewest = true;
+  let threadsCollapsed = false;
+  let filterSender = "";
+  let filterText = "";
+
+  // --- Toolbar controls ---
+  const searchInput = document.getElementById("feed-search");
+  const senderSelect = document.getElementById("feed-sender-filter");
+  const sortBtn = document.getElementById("feed-sort-btn");
+  const threadsBtn = document.getElementById("feed-threads-btn");
+
+  searchInput.oninput = () => { filterText = searchInput.value.toLowerCase(); lastFeedJson = ""; renderFeed(); };
+  senderSelect.onchange = () => { filterSender = senderSelect.value; lastFeedJson = ""; renderFeed(); };
+  sortBtn.onclick = () => {
+    sortNewest = !sortNewest;
+    sortBtn.innerHTML = sortNewest ? "&#x25BC;" : "&#x25B2;";
+    sortBtn.title = sortNewest ? "Newest first" : "Oldest first";
+    lastFeedJson = "";
+    renderFeed();
+  };
+  threadsBtn.onclick = () => {
+    threadsCollapsed = !threadsCollapsed;
+    threadsBtn.classList.toggle("active", threadsCollapsed);
+    threadsBtn.title = threadsCollapsed ? "Threads collapsed" : "Threads expanded";
+    lastFeedJson = "";
+    renderFeed();
+  };
 
   function fmtTime(iso) {
     const d = new Date(iso);
@@ -2927,15 +2954,38 @@ connect();
           return;
         }
 
-        emails.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // Sort
+        emails.sort((a, b) => sortNewest
+          ? new Date(b.created_at) - new Date(a.created_at)
+          : new Date(a.created_at) - new Date(b.created_at));
+
+        // Populate sender dropdown (preserve current selection)
+        const senders = [...new Set(emails.map(e => e.sender))].sort();
+        const prevSender = senderSelect.value;
+        senderSelect.innerHTML = '<option value="">all</option>';
+        for (const s of senders) {
+          const opt = document.createElement("option");
+          opt.value = s; opt.textContent = s;
+          if (s === prevSender) opt.selected = true;
+          senderSelect.appendChild(opt);
+        }
+
+        // Filter
+        let filtered = emails;
+        if (filterSender) filtered = filtered.filter(e => e.sender === filterSender);
+        if (filterText) filtered = filtered.filter(e =>
+          (e.subject || "").toLowerCase().includes(filterText) ||
+          (e.body || "").toLowerCase().includes(filterText) ||
+          (e.sender || "").toLowerCase().includes(filterText));
+
         const threadMap = new Map();
-        for (const e of emails) {
+        for (const e of filtered) {
           if (!threadMap.has(e.thread_id)) threadMap.set(e.thread_id, []);
           threadMap.get(e.thread_id).push(e);
         }
         const seen = new Set();
         const items = [];
-        for (const e of emails) {
+        for (const e of filtered) {
           if (!seen.has(e.thread_id)) {
             seen.add(e.thread_id);
             const thread = threadMap.get(e.thread_id);
@@ -2980,7 +3030,7 @@ connect();
           };
           threadDiv.appendChild(div);
 
-          for (const reply of replies) {
+          for (const reply of (threadsCollapsed ? [] : replies)) {
             const rUnread = reply.tags?.includes("unread");
             const rExpanded = expandedItems.has(reply.id);
             const rNew = !previousIds.has(reply.id) && previousIds.size > 0;
