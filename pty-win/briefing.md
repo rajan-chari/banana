@@ -1,12 +1,18 @@
 # Briefing
-Last updated: 2026-03-30 22:00
+Last updated: 2026-03-31 02:30
 
 ## Current Focus
-Drag-to-move panes + layout presets shipped. Browser refresh needed.
+Feed identity picker shipped. Server restart + browser refresh needed.
 
 ## Don't Forget
-- Server restart needed — all server-side changes through f25c199 pending
-- Feed panel needs --feed-identity <name> CLI flag (e.g. --feed-identity Rajan)
+- Server restart needed — all server-side changes through 962e205 pending
+- --feed-identity flag REMOVED — identity now selected in UI (localStorage)
+
+## Recent
+### 2026-03-31 02:30 — Feed identity picker in UI
+Identity dropdown populated from /who, saved to localStorage. Click identity name in header to change. --feed-identity CLI flag removed. Server accepts ?identity= query param. Commit 962e205.
+
+
 
 ## Recent
 ### 2026-03-30 22:00 — Drag-to-move panes + layout presets

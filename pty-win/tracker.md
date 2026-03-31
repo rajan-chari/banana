@@ -1,12 +1,12 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-30 16:20
+Last updated: 2026-03-31 02:30
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Server restart + browser refresh | Needed | Rajan | All pending changes through f25c199; feed needs --feed-identity Rajan |
+| Server restart + browser refresh | Needed | Rajan | All pending changes through 962e205 |
 
 ## Watching
 
@@ -21,6 +21,7 @@ Last updated: 2026-03-30 16:20
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-03-31 | Feed identity picker in UI | Dropdown from /who, localStorage persist, --feed-identity removed (→962e205) |
 | 2026-03-30 | Drag-to-move panes + layout presets | Drop zones, insertAdjacentToPane, ⊞ preset menu (→6296387) |
 | 2026-03-30 | Emcom feed: fix /email/all endpoint + REST-only | Corrected endpoint from frost's source; no CLI (→f25c199) |
 | 2026-03-30 | Checkpoint improvements | Light 2h, full 4h; light no git; next time in prompt (→055b315) |
