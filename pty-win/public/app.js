@@ -2772,8 +2772,9 @@ connect();
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       localStorage.setItem("pty-win-feed-width", parseInt(panel.style.width, 10));
+      // Double-rAF: ensure layout reflow from width change before fitting terminals
       const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
-      if (ws?.layout) requestAnimationFrame(() => fitAllTerminals(ws.layout));
+      if (ws?.layout) requestAnimationFrame(() => requestAnimationFrame(() => fitAllTerminals(ws.layout)));
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
