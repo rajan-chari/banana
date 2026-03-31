@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>pty-win</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -60,12 +63,19 @@
   <div id="feed-panel">
     <div id="feed-resize-handle"></div>
     <div id="feed-header">
-      <span id="feed-title">EMCOM FEED</span>
-      <button id="feed-collapse-btn" title="Collapse feed">&#x276D;</button>
+      <div id="feed-header-left">
+        <span id="feed-title">EMCOM FEED</span>
+        <span id="feed-unread-badge" class="feed-badge hidden">0</span>
+      </div>
+      <div id="feed-header-right">
+        <span id="feed-identity-badge" class="feed-id-badge"></span>
+        <button id="feed-collapse-btn" title="Collapse feed">&#x276D;</button>
+      </div>
     </div>
     <div id="feed-body"></div>
   </div>
   <div id="feed-strip" class="hidden">
+    <span id="feed-strip-badge" class="feed-strip-unread hidden">0</span>
     <button id="feed-expand-btn" title="Expand feed">&#x276C;</button>
   </div>
 
