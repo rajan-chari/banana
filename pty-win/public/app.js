@@ -2807,7 +2807,11 @@ connect();
   function updateTitle() {
     titleEl.textContent = "EMCOM FEED";
     identityBadge.textContent = feedIdentity || "";
-    identityBadge.onclick = feedIdentity ? (e) => { e.stopPropagation(); showIdentityPicker(); } : null;
+    identityBadge.onclick = feedIdentity ? (e) => {
+      e.stopPropagation();
+      if (pickerOpen) { pickerOpen = false; lastFeedJson = ""; renderFeed(); }
+      else showIdentityPicker();
+    } : null;
   }
 
   function updateUnreadBadge(count) {
