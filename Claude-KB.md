@@ -85,6 +85,7 @@ my-assist
 
 ### Environment
 - **Chrome DevTools MCP port assignments**: Port 3600 = Rajan's session (rajan-private), Port 3601 = milo's session (banana). Always use `http://localhost:3601` for pty-win UI verification.
+- **Chrome DevTools MCP goes stale after session restart**: Connection errors ("browser already running") after `/exit` + resume. Falls back to code-level verification (Read/Grep on app.js/style.css) when MCP is unavailable.
 - **`os.kill(pid, 0)` doesn't work on Windows**: Always returns `OSError`, even for running processes. Use `tasklist /FI "PID eq {pid}"` instead. See `cli.py:_is_process_running()`.
 - **Workspace root vs Python dir**: Docs (`CLAUDE.md`, `progress.md`, `specs.md`) are in `banana/`. All code is in `banana/python/`. Always `cd python` before running Python commands.
 - **Venv activation is mandatory**: Every bash session must `source .venv/Scripts/activate` before running any Python command. Forgetting this causes `ModuleNotFoundError`.

@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-03-31 05:21
+Last updated: 2026-03-31 14:28
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,14 +13,13 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-03-31 05:19 — Answered Rajan's questions about EM coordination efficiency and AI preset feature
-- 2026-03-31 05:10 — Switched to correct DevTools port (3601), recorded in KB + briefing
-- 2026-03-31 05:07 — AI preset label verified live after browser refresh. Reported to Rajan + moss.
-- 2026-03-31 05:03 — Verified all post-restart changes (feed toolbar, resume kick, identity picker, dashboard)
+- 2026-03-31 14:25 — VS Code button moved left + identity click switches feed panel. Verified + reported.
+- 2026-03-31 14:04 — Claude --resume context menu verified (right-click AI cmd-tag + pane topbar)
+- 2026-03-31 13:55 — Session row highlight revised to 0.22 opacity + VS Code button always visible
+- 2026-03-31 13:38 — Session row highlight + VS Code pane button first pass (revised after Rajan feedback)
 - 2026-03-31 05:01 — Assigned pty-win/emcom UI coordinator role by Rajan
-- 2026-03-31 05:02 — Synced with moss on open items; sent AI preset label spec
 
 ## Next Up
-- Pick next pty-win polish item: root folder indent alignment or drag-and-drop pane reorder
+- Waiting for new pty-win requests from Rajan
 - Phase 8: Polish & Hardening (banana project)
 - EM coordination efficiency re-test (low priority, banana-scope)
