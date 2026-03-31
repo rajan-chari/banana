@@ -669,6 +669,7 @@ html, body {
 .hidden-placeholder { visibility: hidden; }
 
 .session-row .unread-badge,
+.quick-access-row .unread-badge,
 .tree-node .unread-badge,
 .tree-root-label .unread-badge {
   font-size: 9px;
