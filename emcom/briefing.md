@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-30 15:35
+Last updated: 2026-03-30 shutdown
 
 ## Current Focus
 
-Answered Rajan's question about emcom-tui web support — directed him to REST API for pty-win feed panel.
+Session ending (shutdown). Idle since REST API reply to Rajan.
 
 ## Don't Forget
 
