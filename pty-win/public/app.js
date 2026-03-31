@@ -2821,7 +2821,9 @@ connect();
   }
 
   // --- Identity picker ---
+  let pickerOpen = false;
   function showIdentityPicker() {
+    pickerOpen = true;
     body.innerHTML = '<div class="feed-empty">// LOADING IDENTITIES...</div>';
     fetch("/api/emcom/who")
       .then(r => r.json())
@@ -2851,6 +2853,7 @@ connect();
             btn.appendChild(desc);
           }
           btn.onclick = () => {
+            pickerOpen = false;
             feedIdentity = id.name;
             localStorage.setItem("pty-win-feed-identity", feedIdentity);
             updateTitle();
@@ -2885,6 +2888,7 @@ connect();
   // --- Render feed ---
   function renderFeed() {
     if (panel.classList.contains("hidden")) return;
+    if (pickerOpen) return;
     if (!feedIdentity) { showIdentityPicker(); return; }
     fetch(`/api/emcom-feed?identity=${encodeURIComponent(feedIdentity)}`)
       .then(r => r.json())
