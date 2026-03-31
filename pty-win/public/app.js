@@ -2731,6 +2731,19 @@ connect();
 
   let feedIdentity = localStorage.getItem("pty-win-feed-identity") || "";
 
+  // --- Expand/collapse all ---
+  document.getElementById("feed-expand-all").onclick = () => {
+    body.querySelectorAll(".feed-item").forEach(el => {
+      const id = el.dataset.msgId;
+      if (id) expandedItems.add(id);
+      el.classList.add("expanded");
+    });
+  };
+  document.getElementById("feed-collapse-all").onclick = () => {
+    expandedItems.clear();
+    body.querySelectorAll(".feed-item").forEach(el => el.classList.remove("expanded"));
+  };
+
   // --- Deterministic sender colors ---
   const SENDER_PALETTE = [
     "#61afef", "#c678dd", "#e06c75", "#98c379", "#d19a66", "#56b6c2",
@@ -2948,6 +2961,7 @@ connect();
           const senderColor = getSenderColor(root.sender);
           const div = document.createElement("div");
           div.className = `feed-item${isUnread ? " unread" : ""}${isExpanded ? " expanded" : ""}${isNew ? " feed-new" : ""}`;
+          div.dataset.msgId = root.id;
           div.style.setProperty("--sender-color", senderColor);
           div.innerHTML = `
             <div class="feed-meta">
@@ -2972,6 +2986,7 @@ connect();
             const rColor = getSenderColor(reply.sender);
             const rdiv = document.createElement("div");
             rdiv.className = `feed-item feed-reply${rUnread ? " unread" : ""}${rExpanded ? " expanded" : ""}${rNew ? " feed-new" : ""}`;
+            rdiv.dataset.msgId = reply.id;
             rdiv.style.setProperty("--sender-color", rColor);
             rdiv.innerHTML = `
               <div class="feed-meta">

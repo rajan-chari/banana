@@ -274,6 +274,19 @@ html, body {
 .feed-id-badge:hover { background: rgba(0, 255, 136, 0.15); border-color: rgba(0, 255, 136, 0.3); }
 .feed-id-badge:empty { display: none; }
 
+.feed-header-btn {
+  background: none;
+  border: none;
+  color: var(--emcom-text-dim);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 2px 3px;
+  line-height: 1;
+  font-family: var(--emcom-font);
+  transition: color 0.15s;
+}
+.feed-header-btn:hover { color: var(--emcom-green); }
+
 #feed-collapse-btn, #feed-expand-btn {
   background: none;
   border: none;
