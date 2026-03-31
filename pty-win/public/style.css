@@ -785,6 +785,68 @@ html, body {
   display: flex;
 }
 
+/* --- Pane drag-to-reorder --- */
+
+.pane-drag-ghost {
+  position: fixed;
+  z-index: 999;
+  pointer-events: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  padding: 4px 10px;
+  opacity: 0.9;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+}
+
+.pane-drop-zone {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  transition: background 0.08s;
+}
+
+.pane-drop-zone.active {
+  background: rgba(0, 122, 204, 0.18);
+}
+
+.pane-drop-zone.active::after {
+  content: "";
+  position: absolute;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.pane-drop-zone[data-side="left"].active::after  { left: 0;   top: 0;    width: 3px;  height: 100%; }
+.pane-drop-zone[data-side="right"].active::after { right: 0;  top: 0;    width: 3px;  height: 100%; }
+.pane-drop-zone[data-side="top"].active::after   { top: 0;    left: 0;   width: 100%; height: 3px;  }
+.pane-drop-zone[data-side="bottom"].active::after{ bottom: 0; left: 0;   width: 100%; height: 3px;  }
+
+/* --- Tab layout button --- */
+
+.tab-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tab-layout-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 /* --- Tiling --- */
 
 .split-container {
@@ -850,7 +912,9 @@ html, body {
   font-size: 12px;
   overflow: hidden;
   flex-shrink: 0;
+  cursor: grab;
 }
+body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !important; }
 
 .pane-name {
   font-weight: 600;

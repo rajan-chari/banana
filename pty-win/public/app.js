@@ -1580,6 +1580,16 @@ function renderTabs() {
     close.onclick = (e) => { e.stopPropagation(); removeWorkspace(ws.id); };
     tab.appendChild(close);
 
+    // Layout preset button (active tab with 2+ panes only)
+    if (ws.id === state.activeWorkspaceId && ws.layout && getLeafList(ws.layout).length >= 2) {
+      const layoutBtn = document.createElement("span");
+      layoutBtn.className = "tab-layout-btn";
+      layoutBtn.title = "Layout presets";
+      layoutBtn.textContent = "\u229e"; // ⊞
+      layoutBtn.onclick = (e) => showLayoutPresetsMenu(e, ws);
+      tab.appendChild(layoutBtn);
+    }
+
     // Drag-to-reorder
     tab.draggable = true;
     tab.addEventListener("dragstart", (e) => {
@@ -1671,10 +1681,12 @@ function addSessionToWorkspace(workspaceId, sessionName) {
   const ws = state.workspaces.find((w) => w.id === workspaceId);
   if (!ws) return;
 
-  // Collect existing sessions + new one, rebuild balanced layout
-  const existing = ws.layout ? getLeafList(ws.layout) : [];
-  existing.push(sessionName);
-  ws.layout = buildBalancedTree(existing);
+  if (!ws.layout) {
+    ws.layout = { type: "leaf", session: sessionName };
+    return;
+  }
+  // Preserve manual/preset layout — append new pane to trailing edge
+  ws.layout = appendLeafToTree(ws.layout, { type: "leaf", session: sessionName });
 }
 
 /** Build a balanced binary tree from a list of session names */
@@ -1701,6 +1713,146 @@ function countLeaves(node) {
   return countLeaves(node.children[0]) + countLeaves(node.children[1]);
 }
 
+// ===== Pane drag-to-reorder =====
+
+const paneDrag = { active: false, session: null, ghostEl: null, dropZoneEls: [], currentTarget: null };
+
+function showDropZones(excludeSession) {
+  clearDropZones();
+  document.querySelectorAll(".pane[data-session]").forEach(paneEl => {
+    const session = paneEl.dataset.session;
+    if (session === excludeSession) return;
+    const r = paneEl.getBoundingClientRect();
+    [
+      { side: "top",    x: r.left,               y: r.top,                w: r.width,        h: r.height * 0.25 },
+      { side: "bottom", x: r.left,               y: r.top + r.height * 0.75, w: r.width,     h: r.height * 0.25 },
+      { side: "left",   x: r.left,               y: r.top + r.height * 0.25, w: r.width * 0.25, h: r.height * 0.5 },
+      { side: "right",  x: r.left + r.width * 0.75, y: r.top + r.height * 0.25, w: r.width * 0.25, h: r.height * 0.5 },
+    ].forEach(({ side, x, y, w, h }) => {
+      const el = document.createElement("div");
+      el.className = "pane-drop-zone";
+      el.dataset.session = session;
+      el.dataset.side = side;
+      el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
+      document.body.appendChild(el);
+      paneDrag.dropZoneEls.push(el);
+    });
+  });
+}
+
+function clearDropZones() {
+  paneDrag.dropZoneEls.forEach(el => el.remove());
+  paneDrag.dropZoneEls = [];
+  paneDrag.currentTarget = null;
+}
+
+function updateDropZoneHighlight(mx, my) {
+  let best = null;
+  for (const el of paneDrag.dropZoneEls) {
+    const r = el.getBoundingClientRect();
+    if (mx >= r.left && mx <= r.right && my >= r.top && my <= r.bottom) { best = el; break; }
+  }
+  paneDrag.dropZoneEls.forEach(el => el.classList.remove("active"));
+  if (best) {
+    best.classList.add("active");
+    paneDrag.currentTarget = { session: best.dataset.session, side: best.dataset.side };
+  } else {
+    paneDrag.currentTarget = null;
+  }
+}
+
+function commitPaneDrop() {
+  const { session: dragSession, currentTarget, ghostEl } = paneDrag;
+  ghostEl?.remove();
+  clearDropZones();
+  paneDrag.active = false; paneDrag.session = null; paneDrag.ghostEl = null;
+  document.body.classList.remove("pane-dragging");
+  if (!currentTarget || !dragSession || currentTarget.session === dragSession) return;
+  const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
+  if (!ws?.layout) return;
+  const pruned = removeSessionFromLayout(ws.layout, dragSession);
+  if (!pruned || !treeContains(pruned, currentTarget.session)) return;
+  ws.layout = insertAdjacentToPane(pruned, currentTarget.session, dragSession, currentTarget.side);
+  saveWorkspaces();
+  renderActiveWorkspace();
+}
+
+function startPaneDrag(e, groupName) {
+  const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
+  if (!ws?.layout || getLeafList(ws.layout).length < 2) return;
+  e.preventDefault();
+  paneDrag.active = true; paneDrag.session = groupName;
+  document.body.classList.add("pane-dragging");
+  const ghost = document.createElement("div");
+  ghost.className = "pane-drag-ghost";
+  ghost.textContent = groupName;
+  ghost.style.left = `${e.clientX + 12}px`; ghost.style.top = `${e.clientY + 8}px`;
+  document.body.appendChild(ghost);
+  paneDrag.ghostEl = ghost;
+  showDropZones(groupName);
+  const onMove = ev => {
+    ghost.style.left = `${ev.clientX + 12}px`; ghost.style.top = `${ev.clientY + 8}px`;
+    updateDropZoneHighlight(ev.clientX, ev.clientY);
+  };
+  const onUp = () => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    document.removeEventListener("keydown", onKey);
+    commitPaneDrop();
+  };
+  const onKey = ev => {
+    if (ev.key !== "Escape") return;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    document.removeEventListener("keydown", onKey);
+    ghost.remove(); clearDropZones();
+    paneDrag.active = false; paneDrag.session = null; paneDrag.ghostEl = null;
+    document.body.classList.remove("pane-dragging");
+  };
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+  document.addEventListener("keydown", onKey);
+}
+
+// ===== Layout presets =====
+
+const LAYOUT_PRESETS = [
+  { name: "Auto (balanced)",    min: 1, build: s => buildBalancedTree(s) },
+  { name: "2 Columns",          min: 2, build: ([a,b]) => ({ type:"split", direction:"h", ratio:0.5, children:[{type:"leaf",session:a},{type:"leaf",session:b}] }) },
+  { name: "3 Columns",          min: 3, build: ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.333, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
+  { name: "2 Top + 1 Bottom",   min: 3, build: ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:a},{type:"leaf",session:b}]},{type:"leaf",session:c}] }) },
+  { name: "1 Top + 2 Bottom",   min: 3, build: ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
+  { name: "Large Left + Stack", min: 3, build: ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.6, children:[{type:"leaf",session:a},{type:"split",direction:"v",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
+];
+
+function applyLayoutPreset(ws, idx) {
+  const preset = LAYOUT_PRESETS[idx];
+  const sessions = getLeafList(ws.layout);
+  if (!preset || sessions.length < preset.min) return;
+  ws.layout = preset.build(sessions);
+  saveWorkspaces(); renderActiveWorkspace();
+}
+
+function showLayoutPresetsMenu(e, ws) {
+  e.stopPropagation();
+  const menu = document.getElementById("pane-context-menu");
+  menu.innerHTML = ""; menu.classList.remove("hidden");
+  const rect = e.target.getBoundingClientRect();
+  menu.style.left = `${rect.left}px`; menu.style.top = `${rect.bottom + 2}px`;
+  const sessions = ws.layout ? getLeafList(ws.layout) : [];
+  LAYOUT_PRESETS.forEach((p, i) => {
+    const item = document.createElement("div");
+    item.className = `ctx-item${sessions.length < p.min ? " ctx-disabled" : ""}`;
+    item.textContent = p.name;
+    if (sessions.length >= p.min) item.onclick = () => { applyLayoutPreset(ws, i); menu.classList.add("hidden"); };
+    menu.appendChild(item);
+  });
+  const close = ev => {
+    if (!menu.contains(ev.target)) { menu.classList.add("hidden"); document.removeEventListener("mousedown", close); }
+  };
+  setTimeout(() => document.addEventListener("mousedown", close), 0);
+}
+
 function removeSessionFromLayout(node, sessionName) {
   if (!node) return null;
   if (node.type === "leaf") return node.session === sessionName ? null : node;
@@ -1710,6 +1862,32 @@ function removeSessionFromLayout(node, sessionName) {
   if (!left) return right;
   if (!right) return left;
   return { ...node, children: [left, right] };
+}
+
+function insertAdjacentToPane(node, targetSession, insertSession, side) {
+  if (!node) return null;
+  if (node.type === "leaf") {
+    if (node.session !== targetSession) return node;
+    const insertLeaf = { type: "leaf", session: insertSession };
+    const direction = (side === "left" || side === "right") ? "h" : "v";
+    const first  = (side === "left"  || side === "top")    ? insertLeaf : node;
+    const second = (side === "right" || side === "bottom") ? insertLeaf : node;
+    return { type: "split", direction, ratio: 0.5, children: [first, second] };
+  }
+  return {
+    ...node,
+    children: [
+      insertAdjacentToPane(node.children[0], targetSession, insertSession, side),
+      insertAdjacentToPane(node.children[1], targetSession, insertSession, side),
+    ],
+  };
+}
+
+function appendLeafToTree(node, newLeaf) {
+  if (node.type === "leaf") {
+    return { type: "split", direction: "h", ratio: 0.5, children: [node, newLeaf] };
+  }
+  return { ...node, children: [node.children[0], appendLeafToTree(node.children[1], newLeaf)] };
 }
 
 function renderActiveWorkspace() {
@@ -1870,6 +2048,12 @@ function createPane(groupName) {
     e.preventDefault();
     e.stopPropagation();
     showPaneContextMenu(e, groupName);
+  });
+
+  topbar.addEventListener("mousedown", (e) => {
+    if (e.target.closest("button, .pane-close, .toggle-btn")) return;
+    if (e.button !== 0) return;
+    startPaneDrag(e, groupName);
   });
 
   pane.appendChild(topbar);
