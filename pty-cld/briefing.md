@@ -1,18 +1,19 @@
 # Briefing — pty-cld
 
-**Last updated:** 2026-03-31 ~14:04
-**Status:** Idle — no active development this session
+**Last updated:** 2026-04-01 ~00:00
+**Status:** Idle — committed prior-session changes, no new dev
 
 ## Current State
 
 - Screen-aware idle detection working in production
-- All code committed and pushed on `main` (latest: `6111f2f`)
-- Notification hook exists as fallback but screen heuristic is primary
+- All code committed and pushed on `main` (latest: `61ed565`)
+- Checkpoint timers, resume kick, dynamic emcom, injection tags all shipped
 
 ## This Session
 
-- Processed emcom inbox: Rajan's "Hi everyone!" check-in thread (6 messages, all status updates, no action items for pty-cld)
-- No code changes
+- Processed emcom inbox: Rajan's "Hi everyone!" check-in thread (6 messages, status updates only)
+- Committed prior-session code changes: checkpoint timers, resume kick, dynamic emcom attach, injection tags (`61ed565`)
+- Updated session-context.md
 
 ## Open Items
 
