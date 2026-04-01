@@ -4,7 +4,7 @@ Last updated: 2026-03-31
 ## In Motion
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Cost tracking + hook activation | Needs server restart | Rajan | 3 bugs fixed: broadcast, regex, display |
+| pty-win server restart | Rajan | Cost regex, merged dashboard, unfocused border, hook revert |
 | Next pty-win item | Not started | milo→moss | Waiting for new requests |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 
@@ -19,7 +19,8 @@ Last updated: 2026-03-31
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
-| 2026-04-01 | Status bar JSON hook | settings.local.json + /api/hook/status-line, model + tokens + cost |
+| 2026-04-01 | Unfocused pane border + merged Dashboard/Diag | #505050 border, single combined tab |
+| 2026-04-01 | Cost tracking reverted to regex scraping | Hook removed, dual regex (live + exit), works multi-instance |
 | 2026-04-01 | jade onboarding | claude-code-src analyst, first task complete, cleared for next task |
 | 2026-04-01 | Per-session cost tracking | Regex on PTY stream, costs.json persistence, Diag tab |
 | 2026-04-01 | Add Root button → Folders header | Moved from bottom to header bar |

@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-01 12:00
+Last updated: 2026-04-01 13:37
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,13 +13,13 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-01 12:00 — Fixed 3 cost display bugs: missing broadcast, exit-only regex, 4-decimal display
-- 2026-04-01 11:33 — Status bar JSON hook implemented + jade confirmed no billing gate
-- 2026-04-01 11:20 — Jade onboarded. First task: status bar + cost analysis (complete)
-- 2026-04-01 05:12 — Per-session cost tracking, moved to Diag tab
-- 2026-04-01 04:22 — Add Root to header, orange border, fellow-agents kit
+- 2026-04-01 13:36 — Unfocused pane border #505050 (visible edge definition)
+- 2026-04-01 12:23 — Dashboard + Diag merged into single tab
+- 2026-04-01 12:20 — Reverted hook approach → regex scraping (works with multi-instance pty-win)
+- 2026-04-01 12:00 — Fixed 3 cost bugs: broadcast, exit-only regex, 4-decimal display
+- 2026-04-01 11:20 — Jade onboarded + status bar analysis complete
 
 ## Next Up
-- Server restart needed: cost fixes + status bar hook activation
+- Server restart needed: cost regex + merged dashboard + unfocused border
 - Jade: available for next investigation task
 - pty-cld: force-idle subcommand (pending Rajan)
