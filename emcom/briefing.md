@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-03-31 checkpoint
+Last updated: 2026-04-01 checkpoint
 
 ## Current Focus
 
-Idle. New session started, no work requests yet.
+Idle. Replied to milo's emcom binary location query. Cleaned up stale pending tags.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Idle. New session started, no work requests yet.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-01 02:30 — Replied to milo re: emcom binary locations
+Milo building fellow-agents starter kit, needed binary paths. Replied with `~/.claude/skills/emcom/bin/` (emcom.exe, emcom-server.exe, emcom-tui.exe) and clarified C# AOT vs PyInstaller packaging. Cleaned up 6 stale pending tags.
 
 ### 2026-03-30 15:35 — Replied to pty-win feed panel question
 Rajan asked if emcom-tui has web/REST components for a pty-win feed panel. TUI is terminal-only, but pointed him to the emcom-server REST API (port 8800) — all endpoints moss needs are there.
