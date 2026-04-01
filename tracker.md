@@ -4,7 +4,7 @@ Last updated: 2026-03-31
 ## In Motion
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| Status bar hook activation | Needs server restart | Rajan | Then verify Diag tab shows model + tokens |
+| Cost tracking + hook activation | Needs server restart | Rajan | 3 bugs fixed: broadcast, regex, display |
 | Next pty-win item | Not started | milo→moss | Waiting for new requests |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 

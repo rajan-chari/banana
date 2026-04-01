@@ -328,8 +328,9 @@ public class Win32Focus {
   app.post("/api/hook/status-line", (req, res) => {
     res.sendStatus(200);
     const body = req.body;
-    if (!body?.cwd) return;
-    const normCwd = resolve(body.cwd).replace(/\\/g, "/").toLowerCase();
+    const rawCwd = body?.cwd || body?.workspace?.current_dir;
+    if (!rawCwd) return;
+    const normCwd = resolve(rawCwd).replace(/\\/g, "/").toLowerCase();
     for (const session of sessions.values()) {
       if (session.workingDir.replace(/\\/g, "/").toLowerCase() === normCwd) {
         session.hookData = {
@@ -344,6 +345,7 @@ public class Win32Focus {
           sessionId: body.session_id ?? "",
           exceeds200k: body.exceeds_200k_tokens ?? false,
         };
+        broadcastSessionList();
         break;
       }
     }

@@ -1,14 +1,17 @@
 # Briefing
-Last updated: 2026-04-01 12:00
+Last updated: 2026-04-01 12:05
 
 ## Current Focus
-Shutdown save. Status bar hook implemented via global status_line.ps1 (no per-workspace files).
+Shutdown save. Status bar hook bugs fixed — broadcastSessionList, dual regex, cwd field.
 
 ## Don't Forget
-- Server restart needed — all TS changes from this session (hook endpoint, cost tracking, force-idle log, regex fix)
-- Browser refresh for frontend changes (Diag tab costs + model/tokens)
+- Server restart needed — all TS changes (hook endpoint, broadcast, regex, cwd fix)
+- Browser refresh for Diag tab (toFixed(2) fix)
 
 ## Recent
+### 2026-04-01 12:00 — Hook bugs fixed (3)
+broadcastSessionList() missing after hookData set; dual regex (exit + live); cwd field was workspace.current_dir not cwd; toFixed(2).
+
 ### 2026-04-01 11:30 — Status bar hook via global status_line.ps1
 Dropped per-workspace settings.local.json approach. status_line.ps1 now POSTs to /api/hook/status-line with 50ms HttpClient timeout. Diag tab shows model + token usage from hookData. force-idle now clog()s to console.
 

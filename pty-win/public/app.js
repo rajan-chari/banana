@@ -2679,10 +2679,10 @@ function renderDiag() {
             return `<tr>
               <td class="diag-name">${s.name}${model}</td>
               <td>${tokens}</td>
-              <td class="diag-cost">$${s.costUsd.toFixed(4)}</td>
+              <td class="diag-cost">$${s.costUsd.toFixed(2)}</td>
             </tr>`;
           }).join("") +
-          (() => { const t = liveSessions.reduce((sum, s) => sum + s.costUsd, 0); return t > 0 ? `<tr class="diag-cost-total"><td colspan="2">Total</td><td class="diag-cost">$${t.toFixed(4)}</td></tr>` : ""; })()
+          (() => { const t = liveSessions.reduce((sum, s) => sum + s.costUsd, 0); return t > 0 ? `<tr class="diag-cost-total"><td colspan="2">Total</td><td class="diag-cost">$${t.toFixed(2)}</td></tr>` : ""; })()
         : `<tr><td colspan="3" class="diag-empty">No cost data yet</td></tr>`;
 
       container.innerHTML = `

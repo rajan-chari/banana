@@ -225,14 +225,15 @@ export class PtySession extends EventEmitter {
     }
 
     // Wire PTY output
-    const costRegex = /Total cost:\s+\$(\d+\.\d+)/;
+    const costRegexLive = /\$(\d+\.\d+)\s+\d+m?s/;       // live status bar
+    const costRegexExit = /Total cost:\s+\$(\d+\.\d+)/;  // exit summary
 
     this.ptyProcess.onData((data) => {
       const now = Date.now();
       this.lastOutputTime = now;
       this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
       this.screenDetector.write(data);
-      const costMatch = costRegex.exec(data);
+      const costMatch = costRegexExit.exec(data) || costRegexLive.exec(data);
       if (costMatch) this.costUsd = parseFloat(costMatch[1]);
       this.emit("data", data);
       if (this.status === "idle" || this.status === "starting") {
