@@ -1166,8 +1166,8 @@ html, body {
 }
 
 .pane.focused {
-  border-color: var(--border-focus);
-  box-shadow: inset 0 0 0 1px var(--border-focus);
+  border-color: #d4882a;
+  box-shadow: inset 0 0 0 1px #d4882a;
 }
 
 .pane.dead {
@@ -1211,8 +1211,8 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 }
 
 .pane.focused .pane-topbar {
-  background: #007acc40;
-  border-bottom: 2px solid var(--accent);
+  background: rgba(212, 136, 42, 0.15);
+  border-bottom: 2px solid #d4882a;
 }
 
 .pane-cwd {

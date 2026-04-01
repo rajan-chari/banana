@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-03-31 14:25
+Last updated: 2026-04-01 01:45
 
 ## In Motion
 
@@ -19,6 +19,7 @@ Last updated: 2026-03-31 14:25
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-01 | Focused pane border: blue → orange | #d4882a amber-orange, topbar tint matched, --border-focus untouched |
 | 2026-03-31 | Pane topbar tweaks (VS Code btn, identity click) | VS Code button moved left, click identity switches feed panel |
 | 2026-03-31 | Claude --resume in context menus | Right-click AI tag or pane topbar → Resume session with --resume flag |
 | 2026-03-31 | Session row highlight + topbar visibility | Brighter active row (0.22), VS Code button always visible |

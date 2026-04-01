@@ -1,14 +1,17 @@
 # Briefing
-Last updated: 2026-03-31 14:25
+Last updated: 2026-04-01 01:45
 
 ## Current Focus
-Implementing UI polish items from milo (coordinating for Rajan). All frontend-only.
+Idle — responding to milo's UI polish requests as they come in. All frontend-only.
 
 ## Don't Forget
 - Server restart needed — server changes through 6a1cd5f (resume kick + --help)
-- Browser refresh for all frontend changes (growing list — preset label, highlight, VS Code btn, resume, identity click)
+- Browser refresh for all frontend changes (growing list — preset label, highlight, VS Code btn, resume, identity click, orange focus border)
 
 ## Recent
+### 2026-04-01 01:40 — Focused pane border: blue → orange
+Changed from var(--border-focus) blue to #d4882a amber-orange. Topbar tint updated to match. Global --border-focus untouched.
+
 ### 2026-03-31 14:22 — Pane topbar tweaks: VS Code btn + identity click
 Moved VS Code button to left side (after preset badge). Click pane identity → switches feed panel via custom event.
 
