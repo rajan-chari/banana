@@ -2621,16 +2621,6 @@ function renderDashboard() {
     return;
   }
 
-  // Total cost header
-  let totalCost = 0;
-  for (const [, info] of state.sessions) totalCost += info.costUsd || 0;
-  if (totalCost > 0) {
-    const costHeader = document.createElement("div");
-    costHeader.className = "dashboard-cost-header";
-    costHeader.textContent = `Total session cost: $${totalCost.toFixed(2)}`;
-    dash.appendChild(costHeader);
-  }
-
   for (const [name, info] of state.sessions) {
     const card = document.createElement("div");
     card.className = "dashboard-card";
@@ -2640,7 +2630,6 @@ function renderDashboard() {
         <span class="status-dot ${info.status}"></span>
         <span class="dashboard-card-name">${name}</span>
         <span class="dashboard-card-identity">${info.emcomIdentity ? info.emcomIdentity : info.command}</span>
-        ${info.costUsd ? `<span class="dashboard-card-cost">$${info.costUsd.toFixed(2)}</span>` : ""}
         <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
       </div>
       <div class="dashboard-card-preview" id="preview-${CSS.escape(name)}">Loading...</div>
@@ -2674,10 +2663,20 @@ function renderDiag() {
     area.appendChild(container);
   }
 
-  fetch("/api/stats")
-    .then((r) => r.json())
-    .then((stats) => {
+  Promise.all([
+    fetch("/api/stats").then((r) => r.json()),
+    fetch("/api/costs").then((r) => r.json()).catch(() => null),
+  ]).then(([stats, costs]) => {
       if (!state.isDiag) return;
+
+      const costRows = costs?.sessions?.length
+        ? costs.sessions.map((s) => `<tr>
+            <td class="diag-name">${s.name}</td>
+            <td class="diag-cost">$${s.costUsd.toFixed(2)}</td>
+          </tr>`).join("") +
+          `<tr class="diag-cost-total"><td>Total</td><td class="diag-cost">$${(costs.totalUsd || 0).toFixed(2)}</td></tr>`
+        : `<tr><td colspan="2" class="diag-empty">No cost data yet</td></tr>`;
+
       container.innerHTML = `
         <div class="diag-header">
           <span class="diag-title">DIAGNOSTICS</span>
@@ -2714,6 +2713,11 @@ function renderDiag() {
                 </tr>`;
               }).join("")}
           </tbody>
+        </table>
+        <div class="diag-section-title">Session Costs</div>
+        <table class="diag-table diag-cost-table">
+          <thead><tr><th>Session</th><th>Cost (USD)</th></tr></thead>
+          <tbody>${costRows}</tbody>
         </table>`;
     })
     .catch(() => {

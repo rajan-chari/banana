@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-01 05:10
+Last updated: 2026-04-01 05:35
 
 ## In Motion
 
@@ -19,7 +19,8 @@ Last updated: 2026-04-01 05:10
 
 | Date | Item | Outcome |
 |------|------|---------|
-| 2026-04-01 | Per-session cost tracking | Regex cost capture, /api/costs, costs.json persist, dashboard display (needs server restart) |
+| 2026-04-01 | Cost display in Diag tab | Moved from dashboard; Session Costs table with total row, 5s refresh |
+| 2026-04-01 | Per-session cost tracking | Regex cost capture, /api/costs, costs.json persist (needs server restart) |
 | 2026-04-01 | Add Root button → Folders header | Moved from sidebar footer to panel-actions row |
 | 2026-04-01 | Focused pane border: blue → orange | #d4882a amber-orange, topbar tint matched, --border-focus untouched |
 | 2026-03-31 | Pane topbar tweaks (VS Code btn, identity click) | VS Code button moved left, click identity switches feed panel |

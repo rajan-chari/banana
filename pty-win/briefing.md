@@ -1,14 +1,17 @@
 # Briefing
-Last updated: 2026-04-01 05:10
+Last updated: 2026-04-01 05:35
 
 ## Current Focus
-Shutdown save. Cost tracking feature implemented (needs server restart).
+Idle — responding to milo's UI requests. Cost tracking complete, moved to Diag tab.
 
 ## Don't Forget
 - Server restart needed — TS changes: cost tracking (costUsd regex, /api/costs, costs.json), plus earlier resume kick + --help
-- Browser refresh for frontend changes (preset label, highlight, VS Code btn, resume, identity click, orange border, add-root moved, dashboard costs)
+- Browser refresh for frontend changes (preset label, highlight, VS Code btn, resume, identity click, orange border, add-root moved, costs in Diag tab)
 
 ## Recent
+### 2026-04-01 05:22 — Cost display moved to Diag tab
+Removed from dashboard. Added 'Session Costs' table to Diag tab, fetches /api/costs in parallel with /api/stats.
+
 ### 2026-04-01 05:08 — Per-session cost tracking
 Regex captures cost from PTY data stream ($X.XX pattern). costUsd on SessionInfo, /api/costs endpoint, costs.json persisted on shutdown/loaded on startup. Dashboard shows total + per-card costs. TS builds clean.
 

@@ -1370,22 +1370,6 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   flex: 1;
 }
 
-.dashboard-cost-header {
-  color: var(--text-dim);
-  font-size: 13px;
-  padding: 8px 12px;
-  text-align: right;
-  font-family: var(--font-mono);
-}
-
-.dashboard-card-cost {
-  color: #8c8;
-  font-size: 11px;
-  font-family: var(--font-mono);
-  margin-left: auto;
-  margin-right: 6px;
-}
-
 .dashboard-card-badge {
   background: var(--badge-unread);
   color: #fff;
@@ -1723,6 +1707,10 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 .diag-hot td { background: rgba(240, 80, 80, 0.08); }
 .diag-hot-val { color: #ff6060; font-weight: 600; }
 .diag-empty { color: var(--text-muted); font-size: 12px; padding: 12px 10px; }
+.diag-cost-table { max-width: 320px; }
+.diag-cost { color: #8c8; font-family: var(--font-mono); text-align: right; }
+.diag-cost-total td { border-top: 1px solid var(--border); font-weight: 600; color: var(--text-primary); }
+.diag-cost-total .diag-cost { color: #aed; }
 
 /* Quick-message popup */
 .quick-msg-popup {
