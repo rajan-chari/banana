@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-01 checkpoint
+Last updated: 2026-04-01 shutdown
 
 ## Current Focus
 
-Idle. Replied to milo's emcom binary location query. Cleaned up stale pending tags.
+Session ending (shutdown). Idle since milo reply.
 
 ## Don't Forget
 
