@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-01 shutdown
+Last updated: 2026-04-01 checkpoint
 
 ## Current Focus
 
-Session ending (shutdown). Idle since milo reply.
+Idle. Replied to Rajan's check-in.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending (shutdown). Idle since milo reply.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-01 19:40 — Replied to Rajan check-in
+Rajan sent "Hi everyone!" check-in. Replied with status (idle, standing by).
 
 ### 2026-04-01 02:30 — Replied to milo re: emcom binary locations
 Milo building fellow-agents starter kit, needed binary paths. Replied with `~/.claude/skills/emcom/bin/` (emcom.exe, emcom-server.exe, emcom-tui.exe) and clarified C# AOT vs PyInstaller packaging. Cleaned up 6 stale pending tags.
