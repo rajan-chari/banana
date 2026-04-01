@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-01 05:35
+Last updated: 2026-04-01 12:00
 
 ## In Motion
 
@@ -19,6 +19,10 @@ Last updated: 2026-04-01 05:35
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-01 | Status bar hook via global PS1 | POSTs to /api/hook/status-line, 50ms timeout, no per-workspace files |
+| 2026-04-01 | Diag tab: model + token usage | hookData drives model ID, ctx%, token counts in cost table |
+| 2026-04-01 | Cost regex fixes (×2) | Final: /Total cost:\s+\$(\d+\.\d+)/ |
+| 2026-04-01 | force-idle console logging | clog() on force-idle endpoint |
 | 2026-04-01 | Cost display in Diag tab | Moved from dashboard; Session Costs table with total row, 5s refresh |
 | 2026-04-01 | Per-session cost tracking | Regex cost capture, /api/costs, costs.json persist (needs server restart) |
 | 2026-04-01 | Add Root button → Folders header | Moved from sidebar footer to panel-actions row |

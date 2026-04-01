@@ -2669,13 +2669,21 @@ function renderDiag() {
   ]).then(([stats, costs]) => {
       if (!state.isDiag) return;
 
-      const costRows = costs?.sessions?.length
-        ? costs.sessions.map((s) => `<tr>
-            <td class="diag-name">${s.name}</td>
-            <td class="diag-cost">$${s.costUsd.toFixed(2)}</td>
-          </tr>`).join("") +
-          `<tr class="diag-cost-total"><td>Total</td><td class="diag-cost">$${(costs.totalUsd || 0).toFixed(2)}</td></tr>`
-        : `<tr><td colspan="2" class="diag-empty">No cost data yet</td></tr>`;
+      // Build cost/model rows from live session state (has hookData)
+      const liveSessions = [...state.sessions.values()].filter(s => s.costUsd > 0 || s.hookData);
+      const costRows = liveSessions.length
+        ? liveSessions.map((s) => {
+            const h = s.hookData;
+            const model = h?.modelId ? `<span class="diag-model">${h.modelId}</span>` : "";
+            const tokens = h ? `<span class="diag-tokens">${h.usedPct.toFixed(0)}% ctx · ${(h.tokensIn/1000).toFixed(0)}k in · ${(h.tokensOut/1000).toFixed(0)}k out</span>` : "";
+            return `<tr>
+              <td class="diag-name">${s.name}${model}</td>
+              <td>${tokens}</td>
+              <td class="diag-cost">$${s.costUsd.toFixed(4)}</td>
+            </tr>`;
+          }).join("") +
+          (() => { const t = liveSessions.reduce((sum, s) => sum + s.costUsd, 0); return t > 0 ? `<tr class="diag-cost-total"><td colspan="2">Total</td><td class="diag-cost">$${t.toFixed(4)}</td></tr>` : ""; })()
+        : `<tr><td colspan="3" class="diag-empty">No cost data yet</td></tr>`;
 
       container.innerHTML = `
         <div class="diag-header">
@@ -2716,7 +2724,7 @@ function renderDiag() {
         </table>
         <div class="diag-section-title">Session Costs</div>
         <table class="diag-table diag-cost-table">
-          <thead><tr><th>Session</th><th>Cost (USD)</th></tr></thead>
+          <thead><tr><th>Session</th><th>Tokens</th><th>Cost (USD)</th></tr></thead>
           <tbody>${costRows}</tbody>
         </table>`;
     })

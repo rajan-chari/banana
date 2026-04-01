@@ -43,6 +43,7 @@ function countRepoSiblings(repoRoot: string): number {
   return count;
 }
 
+
 export async function startServer(config: ServerConfig): Promise<void> {
   // Load saved costs from previous run
   const costsPath = join(__dirname, "..", "costs.json");
@@ -249,6 +250,7 @@ public class Win32Focus {
       "force_idle",
       req.params.name
     );
+    clog(`force-idle: ${req.params.name}`);
     session.forceIdle();
     broadcastSessionList();
     res.json({ ok: true });
@@ -320,6 +322,31 @@ public class Win32Focus {
     }
     const totalUsd = sessionCosts.reduce((sum, s) => sum + s.costUsd, 0);
     res.json({ sessions: sessionCosts, totalUsd: Math.round(totalUsd * 100) / 100 });
+  });
+
+  // Status bar hook — receives JSON from Claude Code's statusLine.command
+  app.post("/api/hook/status-line", (req, res) => {
+    res.sendStatus(200);
+    const body = req.body;
+    if (!body?.cwd) return;
+    const normCwd = resolve(body.cwd).replace(/\\/g, "/").toLowerCase();
+    for (const session of sessions.values()) {
+      if (session.workingDir.replace(/\\/g, "/").toLowerCase() === normCwd) {
+        session.hookData = {
+          costUsd: body.cost?.total_cost_usd ?? 0,
+          totalDurationMs: body.cost?.total_duration_ms ?? 0,
+          modelId: body.model?.id ?? "",
+          modelDisplayName: body.model?.display_name ?? "",
+          tokensIn: body.context_window?.total_input_tokens ?? 0,
+          tokensOut: body.context_window?.total_output_tokens ?? 0,
+          contextWindowSize: body.context_window?.context_window_size ?? 0,
+          usedPct: body.context_window?.used_percentage ?? 0,
+          sessionId: body.session_id ?? "",
+          exceeds200k: body.exceeds_200k_tokens ?? false,
+        };
+        break;
+      }
+    }
   });
 
   // emcom/who kept for dashboard reference

@@ -1707,8 +1707,10 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 .diag-hot td { background: rgba(240, 80, 80, 0.08); }
 .diag-hot-val { color: #ff6060; font-weight: 600; }
 .diag-empty { color: var(--text-muted); font-size: 12px; padding: 12px 10px; }
-.diag-cost-table { max-width: 320px; }
+.diag-cost-table { max-width: 640px; }
 .diag-cost { color: #8c8; font-family: var(--font-mono); text-align: right; }
+.diag-model { display: block; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+.diag-tokens { font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); }
 .diag-cost-total td { border-top: 1px solid var(--border); font-weight: 600; color: var(--text-primary); }
 .diag-cost-total .diag-cost { color: #aed; }
 

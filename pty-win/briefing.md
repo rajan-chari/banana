@@ -1,14 +1,20 @@
 # Briefing
-Last updated: 2026-04-01 05:35
+Last updated: 2026-04-01 12:00
 
 ## Current Focus
-Idle — responding to milo's UI requests. Cost tracking complete, moved to Diag tab.
+Shutdown save. Status bar hook implemented via global status_line.ps1 (no per-workspace files).
 
 ## Don't Forget
-- Server restart needed — TS changes: cost tracking (costUsd regex, /api/costs, costs.json), plus earlier resume kick + --help
-- Browser refresh for frontend changes (preset label, highlight, VS Code btn, resume, identity click, orange border, add-root moved, costs in Diag tab)
+- Server restart needed — all TS changes from this session (hook endpoint, cost tracking, force-idle log, regex fix)
+- Browser refresh for frontend changes (Diag tab costs + model/tokens)
 
 ## Recent
+### 2026-04-01 11:30 — Status bar hook via global status_line.ps1
+Dropped per-workspace settings.local.json approach. status_line.ps1 now POSTs to /api/hook/status-line with 50ms HttpClient timeout. Diag tab shows model + token usage from hookData. force-idle now clog()s to console.
+
+### 2026-04-01 11:25 — Cost regex fixes
+Updated regex twice: \$(\d+\.\d+)\s+\d+m?s → Total cost:\s+\$(\d+\.\d+)
+
 ### 2026-04-01 05:22 — Cost display moved to Diag tab
 Removed from dashboard. Added 'Session Costs' table to Diag tab, fetches /api/costs in parallel with /api/stats.
 
