@@ -87,25 +87,27 @@ async function runCli(claudeArgs: string[], overrides: CliOverrides): Promise<vo
   const config = buildCliConfig(cwd, claudeArgs, overrides);
   const sessionCfg = config.sessions[0];
 
-  // Validate emcom server is reachable and identity exists
-  const client = new EmcomClient(sessionCfg.emcomServer, sessionCfg.emcomIdentity);
-  try {
-    const healthy = await client.health();
-    if (!healthy) {
-      console.error(`Cannot reach emcom server at ${sessionCfg.emcomServer}`);
-      console.error(`Start it with: emcom-server`);
+  // Validate emcom server is reachable and identity exists (skip if no identity)
+  if (sessionCfg.emcomIdentity && sessionCfg.emcomServer) {
+    const client = new EmcomClient(sessionCfg.emcomServer, sessionCfg.emcomIdentity);
+    try {
+      const healthy = await client.health();
+      if (!healthy) {
+        console.error(`Cannot reach emcom server at ${sessionCfg.emcomServer}`);
+        console.error(`Start it with: emcom-server`);
+        process.exit(1);
+      }
+      const identities = await client.getWho();
+      const found = identities.some((id) => id.name === sessionCfg.emcomIdentity);
+      if (!found) {
+        console.error(`Identity "${sessionCfg.emcomIdentity}" not found on emcom server`);
+        console.error(`Register with: emcom register`);
+        process.exit(1);
+      }
+    } catch (err) {
+      console.error(`Failed to validate emcom: ${err}`);
       process.exit(1);
     }
-    const identities = await client.getWho();
-    const found = identities.some((id) => id.name === sessionCfg.emcomIdentity);
-    if (!found) {
-      console.error(`Identity "${sessionCfg.emcomIdentity}" not found on emcom server`);
-      console.error(`Register with: emcom register`);
-      process.exit(1);
-    }
-  } catch (err) {
-    console.error(`Failed to validate emcom: ${err}`);
-    process.exit(1);
   }
 
   // Bind control API first so we know the actual port

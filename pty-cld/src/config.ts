@@ -62,8 +62,7 @@ export function readIdentity(dir: string): Identity | null {
 export function buildCliConfig(cwd: string, claudeArgs: string[], overrides?: CliOverrides): AppConfig {
   const identity = readIdentity(cwd);
   if (!identity) {
-    console.error(`No valid identity.json found in ${cwd}. Register with emcom first.`);
-    process.exit(1);
+    console.warn(`No identity.json in ${cwd} — starting without emcom (will watch for identity.json)`);
   }
 
   return {
@@ -72,9 +71,9 @@ export function buildCliConfig(cwd: string, claudeArgs: string[], overrides?: Cl
     controlPort: overrides?.controlPort ?? DEFAULTS.controlPort,
     sessions: [
       {
-        name: identity.name,
-        emcomIdentity: identity.name,
-        emcomServer: identity.server,
+        name: identity?.name ?? "pty-cld",
+        emcomIdentity: identity?.name ?? "",
+        emcomServer: identity?.server ?? "",
         workingDir: cwd,
         claudeArgs,
         pollIntervalMs: overrides?.pollIntervalMs ?? DEFAULTS.pollIntervalMs,
