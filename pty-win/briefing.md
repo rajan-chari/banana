@@ -1,14 +1,20 @@
 # Briefing
-Last updated: 2026-04-01 01:45
+Last updated: 2026-04-01 05:10
 
 ## Current Focus
-Idle — responding to milo's UI polish requests as they come in. All frontend-only.
+Shutdown save. Cost tracking feature implemented (needs server restart).
 
 ## Don't Forget
-- Server restart needed — server changes through 6a1cd5f (resume kick + --help)
-- Browser refresh for all frontend changes (growing list — preset label, highlight, VS Code btn, resume, identity click, orange focus border)
+- Server restart needed — TS changes: cost tracking (costUsd regex, /api/costs, costs.json), plus earlier resume kick + --help
+- Browser refresh for frontend changes (preset label, highlight, VS Code btn, resume, identity click, orange border, add-root moved, dashboard costs)
 
 ## Recent
+### 2026-04-01 05:08 — Per-session cost tracking
+Regex captures cost from PTY data stream ($X.XX pattern). costUsd on SessionInfo, /api/costs endpoint, costs.json persisted on shutdown/loaded on startup. Dashboard shows total + per-card costs. TS builds clean.
+
+### 2026-04-01 04:20 — Add Root button moved to Folders header
+Moved from sidebar footer to FOLDERS panel-actions row. Footer div removed.
+
 ### 2026-04-01 01:40 — Focused pane border: blue → orange
 Changed from var(--border-focus) blue to #d4882a amber-orange. Topbar tint updated to match. Global --border-focus untouched.
 

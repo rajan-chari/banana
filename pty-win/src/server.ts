@@ -3,7 +3,7 @@ import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { join, dirname, resolve, basename } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { execFile, spawn } from "child_process";
 import { PtySession } from "./session.js";
 import { EmcomClient } from "./emcom/client.js";
@@ -17,6 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const sessions = new Map<string, PtySession>();
 const sessionRepoRoots = new Map<string, string>(); // session name → normalized repo root
+const savedCosts = new Map<string, number>(); // session name → last known costUsd
 
 const CHECKPOINT_STAGGER_MS = 10_000; // 10s between sessions on same repo
 
@@ -43,6 +44,20 @@ function countRepoSiblings(repoRoot: string): number {
 }
 
 export async function startServer(config: ServerConfig): Promise<void> {
+  // Load saved costs from previous run
+  const costsPath = join(__dirname, "..", "costs.json");
+  try {
+    if (existsSync(costsPath)) {
+      const data = JSON.parse(readFileSync(costsPath, "utf-8"));
+      if (data.sessions) {
+        for (const [name, cost] of Object.entries(data.sessions)) {
+          savedCosts.set(name, cost as number);
+        }
+        clog(`Loaded costs for ${savedCosts.size} session(s) from costs.json`);
+      }
+    }
+  } catch { /* ignore corrupt file */ }
+
   const app = express();
   app.use(express.json());
 
@@ -158,6 +173,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     };
 
     const session = new PtySession(sessionConfig);
+    if (savedCosts.has(name)) session.costUsd = savedCosts.get(name)!;
     addSession(session);
     session.start();
 
@@ -288,6 +304,22 @@ public class Win32Focus {
   app.get("/api/stats", (_req, res) => {
     const stats = [...sessions.values()].map((s) => s.getStats());
     res.json(stats);
+  });
+
+  app.get("/api/costs", (_req, res) => {
+    const sessionCosts: Array<{ name: string; costUsd: number }> = [];
+    // Live sessions
+    for (const [name, session] of sessions) {
+      sessionCosts.push({ name, costUsd: session.getInfo().costUsd });
+    }
+    // Dead sessions from saved costs (not currently live)
+    for (const [name, cost] of savedCosts) {
+      if (!sessions.has(name)) {
+        sessionCosts.push({ name, costUsd: cost });
+      }
+    }
+    const totalUsd = sessionCosts.reduce((sum, s) => sum + s.costUsd, 0);
+    res.json({ sessions: sessionCosts, totalUsd: Math.round(totalUsd * 100) / 100 });
   });
 
   // emcom/who kept for dashboard reference
@@ -552,6 +584,22 @@ public class Win32Focus {
           }
         }, 1000);
       });
+    }
+
+    // Persist costs before shutdown
+    const costsData: Record<string, number> = {};
+    for (const [name, session] of sessions) {
+      const cost = session.getInfo().costUsd;
+      if (cost > 0) costsData[name] = cost;
+    }
+    for (const [name, cost] of savedCosts) {
+      if (!costsData[name] && cost > 0) costsData[name] = cost;
+    }
+    try {
+      writeFileSync(costsPath, JSON.stringify({ sessions: costsData }, null, 2));
+      clog(`Saved costs for ${Object.keys(costsData).length} session(s)`);
+    } catch (e) {
+      clog(`WARNING: Failed to save costs.json: ${e}`);
     }
 
     // Kill all sessions and shut down

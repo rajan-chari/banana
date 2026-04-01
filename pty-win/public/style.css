@@ -101,7 +101,7 @@ html, body {
   text-transform: uppercase;
 }
 
-#sidebar-header button, #sidebar-footer button, #sidebar-strip button, .panel-actions button {
+#sidebar-header button, #sidebar-strip button, .panel-actions button {
   background: none;
   border: none;
   color: var(--text-dim);
@@ -111,7 +111,7 @@ html, body {
   padding: 0 3px;
 }
 
-#sidebar-header button:hover, #sidebar-footer button:hover, #sidebar-strip button:hover, .panel-actions button:hover {
+#sidebar-header button:hover, #sidebar-strip button:hover, .panel-actions button:hover {
   color: var(--text-primary);
 }
 
@@ -126,17 +126,6 @@ html, body {
 .panel-body::-webkit-scrollbar-thumb { background: var(--border-focus); }
 .panel-body::-webkit-scrollbar-track { background: transparent; }
 
-#sidebar-footer {
-  border-top: 1px solid var(--border);
-  padding: 4px 8px;
-}
-
-#sidebar-footer button {
-  width: 100%;
-  text-align: left;
-  font-size: 11px;
-  padding: 4px 6px;
-}
 
 /* Sidebar collapsed strip */
 #sidebar-strip {
@@ -1379,6 +1368,22 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   color: var(--identity);
   font-size: 12px;
   flex: 1;
+}
+
+.dashboard-cost-header {
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 8px 12px;
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.dashboard-card-cost {
+  color: #8c8;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  margin-left: auto;
+  margin-right: 6px;
 }
 
 .dashboard-card-badge {

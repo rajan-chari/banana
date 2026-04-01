@@ -2621,6 +2621,16 @@ function renderDashboard() {
     return;
   }
 
+  // Total cost header
+  let totalCost = 0;
+  for (const [, info] of state.sessions) totalCost += info.costUsd || 0;
+  if (totalCost > 0) {
+    const costHeader = document.createElement("div");
+    costHeader.className = "dashboard-cost-header";
+    costHeader.textContent = `Total session cost: $${totalCost.toFixed(2)}`;
+    dash.appendChild(costHeader);
+  }
+
   for (const [name, info] of state.sessions) {
     const card = document.createElement("div");
     card.className = "dashboard-card";
@@ -2630,6 +2640,7 @@ function renderDashboard() {
         <span class="status-dot ${info.status}"></span>
         <span class="dashboard-card-name">${name}</span>
         <span class="dashboard-card-identity">${info.emcomIdentity ? info.emcomIdentity : info.command}</span>
+        ${info.costUsd ? `<span class="dashboard-card-cost">$${info.costUsd.toFixed(2)}</span>` : ""}
         <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
       </div>
       <div class="dashboard-card-preview" id="preview-${CSS.escape(name)}">Loading...</div>

@@ -80,6 +80,7 @@ export interface SessionInfo {
   emcomIdentity?: string;
   unreadCount: number;
   dirtyOnExit: boolean;
+  costUsd: number;
 }
 
 const INJECTION_PROMPT = "[pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
@@ -141,6 +142,7 @@ export class PtySession extends EventEmitter {
   private lastSavedAt = 0;
   private mlQueryInFlight = false;
   private dataEvents: DataEvent[] = [];
+  costUsd = 0;
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -208,11 +210,15 @@ export class PtySession extends EventEmitter {
     }
 
     // Wire PTY output
+    const costRegex = /\$(\d+\.\d{2})\s+\d+m?s/;
+
     this.ptyProcess.onData((data) => {
       const now = Date.now();
       this.lastOutputTime = now;
       this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
       this.screenDetector.write(data);
+      const costMatch = costRegex.exec(data);
+      if (costMatch) this.costUsd = parseFloat(costMatch[1]);
       this.emit("data", data);
       if (this.status === "idle" || this.status === "starting") {
         this.setStatus("busy");
@@ -288,6 +294,7 @@ export class PtySession extends EventEmitter {
       emcomIdentity: this.config.emcomIdentity,
       unreadCount: this.unreadCount,
       dirtyOnExit: this.dirtyOnExit,
+      costUsd: this.costUsd,
     };
   }
 
