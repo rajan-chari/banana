@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-01 01:48
+Last updated: 2026-04-01 05:13
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,11 +13,12 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-01 01:40 — Focused pane border changed to orange (#d4882a). Verified + reported.
-- 2026-03-31 18:30 — Ported 3 features to pty-cld: checkpoint injection, resume-aware kick, dynamic identity
-- 2026-03-31 14:25 — VS Code button moved left + identity click switches feed panel
-- 2026-03-31 14:04 — Claude --resume context menu shipped
-- 2026-03-31 05:01 — Assigned pty-win/emcom UI coordinator role by Rajan
+- 2026-04-01 05:12 — Per-session cost tracking shipped (regex on PTY stream, costs.json persistence, dashboard display)
+- 2026-04-01 04:22 — Add Root button moved to Folders header
+- 2026-04-01 02:30 — fellow-agents starter kit pushed (5 commits, all tasks done)
+- 2026-04-01 01:40 — Focused pane border → orange (#d4882a)
+- 2026-03-31 18:30 — Ported 3 features to pty-cld: checkpoint, resume kick, dynamic identity
+- 2026-03-31 — 6 pty-win UI items shipped (AI preset label, highlight, VS Code btn, resume, identity click, VS Code left)
 
 ## Next Up
 - pty-cld: add `force-idle` subcommand (pending Rajan's confirmation)

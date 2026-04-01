@@ -18,6 +18,10 @@ Last updated: 2026-03-31
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-01 | Per-session cost tracking | Regex on PTY stream, costs.json persistence, dashboard display |
+| 2026-04-01 | Add Root button → Folders header | Moved from bottom to header bar |
+| 2026-04-01 | fellow-agents starter kit | 5 commits — pty-win + emcom + start.ps1 + templates + README |
+| 2026-04-01 | Focused pane border → orange | #d4882a, topbar tint + border |
 | 2026-03-31 | Pane topbar: VS Code left + identity click → feed | Frontend-only |
 | 2026-03-31 | Claude --resume context menu | Right-click resume on AI cmd-tag + pane topbar |
 | 2026-03-31 | Session row highlight + pane topbar VS Code button | Both verified, frontend-only |
