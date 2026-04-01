@@ -106,5 +106,11 @@ frost's emcom-tui is built with Textual — a Python terminal UI framework. Can'
 ### 2026-03-29: onnxruntime-node seq(map) output requires double cast
 When an ONNX model outputs `seq(map(string, float))` (e.g. sklearn pipeline probability maps), the TypeScript type for `tensor.data[0]` is `string | number | bigint` — it doesn't know about map types. Cast with `as unknown as Record<string, number>` to access keyed probabilities. This is a known gap in the ort type definitions, not a runtime issue.
 
+### 2026-04-01: Status bar hook approach doesn't work with multiple pty-win instances
+Claude Code's statusLine.command is global (or per-CWD). If user runs multiple pty-win instances on different ports, the POST targets a single hardcoded port. Regex scraping from the PTY data stream is simpler and works correctly per-instance. The hook idea is sound for single-instance but was reverted.
+
+### 2026-04-01: Cost regex must match both duration formats
+Status line outputs `$9.97 2m34s` (minutes+seconds) and `$0.50 553ms` (milliseconds). Regex `/\$(\d+\.\d+)\s+\d+m\d*s/` handles both. The `\d*` after `m` optionally matches the seconds digits.
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.

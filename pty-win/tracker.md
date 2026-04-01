@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-01 12:05
+Last updated: 2026-04-01 13:40
 
 ## In Motion
 
@@ -19,6 +19,10 @@ Last updated: 2026-04-01 12:05
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-01 | Unfocused pane border #505050 | Visible edge between panes without competing with orange focus |
+| 2026-04-01 | Dashboard redesign: mission control | IBM Plex Mono, amber/cyan, scanline bg, status badges, header strip, stats on top |
+| 2026-04-01 | Dashboard + Diag merged | Single tab with cards + stats + costs; Diag tab removed |
+| 2026-04-01 | Reverted hook → regex-only | Multi-instance conflict; removed hook endpoint, HookData, PS1 POST |
 | 2026-04-01 | Hook bugs fixed (broadcast + regex + cwd) | broadcastSessionList after hookData; dual regex; workspace.current_dir field |
 | 2026-04-01 | Status bar hook via global PS1 | POSTs to /api/hook/status-line, 50ms timeout, no per-workspace files |
 | 2026-04-01 | Diag tab: model + token usage | hookData drives model ID, ctx%, token counts in cost table |

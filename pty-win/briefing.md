@@ -1,14 +1,26 @@
 # Briefing
-Last updated: 2026-04-01 12:05
+Last updated: 2026-04-01 13:40
 
 ## Current Focus
-Shutdown save. Status bar hook bugs fixed — broadcastSessionList, dual regex, cwd field.
+Dashboard redesign (mission control aesthetic) + UI polish from milo. Hook reverted to regex-only.
 
 ## Don't Forget
-- Server restart needed — all TS changes (hook endpoint, broadcast, regex, cwd fix)
-- Browser refresh for Diag tab (toFixed(2) fix)
+- Server restart needed — TS changes: hook removed, regex fix, force-idle log, cost tracking
+- Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top)
 
 ## Recent
+### 2026-04-01 13:35 — Unfocused pane border #505050
+Visible but subtle, won't compete with orange focus.
+
+### 2026-04-01 13:00 — Dashboard redesign: mission control
+IBM Plex Mono, amber accents, cyan data, scanline grid bg, status badges, per-card cost, header strip with live counts. Stats+costs moved above cards. All sessions shown in cost table.
+
+### 2026-04-01 12:20 — Reverted status bar hook to regex-only
+Multi-instance port conflict. Removed hook endpoint, HookData, settings.local.json writing. Kept dual regex (exit + live with 2m34s format), costs.json, /api/costs.
+
+### 2026-04-01 12:20 — Dashboard + Diag merged into one tab
+Session cards + stats + costs in single Dashboard tab. Diag tab removed.
+
 ### 2026-04-01 12:00 — Hook bugs fixed (3)
 broadcastSessionList() missing after hookData set; dual regex (exit + live); cwd field was workspace.current_dir not cwd; toFixed(2).
 

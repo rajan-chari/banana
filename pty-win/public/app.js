@@ -1515,16 +1515,7 @@ function switchToDashboard() {
   state.isDiag = false;
   renderTabs();
   renderDashboard();
-}
-
-function switchToDiag() {
-  stopDiagPoll();
-  state.activeWorkspaceId = null;
-  state.isDashboard = false;
-  state.isDiag = true;
-  renderTabs();
-  renderDiag();
-  diagPollTimer = setInterval(renderDiag, 5000);
+  diagPollTimer = setInterval(renderDashboardStats, 5000);
 }
 
 function findWorkspaceContaining(sessionName) {
@@ -1559,12 +1550,6 @@ function renderTabs() {
   dashTab.textContent = "Dashboard";
   dashTab.onclick = () => switchToDashboard();
   tabsEl.appendChild(dashTab);
-
-  const diagTab = document.createElement("div");
-  diagTab.className = `tab ${state.isDiag ? "active" : ""}`;
-  diagTab.textContent = "Diag";
-  diagTab.onclick = () => switchToDiag();
-  tabsEl.appendChild(diagTab);
 
   for (const ws of state.workspaces) {
     const tab = document.createElement("div");
@@ -2614,28 +2599,65 @@ function renderDashboard() {
   if (state.sessions.size === 0) {
     dash.innerHTML = `
       <div class="dashboard-empty">
-        No sessions running.<br><br>
-        Use the folder browser or press <kbd>Ctrl+P</kbd> to open a folder.
+        // NO ACTIVE SESSIONS<br><br>
+        Open a folder from the sidebar or press <kbd>Ctrl+P</kbd>
       </div>
     `;
     return;
   }
 
+  // Header strip
+  const totalCost = [...state.sessions.values()].reduce((s, i) => s + (i.costUsd || 0), 0);
+  const alive = [...state.sessions.values()].filter(i => i.status !== "dead").length;
+  const busy = [...state.sessions.values()].filter(i => i.status === "busy").length;
+  const header = document.createElement("div");
+  header.className = "dash-header";
+  header.innerHTML = `
+    <span class="dash-title">Mission Control</span>
+    <span class="dash-summary">
+      <span class="val">${alive}</span> active &middot;
+      <span class="val">${busy}</span> busy &middot;
+      <span class="val">${state.sessions.size}</span> total
+      ${totalCost > 0 ? `&middot; <span class="val">$${totalCost.toFixed(2)}</span>` : ""}
+    </span>
+  `;
+  dash.appendChild(header);
+
+  // Stats + costs section (above cards)
+  const statsSection = document.createElement("div");
+  statsSection.className = "dash-stats-section";
+  const statsContainer = document.createElement("div");
+  statsContainer.className = "diag-view";
+  statsContainer.id = "dashboard-stats";
+  statsSection.appendChild(statsContainer);
+  dash.appendChild(statsSection);
+  renderDashboardStats();
+
+  // Cards grid
+  const cardsGrid = document.createElement("div");
+  cardsGrid.className = "dash-cards";
+  dash.appendChild(cardsGrid);
+
   for (const [name, info] of state.sessions) {
     const card = document.createElement("div");
-    card.className = "dashboard-card";
+    card.className = `dashboard-card status-${info.status}`;
     const unread = info.unreadCount || 0;
+    const identity = info.emcomIdentity ? `<span class="dashboard-card-identity">@${info.emcomIdentity}</span>` : "";
+    const cost = `<span class="dashboard-card-cost">$${(info.costUsd || 0).toFixed(2)}</span>`;
     card.innerHTML = `
       <div class="dashboard-card-header">
-        <span class="status-dot ${info.status}"></span>
         <span class="dashboard-card-name">${name}</span>
-        <span class="dashboard-card-identity">${info.emcomIdentity ? info.emcomIdentity : info.command}</span>
-        <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
+        <span class="dashboard-card-meta">
+          ${identity}
+          ${cost}
+          <span class="dashboard-card-status ${info.status}">${info.status}</span>
+          <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
+        </span>
       </div>
-      <div class="dashboard-card-preview" id="preview-${CSS.escape(name)}">Loading...</div>
+      <div class="dashboard-card-preview" id="preview-${CSS.escape(name)}">...</div>
     `;
     card.onclick = () => focusExistingSession(name);
-    dash.appendChild(card);
+    cardsGrid.appendChild(card);
     loadSnapshot(name);
   }
 }
@@ -2649,89 +2671,65 @@ async function loadSnapshot(sessionName) {
   } catch {}
 }
 
-// ===== Diagnostics =====
+// ===== Dashboard Stats (inline) =====
 
-function renderDiag() {
-  if (!state.isDiag) return;
-  const area = document.getElementById("workspace-area");
+function renderDashboardStats() {
+  if (!state.isDashboard) return;
+  const container = document.getElementById("dashboard-stats");
+  if (!container) return;
 
-  let container = area.querySelector(".diag-view");
-  if (!container) {
-    area.innerHTML = "";
-    container = document.createElement("div");
-    container.className = "diag-view";
-    area.appendChild(container);
-  }
+  fetch("/api/stats").then((r) => r.json()).then((stats) => {
+    if (!state.isDashboard) return;
 
-  Promise.all([
-    fetch("/api/stats").then((r) => r.json()),
-    fetch("/api/costs").then((r) => r.json()).catch(() => null),
-  ]).then(([stats, costs]) => {
-      if (!state.isDiag) return;
+    const allSessions = [...state.sessions.values()];
+    const totalCostVal = allSessions.reduce((sum, s) => sum + (s.costUsd || 0), 0);
+    const costRows = allSessions.length
+      ? allSessions.map((s) => `<tr>
+            <td class="diag-name">${s.name}</td>
+            <td class="diag-cost">$${(s.costUsd || 0).toFixed(2)}</td>
+          </tr>`).join("") +
+        `<tr class="diag-cost-total"><td>Total</td><td class="diag-cost">$${totalCostVal.toFixed(2)}</td></tr>`
+      : `<tr><td colspan="2" class="diag-empty">No sessions</td></tr>`;
 
-      // Build cost/model rows from live session state (has hookData)
-      const liveSessions = [...state.sessions.values()].filter(s => s.costUsd > 0 || s.hookData);
-      const costRows = liveSessions.length
-        ? liveSessions.map((s) => {
-            const h = s.hookData;
-            const model = h?.modelId ? `<span class="diag-model">${h.modelId}</span>` : "";
-            const tokens = h ? `<span class="diag-tokens">${h.usedPct.toFixed(0)}% ctx · ${(h.tokensIn/1000).toFixed(0)}k in · ${(h.tokensOut/1000).toFixed(0)}k out</span>` : "";
-            return `<tr>
-              <td class="diag-name">${s.name}${model}</td>
-              <td>${tokens}</td>
-              <td class="diag-cost">$${s.costUsd.toFixed(2)}</td>
-            </tr>`;
-          }).join("") +
-          (() => { const t = liveSessions.reduce((sum, s) => sum + s.costUsd, 0); return t > 0 ? `<tr class="diag-cost-total"><td colspan="2">Total</td><td class="diag-cost">$${t.toFixed(2)}</td></tr>` : ""; })()
-        : `<tr><td colspan="3" class="diag-empty">No cost data yet</td></tr>`;
-
-      container.innerHTML = `
-        <div class="diag-header">
-          <span class="diag-title">DIAGNOSTICS</span>
-          <span class="diag-subtitle">Rolling 5s averages · auto-refresh 5s</span>
-        </div>
-        <div class="diag-section-title">Session Stats</div>
-        <table class="diag-table">
-          <thead>
-            <tr>
-              <th>Session</th>
-              <th>Status</th>
-              <th colspan="3">Busy</th>
-              <th colspan="3">Not Busy</th>
-            </tr>
-            <tr>
-              <th></th><th></th>
-              <th>cb/s</th><th>KB/s</th><th>avg b</th>
-              <th>cb/s</th><th>KB/s</th><th>avg b</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${stats.length === 0 ? '<tr><td colspan="8" class="diag-empty">No active sessions</td></tr>' :
-              stats.map((s) => {
-                const hot = s.busy.callbacksPerSec > 100;
-                return `<tr class="${hot ? "diag-hot" : ""}">
-                  <td class="diag-name">${s.name}</td>
-                  <td class="diag-status ${s.status}">${s.status}</td>
-                  <td class="${hot ? "diag-hot-val" : ""}">${s.busy.callbacksPerSec}</td>
-                  <td>${(s.busy.bytesPerSec / 1024).toFixed(1)}</td>
-                  <td>${s.busy.avgChunkBytes}</td>
-                  <td>${s.notBusy.callbacksPerSec}</td>
-                  <td>${(s.notBusy.bytesPerSec / 1024).toFixed(1)}</td>
-                  <td>${s.notBusy.avgChunkBytes}</td>
-                </tr>`;
-              }).join("")}
-          </tbody>
-        </table>
-        <div class="diag-section-title">Session Costs</div>
-        <table class="diag-table diag-cost-table">
-          <thead><tr><th>Session</th><th>Tokens</th><th>Cost (USD)</th></tr></thead>
-          <tbody>${costRows}</tbody>
-        </table>`;
-    })
-    .catch(() => {
-      if (!state.isDiag) return;
-      container.innerHTML = `<div class="diag-header"><span class="diag-title">DIAGNOSTICS</span></div><div class="diag-empty">Failed to load stats</div>`;
-    });
+    container.innerHTML = `
+      <div class="diag-section-title">Session Stats</div>
+      <table class="diag-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Status</th>
+            <th colspan="3">Busy</th>
+            <th colspan="3">Not Busy</th>
+          </tr>
+          <tr>
+            <th></th><th></th>
+            <th>cb/s</th><th>KB/s</th><th>avg b</th>
+            <th>cb/s</th><th>KB/s</th><th>avg b</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${stats.length === 0 ? '<tr><td colspan="8" class="diag-empty">No active sessions</td></tr>' :
+            stats.map((s) => {
+              const hot = s.busy.callbacksPerSec > 100;
+              return `<tr class="${hot ? "diag-hot" : ""}">
+                <td class="diag-name">${s.name}</td>
+                <td class="diag-status ${s.status}">${s.status}</td>
+                <td class="${hot ? "diag-hot-val" : ""}">${s.busy.callbacksPerSec}</td>
+                <td>${(s.busy.bytesPerSec / 1024).toFixed(1)}</td>
+                <td>${s.busy.avgChunkBytes}</td>
+                <td>${s.notBusy.callbacksPerSec}</td>
+                <td>${(s.notBusy.bytesPerSec / 1024).toFixed(1)}</td>
+                <td>${s.notBusy.avgChunkBytes}</td>
+              </tr>`;
+            }).join("")}
+        </tbody>
+      </table>
+      <div class="diag-section-title">Session Costs</div>
+      <table class="diag-table diag-cost-table">
+        <thead><tr><th>Session</th><th>Cost (USD)</th></tr></thead>
+        <tbody>${costRows}</tbody>
+      </table>`;
+  }).catch(() => {});
 }
 
 // ===== Modal =====

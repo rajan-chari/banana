@@ -70,19 +70,6 @@ export interface SessionStats {
   notBusy: StatsBucket;
 }
 
-export interface HookData {
-  costUsd: number;
-  totalDurationMs: number;
-  modelId: string;
-  modelDisplayName: string;
-  tokensIn: number;
-  tokensOut: number;
-  contextWindowSize: number;
-  usedPct: number;
-  sessionId: string;
-  exceeds200k: boolean;
-}
-
 export interface SessionInfo {
   name: string;
   group: string;
@@ -94,7 +81,6 @@ export interface SessionInfo {
   unreadCount: number;
   dirtyOnExit: boolean;
   costUsd: number;
-  hookData?: HookData;
 }
 
 const INJECTION_PROMPT = "[pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
@@ -157,7 +143,6 @@ export class PtySession extends EventEmitter {
   private mlQueryInFlight = false;
   private dataEvents: DataEvent[] = [];
   costUsd = 0;
-  hookData: HookData | undefined = undefined;
   readonly name: string;
   readonly command: string;
   readonly workingDir: string;
@@ -225,7 +210,7 @@ export class PtySession extends EventEmitter {
     }
 
     // Wire PTY output
-    const costRegexLive = /\$(\d+\.\d+)\s+\d+m?s/;       // live status bar
+    const costRegexLive = /\$(\d+\.\d+)\s+\d+m\d*s/;      // live status bar ($9.97 2m34s or $0.50 553ms)
     const costRegexExit = /Total cost:\s+\$(\d+\.\d+)/;  // exit summary
 
     this.ptyProcess.onData((data) => {
@@ -310,8 +295,7 @@ export class PtySession extends EventEmitter {
       emcomIdentity: this.config.emcomIdentity,
       unreadCount: this.unreadCount,
       dirtyOnExit: this.dirtyOnExit,
-      costUsd: this.hookData?.costUsd ?? this.costUsd,
-      hookData: this.hookData,
+      costUsd: this.costUsd,
     };
   }
 
