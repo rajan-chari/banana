@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-01 05:13
+Last updated: 2026-04-01 11:35
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,15 +13,14 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-01 05:12 — Per-session cost tracking shipped (regex on PTY stream, costs.json persistence, dashboard display)
-- 2026-04-01 04:22 — Add Root button moved to Folders header
-- 2026-04-01 02:30 — fellow-agents starter kit pushed (5 commits, all tasks done)
-- 2026-04-01 01:40 — Focused pane border → orange (#d4882a)
-- 2026-03-31 18:30 — Ported 3 features to pty-cld: checkpoint, resume kick, dynamic identity
-- 2026-03-31 — 6 pty-win UI items shipped (AI preset label, highlight, VS Code btn, resume, identity click, VS Code left)
+- 2026-04-01 11:33 — Status bar JSON hook implemented (model, tokens, cost via settings.local.json + /api/hook/status-line)
+- 2026-04-01 11:20 — Jade onboarded (claude-code-src analyst). First task: status bar format investigation.
+- 2026-04-01 11:00 — Cost regex improved + ~/.claude.json path identified
+- 2026-04-01 05:12 — Per-session cost tracking (regex + costs.json), moved to Diag tab
+- 2026-04-01 04:22 — Add Root to Folders header, orange pane border, fellow-agents kit
 
 ## Next Up
-- pty-cld: add `force-idle` subcommand (pending Rajan's confirmation)
-- pty-cld changes not yet committed (3 features + build)
-- Waiting for new pty-win requests from Rajan
-- Phase 8: Polish & Hardening (banana project)
+- Status bar hook: needs server restart to activate
+- Rajan's settings.json statusLine takes priority over hook (expected behavior)
+- pty-cld: add force-idle subcommand (pending Rajan's confirmation)
+- Jade: available for next investigation task
