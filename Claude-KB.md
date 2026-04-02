@@ -37,6 +37,7 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **2026-03-28:** skl2onnx doesn't support `TfidfVectorizer(analyzer='char_wb')` — only `'word'`. Accuracy impact minimal.
 - **2026-04-01:** Status bar hook doesn't work with multiple pty-win instances — POST goes to one hardcoded port. Regex scraping works per-instance.
 - **2026-04-01:** Claude Code exit summary only prints if hasConsoleBillingAccess() (API users, not subscribers).
+- **2026-04-02:** UI border color alone can't create pane separation on dark backgrounds — gray just looks like a lighter background. Need three things together: physical gap (gutter), distinct hue (steel-blue #3d5a6a, not gray), and sufficient width (2px). Topbar dimming (bg + text muting) is more effective than border tweaks for focus distinction.
 
 ## Decisions
 

@@ -19,7 +19,9 @@ Last updated: 2026-03-31
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
-| 2026-04-02 | PID file idle detection investigation | BG_SESSIONS off — blocked. PID files useful for session discovery. Upgrade path documented. |
+| 2026-04-02 | Dashboard polish: text, clickable rows, merged table, collapsible cards | 4 items shipped |
+| 2026-04-02 | Pane separation: gap + 2px border + dimmed topbar + bg contrast | Multiple iterations — gray→steel-blue, 1px→4px gap, dimmed topbar |
+| 2026-04-02 | PID file idle detection investigation | BG_SESSIONS off — blocked. Upgrade path documented in Claude-KB.md |
 | 2026-04-02 | Claude-KB.md restructured to 4 sections | Own KB + team-manual updated. CLAUDE.md debugging rule added. |
 | 2026-04-02 | Claude-KB.md expanded to 4 sections | team-manual.md updated, sent to sam |
 | 2026-04-02 | Context-independence rule + checkpoint prompt update | team-manual.md + injection prompts |
