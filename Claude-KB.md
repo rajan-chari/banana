@@ -1,161 +1,65 @@
-# Claude Knowledge Base — Banana (Local-First LLM Assistant)
+# Claude Knowledge Base — Banana
 
-Living reference for Claude Code sessions. Update this file whenever a new error is encountered and resolved, a workaround is discovered, or a step behaves differently than expected.
+Living reference for Claude Code sessions. Update when you discover, decide, or question something a fresh session would need.
 
 ## Prerequisite Checks
-
-Run these to verify the environment is ready. If any fail, see the fix column.
 
 | Check | Command | Expected | Fix |
 |-------|---------|----------|-----|
 | Python | `python --version` | 3.10+ | Install Python 3.10+ |
 | Venv exists | `ls python/.venv/Scripts/activate` | File exists | `cd python && python -m venv .venv` |
-| Packages installed | `cd python && source .venv/Scripts/activate && pip show microsoft-teams-ai` | Shows version | `cd python && source .venv/Scripts/activate && pip install -e ".[dev]"` |
-| agcom CLI | `cd python && source .venv/Scripts/activate && agcom --help` | Shows usage | Re-install: `pip install -e ".[dev]"` |
-| agcom-api server | `curl http://localhost:8700/api/health` | `{"status":"ok"}` | Start: `cd python && source .venv/Scripts/activate && agcom-api` |
-| assistant | `cd python && source .venv/Scripts/activate && my-assist --help` | Shows usage | Re-install: `pip install -e ".[dev]"` |
-| agent-team CLI | `cd python && source .venv/Scripts/activate && agent-team --help` | Shows usage | Re-install: `pip install -e ".[dev]"` |
-
-## Error Messages
-
-Keyed by error text for searchability. Add new entries as they're encountered.
-
-### GPT-5.2 infinite tool call loops
-
-- **When:** Using GPT-5.2 with structured output + tools via PydanticAI
-- **Cause:** GPT-5.2 has a known bug with structured output combined with tool calls — enters infinite loop
-- **Fix:** Switch to GPT-5.1, GPT-4o, or o3-mini. Don't fight this — it's an upstream issue.
-
-### "Tool execution failed: ..." causes LLM retry loops
-
-- **When:** A tool returns an error string starting with "Tool execution failed"
-- **Cause:** LLMs interpret vague error messages as transient and retry. A short error string gives the LLM no signal that the failure is permanent.
-- **Fix:** Return full tracebacks with clear permanent error indicators. The LLM will stop retrying when it sees the error is structural, not transient.
-
-### `.env` changes not visible to parent process
-
-- **When:** A tool modifies `.env` in a subprocess, but the assistant doesn't see the new values
-- **Cause:** Tools run in subprocesses. Environment changes in a child process don't propagate to the parent.
-- **Fix:** After `.env` is modified, the parent process must call `load_dotenv(override=True)` to reload.
-
-### Stale connections after DB deletion
-
-- **When:** Deleting a SQLite database file while agcom-api is running, then operations fail
-- **Cause:** The server holds open connections to the old database file
-- **Fix:** Restart the server after deleting/recreating the database.
-
-### Unit tests pass but integration is broken
-
-- **When:** Individual functions work but the composed pipeline fails
-- **Cause:** Orchestration wiring bug — the conditional that connects function A's output to function B's input is wrong
-- **Fix:** Test the composition explicitly. Check that `if helper_returns_true(): do_important_thing()` actually triggers when expected. See session log 2026-01-26.
+| Packages installed | `cd python && source .venv/Scripts/activate && pip show microsoft-teams-ai` | Shows version | `pip install -e ".[dev]"` |
+| agcom-api server | `curl http://localhost:8700/api/health` | `{"status":"ok"}` | Start: `agcom-api` |
 
 ## Diagnostic Commands
 
 ```bash
-# Activate venv (required before all commands)
 cd python && source .venv/Scripts/activate
-
-# Run all tests
-pytest tests/ -v
-
-# Run specific test file
-pytest tests/test_agcom_api.py -v
-
-# Check agcom-api health
-curl http://localhost:8700/api/health
-
-# Inspect SQLite database
-python query_db.py "SELECT * FROM messages LIMIT 5"
-
-# Check installed packages
-pip list | grep -i teams
-
-# Start agcom-api server
-agcom-api
-
-# Start agent team (requires agcom-api running)
-agent-team start
-
-# Start assistant
-my-assist
+pytest tests/ -v                    # all tests
+agcom-api                           # messaging backend (:8700)
+agent-team start                    # 6 agents
+my-assist                           # assistant CLI
+python query_db.py "SELECT ..."     # inspect SQLite
 ```
-
-## Gotchas
-
-### Environment
-- **Chrome DevTools MCP port assignments**: Port 3600 = Rajan's session (rajan-private), Port 3601 = milo's session (banana). Always use `http://localhost:3601` for pty-win UI verification.
-- **Chrome DevTools MCP goes stale after session restart**: Connection errors ("browser already running") after `/exit` + resume. Falls back to code-level verification (Read/Grep on app.js/style.css) when MCP is unavailable.
-- **`os.kill(pid, 0)` doesn't work on Windows**: Always returns `OSError`, even for running processes. Use `tasklist /FI "PID eq {pid}"` instead. See `cli.py:_is_process_running()`.
-- **Workspace root vs Python dir**: Docs (`CLAUDE.md`, `progress.md`, `specs.md`) are in `banana/`. All code is in `banana/python/`. Always `cd python` before running Python commands.
-- **Venv activation is mandatory**: Every bash session must `source .venv/Scripts/activate` before running any Python command. Forgetting this causes `ModuleNotFoundError`.
-- **Claude Code Bash tool uses Git Bash, not PowerShell**: Write bash syntax, not PowerShell. The user's terminal is PowerShell, but Claude's Bash tool is `/usr/bin/bash`.
-- **`.claude/settings.local.json` is user-specific**: Already in `.gitignore`. Never commit it.
-- **agcom-api default port is 8700**: Not 8000. Check `python/agcom_api/main.py` if unsure.
-- **Config priority**: Environment variables > Markdown config > Defaults. Don't set values in markdown config if env vars are already set.
-- **`query_db.py` helper**: Use `python query_db.py "SELECT * FROM table"` to inspect SQLite databases.
-- **httpx + localhost on Windows is slow (~2s per request)**: httpx tries IPv6 DNS for "localhost" first. Use `127.0.0.1` instead. This applies to any httpx client, not just emcom.
-- **emcom-server port is 8800**: Data in `~/.emcom/`. Start: `source emcom/.venv/Scripts/activate && emcom-server`.
-- **emcom identity is CWD-based**: `identity.json` lives in the working directory. Each agent folder gets its own identity. If CWD doesn't have identity.json (e.g. after running Python scripts in a subdir), use `emcom --identity <absolute-path-to-identity.json> <command>` — the `--identity` flag must come before the subcommand.
-- **argparse global flags before subcommand**: `emcom --identity foo.json inbox` works; `emcom inbox --identity foo.json` fails. Global args are on the main parser, not subparsers.
-- **emcom usernames are case-sensitive**: `emcom send --to rajan` fails ("not registered"), must use `--to Rajan` matching the exact registered name from `emcom who`.
-- **PyInstaller --onefile for emcom**: `pyinstaller --onefile --name emcom --console emcom/cli.py` produces a ~12M standalone exe. Clean up `dist/`, `build/`, `*.spec` after. User skill exes live at `~/.claude/skills/emcom/bin/`.
-- **PyInstaller + Windows cp1252 stdout**: PyInstaller freezes `sys.stdout` encoding to cp1252 on Windows, ignoring `PYTHONUTF8=1` env var. Fix: `sys.stdout.reconfigure(encoding="utf-8")` at top of `main()`. Without this, any Unicode char outside cp1252 (e.g. `→` U+2192) crashes with `UnicodeEncodeError`.
-- **SKILL.md must be explicit about autonomy**: Claude will ask the user to pick names, confirm actions, etc. unless SKILL.md says "choose yourself, don't ask". Be directive.
-
-### Code Style
-- **Check-then-act, not try-catch for flow control**: Project style prefers `if not exists(): create()` over `try: create() except AlreadyExists: pass`.
-- **Initialize resources at startup**: Databases, connections, etc. — fail fast on config errors.
-
-### LLM & PydanticAI
-- **PydanticAI Agent.override() doesn't support system_prompt**: Use message prefix `[CONTEXT: ...]` prepended to user message instead.
-- **UsageLimits are essential**: Always set `UsageLimits(tool_calls_limit=5)` when calling PydanticAI agents to prevent runaway loops.
-- **Simulate before integrating**: Create standalone test scripts that call the LLM directly. Much faster and cheaper than full bot test cycles.
-- **Mock tools first**: Use simple async functions returning canned responses to isolate LLM behavior from tool execution issues.
-- **Log tool calls and results**: Add logging in tool_bridge.py to see exactly what the LLM sends and receives.
-
-### Multi-Agent
-- **Loop prevention**: Only hard rule — don't delegate back to whoever just responded. EM must enforce this.
-- **Runner validates code before execution**: Uses LLM to extract/clean code, then `ast.parse()` for syntax check before running.
-- **Trust the LLM**: Use natural prompts, not rigid control structures. Let the model decide routing/completion.
-- **Check quality at coordinator**: EM should verify results make sense, not just pass through.
-- **Clear failure signals**: `task_complete=False` tells coordinator to retry/reroute, not just report the error.
-
-### Testing Agents
-- **`AgentTestHarness`** (`tests/agent_harness.py`): Creates real agent instances with real LLM calls, stubs only `_client` (agcom transport). Call `inject()` to feed messages directly to `process_message()` — no server needed.
-- **LLM judge for semantic assertions**: `judge(response_text, criterion)` uses gpt-5.1 to evaluate natural language responses. Use for content quality; use structural assertions for deterministic fields (`result is None`, `task.status == "completed"`).
-- **LLM judge can be overly strict**: If the judge returns False on reasonable responses, switch to deterministic keyword checks. The `test_runner_status_update` test hit this — Runner's system prompt influences LLM to echo "no executable code found" even through the fix-5 fallback path, which confused the judge.
-- **Runner system prompt tension**: The system prompt says `report: "No executable code found - received description only."` but fix 5 in `process_message` routes non-code messages to the LLM for contextual responses. The LLM still echoes the system prompt's canned phrasing. If this matters, update the system prompt to remove the canned response template.
-
-### Documentation
-- **No status snapshot files**: Don't create `*_COMPLETE.md` — put completion info in `progress.md` session logs.
-- **Consolidate aggressively**: Fewer files = less drift, easier maintenance.
-
-### SQLite Performance
-- **Write throughput**: ~24.5 messages/second sequential (tested with 50 messages).
-- **Concurrent reads**: 15+ simultaneous reads, no blocking (WAL mode).
-- **Single writer at a time**: SQLite architecture constraint. Writers serialized by `BEGIN IMMEDIATE`.
-- **Key settings**: `PRAGMA journal_mode=WAL`, `PRAGMA busy_timeout=5000`, `PRAGMA foreign_keys=ON`.
-- **Connection per request**: Avoids connection sharing issues in FastAPI.
-- **Write queue not needed**: Prototyped (`agcom_api/write_queue.py`) but SQLite+WAL handles current load. Code exists but is commented out in `main.py`.
 
 ## Lessons Learned
 
-Add entries here as sessions uncover new knowledge. Format: `- **YYYY-MM-DD:** <what was learned>`
+- **2026-01-26:** Unit tests can pass while integration wiring is broken. Bug was in `app.py` orchestration — `register_assistant_in_backend()` only called when tools returned True. Lesson: test the composition, not just the parts.
+- **2026-01-25:** PydanticAI 1.46 changed API surface. Pin versions or check changelogs before upgrading.
+- **2026-01-27:** Multi-agent design works best with natural LLM prompts, not rigid if/else routing. Only hard rule: prevent delegation loops.
+- **2026-02-18:** On-load instructions must be the very first section in CLAUDE.md or they get skipped.
+- **2026-02-21:** EM loses error context in coder→runner→coder loops — forwards "no code found" instead of the actual traceback. Fix: on runner failure, immediately route to coder with full error.
+- **2026-02-21:** ISO timestamp string comparison is unreliable (`+00:00` vs `.000Z`). Always compare `new Date()` objects.
+- **2026-02-21:** Never truncate agent message bodies when debugging. Truncation led to wrong conclusion about EM forwarding.
+- **2026-02-21:** Coordinator agents must always return None from team response handlers — a fallthrough `return response` creates noise messages.
+- **2026-03-25:** emcom `--cc` flag doesn't accept comma-separated lists. Send separately.
+- **2026-03-25:** Skills `rc-session-save` and `rc-greet-save` fail with `disable-model-invocation`. Only `rc-save` works.
+- **2026-03-28:** skl2onnx doesn't support `TfidfVectorizer(analyzer='char_wb')` — only `'word'`. Accuracy impact minimal.
+- **2026-04-01:** Status bar hook doesn't work with multiple pty-win instances — POST goes to one hardcoded port. Regex scraping works per-instance.
+- **2026-04-01:** Claude Code exit summary only prints if hasConsoleBillingAccess() (API users, not subscribers).
 
-- **2026-01-26:** Unit tests can pass while integration wiring is broken. The bug was in `app.py`'s orchestration — `register_assistant_in_backend()` was only called when `try_register_agcom_tools_if_configured()` returned True, but tools loaded from storage return False. Fix: call registration unconditionally when identity is newly configured. Lesson: test the composition, not just the parts.
-- **2026-01-25:** PydanticAI 1.46 changed API surface for config. Fixed in `assistant/llm/config.py`. Lesson: pin versions or check changelogs before upgrading.
-- **2026-01-27:** Multi-agent design works best with natural LLM prompts and minimal control structures. Rigid if/else routing is fragile. Trust the model's judgment for routing decisions. Only hard rule needed: prevent delegation loops.
-- **2026-01-27:** Runner agent should validate code syntax with `ast.parse()` before execution. LLM-extracted code sometimes has markdown artifacts or truncation issues. Catching these before subprocess execution gives clearer error messages.
-- **2026-02-18:** Added session management system (CLAUDE.md on-load section, Claude-KB.md, LOG.md). Pattern adapted from fellow_scholars/teams-e2e project. Key insight from that project: on-load instructions must be the very first section in CLAUDE.md or they get skipped. Self-improvement must be continuous (inline), not deferred to end-of-session.
-- **2026-02-21:** EM agent loses error context during coder→runner→coder loops. When runner fails, EM sends status messages to runner instead of immediately routing the error to coder. Then EM's "Previous work" context includes runner's "no code found" reply (to the status message) instead of the actual traceback. Coder can't learn from the failure and repeats the same approach. Fix needed: on runner failure, immediately route to coder with the full error traceback.
-- **2026-02-21:** ISO timestamp string comparison is unreliable across formats. API returns `+00:00`, JS `toISOString()` returns `.000Z`. ASCII value of `+` (43) < `.` (46) so string comparison silently filters out all matches. Always compare `new Date()` objects, never raw ISO strings.
-- **2026-02-21:** When analyzing agent message logs, never truncate message bodies. Truncation led to a wrong conclusion that EM wasn't forwarding code to runner (it was — the code was in a "Previous work" section past the truncation point). Read full data before drawing conclusions.
-- **2026-02-21:** Base agent's `_handle_message` sends any non-None return from `process_message` back to the sender. Coordinator agents like EM must ALWAYS return None from team response handlers — all communication goes through explicit `_delegate_task`/`_report_completion`/`_send_progress_update`. A fallthrough `return response` creates noise messages to team members.
-- **2026-02-21:** Store agent results as lists (append), not single values (overwrite). When runner sends noise replies, the real error traceback gets lost if results is `dict[str, str]`. Changed to `dict[str, list[str]]` and use `[-1]` for latest.
-- **2026-03-25:** emcom `--cc` flag does not accept comma-separated recipient lists (e.g. `--cc a,b,c` fails with "not registered"). Send to primary recipient only, or use separate sends for CC'd recipients.
-- **2026-03-25:** Skills `rc-session-save` and `rc-greet-save` fail with `disable-model-invocation`. Only `rc-save` works. Don't waste turns invoking disabled skills — acknowledge and move on.
-- **2026-03-28:** skl2onnx does not support `TfidfVectorizer(analyzer='char_wb')` — raises `NotImplementedError`. Only `analyzer='word'` is supported. For ONNX export, retrain with word tokenizer; accuracy impact is minimal (busy recall unchanged at 1.00, overall accuracy 0.98).
-- **2026-03-28:** skl2onnx `output_probability` is a `seq(map(string, float))` — a list of dicts keyed by label name, not an array. Access via `result['output_probability'].data[0]['busy']`, not by index. Important for onnxruntime-node consumers.
-- **2026-04-01:** Claude Code statusLine is user-configurable (settings.statusLine.command), not hardcoded. The command receives rich JSON on stdin (cost, model, tokens, rate limits). Settings priority: userSettings (~/.claude/settings.json) > projectSettings (.claude/settings.json) > localSettings (.claude/settings.local.json). A hook approach writing to localSettings will be overridden by global settings.
-- **2026-04-01:** Status bar hook approach doesn't work with multiple pty-win instances — the POST goes to one hardcoded port but sessions span multiple instances. Regex scraping of PTY output works per-instance. Use both: live regex `/\$(\d+\.\d+)\s+\d+m\d*s/` for during-session, exit regex `/Total cost:\s+\$(\d+\.\d+)/` for process exit. The exit summary only prints if hasConsoleBillingAccess() (API users, not subscribers).
+## Decisions
+
+- **2026-04-01:** Chose regex scraping over status bar JSON hook for cost tracking because Rajan runs multiple pty-win instances on different ports. Hook required hardcoded port routing; regex scrapes each instance's own PTY streams with no cross-instance coordination.
+- **2026-04-01:** Chose to revert hook machinery entirely (removed endpoint, hookData, settings.local.json write) rather than keeping it as a fallback. Simpler to maintain one approach than two parallel paths.
+- **2026-03-31:** Chose to copy pty-win dist/ directly into fellow-agents rather than using git submodules. Self-contained repo is simpler for a "clone and go" experience.
+
+## Facts
+
+- **Claude Code statusLine** is user-configurable via `settings.statusLine.command`. Receives JSON on stdin with cost, model, tokens, rate limits. Settings priority: userSettings > projectSettings > localSettings.
+- **Claude Code cost persistence**: `~/.claude.json` keyed by project path. Keys: lastCost (float), lastTotalInputTokens, lastTotalOutputTokens, lastModelUsage, lastSessionId. --resume adds previous cost to running total (matched by sessionId).
+- **cost.total_duration_ms** = wall-clock time since session start. total_api_duration_ms = cumulative API wait time (with retries). Difference = idle + tool execution + local processing.
+- **formatCost()**: cost > $0.50 → 2 decimal places, cost ≤ $0.50 → 4 decimal places.
+- **emcom binaries**: emcom.exe is C# AOT native (5.8MB), emcom-server.exe is Python/PyInstaller (27MB), emcom-tui.exe is Python/PyInstaller (22MB). All in `~/.claude/skills/emcom/bin/`.
+- **Chrome DevTools MCP ports**: 3600 = Rajan's session, 3601 = milo's session. MCP goes stale after session restart.
+- **emcom usernames are case-sensitive**: `--to rajan` fails, `--to Rajan` works.
+- **httpx + localhost on Windows**: ~2s penalty per request due to IPv6 DNS. Use `127.0.0.1` instead.
+- **agcom-api port is 8700**, emcom-server port is 8800.
+- **SQLite**: ~24.5 msg/s write, 15+ concurrent reads (WAL mode). Write queue not needed at current load.
+
+## Open Questions
+
+- **Detach/reattach**: Rajan ideated closing a pane but keeping the PTY alive, then reattaching (browser or pty-cld). Architecture sketched (pty-win as process manager, multiple viewers via WebSocket) but not confirmed for implementation.
+- **pty-cld force-idle subcommand**: Rajan expressed interest but hasn't confirmed. Would read .pty-cld-port from CWD and POST /idle.
+- **EM coordination efficiency**: 5 bugs fixed (2026-02-21) but not re-tested end-to-end. Target: 36 msgs → ~8-10 for a simple task.
+- **fellow-agents end-to-end test**: Built and pushed but nobody has run `./start.ps1` from a fresh clone yet.
