@@ -1,14 +1,20 @@
 # Briefing
-Last updated: 2026-04-02 08:28
+Last updated: 2026-04-02 14:45
 
 ## Current Focus
-Idle. All recent work committed (`7be89d0`). One small TS change pending restart (context-independence reminder in checkpoint/shutdown prompts).
+UI polish sprint via milo. Dashboard redesign iteration + pane visual separation.
 
 ## Don't Forget
 - Server restart needed — TS changes since last restart: hook removed, regex fix, force-idle log, cost tracking, context-independence prompt text
 - Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top)
 
 ## Recent
+### 2026-04-02 14:40 — Pane visual separation (3 iterations)
+Unfocused pane border iterated: #505050 → #666 → #3d5a6a (steel-blue). Now 2px border + 2px margin gap + dimmed topbar (#252525 bg, #777 text). Focused: 2px orange, #1e1e1e bg, bright topbar. Unfocused: #1a1a1a bg. Goal: instantly see pane boundaries.
+
+### 2026-04-02 14:21 — Dashboard polish: merged table, collapsible cards, clickable rows
+Stats + costs merged into one table (Session|Status|Cost|cb/s|KB/s). Table text brightened to #ccc. Clicking a row focuses that session's pane. Cards section collapsible with "Workspaces (N)" toggle, state in localStorage. All sessions now show cost ($0.00 if none yet).
+
 ### 2026-04-02 10:00 — Context-independence reminder in prompts
 Appended "Write entries assuming a fresh session reads them" to checkpoint light, full, and shutdown injection prompts. TS change, needs rebuild+restart.
 
