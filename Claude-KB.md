@@ -56,9 +56,14 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **httpx + localhost on Windows**: ~2s penalty per request due to IPv6 DNS. Use `127.0.0.1` instead.
 - **agcom-api port is 8700**, emcom-server port is 8800.
 - **SQLite**: ~24.5 msg/s write, 15+ concurrent reads (WAL mode). Write queue not needed at current load.
+- **Claude Code PID file**: `~/.claude/sessions/<pid>.json` updated on every state transition. Contains `status: 'idle'|'busy'|'waiting'` + `waitingFor` detail. File-watchable via `fs.watch`. This is what `claude ps` uses. More reliable than any heuristic for idle detection.
+- **Claude Code sessionStatus**: Explicit state machine — `idle` (waiting for input), `busy` (API streaming / tool execution), `waiting` (permission prompt / elicitation dialog). Computed in REPL.tsx.
+- **Claude Code Notification hook**: Fires on `idle_prompt` (60s after query completion), `permission_prompt` (6s after render), `elicitation_dialog` (6s). Hook stdin JSON includes `notification_type` field. Idle timeout configurable via `messageIdleNotifThresholdMs` in config.
+- **Claude Code idle-return dialog**: Triggers on user input submission (not timer) when idle > 75min AND > 100K tokens. Configurable via env: `CLAUDE_CODE_IDLE_THRESHOLD_MINUTES`, `CLAUDE_CODE_IDLE_TOKEN_THRESHOLD`.
 
 ## Open Questions
 
+- **PID file idle detection for pty-win/pty-cld**: Could replace heuristic stack (screen detection, quiet thresholds, regex) with `fs.watch` on `~/.claude/sessions/<pid>.json`. Need PID file schema from jade before speccing. Would work per-instance (no port routing issues like the hook approach).
 - **Detach/reattach**: Rajan ideated closing a pane but keeping the PTY alive, then reattaching (browser or pty-cld). Architecture sketched (pty-win as process manager, multiple viewers via WebSocket) but not confirmed for implementation.
 - **pty-cld force-idle subcommand**: Rajan expressed interest but hasn't confirmed. Would read .pty-cld-port from CWD and POST /idle.
 - **EM coordination efficiency**: 5 bugs fixed (2026-02-21) but not re-tested end-to-end. Target: 36 msgs → ~8-10 for a simple task.
