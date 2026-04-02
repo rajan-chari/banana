@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-01 12:00
+Last updated: 2026-04-02 12:29
 
 ## Current Focus
 Pipeline complete and deployed. ONNX inference live in pty-win (pending restart). Idle.
