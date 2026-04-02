@@ -63,7 +63,7 @@ python query_db.py "SELECT ..."     # inspect SQLite
 
 ## Open Questions
 
-- **PID file idle detection for pty-win/pty-cld**: Could replace heuristic stack (screen detection, quiet thresholds, regex) with `fs.watch` on `~/.claude/sessions/<pid>.json`. Need PID file schema from jade before speccing. Would work per-instance (no port routing issues like the hook approach).
+- **PID file idle detection for pty-win/pty-cld**: Blocked — BG_SESSIONS feature flag is OFF in current Claude Code builds (compile-time, not toggleable). PID files exist but lack status/waitingFor fields. When Anthropic ships BG_SESSIONS, add `fs.watch` on `~/.claude/sessions/<pid>.json`. Detection: if any PID file has `status` field, the flag is on. Until then, heuristics work fine.
 - **Detach/reattach**: Rajan ideated closing a pane but keeping the PTY alive, then reattaching (browser or pty-cld). Architecture sketched (pty-win as process manager, multiple viewers via WebSocket) but not confirmed for implementation.
 - **pty-cld force-idle subcommand**: Rajan expressed interest but hasn't confirmed. Would read .pty-cld-port from CWD and POST /idle.
 - **EM coordination efficiency**: 5 bugs fixed (2026-02-21) but not re-tested end-to-end. Target: 36 msgs → ~8-10 for a simple task.
