@@ -40,6 +40,7 @@ Do these **as they happen** — there is no end-of-session hook, so never defer 
 - **Be terse** — tables over paragraphs, state what you did, not why it's important.
 - **Ask, don't guess** — if direction is ambiguous, ask for clarification.
 - **Evidence over speculation** — test hypotheses, create minimal repro cases.
+- **Debug by reading, not guessing** — when two values disagree, trace both code paths before proposing a fix.
 - **Root causes, not symptoms** — understand *why* before fixing.
 - **Quick pivots** — if something's broken, move on. Don't fight lost causes.
 - **Simplicity wins** — working beats elegant. Don't over-engineer.
