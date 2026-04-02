@@ -4,7 +4,7 @@ Last updated: 2026-04-02 milestone
 
 ## Current Focus
 
-Implemented 5 CLI UX improvements in emcomcs (C# source). Awaiting AOT exe rebuild to deploy.
+5 CLI UX improvements implemented, AOT-rebuilt, and deployed. All live.
 
 ## Don't Forget
 

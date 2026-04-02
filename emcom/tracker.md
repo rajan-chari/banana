@@ -7,7 +7,7 @@ Last updated: 2026-03-30
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win: force-not-busy context menu | Not started | frost | Rajan wants right-click "force not busy" on session entries. Check if commit `8f0340c` already covers this. |
-| emcom CLI UX: AOT exe rebuild | Pending | frost | 5 CLI features implemented in C# source. Need AOT rebuild to update `~/.claude/skills/emcom/bin/emcom.exe`. Stop server first (Windows file lock). |
+| emcom CLI UX: AOT exe rebuild | Done | frost | Rebuilt and deployed to `~/.claude/skills/emcom/bin/emcom.exe`. Smoke-tested. |
 
 ## Watching
 
