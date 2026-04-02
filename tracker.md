@@ -4,7 +4,7 @@ Last updated: 2026-03-31
 ## In Motion
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
-| pty-win server restart | Rajan | Cost regex, merged dashboard, unfocused border, hook revert |
+| pty-win server restart | Rajan | Cost regex, merged dashboard, unfocused border, hook revert, checkpoint prompts |
 | Next pty-win item | Not started | milo→moss | Waiting for new requests |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 
@@ -19,6 +19,8 @@ Last updated: 2026-03-31
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-02 | Claude-KB.md expanded to 4 sections | team-manual.md updated, sent to sam |
+| 2026-04-02 | Context-independence rule + checkpoint prompt update | team-manual.md + injection prompts |
 | 2026-04-01 | Unfocused pane border + merged Dashboard/Diag | #505050 border, single combined tab |
 | 2026-04-01 | Cost tracking reverted to regex scraping | Hook removed, dual regex (live + exit), works multi-instance |
 | 2026-04-01 | jade onboarding | claude-code-src analyst, first task complete, cleared for next task |
