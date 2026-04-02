@@ -4,7 +4,7 @@ Last updated: 2026-04-02 milestone
 
 ## Current Focus
 
-5 CLI UX improvements implemented, AOT-rebuilt, and deployed. All live.
+Shipped 10 CLI improvements in 2 batches (commits `4b7b8e7`, `6f1e449`). AOT binary deployed. Feature announcement sent via milo. Waiting on Rajan approval for emcom-server restart (case-insensitive name lookup needs server-side binary update).
 
 ## Don't Forget
 
@@ -13,7 +13,10 @@ Last updated: 2026-04-02 milestone
 
 ## Recent
 
-### 2026-04-02 — Implemented 5 CLI UX improvements
+### 2026-04-02 — Shipped batch 2 + feature announcement
+Batch 2 (commit `6f1e449`): case-insensitive identity lookup (server-side COLLATE NOCASE), emcom status command, inbox --from/--subject/--since filters, CC comma-separated fix, body from stdin. AOT rebuilt and deployed. Also sent team-wide feature announcement via milo covering all existing + new features. Server restart still needed for case-insensitive names to take effect.
+
+### 2026-04-02 — Implemented 5 CLI UX improvements (batch 1)
 Milo relayed Rajan's request for CLI workflow improvements. Implemented in emcomcs C# source (Program.cs, Formatting.cs): (1) `inbox --full` shows bodies inline, (2) `read-all` reads all unread at once, (3) `tag` batch mode detects tag-first syntax, (4) `reply --handled` auto-tags after reply, (5) `check` combines inbox + read-all. Build passes, 66 tests pass. Binary exe not yet rebuilt — needs AOT publish.
 
 ### 2026-04-01 19:40 — Replied to Rajan check-in
