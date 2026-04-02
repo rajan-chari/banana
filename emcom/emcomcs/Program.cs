@@ -43,6 +43,9 @@ public static class Program
 
     private static EmcomClient MakeClient(string server, string identity) => new(identity, server);
 
+    /// <summary>Returns true if the string looks like a hex UUID prefix (used to distinguish email IDs from tag names).</summary>
+    private static bool IsHexPrefix(string s) => s.Length >= 4 && s.All(c => char.IsAsciiHexDigit(c) || c == '-');
+
     private static int Dispatch(List<string> args, string server, string identity)
     {
         var cmd = args[0];
@@ -84,7 +87,9 @@ public static class Program
             case "inbox":
             {
                 bool all = rest.Contains("--all") || rest.Contains("-a");
-                Console.WriteLine(Fmt.FormatInbox(c.Inbox(all)));
+                bool full = rest.Contains("--full") || rest.Contains("-f");
+                var emails = c.Inbox(all);
+                Console.WriteLine(full ? Fmt.FormatInboxFull(emails) : Fmt.FormatInbox(emails));
                 break;
             }
             case "read":
@@ -95,6 +100,19 @@ public static class Program
                     if (rest[i] == "--tag")
                         while (++i < rest.Count && !rest[i].StartsWith('-')) tags.Add(rest[i]);
                 Console.WriteLine(Fmt.FormatEmail(c.ReadEmail(rest[0], tags)));
+                break;
+            }
+            case "read-all":
+            {
+                var unread = c.Tagged("unread");
+                if (unread.Count == 0) { Console.WriteLine("No unread messages."); break; }
+                for (int i = 0; i < unread.Count; i++)
+                {
+                    if (i > 0) { Console.WriteLine(); Console.WriteLine("---"); Console.WriteLine(); }
+                    Console.Write(Fmt.FormatEmail(c.ReadEmail(unread[i].Id)));
+                }
+                Console.WriteLine();
+                Console.WriteLine($"Read {unread.Count} message(s).");
                 break;
             }
             case "send":
@@ -120,11 +138,17 @@ public static class Program
             {
                 if (rest.Count < 1) { Console.Error.WriteLine("Error: email ID required"); return 1; }
                 string emailId = rest[0]; string? body = null;
+                bool handled = rest.Contains("--handled") || rest.Contains("-h");
                 for (int i = 1; i < rest.Count; i++)
                     if ((rest[i] == "--body" || rest[i] == "-b") && i + 1 < rest.Count) body = rest[++i];
                 if (body == null) { Console.Error.WriteLine("Error: --body/-b required"); return 1; }
                 var email = c.Reply(emailId, body);
                 Console.WriteLine($"Replied [{Fmt.ShortId(email.Id)}] in thread {Fmt.ShortId(email.ThreadId)}");
+                if (handled)
+                {
+                    c.Tag(emailId, "handled");
+                    Console.WriteLine($"Tagged {Fmt.ShortId(emailId)} with: handled");
+                }
                 break;
             }
             case "thread":
@@ -145,8 +169,21 @@ public static class Program
             case "tag":
             {
                 if (rest.Count < 2) { Console.Error.WriteLine("Error: email ID and tag(s) required"); return 1; }
-                c.Tag(rest[0], rest.Skip(1).ToArray());
-                Console.WriteLine($"Tagged {Fmt.ShortId(rest[0])} with: {string.Join(", ", rest.Skip(1))}");
+                // Batch mode: if first arg is not hex (i.e. it's a tag name), treat as: tag <tagname> <id1> [id2...]
+                bool batchMode = !IsHexPrefix(rest[0]);
+                if (batchMode)
+                {
+                    var tagName = rest[0];
+                    var ids = rest.Skip(1).ToList();
+                    foreach (var id in ids)
+                        c.Tag(id, tagName);
+                    Console.WriteLine($"Tagged {ids.Count} message(s) with: {tagName}");
+                }
+                else
+                {
+                    c.Tag(rest[0], rest.Skip(1).ToArray());
+                    Console.WriteLine($"Tagged {Fmt.ShortId(rest[0])} with: {string.Join(", ", rest.Skip(1))}");
+                }
                 break;
             }
             case "untag":
@@ -204,9 +241,28 @@ public static class Program
                 }
                 break;
             }
+            case "check":
+            {
+                // inbox + read-all in one shot
+                var emails = c.Inbox();
+                Console.WriteLine(Fmt.FormatInbox(emails));
+                var unread = emails.Where(e => e.Tags.Contains("unread")).ToList();
+                if (unread.Count > 0)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"--- {unread.Count} unread message(s) ---");
+                    for (int i = 0; i < unread.Count; i++)
+                    {
+                        Console.WriteLine();
+                        Console.Write(Fmt.FormatEmail(c.ReadEmail(unread[i].Id)));
+                    }
+                    Console.WriteLine();
+                }
+                break;
+            }
             default:
                 Console.Error.WriteLine($"Unknown command: {cmd}");
-                Console.Error.WriteLine("Commands: register, unregister, who, update, inbox, read, send, reply, thread, threads, sent, all, tag, untag, tagged, search, purge, names");
+                Console.Error.WriteLine("Commands: register, unregister, who, update, inbox, read, read-all, send, reply, check, thread, threads, sent, all, tag, untag, tagged, search, purge, names");
                 return 1;
         }
         return 0;
@@ -250,7 +306,7 @@ public static class Program
 
             if (line == "help")
             {
-                Console.WriteLine("Commands: all, inbox, names, purge, read, register, reply, search, send, sent, tag, tagged, thread, threads, unregister, untag, update, who");
+                Console.WriteLine("Commands: all, check, inbox, names, purge, read, read-all, register, reply, search, send, sent, tag, tagged, thread, threads, unregister, untag, update, who");
                 Console.WriteLine("Shortcuts: <N> read item N, r <N> reply to item N");
                 Console.WriteLine("Also: help, quit");
                 continue;

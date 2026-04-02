@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-01 checkpoint
+Last updated: 2026-04-02 milestone
 
 ## Current Focus
 
-Idle. Replied to Rajan's check-in.
+Implemented 5 CLI UX improvements in emcomcs (C# source). Awaiting AOT exe rebuild to deploy.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Idle. Replied to Rajan's check-in.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-02 — Implemented 5 CLI UX improvements
+Milo relayed Rajan's request for CLI workflow improvements. Implemented in emcomcs C# source (Program.cs, Formatting.cs): (1) `inbox --full` shows bodies inline, (2) `read-all` reads all unread at once, (3) `tag` batch mode detects tag-first syntax, (4) `reply --handled` auto-tags after reply, (5) `check` combines inbox + read-all. Build passes, 66 tests pass. Binary exe not yet rebuilt — needs AOT publish.
 
 ### 2026-04-01 19:40 — Replied to Rajan check-in
 Rajan sent "Hi everyone!" check-in. Replied with status (idle, standing by).

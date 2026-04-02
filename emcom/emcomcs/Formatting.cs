@@ -39,6 +39,18 @@ public static class Fmt
         return sb.ToString().TrimEnd();
     }
 
+    public static string FormatInboxFull(List<Email> emails)
+    {
+        if (emails.Count == 0) return "Inbox is empty.";
+        var sb = new StringBuilder();
+        for (int i = 0; i < emails.Count; i++)
+        {
+            if (i > 0) { sb.AppendLine(); sb.AppendLine("---"); sb.AppendLine(); }
+            sb.Append(FormatEmail(emails[i]));
+        }
+        return sb.ToString();
+    }
+
     public static string FormatEmail(Email email)
     {
         var sb = new StringBuilder();
