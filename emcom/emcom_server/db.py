@@ -174,14 +174,20 @@ class Database:
 
     def is_registered(self, name: str) -> bool:
         conn = self._connect()
-        row = conn.execute("SELECT 1 FROM identities WHERE name=? AND active=1", (name,)).fetchone()
+        row = conn.execute("SELECT 1 FROM identities WHERE name=? COLLATE NOCASE AND active=1", (name,)).fetchone()
         return row is not None
 
+    def resolve_identity_name(self, name: str) -> str | None:
+        """Resolve a name case-insensitively. Returns the canonical name or None."""
+        conn = self._connect()
+        row = conn.execute("SELECT name FROM identities WHERE name=? COLLATE NOCASE AND active=1", (name,)).fetchone()
+        return row["name"] if row else None
+
     def check_registered_and_touch(self, name: str) -> bool:
-        """Check registration and update last_seen in one connection hit."""
+        """Check registration and update last_seen in one connection hit. Case-insensitive."""
         conn = self._connect()
         cur = conn.execute(
-            "UPDATE identities SET last_seen=? WHERE name=? AND active=1",
+            "UPDATE identities SET last_seen=? WHERE name=? COLLATE NOCASE AND active=1",
             (_now(), name),
         )
         conn.commit()

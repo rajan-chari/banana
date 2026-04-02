@@ -84,11 +84,34 @@ public static class Program
                 Console.WriteLine($"Updated description for '{id.Name}'");
                 break;
             }
+            case "status":
+            {
+                if (c.Name == null) { Console.Error.WriteLine("Not registered. Run: emcom register --name <name>"); return 1; }
+                var unread = c.Tagged("unread");
+                var pending = c.Tagged("pending");
+                Console.WriteLine($"Identity: {c.Name}");
+                Console.WriteLine($"Unread:   {unread.Count}");
+                Console.WriteLine($"Pending:  {pending.Count}");
+                break;
+            }
             case "inbox":
             {
                 bool all = rest.Contains("--all") || rest.Contains("-a");
                 bool full = rest.Contains("--full") || rest.Contains("-f");
+                string? fromFilter = null, subjectFilter = null, sinceFilter = null;
+                for (int i = 0; i < rest.Count; i++)
+                {
+                    if (rest[i] == "--from" && i + 1 < rest.Count) fromFilter = rest[++i];
+                    else if (rest[i] == "--subject" && i + 1 < rest.Count) subjectFilter = rest[++i];
+                    else if (rest[i] == "--since" && i + 1 < rest.Count) sinceFilter = rest[++i];
+                }
                 var emails = c.Inbox(all);
+                if (fromFilter != null)
+                    emails = emails.Where(e => e.SenderName.Contains(fromFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (subjectFilter != null)
+                    emails = emails.Where(e => e.Subject.Contains(subjectFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (sinceFilter != null && DateTime.TryParse(sinceFilter, out var sinceDate))
+                    emails = emails.Where(e => DateTime.TryParse(e.CreatedAt, out var d) && d >= sinceDate).ToList();
                 Console.WriteLine(full ? Fmt.FormatInboxFull(emails) : Fmt.FormatInbox(emails));
                 break;
             }
@@ -121,15 +144,19 @@ public static class Program
                 for (int i = 0; i < rest.Count; i++)
                 {
                     if ((rest[i] == "--to" || rest[i] == "-t") && i + 1 < rest.Count)
-                        while (++i < rest.Count && !rest[i].StartsWith('-')) to.Add(rest[i]);
+                        while (++i < rest.Count && !rest[i].StartsWith('-'))
+                            to.AddRange(rest[i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     if (i < rest.Count && rest[i] == "--cc")
-                        while (++i < rest.Count && !rest[i].StartsWith('-')) cc.Add(rest[i]);
+                        while (++i < rest.Count && !rest[i].StartsWith('-'))
+                            cc.AddRange(rest[i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     if (i < rest.Count && (rest[i] == "--subject" || rest[i] == "-s") && i + 1 < rest.Count) subject = rest[++i];
                     if (i < rest.Count && (rest[i] == "--body" || rest[i] == "-b") && i + 1 < rest.Count) body = rest[++i];
                 }
                 if (to.Count == 0) { Console.Error.WriteLine("Error: --to/-t required"); return 1; }
                 if (subject == null) { Console.Error.WriteLine("Error: --subject/-s required"); return 1; }
-                if (body == null) { Console.Error.WriteLine("Error: --body/-b required"); return 1; }
+                // If no --body, read from stdin (supports piped input)
+                body ??= Console.IsInputRedirected ? Console.In.ReadToEnd().TrimEnd() : null;
+                if (body == null) { Console.Error.WriteLine("Error: --body/-b required (or pipe via stdin)"); return 1; }
                 var email = c.Send(to, subject, body, cc);
                 Console.WriteLine($"Sent [{Fmt.ShortId(email.Id)}] to {string.Join(", ", email.To)}");
                 break;
@@ -262,7 +289,7 @@ public static class Program
             }
             default:
                 Console.Error.WriteLine($"Unknown command: {cmd}");
-                Console.Error.WriteLine("Commands: register, unregister, who, update, inbox, read, read-all, send, reply, check, thread, threads, sent, all, tag, untag, tagged, search, purge, names");
+                Console.Error.WriteLine("Commands: register, unregister, who, update, status, inbox, read, read-all, send, reply, check, thread, threads, sent, all, tag, untag, tagged, search, purge, names");
                 return 1;
         }
         return 0;
@@ -306,7 +333,7 @@ public static class Program
 
             if (line == "help")
             {
-                Console.WriteLine("Commands: all, check, inbox, names, purge, read, read-all, register, reply, search, send, sent, tag, tagged, thread, threads, unregister, untag, update, who");
+                Console.WriteLine("Commands: all, check, inbox, names, purge, read, read-all, register, reply, search, send, sent, status, tag, tagged, thread, threads, unregister, untag, update, who");
                 Console.WriteLine("Shortcuts: <N> read item N, r <N> reply to item N");
                 Console.WriteLine("Also: help, quit");
                 continue;

@@ -21,10 +21,21 @@ def send_email(req: SendEmailRequest, request: Request):
     caller = _get_caller(request)
     db = request.app.state.db
 
-    # Validate all recipients exist
-    for name in req.to + req.cc:
-        if not db.is_registered(name):
+    # Validate and resolve all recipients (case-insensitive)
+    resolved_to = []
+    for name in req.to:
+        canonical = db.resolve_identity_name(name)
+        if not canonical:
             raise HTTPException(404, f"Recipient '{name}' is not registered")
+        resolved_to.append(canonical)
+    resolved_cc = []
+    for name in req.cc:
+        canonical = db.resolve_identity_name(name)
+        if not canonical:
+            raise HTTPException(404, f"Recipient '{name}' is not registered")
+        resolved_cc.append(canonical)
+    req.to = resolved_to
+    req.cc = resolved_cc
 
     # Resolve in_reply_to short ID
     in_reply_to = req.in_reply_to
