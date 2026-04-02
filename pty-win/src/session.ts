@@ -110,11 +110,11 @@ function fmtNextTime(intervalMs: number): string {
 }
 
 function makeCheckpointLightPrompt(nextTime: string): string {
-  return `[pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes.\r`;
+  return `[pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.\r`;
 }
 
 function makeCheckpointFullPrompt(nextTime: string): string {
-  return `[pty-win:checkpoint-full:normal:normal]\nFull checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save.\r`;
+  return `[pty-win:checkpoint-full:normal:normal]\nFull checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.\r`;
 }
 
 export class PtySession extends EventEmitter {

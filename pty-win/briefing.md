@@ -1,14 +1,17 @@
 # Briefing
-Last updated: 2026-04-01 13:40
+Last updated: 2026-04-02 08:28
 
 ## Current Focus
-Dashboard redesign (mission control aesthetic) + UI polish from milo. Hook reverted to regex-only.
+Idle. All recent work committed (`7be89d0`). One small TS change pending restart (context-independence reminder in checkpoint/shutdown prompts).
 
 ## Don't Forget
-- Server restart needed — TS changes: hook removed, regex fix, force-idle log, cost tracking
+- Server restart needed — TS changes since last restart: hook removed, regex fix, force-idle log, cost tracking, context-independence prompt text
 - Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top)
 
 ## Recent
+### 2026-04-02 10:00 — Context-independence reminder in prompts
+Appended "Write entries assuming a fresh session reads them" to checkpoint light, full, and shutdown injection prompts. TS change, needs rebuild+restart.
+
 ### 2026-04-01 13:35 — Unfocused pane border #505050
 Visible but subtle, won't compete with orange focus.
 

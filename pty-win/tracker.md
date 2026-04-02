@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-01 13:40
+Last updated: 2026-04-02 08:28
 
 ## In Motion
 
@@ -19,6 +19,7 @@ Last updated: 2026-04-01 13:40
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-02 | Context-independence in checkpoint prompts | Appended reminder text to light, full, and shutdown injection prompts |
 | 2026-04-01 | Unfocused pane border #505050 | Visible edge between panes without competing with orange focus |
 | 2026-04-01 | Dashboard redesign: mission control | IBM Plex Mono, amber/cyan, scanline bg, status badges, header strip, stats on top |
 | 2026-04-01 | Dashboard + Diag merged | Single tab with cards + stats + costs; Diag tab removed |
