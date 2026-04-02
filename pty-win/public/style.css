@@ -979,6 +979,7 @@ html, body {
 .tab.dragging { opacity: 0.4; cursor: grabbing; }
 .tab.drag-over-left { border-left: 2px solid var(--border-focus); }
 .tab.drag-over-right { border-right: 2px solid var(--border-focus); }
+.tab.drop-target, #btn-new-workspace.drop-target { background: rgba(212, 136, 42, 0.2); border-color: #d4882a; }
 
 .tab.active {
   color: #ffffff;
@@ -1150,7 +1151,7 @@ html, body {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  border: 2px solid #3d5a6a;
+  border: 2px solid #aaa;
   margin: 2px;
   background: #1a1a1a;
 }

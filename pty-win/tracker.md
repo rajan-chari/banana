@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-02 14:45
+Last updated: 2026-04-02 19:00
 
 ## In Motion
 
@@ -19,7 +19,11 @@ Last updated: 2026-04-02 14:45
 
 | Date | Item | Outcome |
 |------|------|---------|
-| 2026-04-02 | Pane visual separation (3 iterations) | 2px steel-blue border, 2px gap, dimmed topbar, bg differentiation |
+| 2026-04-02 | Dashboard cost column → last | Session|Status|cb/s|KB/s|Cost order |
+| 2026-04-02 | Drag-and-drop sessions onto tabs | Session/folder rows draggable, drop on tabs/+/pane area, amber highlight |
+| 2026-04-02 | Unfocused pane border → #aaa | Near-white grey for clear visibility |
+| 2026-04-02 | Dimmed unfocused pane topbar | #252525 bg, muted text, contrast with focused amber |
+| 2026-04-02 | Pane visual separation (3 iterations) | 2px border, 2px gap, dimmed topbar, bg differentiation |
 | 2026-04-02 | Dashboard: merged table + collapsible cards | Single table, clickable rows, bright text, collapsible Workspaces section |
 | 2026-04-02 | Context-independence in checkpoint prompts | Appended reminder text to light, full, and shutdown injection prompts |
 | 2026-04-01 | Unfocused pane border #505050 | Visible edge between panes without competing with orange focus |

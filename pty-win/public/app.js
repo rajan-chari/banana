@@ -506,6 +506,12 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     // Row click = expand/collapse
     row.onclick = () => toggleExpand(entry.path);
     row.addEventListener("contextmenu", (e) => showContextMenu(e, entry.path));
+    // Drag to workspace tab
+    row.draggable = true;
+    row.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("pty-win/folder", JSON.stringify({ workingDir: entry.path, folderName: entry.name }));
+      e.dataTransfer.effectAllowed = "copy";
+    });
 
     node.appendChild(row);
 
@@ -636,6 +642,12 @@ function renderQuickAccess() {
 
     // Right-click → context menu
     row.addEventListener("contextmenu", (e) => showContextMenu(e, folderPath));
+    // Drag to workspace tab
+    row.draggable = true;
+    row.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("pty-win/folder", JSON.stringify({ workingDir: folderPath, folderName: name }));
+      e.dataTransfer.effectAllowed = "copy";
+    });
 
     panel.appendChild(row);
   }
@@ -733,6 +745,12 @@ function renderSessionsPanel() {
       : g.claudeAlive ? g.pg.claude : g.pg.pwsh;
     row.onclick = () => focusExistingSession(activeName);
     row.addEventListener("contextmenu", (e) => showContextMenu(e, g.workingDir));
+    // Drag to workspace tab
+    row.draggable = true;
+    row.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("pty-win/session", JSON.stringify({ group: g.group, workingDir: g.workingDir }));
+      e.dataTransfer.effectAllowed = "copy";
+    });
     list.appendChild(row);
   }
 }
@@ -1588,6 +1606,10 @@ function renderTabs() {
       document.querySelectorAll(".tab").forEach((t) => t.classList.remove("drag-over-left", "drag-over-right", "dragging"));
     });
     tab.addEventListener("dragover", (e) => {
+      // Session/folder drop onto tab
+      if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
+        e.preventDefault(); e.dataTransfer.dropEffect = "copy"; tab.classList.add("drop-target"); return;
+      }
       if (!dragSrcWsId || dragSrcWsId === ws.id) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
@@ -1597,9 +1619,14 @@ function renderTabs() {
       tab.classList.toggle("drag-over-right", !isLeft);
     });
     tab.addEventListener("dragleave", () => {
-      tab.classList.remove("drag-over-left", "drag-over-right");
+      tab.classList.remove("drag-over-left", "drag-over-right", "drop-target");
     });
     tab.addEventListener("drop", (e) => {
+      tab.classList.remove("drop-target");
+      // Session/folder drop
+      if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
+        e.preventDefault(); handleSessionDrop(e, ws.id); return;
+      }
       if (!dragSrcWsId || dragSrcWsId === ws.id) return;
       e.preventDefault();
       const rect = tab.getBoundingClientRect();
@@ -1658,8 +1685,76 @@ function renderTabs() {
   addBtn.title = "New workspace";
   addBtn.textContent = "+";
   addBtn.onclick = () => { const ws = createWorkspace(null); switchToWorkspace(ws.id); };
+  // Drop on + creates new workspace with dragged session
+  addBtn.addEventListener("dragover", (e) => {
+    if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
+      e.preventDefault(); e.dataTransfer.dropEffect = "copy"; addBtn.classList.add("drop-target");
+    }
+  });
+  addBtn.addEventListener("dragleave", () => addBtn.classList.remove("drop-target"));
+  addBtn.addEventListener("drop", (e) => {
+    addBtn.classList.remove("drop-target");
+    handleSessionDrop(e, null); // null = new workspace
+  });
   tabsEl.appendChild(addBtn);
 }
+
+// ===== Session/Folder Drop Handler =====
+
+async function handleSessionDrop(e, targetWsId) {
+  e.preventDefault();
+  let groupName, workingDir, folderName;
+
+  const sessionData = e.dataTransfer.getData("pty-win/session");
+  const folderData = e.dataTransfer.getData("pty-win/folder");
+
+  if (sessionData) {
+    const d = JSON.parse(sessionData);
+    groupName = d.group;
+    workingDir = d.workingDir;
+  } else if (folderData) {
+    const d = JSON.parse(folderData);
+    workingDir = d.workingDir;
+    folderName = d.folderName;
+    groupName = folderName;
+    // Start a session if not already running
+    const existing = state.sessions.get(groupName);
+    if (!existing || existing.status === "dead") {
+      await openFolder(workingDir, folderName, getDefaultAiCommand());
+    }
+  }
+
+  if (!groupName) return;
+
+  // Create or use target workspace
+  let ws;
+  if (targetWsId) {
+    ws = state.workspaces.find((w) => w.id === targetWsId);
+  } else {
+    ws = createWorkspace(groupName);
+  }
+  if (!ws) return;
+
+  // Add session to workspace if not already there
+  const leaves = ws.layout ? getLeafList(ws.layout) : [];
+  if (!leaves.includes(groupName)) {
+    addSessionToWorkspace(ws.id, groupName);
+  }
+  switchToWorkspace(ws.id);
+  renderActiveWorkspace();
+}
+
+// Workspace area drop target (drop onto current workspace)
+document.getElementById("workspace-area")?.addEventListener("dragover", (e) => {
+  if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
+    e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+  }
+});
+document.getElementById("workspace-area")?.addEventListener("drop", (e) => {
+  if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
+    handleSessionDrop(e, state.activeWorkspaceId);
+  }
+});
 
 // ===== Tiling =====
 
@@ -2710,9 +2805,9 @@ function renderDashboardStats() {
       return `<tr class="diag-row ${hot ? "diag-hot" : ""}" data-session="${name}">
         <td class="diag-name">${name}</td>
         <td class="diag-status ${info.status}">${info.status}</td>
-        <td class="diag-cost">$${(info.costUsd || 0).toFixed(2)}</td>
         <td class="${hot ? "diag-hot-val" : ""}">${s ? s.busy.callbacksPerSec : 0}</td>
         <td>${s ? (s.busy.bytesPerSec / 1024).toFixed(1) : "0.0"}</td>
+        <td class="diag-cost">$${(info.costUsd || 0).toFixed(2)}</td>
       </tr>`;
     }).join("");
 
@@ -2723,14 +2818,14 @@ function renderDashboardStats() {
           <tr>
             <th>Session</th>
             <th>Status</th>
-            <th>Cost</th>
             <th>cb/s</th>
             <th>KB/s</th>
+            <th>Cost</th>
           </tr>
         </thead>
         <tbody>
           ${allSessions.length === 0 ? '<tr><td colspan="5" class="diag-empty">No active sessions</td></tr>' : rows}
-          ${totalCostVal > 0 ? `<tr class="diag-cost-total"><td colspan="2">Total</td><td class="diag-cost">$${totalCostVal.toFixed(2)}</td><td></td><td></td></tr>` : ""}
+          ${totalCostVal > 0 ? `<tr class="diag-cost-total"><td colspan="4">Total</td><td class="diag-cost">$${totalCostVal.toFixed(2)}</td></tr>` : ""}
         </tbody>
       </table>`;
 

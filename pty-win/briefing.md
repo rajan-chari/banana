@@ -1,14 +1,26 @@
 # Briefing
-Last updated: 2026-04-02 14:45
+Last updated: 2026-04-02 19:00
 
 ## Current Focus
-UI polish sprint via milo. Dashboard redesign iteration + pane visual separation.
+UI sprint via milo — drag-and-drop sessions onto tabs, dashboard table polish, pane border iteration.
 
 ## Don't Forget
 - Server restart needed — TS changes since last restart: hook removed, regex fix, force-idle log, cost tracking, context-independence prompt text
 - Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top)
 
 ## Recent
+### 2026-04-02 19:00 — Dashboard cost column moved to last
+Column order now Session | Status | cb/s | KB/s | Cost (was 3rd).
+
+### 2026-04-02 18:45 — Drag-and-drop sessions/folders onto workspace tabs
+Session rows, pinned folders, and tree nodes are draggable. Drop onto workspace tabs, + button (new ws), or pane area. Uses pty-win/session and pty-win/folder dataTransfer types. Amber highlight on valid drop targets.
+
+### 2026-04-02 17:50 — Unfocused pane border → #aaa (near-white grey)
+Steel-blue (#3d5a6a) wasn't distinct enough. Rajan wanted clearly visible borders.
+
+### 2026-04-02 14:38 — Dimmed unfocused pane topbar
+Unfocused: #252525 bg, #777 name, #555 preset, muted purple identity. Focused: amber tint, white text. Makes focus immediately obvious.
+
 ### 2026-04-02 14:40 — Pane visual separation (3 iterations)
 Unfocused pane border iterated: #505050 → #666 → #3d5a6a (steel-blue). Now 2px border + 2px margin gap + dimmed topbar (#252525 bg, #777 text). Focused: 2px orange, #1e1e1e bg, bright topbar. Unfocused: #1a1a1a bg. Goal: instantly see pane boundaries.
 
