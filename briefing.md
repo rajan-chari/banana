@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-02 22:15
+Last updated: 2026-04-03 14:26
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,7 +13,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-02 22:10 — emcom announcement distributed to team via blake (9 sub-workspace agents). Frost shipped Batch 2 too (status, inbox filters, CC comma fix, stdin body, case-insensitive names). Threading already existed (emcom thread/threads) — I didn't know.
+- 2026-04-03 14:25 — New permission prompt pattern: # after newline in --body triggers "can hide arguments" check. Fix: pipe body via stdin (emcom Batch 2 feature). Sent fix to scout. Confirming exact stdin syntax with frost.
+- 2026-04-02 22:10 — emcom announcement distributed to team via blake (9 sub-workspace agents). Frost shipped Batch 2 too (status, inbox filters, CC comma fix, stdin body, case-insensitive names). Threading already existed (emcom thread/threads).
 - 2026-04-02 20:10 — Jade completed comprehensive permissions review. Saved to research/permissions.md. Covers rule syntax, 7 common prompt triggers with fixes, recommended configs per agent type.
 - 2026-04-02 19:30 — Fixed rc-save SKILL.md to explicitly require separate git calls + git commit -F - heredoc. Root cause of team-wide permission prompts was agents choosing && chaining + $(cat) heredoc.
 - 2026-04-02 19:01 — Dashboard: cost last column, drag-and-drop onto tabs. Pane separation: #aaa borders, 4px gap, 2px width, dimmed unfocused topbar.
