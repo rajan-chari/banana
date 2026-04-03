@@ -7,7 +7,7 @@ Last updated: 2026-03-30
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win: force-not-busy context menu | Not started | frost | Rajan wants right-click "force not busy" on session entries. Check if commit `8f0340c` already covers this. |
-| emcom: server restart for case-insensitive names | Pending Rajan approval | frost | Server source updated (COLLATE NOCASE), but running emcom-server.exe is old binary. Needs rebuild + restart to take effect. |
+| emcom: deploy emcom-server.exe | Staged, deploy on next restart | frost | New binary at `emcom/dist/emcom-server.exe`. Copy to `~/.claude/skills/emcom/bin/` when server is stopped (next pty-win restart). Includes case-insensitive identity lookup. |
 
 ## Watching
 
