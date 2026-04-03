@@ -19,8 +19,10 @@ Last updated: 2026-03-31
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
-| 2026-04-02 | Dashboard polish: text, clickable rows, merged table, collapsible cards | 4 items shipped |
-| 2026-04-02 | Pane separation: gap + 2px border + dimmed topbar + bg contrast | Multiple iterations — gray→steel-blue, 1px→4px gap, dimmed topbar |
+| 2026-04-02 | Drag-and-drop sessions onto workspace tabs | Sessions + folders draggable, amber drop targets |
+| 2026-04-02 | emcom UX: 5 improvements + AOT rebuild | check, inbox --full, read-all, batch tag, reply --handled |
+| 2026-04-02 | Scout cost investigation | Context accumulation × cold cache. Fix: Haiku + /clear = ~50x reduction |
+| 2026-04-02 | Dashboard + pane separation polish | Merged table, collapsible cards, #aaa border, dimmed topbar, 4px gap, cost last col |
 | 2026-04-02 | PID file idle detection investigation | BG_SESSIONS off — blocked. Upgrade path documented in Claude-KB.md |
 | 2026-04-02 | Claude-KB.md restructured to 4 sections | Own KB + team-manual updated. CLAUDE.md debugging rule added. |
 | 2026-04-02 | Claude-KB.md expanded to 4 sections | team-manual.md updated, sent to sam |
