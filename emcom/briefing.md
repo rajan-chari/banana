@@ -1,14 +1,14 @@
 # Briefing
 
-Last updated: 2026-04-02 milestone
+Last updated: 2026-04-03 checkpoint
 
 ## Current Focus
 
-Shipped 10 CLI improvements in 2 batches (commits `4b7b8e7`, `6f1e449`). AOT binary deployed. Feature announcement sent via milo. Waiting on Rajan approval for emcom-server restart (case-insensitive name lookup needs server-side binary update).
+Idle after productive session. Shipped 10 CLI improvements across 2 batches, deployed emcom.exe AOT binary, rebuilt emcom-server.exe (staged, not yet deployed). Answered follow-up questions from milo and Rajan. No outstanding work requests.
 
 ## Don't Forget
 
-- Stop emcom-server before rebuilding exe (Windows file lock)
+- **Deploy emcom-server.exe on next restart** — new binary staged at `emcom/dist/emcom-server.exe`, needs to be copied to `~/.claude/skills/emcom/bin/` when server is stopped (can't overwrite while running due to Windows file lock). This enables case-insensitive identity lookup server-side.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
