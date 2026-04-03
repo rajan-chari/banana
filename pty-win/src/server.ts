@@ -506,7 +506,7 @@ public class Win32Focus {
   // Graceful shutdown with save injection
   const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
   const SHUTDOWN_SAVE_PROMPT = "[pty-win:shutdown:urgent:urgent]\nServer shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.\r";
-  const SHUTDOWN_TIMEOUT_MS = 120_000;
+  const SHUTDOWN_TIMEOUT_MS = 240_000;
 
   const shutdown = async () => {
     clog("Ctrl+C — graceful shutdown starting...");

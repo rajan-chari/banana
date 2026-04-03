@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-03 14:26
+Last updated: 2026-04-03 22:43
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,7 +13,10 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-03 14:25 — New permission prompt pattern: # after newline in --body triggers "can hide arguments" check. Fix: pipe body via stdin (emcom Batch 2 feature). Sent fix to scout. Confirming exact stdin syntax with frost.
+- 2026-04-03 22:42 — Shutdown double-Ctrl+C bug found by moss: no re-entry guard, second SIGINT killed sessions mid-save. Fixed with shuttingDown flag. Grace period was already 120s.
+- 2026-04-03 22:16 — 3 of 5 pty-win improvements shipped by moss: checkpoint skip when idle (already existed), cost in checkpoint prompts (appends $X.XX), last-active column in dashboard. Remaining: auto-recovery, restart indicator.
+- 2026-04-03 22:10 — Forwarded Rajan's 5 pty-win pain points to moss with effort estimates. Quick wins (1,3,4) vs medium (2,5).
+- 2026-04-03 14:25 — # after newline in --body triggers permission prompt. Fix: pipe body via stdin (omit --body, pipe content). Frost confirmed syntax.
 - 2026-04-02 22:10 — emcom announcement distributed to team via blake (9 sub-workspace agents). Frost shipped Batch 2 too (status, inbox filters, CC comma fix, stdin body, case-insensitive names). Threading already existed (emcom thread/threads).
 - 2026-04-02 20:10 — Jade completed comprehensive permissions review. Saved to research/permissions.md. Covers rule syntax, 7 common prompt triggers with fixes, recommended configs per agent type.
 - 2026-04-02 19:30 — Fixed rc-save SKILL.md to explicitly require separate git calls + git commit -F - heredoc. Root cause of team-wide permission prompts was agents choosing && chaining + $(cat) heredoc.
@@ -26,7 +29,7 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - 2026-04-02 11:47 — PR testing workflow + Claude-KB expansion in team-manual.md. Organic rollout confirmed.
 
 ## Next Up
-- Server restart needed by Rajan: cost regex, merged dashboard, pane separation, hook revert, checkpoint prompts, drag-and-drop. All TS changes requiring rebuild.
+- Server restart needed by Rajan: cost regex, merged dashboard, pane separation, hook revert, checkpoint prompts, drag-and-drop, cost in checkpoints, last-active column, double-Ctrl+C fix. Growing backlog of TS changes.
 - Detach/reattach feature ideated but not confirmed. Architecture: pty-win as process manager, browser + pty-cld as viewers via WebSocket.
 - Jade: available for next task. Resume behavior still unexplored. Permissions research complete.
 - Scout cost optimization: Rajan has fix vectors (Haiku, /clear, reduce frequency) but hasn't acted.

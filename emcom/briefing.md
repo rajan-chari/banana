@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-03 checkpoint
+Last updated: 2026-04-03 shutdown
 
 ## Current Focus
 
-Idle after productive session. Shipped 10 CLI improvements across 2 batches, deployed emcom.exe AOT binary, rebuilt emcom-server.exe (staged, not yet deployed). Answered follow-up questions from milo and Rajan. No outstanding work requests.
+Session ending. Major deliverable this session: 10 emcom CLI improvements shipped in 2 batches, both emcom.exe and emcom-server.exe rebuilt. Replied to pty-win feedback request from Rajan. No outstanding work requests.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Idle after productive session. Shipped 10 CLI improvements across 2 batches, dep
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-03 — Replied to pty-win feedback + emcom-server.exe staged
+Rajan asked for pty-win experience feedback. Replied with: checkpoints and emcom polling work well, friction points are idle session noise, no build grace period, stale pending tags, underutilized context. Suggested idle work queue. Also rebuilt emcom-server.exe via PyInstaller — staged at `emcom/dist/emcom-server.exe`, ready to deploy to `~/.claude/skills/emcom/bin/` on next server restart (includes case-insensitive identity lookup).
 
 ### 2026-04-02 — Shipped batch 2 + feature announcement
 Batch 2 (commit `6f1e449`): case-insensitive identity lookup (server-side COLLATE NOCASE), emcom status command, inbox --from/--subject/--since filters, CC comma-separated fix, body from stdin. AOT rebuilt and deployed. Also sent team-wide feature announcement via milo covering all existing + new features. Server restart still needed for case-insensitive names to take effect.

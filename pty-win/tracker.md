@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-02 19:00
+Last updated: 2026-04-03 22:45
 
 ## In Motion
 
@@ -19,6 +19,9 @@ Last updated: 2026-04-02 19:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-03 | Shutdown grace 120s → 240s | Agents need more time to commit+push on shutdown |
+| 2026-04-03 | Cost in checkpoint prompts | Appends "Session cost: $X.XX" so agents are cost-aware |
+| 2026-04-03 | Last Active column in dashboard | Shows relative time since last PTY output (lastActiveMs in SessionInfo) |
 | 2026-04-02 | Dashboard cost column → last | Session|Status|cb/s|KB/s|Cost order |
 | 2026-04-02 | Drag-and-drop sessions onto tabs | Session/folder rows draggable, drop on tabs/+/pane area, amber highlight |
 | 2026-04-02 | Unfocused pane border → #aaa | Near-white grey for clear visibility |

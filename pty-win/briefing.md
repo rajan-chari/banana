@@ -1,14 +1,20 @@
 # Briefing
-Last updated: 2026-04-02 19:00
+Last updated: 2026-04-03 22:45
 
 ## Current Focus
-UI sprint via milo — drag-and-drop sessions onto tabs, dashboard table polish, pane border iteration.
+Shutdown save. Cost in checkpoints, last-active column, shutdown timeout 4min all pending restart.
 
 ## Don't Forget
 - Server restart needed — TS changes since last restart: hook removed, regex fix, force-idle log, cost tracking, context-independence prompt text
 - Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top)
 
 ## Recent
+### 2026-04-03 22:40 — Shutdown grace period 120s → 240s (4min)
+Agents weren't finishing saves before timeout. Double Ctrl+C is intentional force-quit — no guard added.
+
+### 2026-04-03 22:10 — Cost in checkpoint prompts + Last Active column
+Checkpoint injections now include "Session cost: $X.XX" when cost > 0 (helps agents be cost-aware). Dashboard table gains "Active" column showing relative time since last PTY output (lastActiveMs exposed in SessionInfo). Both need server restart.
+
 ### 2026-04-02 19:00 — Dashboard cost column moved to last
 Column order now Session | Status | cb/s | KB/s | Cost (was 3rd).
 

@@ -19,6 +19,9 @@ Last updated: 2026-03-31
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-03 | Shutdown double-Ctrl+C bug fix | Re-entry guard prevents killing sessions mid-save |
+| 2026-04-03 | Cost in checkpoint prompts + last-active dashboard column | Agents see their cost; dashboard shows when sessions were last active |
+| 2026-04-03 | # in --body permission prompt fix | Pipe body via stdin; confirmed syntax with frost |
 | 2026-04-02 | Drag-and-drop sessions onto workspace tabs | Sessions + folders draggable, amber drop targets |
 | 2026-04-02 | emcom UX: 5 improvements + AOT rebuild | check, inbox --full, read-all, batch tag, reply --handled |
 | 2026-04-02 | Scout cost investigation | Context accumulation × cold cache. Fix: Haiku + /clear = ~50x reduction |

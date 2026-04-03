@@ -2799,12 +2799,23 @@ function renderDashboardStats() {
     const allSessions = [...state.sessions.entries()];
     const totalCostVal = allSessions.reduce((sum, [, s]) => sum + (s.costUsd || 0), 0);
 
+    const fmtAgo = (ms) => {
+      if (!ms) return "-";
+      const sec = Math.floor((Date.now() - ms) / 1000);
+      if (sec < 60) return `${sec}s`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m`;
+      const hr = Math.floor(min / 60);
+      return `${hr}h${min % 60}m`;
+    };
+
     const rows = allSessions.map(([name, info]) => {
       const s = statsMap.get(name);
       const hot = s && s.busy.callbacksPerSec > 100;
       return `<tr class="diag-row ${hot ? "diag-hot" : ""}" data-session="${name}">
         <td class="diag-name">${name}</td>
         <td class="diag-status ${info.status}">${info.status}</td>
+        <td class="diag-ago">${fmtAgo(info.lastActiveMs)}</td>
         <td class="${hot ? "diag-hot-val" : ""}">${s ? s.busy.callbacksPerSec : 0}</td>
         <td>${s ? (s.busy.bytesPerSec / 1024).toFixed(1) : "0.0"}</td>
         <td class="diag-cost">$${(info.costUsd || 0).toFixed(2)}</td>
@@ -2818,14 +2829,15 @@ function renderDashboardStats() {
           <tr>
             <th>Session</th>
             <th>Status</th>
+            <th>Active</th>
             <th>cb/s</th>
             <th>KB/s</th>
             <th>Cost</th>
           </tr>
         </thead>
         <tbody>
-          ${allSessions.length === 0 ? '<tr><td colspan="5" class="diag-empty">No active sessions</td></tr>' : rows}
-          ${totalCostVal > 0 ? `<tr class="diag-cost-total"><td colspan="4">Total</td><td class="diag-cost">$${totalCostVal.toFixed(2)}</td></tr>` : ""}
+          ${allSessions.length === 0 ? '<tr><td colspan="6" class="diag-empty">No active sessions</td></tr>' : rows}
+          ${totalCostVal > 0 ? `<tr class="diag-cost-total"><td colspan="5">Total</td><td class="diag-cost">$${totalCostVal.toFixed(2)}</td></tr>` : ""}
         </tbody>
       </table>`;
 

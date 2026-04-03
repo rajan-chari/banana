@@ -81,6 +81,7 @@ export interface SessionInfo {
   unreadCount: number;
   dirtyOnExit: boolean;
   costUsd: number;
+  lastActiveMs: number;
 }
 
 const INJECTION_PROMPT = "[pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
@@ -296,6 +297,7 @@ export class PtySession extends EventEmitter {
       unreadCount: this.unreadCount,
       dirtyOnExit: this.dirtyOnExit,
       costUsd: this.costUsd,
+      lastActiveMs: this.lastOutputTime,
     };
   }
 
@@ -620,7 +622,10 @@ export class PtySession extends EventEmitter {
     const type = this.pendingCheckpoint;
     const intervalMs = type === "full" ? CHECKPOINT_FULL_INTERVAL_MS : CHECKPOINT_LIGHT_INTERVAL_MS;
     const nextTime = fmtNextTime(intervalMs);
-    const prompt = type === "full" ? makeCheckpointFullPrompt(nextTime) : makeCheckpointLightPrompt(nextTime);
+    let prompt = type === "full" ? makeCheckpointFullPrompt(nextTime) : makeCheckpointLightPrompt(nextTime);
+    if (this.costUsd > 0) {
+      prompt = prompt.replace(/\r$/, ` Session cost: $${this.costUsd.toFixed(2)}.\r`);
+    }
     this.pendingCheckpoint = null;
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
