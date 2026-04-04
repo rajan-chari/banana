@@ -173,6 +173,13 @@ class Database:
         self._local.conn = conn
         return conn
 
+    def close(self):
+        """Close the thread-local connection (for clean test teardown)."""
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None
+
     def _init_db(self):
         conn = self._connect()
         conn.executescript(SCHEMA)
@@ -205,7 +212,8 @@ class Database:
             )
         else:
             conn.execute(
-                "INSERT INTO identities (name, description, location, registered_at, last_seen, active) VALUES (?, ?, ?, ?, ?, 1)",
+                "INSERT INTO identities (name, description, location, registered_at, last_seen, active) "
+                "VALUES (?, ?, ?, ?, ?, 1)",
                 (name, description, location, now, now),
             )
         conn.commit()
@@ -217,7 +225,8 @@ class Database:
         now = _now()
         conn = self._connect()
         conn.execute(
-            "INSERT INTO identities (name, description, location, registered_at, last_seen, active) VALUES (?, ?, ?, ?, ?, 1) "
+            "INSERT INTO identities (name, description, location, registered_at, last_seen, active) "
+            "VALUES (?, ?, ?, ?, ?, 1) "
             "ON CONFLICT(name) DO UPDATE SET description=?, location=?, last_seen=?, active=1",
             (name, description, location, now, now, description, location, now),
         )
@@ -287,7 +296,9 @@ class Database:
         """Pick a random unassigned name from pool."""
         conn = self._connect()
         row = conn.execute(
-            "SELECT name FROM name_pool WHERE name NOT IN (SELECT name FROM identities WHERE active=1) ORDER BY RANDOM() LIMIT 1"
+            "SELECT name FROM name_pool "
+            "WHERE name NOT IN (SELECT name FROM identities WHERE active=1) "
+            "ORDER BY RANDOM() LIMIT 1"
         ).fetchone()
         return row["name"] if row else None
 
@@ -582,7 +593,8 @@ class Database:
                         field: str, old_value: str | None, new_value: str | None,
                         changed_by: str, comment: str = ""):
         conn.execute(
-            "INSERT INTO work_item_history (id, work_item_id, field, old_value, new_value, changed_by, changed_at, comment) "
+            "INSERT INTO work_item_history "
+            "(id, work_item_id, field, old_value, new_value, changed_by, changed_at, comment) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (str(uuid.uuid4()), work_item_id, field, old_value, new_value, changed_by, _now(), comment),
         )
@@ -719,7 +731,7 @@ class Database:
             "UNION SELECT from_id, link_type FROM work_item_links WHERE to_id=?",
             (item_id, item_id),
         ).fetchall()
-        item["links"] = [{"id": l[0], "type": l[1]} for l in links]
+        item["links"] = [{"id": lnk[0], "type": lnk[1]} for lnk in links]
         return item
 
     def list_work_items(self, status: str | None = None, repo: str | None = None,
@@ -810,19 +822,28 @@ class Database:
 
     def work_item_stats(self) -> dict:
         conn = self._connect()
+        not_closed = "status NOT IN ('merged','deferred','closed')"
         by_status = {}
         for row in conn.execute("SELECT status, COUNT(*) as cnt FROM work_items GROUP BY status"):
             by_status[row["status"]] = row["cnt"]
         by_repo = {}
-        for row in conn.execute("SELECT repo, COUNT(*) as cnt FROM work_items WHERE status NOT IN ('merged','deferred','closed') GROUP BY repo"):
+        for row in conn.execute(f"SELECT repo, COUNT(*) as cnt FROM work_items WHERE {not_closed} GROUP BY repo"):
             by_repo[row["repo"]] = row["cnt"]
         by_assignee = {}
-        for row in conn.execute("SELECT assigned_to, COUNT(*) as cnt FROM work_items WHERE status NOT IN ('merged','deferred','closed') AND assigned_to IS NOT NULL GROUP BY assigned_to"):
+        for row in conn.execute(
+            f"SELECT assigned_to, COUNT(*) as cnt FROM work_items "
+            f"WHERE {not_closed} AND assigned_to IS NOT NULL GROUP BY assigned_to"
+        ):
             by_assignee[row["assigned_to"]] = row["cnt"]
         by_severity = {}
-        for row in conn.execute("SELECT severity, COUNT(*) as cnt FROM work_items WHERE status NOT IN ('merged','deferred','closed') GROUP BY severity"):
+        for row in conn.execute(
+            f"SELECT severity, COUNT(*) as cnt FROM work_items WHERE {not_closed} GROUP BY severity"
+        ):
             by_severity[row["severity"]] = row["cnt"]
-        return {"by_status": by_status, "by_repo": by_repo, "by_assignee": by_assignee, "by_severity": by_severity}
+        return {
+            "by_status": by_status, "by_repo": by_repo,
+            "by_assignee": by_assignee, "by_severity": by_severity,
+        }
 
     def work_item_decisions(self, repo: str | None = None) -> list[dict]:
         conn = self._connect()

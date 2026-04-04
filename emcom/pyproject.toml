@@ -27,3 +27,14 @@ emcom-server = "emcom_server.main:run"
 
 [tool.hatch.build.targets.wheel]
 packages = ["emcom", "emcom_server"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"emcom_server/main.py" = ["E402"]  # import after class def is intentional
+"tests/*" = ["E402"]  # env var must be set before import

@@ -1,14 +1,14 @@
 """Tests for emcom_server.db.Database."""
 
-import os
-import tempfile
 import pytest
 from emcom_server.db import Database, SEED_NAMES
 
 
 @pytest.fixture
 def db(tmp_path):
-    return Database(tmp_path / "test.db")
+    database = Database(tmp_path / "test.db")
+    yield database
+    database.close()
 
 
 class TestSchema:
@@ -199,7 +199,7 @@ class TestTags:
         db.register("alice", "a")
         db.register("bob", "b")
         e1 = db.create_email("alice", ["bob"], [], "First", "body1")
-        e2 = db.create_email("alice", ["bob"], [], "Second", "body2")
+        db.create_email("alice", ["bob"], [], "Second", "body2")
         db.add_tags(e1["id"], "bob", ["important"])
         result = db.emails_by_tag("bob", "important")
         assert len(result) == 1
