@@ -52,6 +52,21 @@ Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't wor
 ### 2026-03-25: emcom --cc does not accept comma-separated names
 `emcom send --cc moss,blake,sage` fails with "Recipient 'moss,blake,sage' is not registered" — the CLI treats the entire comma-separated string as a single recipient name. If CC support is needed, use separate `--cc` flags per recipient or omit CC and send to the primary recipient (replies in-thread are visible to all participants anyway).
 
+### 2026-04-04: Work tracker CLI is live — usage reference
+`tracker.exe` is deployed at `~/.claude/skills/emcom/bin/tracker.exe`. It shares the emcom-server (same SQLite DB, same auth via identity.json). Key commands:
+- `tracker create --repo teams.py --title 'JWKS bug' --number 344 --severity high --assigned spark-py`
+- `tracker update teams.py#344 --status investigating --comment 'Starting work'`
+- `tracker update teams.py#344 --blocker 'waiting on Rajan'` (sets blocked_since automatically)
+- `tracker update teams.py#344 --decision 'Use approach B' --decision-rationale 'Lower risk'`
+- `tracker list --status open --repo teams.py` ("open" = everything except merged/deferred/closed)
+- `tracker list --needs-decision` (Rajan's decision backlog)
+- `tracker view teams.py#344` (full detail + history)
+- `tracker queue frost` (what should I work on next — assigned, open, unblocked, sorted by severity)
+- `tracker stats` / `tracker decisions` / `tracker stale` / `tracker blocked` / `tracker search 'JWKS'`
+- Dedup: creating the same repo#number twice returns the existing item.
+- Lookups: `teams.py#344`, `344` (if unambiguous), or UUID prefix all work.
+Rule: when shipping features to emcom-server, update relevant tracker items. When blocked, set --blocker.
+
 ### 2026-04-04: Always AOT publish (not debug build) when deploying emcom.exe
 The deployed emcom.exe at `~/.claude/skills/emcom/bin/` was overwritten with a pre-feature build, losing batch 1+2 CLI features. The `emcomcs/bin/Debug/` directory contains a non-AOT build without all features compiled in. Always deploy from the AOT publish path: `emcomcs/bin/Release/net10.0/win-x64/publish/emcom.exe`. After deploying, verify with `emcom check` or `emcom status` to confirm features are present.
 
