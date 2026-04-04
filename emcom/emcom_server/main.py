@@ -22,7 +22,7 @@ class _SuppressPollingFilter(logging.Filter):
         return not any(p in msg for p in self._QUIET_PATHS)
 
 from emcom_server.db import Database
-from emcom_server.routers import identity, names, email, threads, tags, search, attachments
+from emcom_server.routers import identity, names, email, threads, tags, search, attachments, tracker
 
 # Endpoints that skip auth
 NO_AUTH_PATHS = {"/health", "/who", "/names", "/admin/purge"}
@@ -97,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(tags.router)
     app.include_router(search.router)
     app.include_router(attachments.router)
+    app.include_router(tracker.router)
 
     return app
 

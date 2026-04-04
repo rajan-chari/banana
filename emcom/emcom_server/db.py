@@ -57,7 +57,71 @@ CREATE INDEX IF NOT EXISTS idx_emails_sender ON emails(sender);
 CREATE INDEX IF NOT EXISTS idx_emails_created ON emails(created_at);
 CREATE INDEX IF NOT EXISTS idx_tags_owner_tag ON tags(owner, tag);
 CREATE INDEX IF NOT EXISTS idx_tags_email_owner ON tags(email_id, owner);
+
+-- Work tracker tables
+CREATE TABLE IF NOT EXISTS work_items (
+    id TEXT PRIMARY KEY,
+    repo TEXT NOT NULL,
+    number INTEGER,
+    title TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'issue',
+    severity TEXT NOT NULL DEFAULT 'normal',
+    status TEXT NOT NULL DEFAULT 'new',
+    assigned_to TEXT,
+    created_by TEXT NOT NULL,
+    blocker TEXT,
+    blocked_since TEXT,
+    findings TEXT,
+    decision TEXT,
+    decision_rationale TEXT,
+    labels TEXT NOT NULL DEFAULT '[]',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(repo, number)
+);
+
+CREATE TABLE IF NOT EXISTS work_item_history (
+    id TEXT PRIMARY KEY,
+    work_item_id TEXT NOT NULL REFERENCES work_items(id),
+    field TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    changed_by TEXT NOT NULL,
+    changed_at TEXT NOT NULL,
+    comment TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS work_item_links (
+    from_id TEXT NOT NULL REFERENCES work_items(id),
+    to_id TEXT NOT NULL REFERENCES work_items(id),
+    link_type TEXT NOT NULL DEFAULT 'related',
+    PRIMARY KEY (from_id, to_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_items_repo ON work_items(repo);
+CREATE INDEX IF NOT EXISTS idx_work_items_status ON work_items(status);
+CREATE INDEX IF NOT EXISTS idx_work_items_assigned ON work_items(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_work_items_repo_number ON work_items(repo, number);
+CREATE INDEX IF NOT EXISTS idx_work_history_item ON work_item_history(work_item_id);
+CREATE INDEX IF NOT EXISTS idx_work_links_from ON work_item_links(from_id);
+CREATE INDEX IF NOT EXISTS idx_work_links_to ON work_item_links(to_id);
 """
+
+VALID_STATUSES = {
+    "new", "triaged", "investigating", "findings-reported",
+    "decision-pending", "pr-up", "testing", "ready-to-merge",
+    "merged", "deferred", "closed",
+}
+OPEN_STATUSES = VALID_STATUSES - {"merged", "deferred", "closed"}
+VALID_TYPES = {"issue", "pr", "investigation", "decision"}
+VALID_SEVERITIES = {"low", "normal", "high", "critical"}
+VALID_LINK_TYPES = {"related", "blocks", "blocked-by", "duplicate"}
+TRACKED_FIELDS = {
+    "title", "type", "severity", "status", "assigned_to", "blocker",
+    "blocked_since", "findings", "decision", "decision_rationale",
+    "labels", "notes", "number",
+}
 
 
 def _now() -> str:
@@ -506,3 +570,301 @@ class Database:
             for e in emails:
                 e["tags"] = []
         return emails
+
+    # ===================== Work Tracker =====================
+
+    def _parse_work_item(self, row: sqlite3.Row) -> dict:
+        d = dict(row)
+        d["labels"] = json.loads(d.get("labels") or "[]")
+        return d
+
+    def _record_history(self, conn: sqlite3.Connection, work_item_id: str,
+                        field: str, old_value: str | None, new_value: str | None,
+                        changed_by: str, comment: str = ""):
+        conn.execute(
+            "INSERT INTO work_item_history (id, work_item_id, field, old_value, new_value, changed_by, changed_at, comment) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), work_item_id, field, old_value, new_value, changed_by, _now(), comment),
+        )
+
+    def resolve_work_item_id(self, ref: str) -> str | None:
+        """Resolve UUID prefix or repo#number to full work item ID."""
+        conn = self._connect()
+        # Try repo#number format
+        if "#" in ref:
+            parts = ref.split("#", 1)
+            repo, num = parts[0], parts[1]
+            if num.isdigit():
+                row = conn.execute(
+                    "SELECT id FROM work_items WHERE repo=? AND number=?", (repo, int(num))
+                ).fetchone()
+                if row:
+                    return row["id"]
+        # Try as number alone (unambiguous)
+        if ref.isdigit():
+            rows = conn.execute(
+                "SELECT id FROM work_items WHERE number=?", (int(ref),)
+            ).fetchall()
+            if len(rows) == 1:
+                return rows[0]["id"]
+        # Try UUID prefix
+        row = conn.execute("SELECT id FROM work_items WHERE id=?", (ref,)).fetchone()
+        if row:
+            return row["id"]
+        rows = conn.execute("SELECT id FROM work_items WHERE id LIKE ?", (ref + "%",)).fetchall()
+        if len(rows) == 1:
+            return rows[0]["id"]
+        return None
+
+    def create_work_item(self, repo: str, title: str, created_by: str,
+                         number: int | None = None, type_: str = "issue",
+                         severity: str = "normal", status: str = "new",
+                         assigned_to: str | None = None, labels: list[str] | None = None,
+                         notes: str = "") -> dict:
+        conn = self._connect()
+        now = _now()
+        item_id = str(uuid.uuid4())
+
+        # Dedup on repo+number
+        if number is not None:
+            existing = conn.execute(
+                "SELECT * FROM work_items WHERE repo=? AND number=?", (repo, number)
+            ).fetchone()
+            if existing:
+                return self._parse_work_item(existing)
+
+        conn.execute(
+            "INSERT INTO work_items (id, repo, number, title, type, severity, status, "
+            "assigned_to, created_by, labels, notes, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (item_id, repo, number, title, type_, severity, status,
+             assigned_to, created_by, json.dumps(labels or []), notes, now, now),
+        )
+        self._record_history(conn, item_id, "status", None, status, created_by, "Created")
+        if assigned_to:
+            self._record_history(conn, item_id, "assigned_to", None, assigned_to, created_by, "Initial assignment")
+        conn.commit()
+        row = conn.execute("SELECT * FROM work_items WHERE id=?", (item_id,)).fetchone()
+        return self._parse_work_item(row)
+
+    def update_work_item(self, item_id: str, changed_by: str, comment: str = "", **updates) -> dict:
+        conn = self._connect()
+        now = _now()
+        row = conn.execute("SELECT * FROM work_items WHERE id=?", (item_id,)).fetchone()
+        if not row:
+            raise ValueError(f"Work item '{item_id}' not found")
+        old = dict(row)
+
+        sets = ["updated_at=?"]
+        params: list = [now]
+
+        for field, new_val in updates.items():
+            if field not in TRACKED_FIELDS:
+                continue
+            old_val = old.get(field)
+            if field == "labels":
+                new_val = json.dumps(new_val if isinstance(new_val, list) else [])
+                old_str = old_val  # already JSON string
+            else:
+                old_str = str(old_val) if old_val is not None else None
+                new_val = str(new_val) if new_val is not None else None
+
+            if old_str != new_val:
+                sets.append(f"{field}=?")
+                params.append(new_val)
+                self._record_history(conn, item_id, field, old_str, new_val, changed_by, comment)
+
+            # Auto-set blocked_since when blocker changes
+            if field == "blocker":
+                if new_val and not old.get("blocker"):
+                    sets.append("blocked_since=?")
+                    params.append(now)
+                elif not new_val and old.get("blocker"):
+                    sets.append("blocked_since=?")
+                    params.append(None)
+
+        if len(sets) > 1:  # more than just updated_at
+            params.append(item_id)
+            conn.execute(f"UPDATE work_items SET {', '.join(sets)} WHERE id=?", params)
+            conn.commit()
+
+        row = conn.execute("SELECT * FROM work_items WHERE id=?", (item_id,)).fetchone()
+        return self._parse_work_item(row)
+
+    def add_work_item_comment(self, item_id: str, changed_by: str, comment: str) -> dict:
+        conn = self._connect()
+        row = conn.execute("SELECT 1 FROM work_items WHERE id=?", (item_id,)).fetchone()
+        if not row:
+            raise ValueError(f"Work item '{item_id}' not found")
+        self._record_history(conn, item_id, "comment", None, None, changed_by, comment)
+        conn.execute("UPDATE work_items SET updated_at=? WHERE id=?", (_now(), item_id))
+        conn.commit()
+        return {"status": "ok"}
+
+    def get_work_item(self, item_id: str) -> dict | None:
+        conn = self._connect()
+        row = conn.execute("SELECT * FROM work_items WHERE id=?", (item_id,)).fetchone()
+        if not row:
+            return None
+        item = self._parse_work_item(row)
+        # Attach history
+        history = conn.execute(
+            "SELECT * FROM work_item_history WHERE work_item_id=? ORDER BY changed_at",
+            (item_id,),
+        ).fetchall()
+        item["history"] = [dict(h) for h in history]
+        # Attach links
+        links = conn.execute(
+            "SELECT to_id, link_type FROM work_item_links WHERE from_id=? "
+            "UNION SELECT from_id, link_type FROM work_item_links WHERE to_id=?",
+            (item_id, item_id),
+        ).fetchall()
+        item["links"] = [{"id": l[0], "type": l[1]} for l in links]
+        return item
+
+    def list_work_items(self, status: str | None = None, repo: str | None = None,
+                        assigned_to: str | None = None, created_by: str | None = None,
+                        severity: str | None = None, label: str | None = None,
+                        type_: str | None = None, blocked: bool = False,
+                        since: str | None = None) -> list[dict]:
+        conn = self._connect()
+        query = "SELECT * FROM work_items"
+        conditions = []
+        params: list = []
+
+        if status == "open":
+            placeholders = ",".join("?" * len(OPEN_STATUSES))
+            conditions.append(f"status IN ({placeholders})")
+            params.extend(sorted(OPEN_STATUSES))
+        elif status:
+            statuses = [s.strip() for s in status.split(",")]
+            placeholders = ",".join("?" * len(statuses))
+            conditions.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+        if repo:
+            conditions.append("repo=?")
+            params.append(repo)
+        if assigned_to:
+            conditions.append("assigned_to=?")
+            params.append(assigned_to)
+        if created_by:
+            conditions.append("created_by=?")
+            params.append(created_by)
+        if severity:
+            conditions.append("severity=?")
+            params.append(severity)
+        if type_:
+            conditions.append("type=?")
+            params.append(type_)
+        if label:
+            conditions.append("labels LIKE ?")
+            params.append(f'%"{label}"%')
+        if blocked:
+            conditions.append("blocker IS NOT NULL AND blocker != ''")
+        if since:
+            conditions.append("updated_at >= ?")
+            params.append(since)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY updated_at DESC"
+
+        rows = conn.execute(query, params).fetchall()
+        return [self._parse_work_item(r) for r in rows]
+
+    def stale_work_items(self, hours: int = 24) -> list[dict]:
+        """Items stuck in current status for more than N hours."""
+        conn = self._connect()
+        cutoff = datetime.now(timezone.utc).replace(microsecond=0)
+        from datetime import timedelta
+        cutoff = (cutoff - timedelta(hours=hours)).isoformat()
+        closed = ("merged", "deferred", "closed")
+        placeholders = ",".join("?" * len(closed))
+        rows = conn.execute(
+            f"SELECT * FROM work_items WHERE status NOT IN ({placeholders}) "
+            "AND updated_at < ? ORDER BY updated_at",
+            list(closed) + [cutoff],
+        ).fetchall()
+        return [self._parse_work_item(r) for r in rows]
+
+    def blocked_work_items(self) -> list[dict]:
+        conn = self._connect()
+        rows = conn.execute(
+            "SELECT * FROM work_items WHERE blocker IS NOT NULL AND blocker != '' "
+            "AND status NOT IN ('merged','deferred','closed') ORDER BY blocked_since",
+        ).fetchall()
+        return [self._parse_work_item(r) for r in rows]
+
+    def agent_queue(self, agent: str) -> list[dict]:
+        """Items assigned to agent that are open and not blocked."""
+        conn = self._connect()
+        placeholders = ",".join("?" * len(OPEN_STATUSES))
+        rows = conn.execute(
+            f"SELECT * FROM work_items WHERE assigned_to=? AND status IN ({placeholders}) "
+            "AND (blocker IS NULL OR blocker = '') ORDER BY "
+            "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, "
+            "updated_at",
+            [agent] + sorted(OPEN_STATUSES),
+        ).fetchall()
+        return [self._parse_work_item(r) for r in rows]
+
+    def work_item_stats(self) -> dict:
+        conn = self._connect()
+        by_status = {}
+        for row in conn.execute("SELECT status, COUNT(*) as cnt FROM work_items GROUP BY status"):
+            by_status[row["status"]] = row["cnt"]
+        by_repo = {}
+        for row in conn.execute("SELECT repo, COUNT(*) as cnt FROM work_items WHERE status NOT IN ('merged','deferred','closed') GROUP BY repo"):
+            by_repo[row["repo"]] = row["cnt"]
+        by_assignee = {}
+        for row in conn.execute("SELECT assigned_to, COUNT(*) as cnt FROM work_items WHERE status NOT IN ('merged','deferred','closed') AND assigned_to IS NOT NULL GROUP BY assigned_to"):
+            by_assignee[row["assigned_to"]] = row["cnt"]
+        by_severity = {}
+        for row in conn.execute("SELECT severity, COUNT(*) as cnt FROM work_items WHERE status NOT IN ('merged','deferred','closed') GROUP BY severity"):
+            by_severity[row["severity"]] = row["cnt"]
+        return {"by_status": by_status, "by_repo": by_repo, "by_assignee": by_assignee, "by_severity": by_severity}
+
+    def work_item_decisions(self, repo: str | None = None) -> list[dict]:
+        conn = self._connect()
+        query = "SELECT * FROM work_items WHERE decision IS NOT NULL AND decision != ''"
+        params: list = []
+        if repo:
+            query += " AND repo=?"
+            params.append(repo)
+        query += " ORDER BY updated_at DESC"
+        rows = conn.execute(query, params).fetchall()
+        return [self._parse_work_item(r) for r in rows]
+
+    def search_work_items(self, q: str) -> list[dict]:
+        conn = self._connect()
+        like = f"%{q}%"
+        rows = conn.execute(
+            "SELECT * FROM work_items WHERE title LIKE ? OR findings LIKE ? "
+            "OR decision LIKE ? OR notes LIKE ? ORDER BY updated_at DESC",
+            (like, like, like, like),
+        ).fetchall()
+        return [self._parse_work_item(r) for r in rows]
+
+    def add_work_item_link(self, from_id: str, to_id: str, link_type: str = "related"):
+        conn = self._connect()
+        conn.execute(
+            "INSERT OR IGNORE INTO work_item_links (from_id, to_id, link_type) VALUES (?, ?, ?)",
+            (from_id, to_id, link_type),
+        )
+        conn.commit()
+
+    def remove_work_item_link(self, from_id: str, to_id: str) -> bool:
+        conn = self._connect()
+        cur = conn.execute("DELETE FROM work_item_links WHERE from_id=? AND to_id=?", (from_id, to_id))
+        if cur.rowcount == 0:
+            cur = conn.execute("DELETE FROM work_item_links WHERE from_id=? AND to_id=?", (to_id, from_id))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def get_work_item_history(self, item_id: str) -> list[dict]:
+        conn = self._connect()
+        rows = conn.execute(
+            "SELECT * FROM work_item_history WHERE work_item_id=? ORDER BY changed_at",
+            (item_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
