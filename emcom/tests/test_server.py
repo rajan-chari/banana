@@ -312,3 +312,226 @@ class TestSearch:
         assert r.status_code == 200
         assert len(r.json()) == 1
         assert r.json()[0]["subject"] == "Important thing"
+
+
+# ============ Edge Case Tests ============
+
+class TestAuthCaseInsensitive:
+    """Auth middleware should accept names case-insensitively."""
+
+    def test_auth_different_case(self, client):
+        client.post("/register", json={"name": "frost", "description": "emcom dev"})
+        r = client.get("/email/inbox", headers=_headers("Frost"))
+        assert r.status_code == 200
+
+    def test_send_to_different_case(self, client):
+        """Sending to 'Frost' should resolve to registered 'frost'."""
+        client.post("/register", json={"name": "frost", "description": "a"})
+        client.post("/register", json={"name": "milo", "description": "b"})
+        r = client.post("/email", json={"to": ["Frost"], "subject": "Hi", "body": "test"},
+                        headers=_headers("milo"))
+        assert r.status_code == 200
+        # Should appear in frost's inbox
+        r2 = client.get("/email/inbox", headers=_headers("frost"))
+        assert len(r2.json()) == 1
+
+    def test_cc_case_insensitive(self, client):
+        client.post("/register", json={"name": "frost", "description": "a"})
+        client.post("/register", json={"name": "milo", "description": "b"})
+        client.post("/register", json={"name": "bolt", "description": "c"})
+        r = client.post("/email", json={"to": ["milo"], "cc": ["FROST"], "subject": "Hi", "body": "test"},
+                        headers=_headers("bolt"))
+        assert r.status_code == 200
+
+
+class TestSpecialCharacters:
+    """Test that special characters in subjects and bodies don't break queries."""
+
+    def test_subject_with_quotes(self, client):
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        r = client.post("/email", json={"to": ["bob"], "subject": 'He said "hello"', "body": "x"},
+                        headers=_headers("alice"))
+        assert r.status_code == 200
+        r2 = client.get("/email/inbox", headers=_headers("bob"))
+        assert r2.json()[0]["subject"] == 'He said "hello"'
+
+    def test_body_with_json_special_chars(self, client):
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        body = '{"key": "value", "list": [1, 2, 3]}'
+        r = client.post("/email", json={"to": ["bob"], "subject": "JSON body", "body": body},
+                        headers=_headers("alice"))
+        assert r.status_code == 200
+        r2 = client.get(f"/email/{r.json()['id']}", headers=_headers("bob"))
+        assert r2.json()["body"] == body
+
+    def test_subject_with_sql_injection_attempt(self, client):
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        r = client.post("/email", json={
+            "to": ["bob"], "subject": "'; DROP TABLE emails; --", "body": "x"
+        }, headers=_headers("alice"))
+        assert r.status_code == 200
+        # Verify emails table still works
+        r2 = client.get("/email/inbox", headers=_headers("bob"))
+        assert len(r2.json()) == 1
+
+    def test_search_with_special_chars(self, client):
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        client.post("/email", json={"to": ["bob"], "subject": "100% complete!", "body": "done"},
+                    headers=_headers("alice"))
+        r = client.get("/search?subject=100%25", headers=_headers("bob"))
+        assert r.status_code == 200
+        assert len(r.json()) == 1
+
+    def test_large_body(self, client):
+        """Test sending a large message body."""
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        body = "x" * 50000
+        r = client.post("/email", json={"to": ["bob"], "subject": "Large", "body": body},
+                        headers=_headers("alice"))
+        assert r.status_code == 200
+        r2 = client.get(f"/email/{r.json()['id']}", headers=_headers("bob"))
+        assert len(r2.json()["body"]) == 50000
+
+
+class TestTagSemantics:
+    """Test tag lifecycle semantics that agents rely on."""
+
+    def test_handled_supersedes_pending_and_unread(self, client):
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        r = client.post("/email", json={"to": ["bob"], "subject": "Hi", "body": "x"},
+                        headers=_headers("alice"))
+        eid = r.json()["id"]
+        # Read (removes unread, adds pending)
+        client.get(f"/email/{eid}?add_tags=pending", headers=_headers("bob"))
+        # Tag handled
+        client.post(f"/email/{eid}/tags", json={"tags": ["handled"]}, headers=_headers("bob"))
+        # Check: handled present, pending and unread gone
+        r2 = client.get(f"/email/{eid}", headers=_headers("bob"))
+        tags = r2.json()["tags"]
+        assert "handled" in tags
+        assert "unread" not in tags
+        assert "pending" not in tags
+
+    def test_handled_hides_from_inbox(self, client):
+        """Default inbox excludes handled messages."""
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        r = client.post("/email", json={"to": ["bob"], "subject": "Hi", "body": "x"},
+                        headers=_headers("alice"))
+        eid = r.json()["id"]
+        client.post(f"/email/{eid}/tags", json={"tags": ["handled"]}, headers=_headers("bob"))
+        # Default inbox should be empty
+        r2 = client.get("/email/inbox", headers=_headers("bob"))
+        assert len(r2.json()) == 0
+        # --all should show it
+        r3 = client.get("/email/inbox?all=true", headers=_headers("bob"))
+        assert len(r3.json()) == 1
+
+    def test_tags_are_per_owner(self, client):
+        """Alice and Bob have independent tags on the same email."""
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        r = client.post("/email", json={"to": ["bob"], "cc": ["alice"], "subject": "Hi", "body": "x"},
+                        headers=_headers("alice"))
+        eid = r.json()["id"]
+        # Bob tags as important
+        client.post(f"/email/{eid}/tags", json={"tags": ["important"]}, headers=_headers("bob"))
+        # Alice should not see Bob's tag
+        r2 = client.get(f"/email/{eid}", headers=_headers("alice"))
+        assert "important" not in r2.json()["tags"]
+
+
+class TestDBIntegrity:
+    """End-to-end integrity test: register → send → read → tag → search → thread."""
+
+    def test_full_e2e_integrity(self, client):
+        # Register 3 agents
+        for name in ["scout", "spark-py", "rajan"]:
+            client.post("/register", json={"name": name, "description": f"{name} agent"})
+
+        # Scout sends to spark-py, CC rajan
+        r = client.post("/email", json={
+            "to": ["spark-py"], "cc": ["rajan"],
+            "subject": "Issue #344 found", "body": "JWKS caching bug"
+        }, headers=_headers("scout"))
+        assert r.status_code == 200
+        email1_id = r.json()["id"]
+        thread_id = r.json()["thread_id"]
+
+        # spark-py reads
+        r = client.get(f"/email/{email1_id}?add_tags=pending", headers=_headers("spark-py"))
+        assert r.status_code == 200
+        assert "pending" in r.json()["tags"]
+        assert "unread" not in r.json()["tags"]
+
+        # spark-py replies
+        r = client.post("/email", json={
+            "to": ["scout"], "body": "PR submitted", "in_reply_to": email1_id
+        }, headers=_headers("spark-py"))
+        assert r.status_code == 200
+        assert r.json()["thread_id"] == thread_id
+
+        # spark-py tags original as handled
+        client.post(f"/email/{email1_id}/tags", json={"tags": ["handled"]},
+                    headers=_headers("spark-py"))
+
+        # Search finds it
+        r = client.get("/search?body=JWKS", headers=_headers("scout"))
+        assert len(r.json()) >= 1
+
+        # Thread has 2 messages
+        r = client.get(f"/threads/{thread_id}", headers=_headers("scout"))
+        assert len(r.json()) == 2
+
+        # rajan can see the CC'd email
+        r = client.get("/email/inbox", headers=_headers("rajan"))
+        assert len(r.json()) >= 1
+
+        # Who shows all 3 active
+        r = client.get("/who")
+        names = {i["name"] for i in r.json()}
+        assert {"scout", "spark-py", "rajan"}.issubset(names)
+
+    def test_short_id_resolution(self, client):
+        """Short ID prefixes resolve correctly."""
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        r = client.post("/email", json={"to": ["bob"], "subject": "Hi", "body": "x"},
+                        headers=_headers("alice"))
+        full_id = r.json()["id"]
+        short_id = full_id[:8]
+        # Read by short ID
+        r2 = client.get(f"/email/{short_id}", headers=_headers("bob"))
+        assert r2.status_code == 200
+        assert r2.json()["id"] == full_id
+
+
+class TestMultiRecipient:
+    """Test multi-recipient and CC scenarios."""
+
+    def test_send_to_multiple(self, client):
+        for name in ["alice", "bob", "carol"]:
+            client.post("/register", json={"name": name, "description": name})
+        r = client.post("/email", json={
+            "to": ["bob", "carol"], "subject": "Team update", "body": "FYI"
+        }, headers=_headers("alice"))
+        assert r.status_code == 200
+        # Both should see it
+        for name in ["bob", "carol"]:
+            r2 = client.get("/email/inbox", headers=_headers(name))
+            assert len(r2.json()) == 1
+
+    def test_sender_not_in_own_inbox(self, client):
+        client.post("/register", json={"name": "alice", "description": "a"})
+        client.post("/register", json={"name": "bob", "description": "b"})
+        client.post("/email", json={"to": ["bob"], "subject": "Hi", "body": "x"},
+                    headers=_headers("alice"))
+        # Alice should not see her own sent email in inbox
+        r = client.get("/email/inbox", headers=_headers("alice"))
+        assert len(r.json()) == 0

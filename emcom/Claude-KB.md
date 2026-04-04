@@ -52,5 +52,8 @@ Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't wor
 ### 2026-03-25: emcom --cc does not accept comma-separated names
 `emcom send --cc moss,blake,sage` fails with "Recipient 'moss,blake,sage' is not registered" — the CLI treats the entire comma-separated string as a single recipient name. If CC support is needed, use separate `--cc` flags per recipient or omit CC and send to the primary recipient (replies in-thread are visible to all participants anyway).
 
+### 2026-04-03: NEVER dev/test on production port 8800
+Killing and restarting emcom-server on port 8800 during tracker development caused 3 crashes that cut communication for all 18 agents. Root cause: dev and production shared the same server process. Rule: always use port 8801+ for development/testing (`EMCOM_PORT=8801 emcom-server`). Never kill the production server for rebuilds — build to a staging path, then swap binaries only during coordinated restarts. Send a heads-up to agents before any infrastructure changes.
+
 ### 2026-03-25: Use `git commit -F -` with heredoc instead of `$(cat <<'EOF')`
 `git commit -m "$(cat <<'EOF'...EOF)"` triggers a permission prompt every time due to the `$()` command substitution. Use `git commit -F - <<'EOF'` instead — `-F -` reads the message from stdin, heredoc provides it, no subshell needed. No more permission interruptions.
