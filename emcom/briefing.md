@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-03 milestone
+Last updated: 2026-04-04 checkpoint
 
 ## Current Focus
 
-Just shipped the work tracker feature — full server-side implementation (3 tables, 13 REST endpoints, state machine, dedup, audit trail) + standalone tracker.exe CLI (C# AOT, 5.2 MB). Both tracker.exe and emcom-server.exe deployed to `~/.claude/skills/emcom/bin/`. Rajan notified.
+Idle after major deliverables. This session shipped: (1) work tracker feature (server + CLI + 17 tests), (2) code quality audit of emcom-server, (3) 16 edge case tests covering risky areas. 98 total tests passing. Rajan confirmed clean bill of health. No outstanding work.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Just shipped the work tracker feature — full server-side implementation (3 tab
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-04 — Code quality audit + 16 edge case tests
+Rajan requested audit after server crashes during tracker dev (caused by killing production server on port 8800). Completed audit: identified 4 risky areas (inbox JSON queries, auth case gap, thread aggregation, zero TUI tests). Added 16 edge case tests: auth case-insensitive (3), special characters including SQL injection (5), tag semantics (3), DB integrity e2e (2), multi-recipient (3). No bugs found — all 98 tests pass. Added Claude-KB lesson: never dev on port 8800. Commit `39cd859`.
 
 ### 2026-04-03 — Work tracker feature shipped
 Built complete work tracking system hosted inside emcom-server. Server: 3 new tables (work_items, work_item_history, work_item_links), 13 REST endpoints under /tracker, state machine with 11 statuses, dedup on (repo, number), auto audit trail. CLI: standalone tracker.exe (C# AOT, 5.2 MB) with 13 commands (create, update, list, view, queue, stats, decisions, stale, blocked, search, history, comment, link). 17 new tests (83 total). Both binaries deployed. Commits `8424578` (server), `3daee16` (CLI).
