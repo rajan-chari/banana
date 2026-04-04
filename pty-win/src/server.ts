@@ -292,20 +292,20 @@ public class Win32Focus {
   }
 
   app.post("/api/hook/stop", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({});
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
     if (session) { session.hookStop(); broadcastSessionList(); }
   });
 
   app.post("/api/hook/notify", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({});
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
     const type = req.body?.type || req.body?.notification_type || "";
     if (session) { session.hookNotify(type); broadcastSessionList(); }
   });
 
   app.post("/api/hook/prompt-submit", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({});
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
     if (session) { session.hookPromptSubmit(); broadcastSessionList(); }
   });

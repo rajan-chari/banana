@@ -109,6 +109,9 @@ When an ONNX model outputs `seq(map(string, float))` (e.g. sklearn pipeline prob
 ### 2026-04-01: Status bar hook approach doesn't work with multiple pty-win instances
 Claude Code's statusLine.command is global (or per-CWD). If user runs multiple pty-win instances on different ports, the POST targets a single hardcoded port. Regex scraping from the PTY data stream is simpler and works correctly per-instance. The hook idea is sound for single-instance but was reverted.
 
+### 2026-04-04: Claude Code HTTP hooks must return Zod-valid JSON
+Hook responses are validated against `hookJSONOutputSchema`. Valid fields: `continue`, `suppressOutput`, `stopReason`, `decision`, `reason`, `hookSpecificOutput`. Custom fields like `{status:"ok"}` fail validation. Return `{}` (empty object) for hooks that just need to acknowledge. Also: `res.sendStatus(200)` returns plain text "OK" which also fails — must be JSON. UserPromptSubmit hooks are blocking (up to timeout), so return fast.
+
 ### 2026-04-01: Cost regex must match both duration formats
 Status line outputs `$9.97 2m34s` (minutes+seconds) and `$0.50 553ms` (milliseconds). Regex `/\$(\d+\.\d+)\s+\d+m\d*s/` handles both. The `\d*` after `m` optionally matches the seconds digits.
 
