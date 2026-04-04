@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-04 checkpoint
+Last updated: 2026-04-04 shutdown
 
 ## Current Focus
 
-Idle after major deliverables. This session shipped: (1) work tracker feature (server + CLI + 17 tests), (2) code quality audit of emcom-server, (3) 16 edge case tests covering risky areas. 98 total tests passing. Rajan confirmed clean bill of health. No outstanding work.
+Session ending. Massive productivity session — shipped work tracker, code quality audit, 16 edge case tests, ruff linting, coverage report, and 21 CLI integration tests. 119 total tests passing. No outstanding work requests.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Idle after major deliverables. This session shipped: (1) work tracker feature (s
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-04 — CLI integration tests + ruff + coverage
+Added 21 CLI integration tests (test_cli_integration.py) that spin up a real server on port 8801 and invoke the actual AOT binaries via subprocess. Covers emcom send/inbox/tag/reply/check/status/search + tracker create/update/list/view/stats. Also: added ruff linting (all checks pass), ran coverage (88% for emcom_server), fixed ResourceWarning in test teardown (Database.close()). 119 total tests passing. Commits `199927e` (ruff), `8412604` (CLI tests).
 
 ### 2026-04-04 — Code quality audit + 16 edge case tests
 Rajan requested audit after server crashes during tracker dev (caused by killing production server on port 8800). Completed audit: identified 4 risky areas (inbox JSON queries, auth case gap, thread aggregation, zero TUI tests). Added 16 edge case tests: auth case-insensitive (3), special characters including SQL injection (5), tag semantics (3), DB integrity e2e (2), multi-recipient (3). No bugs found — all 98 tests pass. Added Claude-KB lesson: never dev on port 8800. Commit `39cd859`.
