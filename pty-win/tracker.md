@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-04 04:00
+Last updated: 2026-04-04 06:00
 
 ## In Motion
 
@@ -19,6 +19,11 @@ Last updated: 2026-04-04 04:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-04 | Reverted prefersReducedMotion from hooks | User-level setting, not per-session |
+| 2026-04-04 | Hook JSON fix: {} for Zod validation | Claude Code rejects custom fields in hook responses |
+| 2026-04-04 | Tracker panel + proxy endpoint | New tab, grouped by status, 10s refresh, /api/emcom-proxy/tracker |
+| 2026-04-04 | Coverage metrics (@vitest/coverage-v8) | Extracted modules 96-100%, overall 11% (I/O code untested by design) |
+| 2026-04-04 | Session-state tests (35) | Pure state machine extraction, 79 total tests |
 | 2026-04-04 | Test suite: 44 tests (tiling + paneGroups) | Extracted pure functions, vitest, safety net for scariest code paths |
 | 2026-04-04 | Claude Code hooks for idle detection | Stop/Notify/PromptSubmit hooks replace heuristic; per-project settings.local.json; heuristic kept as fallback |
 | 2026-04-03 | Shutdown grace 120s → 240s | Agents need more time to commit+push on shutdown |

@@ -1,17 +1,25 @@
 # Briefing
-Last updated: 2026-04-04 04:00
+Last updated: 2026-04-04 06:00
 
 ## Current Focus
-Test suite solid (79 tests, extracted modules 96-100% covered). Tracker panel built. Coverage metrics added. Research pointers collected for next testing phase.
+Idle — all work committed, waiting on server restart to verify hooks + tracker panel end-to-end.
 
 ## Don't Forget
 - Server restart needed — TS changes: Claude Code hooks, cost in checkpoints, last-active column, shutdown 4min, regex fix, force-idle log
 - Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top, drag-drop)
-- Tracker panel built but needs server restart (proxy endpoint /api/emcom-proxy/tracker) + browser refresh
+- Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, prefersReducedMotion reverted
+- Browser refresh for frontend: tracker panel tab, dashboard redesign, drag-drop, pane borders
 - Duplication: src/tiling.ts, src/pane-groups.ts, src/session-state.ts are extracted copies of app.js/session.ts — don't let them drift
-- Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests — reference when expanding coverage
+- Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests
+- tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-04 05:55 — Reverted prefersReducedMotion from writeSessionHooks
+Those are user-level global settings (go in ~/.claude/settings.json), not per-session via pty-win.
+
+### 2026-04-04 05:10 — Hook JSON fix + tracker CLI KB entry
+Hook endpoints changed from {status:"ok"} to {} (empty JSON) — Claude Code validates against Zod schema, custom fields fail. tracker CLI documented in Claude-KB.md.
+
 ### 2026-04-04 03:45 — Coverage metrics + tracker panel + research
 Added @vitest/coverage-v8. Extracted modules 96-100% covered, overall 11% (I/O code untested by design). Tracker panel built: new tab, grouped by status, click-to-expand, 10s refresh, proxy endpoint. Researcher provided testing patterns (fast-check, IPtyProcess mock, xterm-headless fixtures) in research/ folder.
 

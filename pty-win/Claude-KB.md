@@ -109,6 +109,9 @@ When an ONNX model outputs `seq(map(string, float))` (e.g. sklearn pipeline prob
 ### 2026-04-01: Status bar hook approach doesn't work with multiple pty-win instances
 Claude Code's statusLine.command is global (or per-CWD). If user runs multiple pty-win instances on different ports, the POST targets a single hardcoded port. Regex scraping from the PTY data stream is simpler and works correctly per-instance. The hook idea is sound for single-instance but was reverted.
 
+### 2026-04-04: Work tracker CLI
+`tracker` command is in PATH. Create items with `tracker create --repo X --number N --title 'desc' --severity normal|high|critical --assigned NAME`. Update with `tracker update repo#N --status STATUS --comment 'reason'`. States: new → triaged → investigating → findings-reported → decision-pending → pr-up → testing → ready-to-merge → merged/deferred/closed. Set `--blocker 'who/what'` when blocked. Tracker panel visible in pty-win Dashboard tab.
+
 ### 2026-04-04: Claude Code HTTP hooks must return Zod-valid JSON
 Hook responses are validated against `hookJSONOutputSchema`. Valid fields: `continue`, `suppressOutput`, `stopReason`, `decision`, `reason`, `hookSpecificOutput`. Custom fields like `{status:"ok"}` fail validation. Return `{}` (empty object) for hooks that just need to acknowledge. Also: `res.sendStatus(200)` returns plain text "OK" which also fails — must be JSON. UserPromptSubmit hooks are blocking (up to timeout), so return fast.
 
