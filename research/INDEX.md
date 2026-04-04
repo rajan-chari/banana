@@ -14,6 +14,8 @@ Findings from jade (claude-code-src analyst) and other investigations. Preserved
 | 2026-04-02 | [permissions.md](permissions.md) | Permission system: architecture, rule syntax, all tool behaviors, 7 common prompt triggers + fixes, recommended configs per agent type |
 | 2026-04-04 | [hooks.md](hooks.md) | Hook system: Stop/Notification/UserPromptSubmit for idle detection. Settings format, merge behavior (safe to add), input JSON schema, messageIdleNotifThresholdMs config. |
 
+| 2026-04-04 | [multi-agent-testing.md](multi-agent-testing.md) | Testing patterns: MassTransit saga harness for emcom, @microsoft/tui-test for PTY, Playwright routeWebSocket for browser E2E, @xstate/graph for state machine exhaustive paths. |
+
 ## In Progress
 
 (none)
