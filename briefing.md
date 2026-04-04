@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-04 04:10
+Last updated: 2026-04-04 05:12
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,7 +13,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-04 04:08 — Researcher delivered multi-agent testing patterns. Copied to research/multi-agent-testing.md. Key: @microsoft/tui-test for PTY, MassTransit saga harness for emcom, Playwright routeWebSocket for browser E2E. For moss when test coverage work continues.
+- 2026-04-04 05:11 — Hook error diagnosed + fixed: endpoints returned {status:'ok'} which fails Claude Code's Zod schema validation. Fix: return {} (empty valid JSON). Moss applied fix, needs restart. Also confirmed type:'http' is NOT feature-gated. research/hooks.md updated.
+- 2026-04-04 04:08 — Researcher delivered multi-agent testing patterns. Copied to research/multi-agent-testing.md.
 - 2026-04-04 01:35 — Tracker panel spec sent to moss but PARKED — moss focused on session.ts test coverage per Rajan. Rajan considering adding a second pty-win worker agent.
 - 2026-04-04 01:32 — Work tracker live on emcom-server (GET /tracker with X-Emcom-Name header). Tested API — items have repo, number, title, status, severity, assigned_to, blocker, findings, decision.
 - 2026-04-04 00:28 — PRIORITY: Hook-based idle detection implemented by moss. 3 Claude Code hooks (Stop, Notification, UserPromptSubmit) replace heuristic screen detection. type:'http', 5s idle threshold. Hooks merge safely (jade confirmed). Needs server restart. Research: research/hooks.md.

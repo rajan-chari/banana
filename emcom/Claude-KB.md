@@ -52,6 +52,9 @@ Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't wor
 ### 2026-03-25: emcom --cc does not accept comma-separated names
 `emcom send --cc moss,blake,sage` fails with "Recipient 'moss,blake,sage' is not registered" — the CLI treats the entire comma-separated string as a single recipient name. If CC support is needed, use separate `--cc` flags per recipient or omit CC and send to the primary recipient (replies in-thread are visible to all participants anyway).
 
+### 2026-04-04: Always AOT publish (not debug build) when deploying emcom.exe
+The deployed emcom.exe at `~/.claude/skills/emcom/bin/` was overwritten with a pre-feature build, losing batch 1+2 CLI features. The `emcomcs/bin/Debug/` directory contains a non-AOT build without all features compiled in. Always deploy from the AOT publish path: `emcomcs/bin/Release/net10.0/win-x64/publish/emcom.exe`. After deploying, verify with `emcom check` or `emcom status` to confirm features are present.
+
 ### 2026-04-03: NEVER dev/test on production port 8800
 Killing and restarting emcom-server on port 8800 during tracker development caused 3 crashes that cut communication for all 18 agents. Root cause: dev and production shared the same server process. Rule: always use port 8801+ for development/testing (`EMCOM_PORT=8801 emcom-server`). Never kill the production server for rebuilds — build to a staging path, then swap binaries only during coordinated restarts. Send a heads-up to agents before any infrastructure changes.
 

@@ -4,7 +4,7 @@ Last updated: 2026-04-04 shutdown
 
 ## Current Focus
 
-Session ending. Massive productivity session — shipped work tracker, code quality audit, 16 edge case tests, ruff linting, coverage report, and 21 CLI integration tests. 119 total tests passing. No outstanding work requests.
+Session ending. Fixed emcom.exe regression — binary had been overwritten with a pre-feature build, losing batch 1+2 CLI features (check, read-all, status, etc.). Rebuilt from source via AOT publish and redeployed. Added Claude-KB lesson. No outstanding work.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending. Massive productivity session — shipped work tracker, code qual
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-04 — Fixed emcom.exe regression
+Rajan reported `emcom check` returning "Unknown command" — the deployed binary had been overwritten with a pre-feature build missing batch 1+2 features. Rebuilt via `dotnet publish` (AOT) from current source and redeployed to `~/.claude/skills/emcom/bin/`. All features confirmed working. Added Claude-KB lesson: always deploy from the AOT publish path (`emcomcs/bin/Release/net10.0/win-x64/publish/`), never the Debug build.
 
 ### 2026-04-04 — CLI integration tests + ruff + coverage
 Added 21 CLI integration tests (test_cli_integration.py) that spin up a real server on port 8801 and invoke the actual AOT binaries via subprocess. Covers emcom send/inbox/tag/reply/check/status/search + tracker create/update/list/view/stats. Also: added ruff linting (all checks pass), ran coverage (88% for emcom_server), fixed ResourceWarning in test teardown (Database.close()). 119 total tests passing. Commits `199927e` (ruff), `8412604` (CLI tests).
