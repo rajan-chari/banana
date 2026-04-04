@@ -3,7 +3,7 @@ import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { join, dirname, resolve, basename } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { execFile, spawn } from "child_process";
 import { PtySession } from "./session.js";
 import { EmcomClient } from "./emcom/client.js";
@@ -43,6 +43,29 @@ function countRepoSiblings(repoRoot: string): number {
   return count;
 }
 
+
+function writeSessionHooks(workingDir: string, port: number): void {
+  try {
+    const claudeDir = join(workingDir, ".claude");
+    if (!existsSync(claudeDir)) mkdirSync(claudeDir, { recursive: true });
+    const settingsPath = join(claudeDir, "settings.local.json");
+    let settings: Record<string, unknown> = {};
+    if (existsSync(settingsPath)) {
+      try { settings = JSON.parse(readFileSync(settingsPath, "utf-8")); } catch { /* ignore */ }
+    }
+    const base = `http://127.0.0.1:${port}`;
+    settings.hooks = {
+      Stop: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/stop`, timeout: 2 }] }],
+      Notification: [{ matcher: "idle_prompt|permission_prompt", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeout: 2 }] }],
+      UserPromptSubmit: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeout: 2 }] }],
+    };
+    settings.messageIdleNotifThresholdMs = 5000;
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    clog(`hooks configured for ${workingDir} → port ${port}`);
+  } catch (e) {
+    log(`[server] Failed to write hooks for ${workingDir}: ${e}`);
+  }
+}
 
 export async function startServer(config: ServerConfig): Promise<void> {
   // Load saved costs from previous run
@@ -175,6 +198,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     const session = new PtySession(sessionConfig);
     if (savedCosts.has(name)) session.costUsd = savedCosts.get(name)!;
+    if (!isShell) writeSessionHooks(resolvedDir, config.port);
     addSession(session);
     session.start();
 
@@ -254,6 +278,36 @@ public class Win32Focus {
     session.forceIdle();
     broadcastSessionList();
     res.json({ ok: true });
+  });
+
+  // --- Claude Code Hook Endpoints ---
+
+  function findSessionByCwd(cwd: string): PtySession | undefined {
+    if (!cwd) return undefined;
+    const norm = resolve(cwd).replace(/\\/g, "/").toLowerCase();
+    for (const session of sessions.values()) {
+      if (session.workingDir.replace(/\\/g, "/").toLowerCase() === norm) return session;
+    }
+    return undefined;
+  }
+
+  app.post("/api/hook/stop", (req, res) => {
+    res.sendStatus(200);
+    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
+    if (session) { session.hookStop(); broadcastSessionList(); }
+  });
+
+  app.post("/api/hook/notify", (req, res) => {
+    res.sendStatus(200);
+    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
+    const type = req.body?.type || req.body?.notification_type || "";
+    if (session) { session.hookNotify(type); broadcastSessionList(); }
+  });
+
+  app.post("/api/hook/prompt-submit", (req, res) => {
+    res.sendStatus(200);
+    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
+    if (session) { session.hookPromptSubmit(); broadcastSessionList(); }
   });
 
   app.post("/api/sessions/:name/quick-message", (req, res) => {

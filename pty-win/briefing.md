@@ -1,14 +1,22 @@
 # Briefing
-Last updated: 2026-04-03 22:45
+Last updated: 2026-04-04 01:35
 
 ## Current Focus
-Shutdown save. Cost in checkpoints, last-active column, shutdown timeout 4min all pending restart.
+Test coverage sprint per Rajan. Tiling + paneGroups tested (44 tests). Next: session.ts state transitions, then shutdown logic. Tracker panel feature deferred until tests are solid.
 
 ## Don't Forget
-- Server restart needed — TS changes since last restart: hook removed, regex fix, force-idle log, cost tracking, context-independence prompt text
-- Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top)
+- Server restart needed — TS changes: Claude Code hooks, cost in checkpoints, last-active column, shutdown 4min, regex fix, force-idle log
+- Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top, drag-drop)
+- Tracker panel feature from milo — parked until test coverage done
+- Duplication: src/tiling.ts and src/pane-groups.ts are extracted copies of app.js functions — don't let them drift
 
 ## Recent
+### 2026-04-04 01:20 — Test suite: 44 tests (tiling + paneGroups)
+Extracted pure functions to src/tiling.ts (7 functions) and src/pane-groups.ts (rebuildPaneGroups). 32 tiling tests + 12 pane-groups tests, all passing via vitest. These are the two scariest code paths per Rajan's code quality audit. Next: session.ts state transitions, then shutdown logic.
+
+### 2026-04-04 00:25 — Claude Code hooks for idle detection
+Replaced heuristic screen scraping with authoritative hooks from Claude Code. pty-win writes Stop/Notification/UserPromptSubmit hooks to each session's .claude/settings.local.json (hooks MERGE with global settings, confirmed by jade). Three HTTP endpoints receive the signals and transition session status. Screen detector + heuristic kept as fallback. Also sets messageIdleNotifThresholdMs: 5000 (5s idle notification instead of 60s default).
+
 ### 2026-04-03 22:40 — Shutdown grace period 120s → 240s (4min)
 Agents weren't finishing saves before timeout. Double Ctrl+C is intentional force-quit — no guard added.
 

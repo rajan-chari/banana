@@ -5,7 +5,8 @@ Last updated: 2026-03-31
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win server restart | Rajan | Cost regex, merged dashboard, unfocused border, hook revert, checkpoint prompts |
-| Next pty-win item | Not started | milo→moss | Waiting for new requests |
+| Tracker panel for pty-win | Parked | milo→moss | Spec ready. Moss on test coverage — hold until done. |
+| Next pty-win item | Blocked | milo→moss | Moss focused on tests. Hold feature specs. |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 
 ## Watching
@@ -19,6 +20,7 @@ Last updated: 2026-03-31
 ## Completed
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-04 | Hook-based idle detection | Stop + Notification + UserPromptSubmit hooks replace heuristics. research/hooks.md. |
 | 2026-04-03 | Shutdown double-Ctrl+C bug fix | Re-entry guard prevents killing sessions mid-save |
 | 2026-04-03 | Cost in checkpoint prompts + last-active dashboard column | Agents see their cost; dashboard shows when sessions were last active |
 | 2026-04-03 | # in --body permission prompt fix | Pipe body via stdin; confirmed syntax with frost |

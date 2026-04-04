@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-03 22:45
+Last updated: 2026-04-04 01:35
 
 ## In Motion
 
@@ -12,6 +12,7 @@ Last updated: 2026-04-03 22:45
 
 | Item | Waiting On | Details | Links |
 |------|-----------|---------|-------|
+| Tracker panel in pty-win | Tests first | milo spec: GET /tracker from emcom-server, group by status, decision-pending on top | |
 | Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly | |
 | Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag (tabs done; panes still open) | |
 
@@ -19,6 +20,8 @@ Last updated: 2026-04-03 22:45
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-04 | Test suite: 44 tests (tiling + paneGroups) | Extracted pure functions, vitest, safety net for scariest code paths |
+| 2026-04-04 | Claude Code hooks for idle detection | Stop/Notify/PromptSubmit hooks replace heuristic; per-project settings.local.json; heuristic kept as fallback |
 | 2026-04-03 | Shutdown grace 120s → 240s | Agents need more time to commit+push on shutdown |
 | 2026-04-03 | Cost in checkpoint prompts | Appends "Session cost: $X.XX" so agents are cost-aware |
 | 2026-04-03 | Last Active column in dashboard | Shows relative time since last PTY output (lastActiveMs in SessionInfo) |

@@ -309,6 +309,48 @@ export class PtySession extends EventEmitter {
     this.unreadCount = 0;
   }
 
+  /** Hook: Claude finished a turn → idle */
+  hookStop(): void {
+    if (this.status === "dead") return;
+    clog(`hook:stop → ${this.name} (was ${this.status})`);
+    if (this.needsStartupKick) {
+      this.needsStartupKick = false;
+      const kick = this.isResumedSession ? RESUME_KICK : STARTUP_KICK;
+      log(`[${this.name}] Hook-triggered ${this.isResumedSession ? "resume" : "startup"} kick`);
+      this.ptyProcess.write(kick);
+      this.setStatus("busy");
+      return;
+    }
+    this.setStatus("idle");
+    if (this.pendingMessages) this.inject();
+    else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
+      this.scheduleCheckpointInjection(this.pendingCheckpoint);
+    }
+  }
+
+  /** Hook: user/injection sent input → busy */
+  hookPromptSubmit(): void {
+    if (this.status === "dead") return;
+    clog(`hook:prompt-submit → ${this.name} (was ${this.status})`);
+    this.setStatus("busy");
+  }
+
+  /** Hook: notification (idle_prompt or permission_prompt) */
+  hookNotify(type: string): void {
+    if (this.status === "dead") return;
+    if (type === "permission_prompt") {
+      clog(`hook:notify(permission) → ${this.name}`);
+      // Don't change status — permission prompts are transient
+      return;
+    }
+    if (type === "idle_prompt") {
+      clog(`hook:notify(idle) → ${this.name} — confirmed idle`);
+      // Redundant with hookStop but confirms idle state
+      if (this.status !== "idle") this.setStatus("idle");
+      if (this.pendingMessages) this.inject();
+    }
+  }
+
   /** Force session to idle — triggers emcom injection if messages are pending. */
   forceIdle(): void {
     log(`[${this.name}] Force-idle requested (was ${this.status})`);
