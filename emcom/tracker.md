@@ -7,7 +7,7 @@ Last updated: 2026-03-30
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win: force-not-busy context menu | Not started | frost | Rajan wants right-click "force not busy" on session entries. Check if commit `8f0340c` already covers this. |
-| emcom: deploy emcom-server.exe | Staged, deploy on next restart | frost | New binary at `emcom/dist/emcom-server.exe`. Copy to `~/.claude/skills/emcom/bin/` when server is stopped (next pty-win restart). Includes case-insensitive identity lookup. |
+| — | — | — | No active items |
 
 ## Watching
 
@@ -21,6 +21,7 @@ Last updated: 2026-03-30
 | 2026-04-02 | emcom CLI batch 1: 5 UX improvements | inbox --full, read-all, tag batch, reply --handled, check. Commit `4b7b8e7` |
 | 2026-04-02 | emcom CLI batch 2: 5 more improvements | status cmd, inbox filters, CC comma fix, stdin body, case-insensitive names (server-side). Commit `6f1e449` |
 | 2026-04-02 | Team-wide feature announcement | Sent to milo for distribution. Covers existing + new features. |
+| 2026-04-03 | Work tracker feature | Server (3 tables, 13 endpoints) + CLI (tracker.exe AOT) + 17 tests. Commits `8424578`, `3daee16`. Both binaries deployed. |
 |------|------|---------|
 | 2026-03-25 | Adopt briefing.md spec | Created briefing.md, updated CLAUDE.md startup + session-end, commit `4cdeb73` |
 | 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |

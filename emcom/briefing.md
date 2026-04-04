@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-03 shutdown
+Last updated: 2026-04-03 milestone
 
 ## Current Focus
 
-Session ending. Major deliverable this session: 10 emcom CLI improvements shipped in 2 batches, both emcom.exe and emcom-server.exe rebuilt. Replied to pty-win feedback request from Rajan. No outstanding work requests.
+Just shipped the work tracker feature — full server-side implementation (3 tables, 13 REST endpoints, state machine, dedup, audit trail) + standalone tracker.exe CLI (C# AOT, 5.2 MB). Both tracker.exe and emcom-server.exe deployed to `~/.claude/skills/emcom/bin/`. Rajan notified.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending. Major deliverable this session: 10 emcom CLI improvements shippe
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-03 — Work tracker feature shipped
+Built complete work tracking system hosted inside emcom-server. Server: 3 new tables (work_items, work_item_history, work_item_links), 13 REST endpoints under /tracker, state machine with 11 statuses, dedup on (repo, number), auto audit trail. CLI: standalone tracker.exe (C# AOT, 5.2 MB) with 13 commands (create, update, list, view, queue, stats, decisions, stale, blocked, search, history, comment, link). 17 new tests (83 total). Both binaries deployed. Commits `8424578` (server), `3daee16` (CLI).
 
 ### 2026-04-03 — Replied to pty-win feedback + emcom-server.exe staged
 Rajan asked for pty-win experience feedback. Replied with: checkpoints and emcom polling work well, friction points are idle session noise, no build grace period, stale pending tags, underutilized context. Suggested idle work queue. Also rebuilt emcom-server.exe via PyInstaller — staged at `emcom/dist/emcom-server.exe`, ready to deploy to `~/.claude/skills/emcom/bin/` on next server restart (includes case-insensitive identity lookup).
