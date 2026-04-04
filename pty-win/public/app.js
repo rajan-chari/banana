@@ -17,6 +17,9 @@ const state = {
   focusedPane: null,
   isDashboard: true,
   isDiag: false,
+  isTracker: false,
+  trackerItems: [],
+  trackerDecisionCount: 0,
   sidebarVisible: true,
   favorites: [],          // string[] — favorite root paths
   folderCache: new Map(), // path -> FolderEntry[]
@@ -39,6 +42,7 @@ const state = {
 let nextWorkspaceId = 1;
 let dragSrcWsId = null;
 let diagPollTimer = null;
+let trackerPollTimer = null;
 
 function getDefaultAiCommand() {
   return state.aiPresets[state.aiDefaultIndex]?.command || "claude";
@@ -1495,9 +1499,11 @@ function switchToWorkspace(id) {
   }
 
   stopDiagPoll();
+  stopTrackerPoll();
   state.activeWorkspaceId = id;
   state.isDashboard = false;
   state.isDiag = false;
+  state.isTracker = false;
 
   // Restore focused pane for target workspace
   const ws = state.workspaces.find((w) => w.id === id);
@@ -1528,12 +1534,30 @@ function stopDiagPoll() {
 
 function switchToDashboard() {
   stopDiagPoll();
+  stopTrackerPoll();
   state.activeWorkspaceId = null;
   state.isDashboard = true;
   state.isDiag = false;
+  state.isTracker = false;
   renderTabs();
   renderDashboard();
   diagPollTimer = setInterval(renderDashboardStats, 5000);
+}
+
+function switchToTracker() {
+  stopDiagPoll();
+  stopTrackerPoll();
+  state.activeWorkspaceId = null;
+  state.isDashboard = false;
+  state.isDiag = false;
+  state.isTracker = true;
+  renderTabs();
+  renderTracker();
+  trackerPollTimer = setInterval(renderTracker, 10000);
+}
+
+function stopTrackerPoll() {
+  if (trackerPollTimer) { clearInterval(trackerPollTimer); trackerPollTimer = null; }
 }
 
 function findWorkspaceContaining(sessionName) {
@@ -1568,6 +1592,12 @@ function renderTabs() {
   dashTab.textContent = "Dashboard";
   dashTab.onclick = () => switchToDashboard();
   tabsEl.appendChild(dashTab);
+
+  const trackerTab = document.createElement("div");
+  trackerTab.className = `tab ${state.isTracker ? "active" : ""}`;
+  trackerTab.textContent = state.trackerDecisionCount > 0 ? `Tracker (${state.trackerDecisionCount})` : "Tracker";
+  trackerTab.onclick = () => switchToTracker();
+  tabsEl.appendChild(trackerTab);
 
   for (const ws of state.workspaces) {
     const tab = document.createElement("div");
@@ -2847,6 +2877,102 @@ function renderDashboardStats() {
       row.onclick = () => focusExistingSession(row.dataset.session);
     });
   }).catch(() => {});
+}
+
+// ===== Tracker Panel =====
+
+const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred"];
+
+function renderTracker() {
+  if (!state.isTracker) return;
+  const area = document.getElementById("workspace-area");
+
+  // Get emcom identity for auth
+  const identity = localStorage.getItem("pty-win-feed-identity") || "";
+
+  let container = area.querySelector(".tracker-view");
+  if (!container) {
+    area.innerHTML = "";
+    container = document.createElement("div");
+    container.className = "tracker-view";
+    area.appendChild(container);
+  }
+
+  fetch(`/api/emcom-proxy/tracker?status=open`, {
+    headers: { "X-Emcom-Name": identity },
+  })
+    .then((r) => r.json())
+    .then((items) => {
+      if (!state.isTracker) return;
+      state.trackerItems = items;
+      state.trackerDecisionCount = items.filter((i) => i.status === "decision-pending").length;
+      // Update tab badge without full re-render
+      const trackerTab = document.querySelector(".tab-tracker-badge");
+      if (trackerTab) trackerTab.textContent = state.trackerDecisionCount > 0 ? ` (${state.trackerDecisionCount})` : "";
+
+      // Group by status
+      const groups = new Map();
+      for (const status of TRACKER_STATUS_ORDER) groups.set(status, []);
+      for (const item of items) {
+        if (!groups.has(item.status)) groups.set(item.status, []);
+        groups.get(item.status).push(item);
+      }
+
+      let html = `<div class="tracker-header">
+        <span class="tracker-title">Work Tracker</span>
+        <span class="tracker-subtitle">${items.length} open item${items.length !== 1 ? "s" : ""} · auto-refresh 10s</span>
+      </div>`;
+
+      for (const [status, group] of groups) {
+        if (group.length === 0) continue;
+        const isDecision = status === "decision-pending";
+        html += `<div class="tracker-group ${isDecision ? "tracker-decision" : ""}">
+          <div class="tracker-group-header">${status.replace(/-/g, " ")} <span class="tracker-group-count">(${group.length})</span></div>`;
+
+        for (const item of group) {
+          const sevClass = item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "";
+          const assignee = item.assigned_to ? `<span class="tracker-assignee">@${item.assigned_to}</span>` : "";
+          const blocker = item.blocker ? `<span class="tracker-blocker">BLOCKED: ${item.blocker}</span>` : "";
+          const labels = item.labels?.length ? item.labels.map((l) => `<span class="tracker-label">${l}</span>`).join("") : "";
+
+          html += `<div class="tracker-item ${sevClass}" data-id="${item.id}">
+            <div class="tracker-item-row">
+              <span class="tracker-ref">${item.repo}#${item.number}</span>
+              <span class="tracker-item-title">${item.title}</span>
+              ${assignee}
+              ${sevClass ? `<span class="tracker-severity ${sevClass}">${item.severity}</span>` : ""}
+              ${labels}
+            </div>
+            <div class="tracker-item-detail hidden">
+              ${blocker ? `<div class="tracker-detail-row">${blocker}</div>` : ""}
+              ${item.findings ? `<div class="tracker-detail-row"><strong>Findings:</strong> ${item.findings}</div>` : ""}
+              ${item.decision ? `<div class="tracker-detail-row"><strong>Decision:</strong> ${item.decision}</div>` : ""}
+              ${item.decision_rationale ? `<div class="tracker-detail-row"><strong>Rationale:</strong> ${item.decision_rationale}</div>` : ""}
+              ${item.notes ? `<div class="tracker-detail-row"><strong>Notes:</strong> ${item.notes}</div>` : ""}
+              <div class="tracker-detail-meta">Created by ${item.created_by} · ${new Date(item.created_at).toLocaleDateString()} · Updated ${new Date(item.updated_at).toLocaleDateString()}</div>
+            </div>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      if (items.length === 0) {
+        html += `<div class="tracker-empty">// NO OPEN ITEMS</div>`;
+      }
+
+      container.innerHTML = html;
+
+      // Wire click-to-expand
+      container.querySelectorAll(".tracker-item").forEach((el) => {
+        el.querySelector(".tracker-item-row").onclick = () => {
+          el.querySelector(".tracker-item-detail").classList.toggle("hidden");
+        };
+      });
+    })
+    .catch(() => {
+      if (!state.isTracker) return;
+      container.innerHTML = `<div class="tracker-header"><span class="tracker-title">Work Tracker</span></div><div class="tracker-empty">// CONNECTION FAILED</div>`;
+    });
 }
 
 // ===== Modal =====

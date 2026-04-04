@@ -292,20 +292,20 @@ public class Win32Focus {
   }
 
   app.post("/api/hook/stop", (req, res) => {
-    res.sendStatus(200);
+    res.json({ status: "ok" });
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
     if (session) { session.hookStop(); broadcastSessionList(); }
   });
 
   app.post("/api/hook/notify", (req, res) => {
-    res.sendStatus(200);
+    res.json({ status: "ok" });
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
     const type = req.body?.type || req.body?.notification_type || "";
     if (session) { session.hookNotify(type); broadcastSessionList(); }
   });
 
   app.post("/api/hook/prompt-submit", (req, res) => {
-    res.sendStatus(200);
+    res.json({ status: "ok" });
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
     if (session) { session.hookPromptSubmit(); broadcastSessionList(); }
   });
@@ -343,6 +343,20 @@ public class Win32Focus {
       const client = new EmcomClient(config.emcomServer, identity);
       const emails = await client.getAll();
       res.json(emails);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Proxy to emcom-server tracker
+  app.get("/api/emcom-proxy/tracker", async (req, res) => {
+    const identity = req.headers["x-emcom-name"] as string || "";
+    const status = req.query.status as string || "";
+    try {
+      const url = `${config.emcomServer}/tracker${status ? `?status=${status}` : ""}`;
+      const resp = await fetch(url, { headers: { "X-Emcom-Name": identity } });
+      const data = await resp.json();
+      res.json(data);
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

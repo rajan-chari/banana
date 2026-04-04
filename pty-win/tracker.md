@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-04 01:35
+Last updated: 2026-04-04 04:00
 
 ## In Motion
 
@@ -12,7 +12,6 @@ Last updated: 2026-04-04 01:35
 
 | Item | Waiting On | Details | Links |
 |------|-----------|---------|-------|
-| Tracker panel in pty-win | Tests first | milo spec: GET /tracker from emcom-server, group by status, decision-pending on top | |
 | Root folder indent alignment | Low priority | Root vs child arrow/indent offset may still differ slightly | |
 | Drag-and-drop pane reorder | Low priority | Reorder panes within a workspace via drag (tabs done; panes still open) | |
 

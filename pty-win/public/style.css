@@ -1861,6 +1861,116 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 .diag-cost-total td { border-top: 1px solid #2a2a2a; font-weight: 600; color: #ccc; }
 .diag-cost-total .diag-cost { color: #6be0c8; }
 
+/* ===== Tracker Panel ===== */
+.tracker-view {
+  padding: 20px 24px;
+  overflow-y: auto;
+  height: 100%;
+  font-family: 'IBM Plex Mono', var(--font-mono);
+}
+.tracker-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.tracker-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #d4882a;
+}
+.tracker-subtitle {
+  font-size: 10px;
+  color: #666;
+  letter-spacing: 0.3px;
+}
+.tracker-group {
+  margin-bottom: 16px;
+}
+.tracker-group-header {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #888;
+  padding: 4px 0;
+  border-bottom: 1px solid #2a2a2a;
+  margin-bottom: 4px;
+}
+.tracker-group.tracker-decision .tracker-group-header {
+  color: #d4882a;
+  border-bottom-color: #d4882a30;
+}
+.tracker-group-count { font-weight: 400; color: #666; }
+.tracker-item {
+  border-left: 2px solid #333;
+  padding: 4px 0 4px 10px;
+  margin-bottom: 2px;
+  transition: background 0.15s;
+}
+.tracker-item:hover { background: rgba(255,255,255,0.02); }
+.tracker-item.sev-high { border-left-color: #e5c07b; }
+.tracker-item.sev-critical { border-left-color: #f14c4c; }
+.tracker-decision .tracker-item { border-left-color: #d4882a; }
+.tracker-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.tracker-ref {
+  color: #6be0c8;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tracker-item-title {
+  color: #ccc;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tracker-assignee { color: #d670d6; font-size: 10px; }
+.tracker-severity {
+  font-size: 9px;
+  padding: 1px 5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.tracker-severity.sev-high { color: #e5c07b; border: 1px solid #e5c07b40; }
+.tracker-severity.sev-critical { color: #f14c4c; border: 1px solid #f14c4c40; animation: beacon-pulse 1.5s ease-in-out infinite; }
+.tracker-label {
+  font-size: 9px;
+  color: #888;
+  background: #2a2a2a;
+  padding: 1px 5px;
+}
+.tracker-blocker {
+  color: #f14c4c;
+  font-size: 11px;
+  font-weight: 600;
+}
+.tracker-item-detail {
+  padding: 8px 0 4px;
+  font-size: 11px;
+  color: #aaa;
+  line-height: 1.6;
+}
+.tracker-item-detail.hidden { display: none; }
+.tracker-detail-row { margin-bottom: 4px; }
+.tracker-detail-row strong { color: #ccc; }
+.tracker-detail-meta { color: #555; font-size: 10px; margin-top: 6px; }
+.tracker-empty {
+  color: #555;
+  font-size: 12px;
+  text-align: center;
+  padding: 60px 20px;
+}
+
 /* Quick-message popup */
 .quick-msg-popup {
   position: fixed;
