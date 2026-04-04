@@ -67,3 +67,6 @@ Don't require digits after `(`.
 
 ### 2026-04-04: signalIdle (hook path) does not consume needsStartupKick
 Only the heuristic path in `startHeuristic()` checks and clears `needsStartupKick`. The hook-based `signalIdle()` → `setIdle()` path does not. This means if the first idle detection comes via hook rather than heuristic, the startup kick will fire on the next heuristic-detected idle. This is current behavior, not a bug — but important to know for any refactor of the idle detection paths.
+
+### 2026-04-04: Work tracker CLI is available
+`tracker` command is in PATH. Key commands: `tracker create`, `tracker update`, `tracker list`, `tracker view`, `tracker stats`. Use for tracking work items across sessions.
