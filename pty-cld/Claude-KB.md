@@ -61,3 +61,9 @@ The busy line has multiple formats — all share `verb… (` but the parenthesiz
 - `Zigzagging… (1m 8s · ↑ 1.4k tokens)` — duration + token stats
 - `Perusing… (thinking with high effort)` — thinking label, no digits
 Don't require digits after `(`.
+
+### 2026-04-04: xterm-headless write() is async — tests need flush
+`terminal.write(data)` buffers input and processes it asynchronously. Reading the buffer immediately after write returns empty/stale content. Use `terminal.write(data, callback)` where the callback fires after the parser processes the data. In tests, wrap this in a promise: `new Promise(resolve => terminal.write(data, resolve))`.
+
+### 2026-04-04: signalIdle (hook path) does not consume needsStartupKick
+Only the heuristic path in `startHeuristic()` checks and clears `needsStartupKick`. The hook-based `signalIdle()` → `setIdle()` path does not. This means if the first idle detection comes via hook rather than heuristic, the startup kick will fire on the next heuristic-detected idle. This is current behavior, not a bug — but important to know for any refactor of the idle detection paths.
