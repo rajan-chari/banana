@@ -3098,7 +3098,7 @@ function buildTrackerItem(item) {
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
-      <div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/nicross/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>
+      <div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>
       ${item.blocker ? `<div class="tracker-blocker-badge">${item.blocker}</div>` : ""}
       ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${item.findings}</div></div>` : ""}
       ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${item.decision}</div></div>` : ""}
@@ -3143,6 +3143,62 @@ function patchTrackerItem(el, item) {
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
+}
+
+const TRACKER_DEFAULT_COLS = [110, 0, 90, 70, 60, 60, 60]; // 0 = flex
+
+function initTrackerColumnResize(container) {
+  const thead = container.querySelector(".tracker-thead");
+  if (!thead) return;
+  const ths = [...thead.querySelectorAll(".tracker-th")];
+
+  // Load saved widths
+  let colWidths;
+  try {
+    const saved = localStorage.getItem("pty-win-tracker-col-widths");
+    colWidths = saved ? JSON.parse(saved) : [...TRACKER_DEFAULT_COLS];
+  } catch { colWidths = [...TRACKER_DEFAULT_COLS]; }
+
+  function applyWidths() {
+    const tpl = colWidths.map(w => w === 0 ? "1fr" : `${w}px`).join(" ");
+    thead.style.gridTemplateColumns = tpl;
+    container.querySelectorAll(".tracker-item-row").forEach(r => r.style.gridTemplateColumns = tpl);
+  }
+
+  applyWidths();
+
+  // Store applyWidths so new rows can pick it up
+  container._applyColWidths = applyWidths;
+  container._colWidths = colWidths;
+
+  // Add resize handles to all but last header
+  for (let i = 0; i < ths.length - 1; i++) {
+    const handle = document.createElement("div");
+    handle.className = "tracker-col-resize";
+    ths[i].appendChild(handle);
+
+    handle.onmousedown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handle.classList.add("dragging");
+      const startX = e.clientX;
+      const startW = ths[i].offsetWidth;
+      const onMove = (ev) => {
+        const delta = ev.clientX - startX;
+        const newW = Math.max(30, startW + delta);
+        colWidths[i] = newW;
+        applyWidths();
+      };
+      const onUp = () => {
+        handle.classList.remove("dragging");
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        localStorage.setItem("pty-win-tracker-col-widths", JSON.stringify(colWidths));
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    };
+  }
 }
 
 function loadTrackerHistory(el, itemId) {
@@ -3253,6 +3309,9 @@ function renderTracker() {
         renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
       };
     });
+
+    // Wire column resize handles
+    initTrackerColumnResize(container);
 
     // Wire filter dropdowns
     const wireFilter = (id, key) => {
@@ -3389,6 +3448,9 @@ function renderTrackerBody(container, items) {
   }
 
   trackerPrevItems = newItemMap;
+
+  // Apply column widths to any new rows
+  if (container._applyColWidths) container._applyColWidths();
 }
 
 // ===== Modal =====
