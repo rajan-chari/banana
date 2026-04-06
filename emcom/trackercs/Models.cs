@@ -18,6 +18,7 @@ public sealed class WorkItem
     [JsonPropertyName("findings")] public string? Findings { get; set; }
     [JsonPropertyName("decision")] public string? Decision { get; set; }
     [JsonPropertyName("decision_rationale")] public string? DecisionRationale { get; set; }
+    [JsonPropertyName("date_found")] public string? DateFound { get; set; }
     [JsonPropertyName("labels")] public List<string> Labels { get; set; } = [];
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
     [JsonPropertyName("created_at")] public string CreatedAt { get; set; } = "";
@@ -65,6 +66,7 @@ public sealed class CreateWorkItemRequest
     [JsonPropertyName("severity")] public string Severity { get; set; } = "normal";
     [JsonPropertyName("status")] public string Status { get; set; } = "new";
     [JsonPropertyName("assigned_to")] public string? AssignedTo { get; set; }
+    [JsonPropertyName("date_found")] public string? DateFound { get; set; }
     [JsonPropertyName("labels")] public List<string> Labels { get; set; } = [];
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
 }
@@ -78,6 +80,7 @@ public sealed class UpdateWorkItemRequest
     [JsonPropertyName("assigned_to")] public string? AssignedTo { get; set; }
     [JsonPropertyName("number")] public int? Number { get; set; }
     [JsonPropertyName("blocker")] public string? Blocker { get; set; }
+    [JsonPropertyName("date_found")] public string? DateFound { get; set; }
     [JsonPropertyName("findings")] public string? Findings { get; set; }
     [JsonPropertyName("decision")] public string? Decision { get; set; }
     [JsonPropertyName("decision_rationale")] public string? DecisionRationale { get; set; }

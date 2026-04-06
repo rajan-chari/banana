@@ -72,7 +72,7 @@ public static class Program
             case "create":
             {
                 string? repo = null, title = null, type = null, severity = null;
-                string? assigned = null, notes = null, status = null;
+                string? assigned = null, notes = null, status = null, dateFound = null;
                 int? number = null;
                 List<string> labels = [];
                 for (int i = 0; i < rest.Count; i++)
@@ -85,6 +85,7 @@ public static class Program
                     else if (rest[i] == "--severity" && i + 1 < rest.Count) severity = rest[++i];
                     else if (rest[i] == "--status" && i + 1 < rest.Count) status = rest[++i];
                     else if (rest[i] == "--assigned" && i + 1 < rest.Count) assigned = rest[++i];
+                    else if (rest[i] == "--date-found" && i + 1 < rest.Count) dateFound = rest[++i];
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)
                         labels.AddRange(rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     else if (rest[i] == "--notes" && i + 1 < rest.Count) notes = rest[++i];
@@ -96,6 +97,7 @@ public static class Program
                 if (severity != null) req.Severity = severity;
                 if (status != null) req.Status = status;
                 req.AssignedTo = assigned;
+                req.DateFound = dateFound;
                 if (labels.Count > 0) req.Labels = labels;
                 if (notes != null) req.Notes = notes;
                 var item = c.Create(req);
@@ -116,6 +118,7 @@ public static class Program
                     else if (rest[i] == "--findings" && i + 1 < rest.Count) req.Findings = rest[++i];
                     else if (rest[i] == "--decision" && i + 1 < rest.Count) req.Decision = rest[++i];
                     else if (rest[i] == "--decision-rationale" && i + 1 < rest.Count) req.DecisionRationale = rest[++i];
+                    else if (rest[i] == "--date-found" && i + 1 < rest.Count) req.DateFound = rest[++i];
                     else if (rest[i] == "--title" && i + 1 < rest.Count) req.Title = rest[++i];
                     else if (rest[i] == "--severity" && i + 1 < rest.Count) req.Severity = rest[++i];
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)

@@ -70,6 +70,7 @@ class CreateWorkItemRequest(BaseModel):
     severity: str = "normal"
     status: str = "new"
     assigned_to: str | None = None
+    date_found: str | None = None
     labels: list[str] = []
     notes: str = ""
 
@@ -82,6 +83,7 @@ class UpdateWorkItemRequest(BaseModel):
     assigned_to: str | None = None
     number: int | None = None
     blocker: str | None = None
+    date_found: str | None = None
     findings: str | None = None
     decision: str | None = None
     decision_rationale: str | None = None
@@ -115,7 +117,7 @@ def create_work_item(req: CreateWorkItemRequest, request: Request):
         repo=req.repo, title=req.title, created_by=caller,
         number=req.number, type_=req.type, severity=req.severity,
         status=req.status, assigned_to=req.assigned_to,
-        labels=req.labels, notes=req.notes,
+        labels=req.labels, notes=req.notes, date_found=req.date_found,
     )
     _broadcast("create", item)
     return item

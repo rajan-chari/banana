@@ -48,6 +48,8 @@ public static class Fmt
         sb.AppendLine($"Updated:    {ShortDate(item.UpdatedAt)}");
         if (item.Labels.Count > 0)
             sb.AppendLine($"Labels:     {string.Join(", ", item.Labels)}");
+        if (!string.IsNullOrEmpty(item.DateFound))
+            sb.AppendLine($"Found:      {ShortDate(item.DateFound)}");
         if (!string.IsNullOrEmpty(item.Blocker))
         {
             sb.AppendLine($"Blocker:    {item.Blocker}");

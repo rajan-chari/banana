@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS work_items (
     findings TEXT,
     decision TEXT,
     decision_rationale TEXT,
+    date_found TEXT,
     labels TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
@@ -120,7 +121,7 @@ VALID_LINK_TYPES = {"related", "blocks", "blocked-by", "duplicate"}
 TRACKED_FIELDS = {
     "title", "type", "severity", "status", "assigned_to", "blocker",
     "blocked_since", "findings", "decision", "decision_rationale",
-    "labels", "notes", "number",
+    "date_found", "labels", "notes", "number",
 }
 
 
@@ -187,6 +188,11 @@ class Database:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(identities)").fetchall()]
         if "location" not in cols:
             conn.execute("ALTER TABLE identities ADD COLUMN location TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        # Migration: add date_found column to work_items if missing
+        wi_cols = [r[1] for r in conn.execute("PRAGMA table_info(work_items)").fetchall()]
+        if wi_cols and "date_found" not in wi_cols:
+            conn.execute("ALTER TABLE work_items ADD COLUMN date_found TEXT")
             conn.commit()
         # Seed name pool if empty
         count = conn.execute("SELECT COUNT(*) FROM name_pool").fetchone()[0]
@@ -632,7 +638,7 @@ class Database:
                          number: int | None = None, type_: str = "issue",
                          severity: str = "normal", status: str = "new",
                          assigned_to: str | None = None, labels: list[str] | None = None,
-                         notes: str = "") -> dict:
+                         notes: str = "", date_found: str | None = None) -> dict:
         conn = self._connect()
         now = _now()
         item_id = str(uuid.uuid4())
@@ -647,10 +653,10 @@ class Database:
 
         conn.execute(
             "INSERT INTO work_items (id, repo, number, title, type, severity, status, "
-            "assigned_to, created_by, labels, notes, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "assigned_to, created_by, date_found, labels, notes, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (item_id, repo, number, title, type_, severity, status,
-             assigned_to, created_by, json.dumps(labels or []), notes, now, now),
+             assigned_to, created_by, date_found, json.dumps(labels or []), notes, now, now),
         )
         self._record_history(conn, item_id, "status", None, status, created_by, "Created")
         if assigned_to:
