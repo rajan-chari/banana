@@ -1,8 +1,8 @@
 # Briefing
-Last updated: 2026-04-04 06:00
+Last updated: 2026-04-06 15:30
 
 ## Current Focus
-Idle — all work committed, waiting on server restart to verify hooks + tracker panel end-to-end.
+Idle. Tracker panel was moved to right panel (Feed/Tracker tab toggle in index.html + tracker-panel.css) — done externally, likely by milo. New HTML structure: #right-panel-tabs with .rp-tab buttons, #tracker-content as sibling to #feed-content.
 
 ## Don't Forget
 - Server restart needed — TS changes: Claude Code hooks, cost in checkpoints, last-active column, shutdown 4min, regex fix, force-idle log
