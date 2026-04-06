@@ -2715,9 +2715,17 @@ function autoRemoveDeadSession(sessionName) {
 
 function renderDashboard() {
   const area = document.getElementById("workspace-area");
-  area.innerHTML = "";
 
-  const dash = document.createElement("div");
+  // Check if dashboard already exists — patch in-place instead of rebuilding
+  let dash = area.querySelector(".dashboard");
+  if (dash) {
+    patchDashboard(dash);
+    return;
+  }
+
+  // First render — build the structure once
+  area.innerHTML = "";
+  dash = document.createElement("div");
   dash.className = "dashboard active";
   area.appendChild(dash);
 
@@ -2732,20 +2740,9 @@ function renderDashboard() {
   }
 
   // Header strip
-  const totalCost = [...state.sessions.values()].reduce((s, i) => s + (i.costUsd || 0), 0);
-  const alive = [...state.sessions.values()].filter(i => i.status !== "dead").length;
-  const busy = [...state.sessions.values()].filter(i => i.status === "busy").length;
   const header = document.createElement("div");
   header.className = "dash-header";
-  header.innerHTML = `
-    <span class="dash-title">Mission Control</span>
-    <span class="dash-summary">
-      <span class="val">${alive}</span> active &middot;
-      <span class="val">${busy}</span> busy &middot;
-      <span class="val">${state.sessions.size}</span> total
-      ${totalCost > 0 ? `&middot; <span class="val">$${totalCost.toFixed(2)}</span>` : ""}
-    </span>
-  `;
+  header.innerHTML = buildHeaderHTML();
   dash.appendChild(header);
 
   // Stats + costs section (above cards)
@@ -2783,34 +2780,123 @@ function renderDashboard() {
   dash.appendChild(cardsSection);
 
   for (const [name, info] of state.sessions) {
-    const card = document.createElement("div");
-    card.className = `dashboard-card status-${info.status}`;
-    const unread = info.unreadCount || 0;
-    const identity = info.emcomIdentity ? `<span class="dashboard-card-identity">@${info.emcomIdentity}</span>` : "";
-    const cost = `<span class="dashboard-card-cost">$${(info.costUsd || 0).toFixed(2)}</span>`;
-    card.innerHTML = `
-      <div class="dashboard-card-header">
-        <span class="dashboard-card-name">${name}</span>
-        <span class="dashboard-card-meta">
-          ${identity}
-          ${cost}
-          <span class="dashboard-card-status ${info.status}">${info.status}</span>
-          <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
-        </span>
-      </div>
-      <div class="dashboard-card-preview" id="preview-${CSS.escape(name)}">...</div>
-    `;
-    card.onclick = () => focusExistingSession(name);
-    cardsGrid.appendChild(card);
-    loadSnapshot(name);
+    cardsGrid.appendChild(createDashboardCard(name, info));
   }
+}
+
+function buildHeaderHTML() {
+  const totalCost = [...state.sessions.values()].reduce((s, i) => s + (i.costUsd || 0), 0);
+  const alive = [...state.sessions.values()].filter(i => i.status !== "dead").length;
+  const busy = [...state.sessions.values()].filter(i => i.status === "busy").length;
+  return `
+    <span class="dash-title">Mission Control</span>
+    <span class="dash-summary">
+      <span class="val">${alive}</span> active &middot;
+      <span class="val">${busy}</span> busy &middot;
+      <span class="val">${state.sessions.size}</span> total
+      ${totalCost > 0 ? `&middot; <span class="val">$${totalCost.toFixed(2)}</span>` : ""}
+    </span>
+  `;
+}
+
+function createDashboardCard(name, info) {
+  const card = document.createElement("div");
+  card.className = `dashboard-card status-${info.status}`;
+  card.dataset.session = name;
+  card.style.contain = "content";
+  const unread = info.unreadCount || 0;
+  const identity = info.emcomIdentity ? `<span class="dashboard-card-identity">@${info.emcomIdentity}</span>` : "";
+  const cost = `<span class="dashboard-card-cost">$${(info.costUsd || 0).toFixed(2)}</span>`;
+  card.innerHTML = `
+    <div class="dashboard-card-header">
+      <span class="dashboard-card-name">${name}</span>
+      <span class="dashboard-card-meta">
+        ${identity}
+        ${cost}
+        <span class="dashboard-card-status ${info.status}">${info.status}</span>
+        <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
+      </span>
+    </div>
+    <div class="dashboard-card-preview">...</div>
+  `;
+  card.onclick = () => focusExistingSession(name);
+  loadSnapshot(name);
+  return card;
+}
+
+function patchDashboard(dash) {
+  if (state.sessions.size === 0) {
+    dash.innerHTML = `
+      <div class="dashboard-empty">
+        // NO ACTIVE SESSIONS<br><br>
+        Open a folder from the sidebar or press <kbd>Ctrl+P</kbd>
+      </div>
+    `;
+    return;
+  }
+
+  // Remove empty placeholder if sessions appeared
+  const empty = dash.querySelector(".dashboard-empty");
+  if (empty) { dash.innerHTML = ""; renderDashboard(); return; }
+
+  // Patch header
+  const header = dash.querySelector(".dash-header");
+  if (header) header.innerHTML = buildHeaderHTML();
+
+  // Patch cards count
+  const countEl = dash.querySelector(".dash-cards-count");
+  if (countEl) countEl.textContent = `(${state.sessions.size})`;
+
+  // Patch cards
+  const cardsGrid = dash.querySelector(".dash-cards");
+  if (!cardsGrid) return;
+
+  const currentNames = new Set(state.sessions.keys());
+  const existingCards = cardsGrid.querySelectorAll(".dashboard-card[data-session]");
+
+  // Remove cards for sessions that no longer exist
+  for (const card of existingCards) {
+    if (!currentNames.has(card.dataset.session)) {
+      card.remove();
+    }
+  }
+
+  // Add or patch cards
+  for (const [name, info] of state.sessions) {
+    let card = cardsGrid.querySelector(`.dashboard-card[data-session="${CSS.escape(name)}"]`);
+    if (!card) {
+      // New session — add card
+      cardsGrid.appendChild(createDashboardCard(name, info));
+    } else {
+      // Existing — patch fields
+      const statusEl = card.querySelector(".dashboard-card-status");
+      if (statusEl && statusEl.textContent !== info.status) {
+        statusEl.textContent = info.status;
+        statusEl.className = `dashboard-card-status ${info.status}`;
+        card.className = `dashboard-card status-${info.status}`;
+      }
+      const costEl = card.querySelector(".dashboard-card-cost");
+      const costText = `$${(info.costUsd || 0).toFixed(2)}`;
+      if (costEl && costEl.textContent !== costText) costEl.textContent = costText;
+      const badgeEl = card.querySelector(".dashboard-card-badge");
+      const unread = info.unreadCount || 0;
+      if (badgeEl) {
+        badgeEl.textContent = unread;
+        badgeEl.className = `dashboard-card-badge ${unread > 0 ? "show" : ""}`;
+      }
+    }
+  }
+
+  // Patch stats table
+  renderDashboardStats();
 }
 
 async function loadSnapshot(sessionName) {
   try {
     const res = await fetch(`/api/sessions/${encodeURIComponent(sessionName)}/snapshot?lines=8`);
     const data = await res.json();
-    const el = document.getElementById(`preview-${CSS.escape(sessionName)}`);
+    const card = document.querySelector(`.dashboard-card[data-session="${CSS.escape(sessionName)}"]`);
+    const el = card?.querySelector(".dashboard-card-preview");
     if (el) el.textContent = data.lines.join("\n") || "(no output yet)";
   } catch {}
 }
@@ -2822,6 +2908,16 @@ function renderDashboardStats() {
   const container = document.getElementById("dashboard-stats");
   if (!container) return;
 
+  const fmtAgo = (ms) => {
+    if (!ms) return "-";
+    const sec = Math.floor((Date.now() - ms) / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    return `${hr}h${min % 60}m`;
+  };
+
   fetch("/api/stats").then((r) => r.json()).then((stats) => {
     if (!state.isDashboard) return;
 
@@ -2829,53 +2925,75 @@ function renderDashboardStats() {
     const allSessions = [...state.sessions.entries()];
     const totalCostVal = allSessions.reduce((sum, [, s]) => sum + (s.costUsd || 0), 0);
 
-    const fmtAgo = (ms) => {
-      if (!ms) return "-";
-      const sec = Math.floor((Date.now() - ms) / 1000);
-      if (sec < 60) return `${sec}s`;
-      const min = Math.floor(sec / 60);
-      if (min < 60) return `${min}m`;
-      const hr = Math.floor(min / 60);
-      return `${hr}h${min % 60}m`;
-    };
+    // Build table structure once, then patch rows
+    let table = container.querySelector(".diag-table");
+    if (!table) {
+      container.innerHTML = `
+        <div class="diag-section-title">Sessions</div>
+        <table class="diag-table">
+          <thead>
+            <tr><th>Session</th><th>Status</th><th>Active</th><th>cb/s</th><th>KB/s</th><th>Cost</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>`;
+      table = container.querySelector(".diag-table");
+    }
 
-    const rows = allSessions.map(([name, info]) => {
+    const tbody = table.querySelector("tbody");
+    const currentNames = new Set(state.sessions.keys());
+
+    // Remove rows for sessions that no longer exist
+    for (const row of [...tbody.querySelectorAll(".diag-row")]) {
+      if (!currentNames.has(row.dataset.session)) row.remove();
+    }
+
+    // Add or patch rows
+    for (const [name, info] of allSessions) {
       const s = statsMap.get(name);
       const hot = s && s.busy.callbacksPerSec > 100;
-      return `<tr class="diag-row ${hot ? "diag-hot" : ""}" data-session="${name}">
-        <td class="diag-name">${name}</td>
-        <td class="diag-status ${info.status}">${info.status}</td>
-        <td class="diag-ago">${fmtAgo(info.lastActiveMs)}</td>
-        <td class="${hot ? "diag-hot-val" : ""}">${s ? s.busy.callbacksPerSec : 0}</td>
-        <td>${s ? (s.busy.bytesPerSec / 1024).toFixed(1) : "0.0"}</td>
-        <td class="diag-cost">$${(info.costUsd || 0).toFixed(2)}</td>
-      </tr>`;
-    }).join("");
+      let row = tbody.querySelector(`.diag-row[data-session="${CSS.escape(name)}"]`);
 
-    container.innerHTML = `
-      <div class="diag-section-title">Sessions</div>
-      <table class="diag-table">
-        <thead>
-          <tr>
-            <th>Session</th>
-            <th>Status</th>
-            <th>Active</th>
-            <th>cb/s</th>
-            <th>KB/s</th>
-            <th>Cost</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${allSessions.length === 0 ? '<tr><td colspan="6" class="diag-empty">No active sessions</td></tr>' : rows}
-          ${totalCostVal > 0 ? `<tr class="diag-cost-total"><td colspan="5">Total</td><td class="diag-cost">$${totalCostVal.toFixed(2)}</td></tr>` : ""}
-        </tbody>
-      </table>`;
+      if (!row) {
+        row = document.createElement("tr");
+        row.className = "diag-row";
+        row.dataset.session = name;
+        row.style.cursor = "pointer";
+        row.onclick = () => focusExistingSession(name);
+        row.innerHTML = `<td class="diag-name"></td><td class="diag-status"></td><td class="diag-ago"></td><td class="diag-cbs"></td><td class="diag-kbs"></td><td class="diag-cost"></td>`;
+        // Insert before total row if it exists
+        const totalRow = tbody.querySelector(".diag-cost-total");
+        tbody.insertBefore(row, totalRow);
+      }
 
-    // Wire row clicks to focus session
-    container.querySelectorAll(".diag-row").forEach((row) => {
-      row.style.cursor = "pointer";
-      row.onclick = () => focusExistingSession(row.dataset.session);
-    });
+      row.className = `diag-row ${hot ? "diag-hot" : ""}`;
+      const cells = row.children;
+      if (cells[0].textContent !== name) cells[0].textContent = name;
+      if (cells[1].textContent !== info.status) { cells[1].textContent = info.status; cells[1].className = `diag-status ${info.status}`; }
+      const agoText = fmtAgo(info.lastActiveMs);
+      if (cells[2].textContent !== agoText) cells[2].textContent = agoText;
+      const cbsText = s ? String(s.busy.callbacksPerSec) : "0";
+      if (cells[3].textContent !== cbsText) { cells[3].textContent = cbsText; cells[3].className = hot ? "diag-hot-val" : ""; }
+      const kbsText = s ? (s.busy.bytesPerSec / 1024).toFixed(1) : "0.0";
+      if (cells[4].textContent !== kbsText) cells[4].textContent = kbsText;
+      const costText = `$${(info.costUsd || 0).toFixed(2)}`;
+      if (cells[5].textContent !== costText) cells[5].textContent = costText;
+    }
+
+    // Patch or create total row
+    let totalRow = tbody.querySelector(".diag-cost-total");
+    if (totalCostVal > 0) {
+      if (!totalRow) {
+        totalRow = document.createElement("tr");
+        totalRow.className = "diag-cost-total";
+        totalRow.innerHTML = `<td colspan="5">Total</td><td class="diag-cost"></td>`;
+        tbody.appendChild(totalRow);
+      }
+      const totalCell = totalRow.querySelector(".diag-cost");
+      const totalText = `$${totalCostVal.toFixed(2)}`;
+      if (totalCell.textContent !== totalText) totalCell.textContent = totalText;
+    } else if (totalRow) {
+      totalRow.remove();
+    }
   }).catch(() => {});
 }
 
