@@ -2997,100 +2997,267 @@ function renderDashboardStats() {
   }).catch(() => {});
 }
 
-// ===== Tracker Panel =====
+// ===== Tracker Panel (Redesigned) =====
 
 const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred"];
+const TRACKER_SORT_FIELDS = ["ref", "title", "assignee", "severity", "age", "updated"];
+let trackerSortField = "status"; // default: grouped by status
+let trackerSortDir = "asc";
+let trackerPrevItems = new Map();
+
+function fmtAge(dateStr) {
+  if (!dateStr) return "-";
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const hrs = Math.floor(ms / 3600000);
+  if (hrs < 1) return `${Math.floor(ms / 60000)}m`;
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d`;
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  return `${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getDate().toString().padStart(2,"0")}`;
+}
+
+function sevOrder(s) { return s === "critical" ? 0 : s === "high" ? 1 : 2; }
+
+function sortTrackerItems(items) {
+  if (trackerSortField === "status") return items; // use group order
+  const sorted = [...items];
+  const dir = trackerSortDir === "asc" ? 1 : -1;
+  sorted.sort((a, b) => {
+    switch (trackerSortField) {
+      case "ref": return dir * (`${a.repo}#${a.number}`).localeCompare(`${b.repo}#${b.number}`);
+      case "title": return dir * (a.title || "").localeCompare(b.title || "");
+      case "assignee": return dir * (a.assigned_to || "").localeCompare(b.assigned_to || "");
+      case "severity": return dir * (sevOrder(a.severity) - sevOrder(b.severity));
+      case "age": return dir * (new Date(a.created_at) - new Date(b.created_at));
+      case "updated": return dir * (new Date(a.updated_at) - new Date(b.updated_at));
+      default: return 0;
+    }
+  });
+  return sorted;
+}
+
+function buildTrackerItem(item) {
+  const el = document.createElement("div");
+  el.className = `tracker-item`;
+  el.dataset.id = item.id;
+  el.style.contain = "content";
+
+  const sevClass = item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "sev-normal";
+
+  el.innerHTML = `
+    <div class="tracker-item-row">
+      <span class="tracker-ref">${item.repo}#${item.number}</span>
+      <span class="tracker-item-title">${item.title}</span>
+      <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
+      <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
+      <span class="tracker-age">${fmtAge(item.created_at)}</span>
+      <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
+    </div>
+    <div class="tracker-item-detail">
+      ${item.blocker ? `<div class="tracker-blocker-badge">${item.blocker}</div>` : ""}
+      ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${item.findings}</div></div>` : ""}
+      ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${item.decision}</div></div>` : ""}
+      ${item.decision_rationale ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Rationale</div><div class="tracker-detail-value">${item.decision_rationale}</div></div>` : ""}
+      ${item.notes ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Notes</div><div class="tracker-detail-value">${item.notes}</div></div>` : ""}
+      ${item.labels?.length ? `<div class="tracker-detail-section">${item.labels.map(l => `<span class="tracker-label">${l}</span>`).join(" ")}</div>` : ""}
+      <div class="tracker-detail-meta">
+        <span>Created by ${item.created_by || "?"}</span>
+        <span>${new Date(item.created_at).toLocaleString()}</span>
+        <span>Updated ${new Date(item.updated_at).toLocaleString()}</span>
+      </div>
+    </div>`;
+
+  el.querySelector(".tracker-item-row").onclick = () => el.classList.toggle("expanded");
+  return el;
+}
+
+function patchTrackerItem(el, item) {
+  const titleEl = el.querySelector(".tracker-item-title");
+  if (titleEl && titleEl.textContent !== item.title) titleEl.textContent = item.title;
+  const assigneeEl = el.querySelector(".tracker-assignee");
+  const assigneeText = item.assigned_to ? "@" + item.assigned_to : "";
+  if (assigneeEl && assigneeEl.textContent !== assigneeText) assigneeEl.textContent = assigneeText;
+  const sevEl = el.querySelector(".tracker-severity");
+  if (sevEl && sevEl.textContent !== (item.severity || "normal")) {
+    sevEl.textContent = item.severity || "normal";
+    sevEl.className = `tracker-severity ${item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "sev-normal"}`;
+  }
+  const ageEl = el.querySelector(".tracker-age");
+  if (ageEl) ageEl.textContent = fmtAge(item.created_at);
+  const updEl = el.querySelector(".tracker-updated");
+  if (updEl) updEl.textContent = fmtDate(item.updated_at);
+}
 
 function renderTracker() {
   if (!state.isTracker) return;
   const area = document.getElementById("workspace-area");
-
-  // Get emcom identity for auth
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
 
+  // Ensure container + chrome exist (build once)
   let container = area.querySelector(".tracker-view");
   if (!container) {
     area.innerHTML = "";
     container = document.createElement("div");
     container.className = "tracker-view";
+    container.innerHTML = `
+      <div class="tracker-chrome">
+        <span class="tracker-chrome-title">Work Tracker</span>
+        <div class="tracker-chrome-stats"></div>
+      </div>
+      <div class="tracker-thead">
+        <div class="tracker-th" data-sort="ref">Ref <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="severity">Severity <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="age">Age <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
+      </div>
+      <div class="tracker-body"></div>`;
     area.appendChild(container);
+
+    // Wire sortable headers
+    container.querySelectorAll(".tracker-th").forEach(th => {
+      th.onclick = () => {
+        const field = th.dataset.sort;
+        if (trackerSortField === field) {
+          trackerSortDir = trackerSortDir === "asc" ? "desc" : "asc";
+        } else {
+          trackerSortField = field;
+          trackerSortDir = "asc";
+        }
+        // Update sort indicators
+        container.querySelectorAll(".tracker-th").forEach(h => {
+          h.classList.toggle("sort-active", h.dataset.sort === trackerSortField);
+          const arrow = h.querySelector(".sort-arrow");
+          if (arrow) arrow.textContent = h.dataset.sort === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
+        });
+        renderTrackerBody(container, state.trackerItems || []);
+      };
+    });
   }
 
   fetch(`/api/emcom-proxy/tracker?status=open`, {
     headers: { "X-Emcom-Name": identity },
   })
-    .then((r) => r.json())
-    .then((items) => {
+    .then(r => r.json())
+    .then(items => {
       if (!state.isTracker) return;
       state.trackerItems = items;
-      state.trackerDecisionCount = items.filter((i) => i.status === "decision-pending").length;
-      // Update tab badge without full re-render
-      const trackerTab = document.querySelector(".tab-tracker-badge");
-      if (trackerTab) trackerTab.textContent = state.trackerDecisionCount > 0 ? ` (${state.trackerDecisionCount})` : "";
+      state.trackerDecisionCount = items.filter(i => i.status === "decision-pending").length;
 
-      // Group by status
-      const groups = new Map();
-      for (const status of TRACKER_STATUS_ORDER) groups.set(status, []);
-      for (const item of items) {
-        if (!groups.has(item.status)) groups.set(item.status, []);
-        groups.get(item.status).push(item);
+      // Update tab badge
+      const badge = document.querySelector(".tab-tracker-badge");
+      if (badge) badge.textContent = state.trackerDecisionCount > 0 ? ` (${state.trackerDecisionCount})` : "";
+
+      // Update chrome stats
+      const statsEl = container.querySelector(".tracker-chrome-stats");
+      if (statsEl) {
+        const dec = items.filter(i => i.status === "decision-pending").length;
+        const inv = items.filter(i => i.status === "investigating").length;
+        const blk = items.filter(i => i.status === "blocked").length;
+        statsEl.innerHTML = `
+          <span class="tracker-chrome-stat decision"><span class="val">${dec}</span> pending</span>
+          <span class="tracker-chrome-stat"><span class="val">${inv}</span> investigating</span>
+          <span class="tracker-chrome-stat"><span class="val">${blk}</span> blocked</span>
+          <span class="tracker-chrome-stat"><span class="val">${items.length}</span> total</span>`;
       }
 
-      let html = `<div class="tracker-header">
-        <span class="tracker-title">Work Tracker</span>
-        <span class="tracker-subtitle">${items.length} open item${items.length !== 1 ? "s" : ""} · auto-refresh 10s</span>
-      </div>`;
-
-      for (const [status, group] of groups) {
-        if (group.length === 0) continue;
-        const isDecision = status === "decision-pending";
-        html += `<div class="tracker-group ${isDecision ? "tracker-decision" : ""}">
-          <div class="tracker-group-header">${status.replace(/-/g, " ")} <span class="tracker-group-count">(${group.length})</span></div>`;
-
-        for (const item of group) {
-          const sevClass = item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "";
-          const assignee = item.assigned_to ? `<span class="tracker-assignee">@${item.assigned_to}</span>` : "";
-          const blocker = item.blocker ? `<span class="tracker-blocker">BLOCKED: ${item.blocker}</span>` : "";
-          const labels = item.labels?.length ? item.labels.map((l) => `<span class="tracker-label">${l}</span>`).join("") : "";
-
-          html += `<div class="tracker-item ${sevClass}" data-id="${item.id}">
-            <div class="tracker-item-row">
-              <span class="tracker-ref">${item.repo}#${item.number}</span>
-              <span class="tracker-item-title">${item.title}</span>
-              ${assignee}
-              ${sevClass ? `<span class="tracker-severity ${sevClass}">${item.severity}</span>` : ""}
-              ${labels}
-            </div>
-            <div class="tracker-item-detail hidden">
-              ${blocker ? `<div class="tracker-detail-row">${blocker}</div>` : ""}
-              ${item.findings ? `<div class="tracker-detail-row"><strong>Findings:</strong> ${item.findings}</div>` : ""}
-              ${item.decision ? `<div class="tracker-detail-row"><strong>Decision:</strong> ${item.decision}</div>` : ""}
-              ${item.decision_rationale ? `<div class="tracker-detail-row"><strong>Rationale:</strong> ${item.decision_rationale}</div>` : ""}
-              ${item.notes ? `<div class="tracker-detail-row"><strong>Notes:</strong> ${item.notes}</div>` : ""}
-              <div class="tracker-detail-meta">Created by ${item.created_by} · ${new Date(item.created_at).toLocaleDateString()} · Updated ${new Date(item.updated_at).toLocaleDateString()}</div>
-            </div>
-          </div>`;
-        }
-        html += `</div>`;
-      }
-
-      if (items.length === 0) {
-        html += `<div class="tracker-empty">// NO OPEN ITEMS</div>`;
-      }
-
-      container.innerHTML = html;
-
-      // Wire click-to-expand
-      container.querySelectorAll(".tracker-item").forEach((el) => {
-        el.querySelector(".tracker-item-row").onclick = () => {
-          el.querySelector(".tracker-item-detail").classList.toggle("hidden");
-        };
-      });
+      renderTrackerBody(container, items);
     })
     .catch(() => {
       if (!state.isTracker) return;
-      container.innerHTML = `<div class="tracker-header"><span class="tracker-title">Work Tracker</span></div><div class="tracker-empty">// CONNECTION FAILED</div>`;
+      const body = container.querySelector(".tracker-body");
+      if (body) body.innerHTML = `<div class="tracker-error">// CONNECTION FAILED</div>`;
     });
+}
+
+function renderTrackerBody(container, items) {
+  const body = container.querySelector(".tracker-body");
+  if (!body) return;
+
+  if (items.length === 0) {
+    body.innerHTML = `<div class="tracker-empty">// NO OPEN ITEMS</div>`;
+    trackerPrevItems.clear();
+    return;
+  }
+
+  const currentIds = new Set(items.map(i => i.id));
+  const newItemMap = new Map(items.map(i => [i.id, i]));
+
+  // Remove items that no longer exist
+  for (const el of [...body.querySelectorAll(".tracker-item[data-id]")]) {
+    if (!currentIds.has(el.dataset.id)) el.remove();
+  }
+
+  // Remove empty groups
+  for (const g of [...body.querySelectorAll(".tracker-group")]) {
+    if (g.querySelectorAll(".tracker-item").length === 0) g.remove();
+  }
+
+  if (trackerSortField !== "status") {
+    // Flat sorted view — no groups
+    for (const g of [...body.querySelectorAll(".tracker-group")]) g.remove();
+    const sorted = sortTrackerItems(items);
+    for (const item of sorted) {
+      let el = body.querySelector(`.tracker-item[data-id="${item.id}"]`);
+      if (!el) {
+        el = buildTrackerItem(item);
+        body.appendChild(el);
+      } else {
+        patchTrackerItem(el, item);
+        body.appendChild(el); // re-append to maintain sort order
+      }
+    }
+  } else {
+    // Grouped by status
+    for (const status of TRACKER_STATUS_ORDER) {
+      const groupItems = items.filter(i => i.status === status);
+      if (groupItems.length === 0) {
+        const existing = body.querySelector(`.tracker-group[data-status="${status}"]`);
+        if (existing) existing.remove();
+        continue;
+      }
+
+      let groupEl = body.querySelector(`.tracker-group[data-status="${status}"]`);
+      if (!groupEl) {
+        groupEl = document.createElement("div");
+        groupEl.className = "tracker-group";
+        groupEl.dataset.status = status;
+        groupEl.innerHTML = `<div class="tracker-group-bar">
+          <span class="tracker-group-dot"></span>
+          <span class="tracker-group-name">${status.replace(/-/g, " ")}</span>
+          <span class="tracker-group-count">(${groupItems.length})</span>
+        </div>`;
+        body.appendChild(groupEl);
+      } else {
+        const countEl = groupEl.querySelector(".tracker-group-count");
+        if (countEl) countEl.textContent = `(${groupItems.length})`;
+      }
+
+      for (const item of groupItems) {
+        let el = groupEl.querySelector(`.tracker-item[data-id="${item.id}"]`);
+        if (!el) {
+          el = buildTrackerItem(item);
+          groupEl.appendChild(el);
+        } else {
+          patchTrackerItem(el, item);
+        }
+      }
+
+      // Remove items that moved to a different status
+      for (const el of [...groupEl.querySelectorAll(".tracker-item[data-id]")]) {
+        const item = newItemMap.get(el.dataset.id);
+        if (!item || item.status !== status) el.remove();
+      }
+    }
+  }
+
+  trackerPrevItems = newItemMap;
 }
 
 // ===== Modal =====
