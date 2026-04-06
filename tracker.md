@@ -6,7 +6,7 @@ Last updated: 2026-03-31
 |------|--------|-------|-------------|
 | pty-win server restart | Rajan | Cost regex, merged dashboard, unfocused border, hook revert, checkpoint prompts |
 | Dashboard flicker fix | Done | milo | 21359a8 — DOM patching in-place, 79 tests pass |
-| Tracker panel redesign | Done | milo | 2 rounds: staleness, right panel toggle, filters, GitHub links, zebra, font. Resizable cols skipped. |
+| Tracker panel redesign | Done | milo | 2 rounds + staleness + history timeline. Right panel toggle, filters, GitHub links, zebra, font, lazy-load history. |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 
 ## Watching
