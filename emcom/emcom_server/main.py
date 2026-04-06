@@ -25,7 +25,7 @@ from emcom_server.db import Database
 from emcom_server.routers import identity, names, email, threads, tags, search, attachments, tracker
 
 # Endpoints that skip auth
-NO_AUTH_PATHS = {"/health", "/who", "/names", "/admin/purge"}
+NO_AUTH_PATHS = {"/health", "/who", "/names", "/admin/purge", "/tracker/ws"}
 NO_AUTH_PREFIXES = ("/docs", "/openapi", "/redoc", "/register")
 
 

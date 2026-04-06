@@ -230,3 +230,22 @@ class TestSpecialQueries:
         r = client.get("/tracker/search?q=JWKS", headers=H_SCOUT)
         assert r.status_code == 200
         assert len(r.json()) == 1
+
+
+class TestWebSocket:
+    def test_ws_snapshot_on_connect(self, client):
+        """WS connection sends initial snapshot of open items."""
+        client.post("/tracker", json={
+            "repo": "teams.py", "title": "WS test item",
+        }, headers=H_SCOUT)
+        with client.websocket_connect("/tracker/ws?name=scout") as ws:
+            msg = ws.receive_json()
+            assert msg["type"] == "tracker-snapshot"
+            assert isinstance(msg["payload"], list)
+            assert any(i["title"] == "WS test item" for i in msg["payload"])
+
+    def test_ws_no_name_rejected(self, client):
+        """WS without name query param is rejected."""
+        with pytest.raises(Exception):
+            with client.websocket_connect("/tracker/ws") as ws:
+                ws.receive_json()
