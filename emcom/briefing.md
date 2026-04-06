@@ -1,17 +1,20 @@
 # Briefing
 
-Last updated: 2026-04-04 shutdown
+Last updated: 2026-04-06 checkpoint
 
 ## Current Focus
 
-Session ending. Fixed emcom.exe regression — binary had been overwritten with a pre-feature build, losing batch 1+2 CLI features (check, read-all, status, etc.). Rebuilt from source via AOT publish and redeployed. Added Claude-KB lesson. No outstanding work.
+Active session. Shipped: (1) PyInstaller --runtime-tmpdir fix for Application Control blocking emcom-server.exe/emcom-tui.exe, (2) tracker WebSocket endpoint for real-time updates (commit `29c7ac6`), (3) date_found field for staleness tracking (commit `52e8087`). emcom-server.exe with date_found staged at `emcom/dist/` — deploy on next restart. tracker.exe deployed. No outstanding work requests.
 
 ## Don't Forget
 
-- **Deploy emcom-server.exe on next restart** — new binary staged at `emcom/dist/emcom-server.exe`, needs to be copied to `~/.claude/skills/emcom/bin/` when server is stopped (can't overwrite while running due to Windows file lock). This enables case-insensitive identity lookup server-side.
+- **Deploy emcom-server.exe on next restart** — new binary staged at `emcom/dist/emcom-server.exe`. Includes: WebSocket endpoint (`/tracker/ws`), date_found field, case-insensitive identity lookup. Copy to `~/.claude/skills/emcom/bin/` when server stops.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-06 — date_found field + tracker WebSocket + PyInstaller fix
+Three features shipped: (1) Fixed PyInstaller exe blocked by Windows Application Control — rebuilt emcom-server.exe and emcom-tui.exe with `--runtime-tmpdir ~/.emcom/runtime/` so DLL extraction goes to whitelisted path instead of %TEMP% (commit `bd2c71d`). (2) Tracker WebSocket endpoint `/tracker/ws?name=<agent>` for real-time updates — sends snapshot on connect, broadcasts on create/update/comment mutations (commit `29c7ac6`). (3) Added `date_found` optional field to work_items for staleness/age tracking — enables time-to-detect and total age calculations for the tracker panel (commit `52e8087`). tracker.exe deployed. emcom-server.exe staged for next restart.
 
 ### 2026-04-04 — Fixed emcom.exe regression
 Rajan reported `emcom check` returning "Unknown command" — the deployed binary had been overwritten with a pre-feature build missing batch 1+2 features. Rebuilt via `dotnet publish` (AOT) from current source and redeployed to `~/.claude/skills/emcom/bin/`. All features confirmed working. Added Claude-KB lesson: always deploy from the AOT publish path (`emcomcs/bin/Release/net10.0/win-x64/publish/`), never the Debug build.
