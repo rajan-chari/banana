@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-04 05:12
+Last updated: 2026-04-06 18:30
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,28 +13,20 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-04 05:11 — Hook error diagnosed + fixed: endpoints returned {status:'ok'} which fails Claude Code's Zod schema validation. Fix: return {} (empty valid JSON). Moss applied fix, needs restart. Also confirmed type:'http' is NOT feature-gated. research/hooks.md updated.
-- 2026-04-04 04:08 — Researcher delivered multi-agent testing patterns. Copied to research/multi-agent-testing.md.
-- 2026-04-04 01:35 — Tracker panel spec sent to moss but PARKED — moss focused on session.ts test coverage per Rajan. Rajan considering adding a second pty-win worker agent.
-- 2026-04-04 01:32 — Work tracker live on emcom-server (GET /tracker with X-Emcom-Name header). Tested API — items have repo, number, title, status, severity, assigned_to, blocker, findings, decision.
-- 2026-04-04 00:28 — PRIORITY: Hook-based idle detection implemented by moss. 3 Claude Code hooks (Stop, Notification, UserPromptSubmit) replace heuristic screen detection. type:'http', 5s idle threshold. Hooks merge safely (jade confirmed). Needs server restart. Research: research/hooks.md.
-- 2026-04-03 22:42 — Shutdown double-Ctrl+C fix, 3 of 5 pty-win improvements shipped, scout cost investigation.
-- 2026-04-03 14:25 — # in --body permission prompt fix. emcom case-insensitive confirmed.
-- 2026-04-02 22:10 — emcom announcement distributed to team via blake (9 sub-workspace agents). Frost shipped Batch 2 too (status, inbox filters, CC comma fix, stdin body, case-insensitive names). Threading already existed (emcom thread/threads).
-- 2026-04-02 20:10 — Jade completed comprehensive permissions review. Saved to research/permissions.md. Covers rule syntax, 7 common prompt triggers with fixes, recommended configs per agent type.
-- 2026-04-02 19:30 — Fixed rc-save SKILL.md to explicitly require separate git calls + git commit -F - heredoc. Root cause of team-wide permission prompts was agents choosing && chaining + $(cat) heredoc.
-- 2026-04-02 19:01 — Dashboard: cost last column, drag-and-drop onto tabs. Pane separation: #aaa borders, 4px gap, 2px width, dimmed unfocused topbar.
-- 2026-04-02 18:55 — Scout cost investigation: $4.98 from context accumulation × cold cache × 15-min polling. Fix: Haiku + /clear = ~50x reduction.
-- 2026-04-02 14:42 — Pane separation: 4px gutter + 2px borders + dimmed unfocused topbar + bg contrast. Multiple Rajan feedback rounds.
-- 2026-04-02 14:24 — Dashboard polish: bright text, clickable rows, merged stats+costs table, collapsible cards.
-- 2026-04-02 13:09 — PID file idle detection blocked: BG_SESSIONS compile-time flag OFF. PID files exist (pid, cwd) but lack live status. Heuristics work fine. Upgrade path documented in Claude-KB.md.
-- 2026-04-02 12:30 — Restructured own Claude-KB.md to 4 sections. Added "debug by reading, not guessing" to CLAUDE.md. Jade investigated idle detection — found explicit state machine, PID file, Notification hook timing.
-- 2026-04-02 11:47 — PR testing workflow + Claude-KB expansion in team-manual.md. Organic rollout confirmed.
+- 2026-04-06 18:29 — Tracker panel Round 2 shipped (2a58d53): filter bar (repo/severity/assignee dropdowns, localStorage persist), GitHub issue links, improved expand details. Both rounds complete — Rajan skipped Round 3 (resizable columns).
+- 2026-04-06 18:24 — Tracker Round 1 shipped (4a4ba0f): IBM Plex Mono font, brighter text (#ccc/#a080c0), tighter rows (3px padding), zebra striping.
+- 2026-04-06 18:02 — Tracker staleness shipped (90c476a): age + time-in-status columns with green/yellow/red coding (<3d/3-7d/>7d). Stale items get red row highlight. Uses date_found when available, falls back to created_at.
+- 2026-04-06 17:47 — Tracker moved to right panel (b193e2d): Feed/Tracker toggle tabs instead of workspace tab. Badge shows decision-pending count. Auto-polls 10s.
+- 2026-04-06 16:37 — Dashboard flicker fix shipped (21359a8): DOM patching in-place instead of innerHTML rebuild. Cards keyed by data-session.
+- 2026-04-06 16:40 — Frost shipped tracker WS endpoint. DOM patterns research copied to research/.
+- 2026-04-04 05:11 — Hook error fixed: endpoints returned {status:'ok'} failing Zod validation. Fix: return {}. type:http confirmed not feature-gated.
+- 2026-04-04 01:35 — Tracker panel spec parked (moss on tests). Work tracker CLI live (tracker command in PATH).
+- 2026-04-04 00:28 — Hook-based idle detection implemented (Stop, Notification, UserPromptSubmit). Needs server restart.
 
 ## Next Up
 - Server restart needed by Rajan: hook-based idle detection (priority), cost regex, merged dashboard, pane separation, drag-and-drop, cost in checkpoints, last-active column, double-Ctrl+C fix. Large TS backlog.
-- **Moss is on test coverage** — do NOT send feature specs to moss until tests are done. Tracker panel parked.
-- Rajan may add a second pty-win worker — milo ready to onboard/coordinate.
+- Tracker panel complete (2 rounds). Milo now implementing frontend directly (Rajan approved). Moss on test coverage.
+- Frost's tracker WS endpoint ready but emcom-server.exe needs rebuild. Frontend WS subscription not yet wired (polling works).
 - Detach/reattach ideated but not confirmed. PID file cwd helps with session matching.
 - Jade: available for next task. Resume behavior still unexplored.
 - Scout cost optimization: Rajan has fix vectors but hasn't acted.

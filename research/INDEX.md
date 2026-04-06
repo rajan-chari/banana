@@ -16,6 +16,8 @@ Findings from jade (claude-code-src analyst) and other investigations. Preserved
 
 | 2026-04-04 | [multi-agent-testing.md](multi-agent-testing.md) | Testing patterns: MassTransit saga harness for emcom, @microsoft/tui-test for PTY, Playwright routeWebSocket for browser E2E, @xstate/graph for state machine exhaustive paths. |
 
+| 2026-04-04 | [dom-update-patterns.md](dom-update-patterns.md) | Dashboard flicker fix: manual partial patching recommended over morphdom/idiomorph for 9 cards + 1 table. CSS contain:content isolates repaint. Code pattern included. |
+
 ## In Progress
 
 (none)

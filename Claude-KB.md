@@ -42,8 +42,11 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **2026-04-02:** Permission prompt issues are systemic, not per-agent. Fixing the rc-save SKILL.md (shared by all agents) is more effective than messaging agents individually. Fix the template/skill, not the symptom.
 - **2026-04-03:** `#` after a newline in Bash --body/--message args triggers "can hide arguments from line-based permission checks" prompt. Issue numbers like #2737 in emcom send --body cause this. Fix: pipe body via stdin instead of inline --body.
 
+- **2026-04-06:** When implementing frontend directly (not via moss), always: (1) check JS syntax with `new Function(code)`, (2) run `npm test` (79 tests), (3) commit per feature not batched. Rajan approved milo implementing directly when moss is on other work — the test suite is the safety net.
+
 ## Decisions
 
+- **2026-04-06:** Tracker panel lives in the right panel as a Feed/Tracker toggle — not a workspace tab. Rajan chose option B (toggle) over option A (stacked). Keeps workspace area clear for panes.
 - **2026-04-01:** Chose regex scraping over status bar JSON hook for cost tracking because Rajan runs multiple pty-win instances on different ports. Hook required hardcoded port routing; regex scrapes each instance's own PTY streams with no cross-instance coordination.
 - **2026-04-01:** Chose to revert hook machinery entirely (removed endpoint, hookData, settings.local.json write) rather than keeping it as a fallback. Simpler to maintain one approach than two parallel paths.
 - **2026-03-31:** Chose to copy pty-win dist/ directly into fellow-agents rather than using git submodules. Self-contained repo is simpler for a "clone and go" experience.
@@ -55,6 +58,7 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **cost.total_duration_ms** = wall-clock time since session start. total_api_duration_ms = cumulative API wait time (with retries). Difference = idle + tool execution + local processing.
 - **formatCost()**: cost > $0.50 → 2 decimal places, cost ≤ $0.50 → 4 decimal places.
 - **emcom binaries**: emcom.exe is C# AOT native (5.8MB), emcom-server.exe is Python/PyInstaller (27MB), emcom-tui.exe is Python/PyInstaller (22MB). All in `~/.claude/skills/emcom/bin/`.
+- **Work tracker CLI**: `tracker` command (in PATH). Hosted on emcom-server. API: GET /tracker on same host:port as emcom (requires X-Emcom-Name header). States: new → triaged → investigating → findings-reported → decision-pending → pr-up → testing → ready-to-merge → merged/deferred/closed. Key commands: `tracker create --repo X --number N --title 'desc' --severity high --assigned name`, `tracker update repo#N --status S --comment 'reason'`, `tracker list --status open --assigned name`, `tracker list --needs-decision`, `tracker stats`. Use when delegating work or completing tasks.
 - **Chrome DevTools MCP ports**: 3600 = Rajan's session, 3601 = milo's session. MCP goes stale after session restart.
 - **emcom usernames are case-sensitive**: `--to rajan` fails, `--to Rajan` works.
 - **httpx + localhost on Windows**: ~2s penalty per request due to IPv6 DNS. Use `127.0.0.1` instead.
