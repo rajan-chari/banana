@@ -362,6 +362,18 @@ public class Win32Focus {
     }
   });
 
+  app.get("/api/emcom-proxy/tracker/:id", async (req, res) => {
+    const identity = req.headers["x-emcom-name"] as string || "";
+    try {
+      const url = `${config.emcomServer}/tracker/${req.params.id}`;
+      const resp = await fetch(url, { headers: { "X-Emcom-Name": identity } });
+      const data = await resp.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // Repo root detection for startup stagger
   app.get("/api/repo-root", async (req, res) => {
     const dirPath = req.query.path as string;
