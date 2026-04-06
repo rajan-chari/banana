@@ -26,7 +26,7 @@ public sealed class WorkItem
     [JsonPropertyName("history")] public List<HistoryEntry>? History { get; set; }
     [JsonPropertyName("links")] public List<LinkEntry>? Links { get; set; }
 
-    public string ExternalId => Number.HasValue ? $"{Repo}#{Number}" : Repo;
+    public string ExternalId => Number is > 0 ? $"{Repo}#{Number}" : Repo;
 }
 
 public sealed class HistoryEntry

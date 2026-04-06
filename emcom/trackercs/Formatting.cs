@@ -23,7 +23,7 @@ public static class Fmt
         sb.AppendLine(new string('-', 10 + 2 + 12 + 2 + 5 + 2 + 28 + 2 + 16 + 2 + 6 + 2 + 10 + 2 + 14));
         foreach (var item in items)
         {
-            var num = item.Number.HasValue ? item.Number.Value.ToString() : "";
+            var num = item.Number is > 0 ? item.Number.Value.ToString() : "";
             var assigned = item.AssignedTo ?? "";
             sb.AppendLine($"{ShortId(item.Id),-10}  {Trunc(item.Repo, 12),-12}  {num,-5}  {Trunc(item.Title, 28),-28}  {item.Status,-16}  {item.Severity[..3],-6}  {Trunc(assigned, 10),-10}  {ShortDate(item.UpdatedAt),-14}");
         }
@@ -35,8 +35,8 @@ public static class Fmt
         var sb = new StringBuilder();
         sb.AppendLine($"ID:         {item.Id}");
         sb.AppendLine($"Repo:       {item.Repo}");
-        if (item.Number.HasValue)
-            sb.AppendLine($"Number:     {item.Number} ({item.ExternalId})");
+        if (item.Number is > 0)
+            sb.AppendLine($"Number:     #{item.Number} ({item.ExternalId})");
         sb.AppendLine($"Title:      {item.Title}");
         sb.AppendLine($"Type:       {item.Type}");
         sb.AppendLine($"Severity:   {item.Severity}");
