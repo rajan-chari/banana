@@ -65,7 +65,7 @@
 /* --- Table Header (sortable) --- */
 .tracker-thead {
   display: grid;
-  grid-template-columns: 120px 1fr 100px 90px 80px 80px;
+  grid-template-columns: 110px 1fr 90px 70px 60px 60px 60px;
   padding: 6px 16px;
   background: #18181c;
   border-bottom: 1px solid #2a2a2e;
@@ -172,7 +172,7 @@
 
 .tracker-item-row {
   display: grid;
-  grid-template-columns: 120px 1fr 100px 90px 80px 80px;
+  grid-template-columns: 110px 1fr 90px 70px 60px 60px 60px;
   padding: 6px 16px;
   cursor: pointer;
   align-items: center;
@@ -211,14 +211,31 @@
 
 .tracker-age {
   font-size: 10px;
-  color: #666;
+  text-align: right;
+  font-weight: 500;
+}
+
+.tracker-age.stale-green { color: #23d18b; }
+.tracker-age.stale-yellow { color: #e8b830; }
+.tracker-age.stale-red { color: #f14c4c; font-weight: 700; }
+
+.tracker-status-age {
+  font-size: 10px;
   text-align: right;
 }
 
-.tracker-updated {
-  font-size: 10px;
-  color: #555;
-  text-align: right;
+.tracker-status-age.stale-green { color: #23d18b66; }
+.tracker-status-age.stale-yellow { color: #e8b83088; }
+.tracker-status-age.stale-red { color: #f14c4c; }
+
+/* Stale item row highlight */
+.tracker-item.stale-row {
+  background: rgba(241, 76, 76, 0.06);
+  border-left: 2px solid #f14c4c44;
+}
+
+.tracker-item.stale-row .tracker-item-row {
+  border-bottom-color: rgba(241, 76, 76, 0.1);
 }
 
 /* --- Severity Badges --- */

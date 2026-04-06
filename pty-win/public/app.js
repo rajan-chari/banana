@@ -3009,6 +3009,14 @@ function fmtAge(dateStr) {
   return `${days}d`;
 }
 
+function staleClass(dateStr) {
+  if (!dateStr) return "stale-green";
+  const days = (Date.now() - new Date(dateStr).getTime()) / 86400000;
+  if (days > 7) return "stale-red";
+  if (days > 3) return "stale-yellow";
+  return "stale-green";
+}
+
 function fmtDate(dateStr) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
@@ -3042,6 +3050,10 @@ function buildTrackerItem(item) {
   el.style.contain = "content";
 
   const sevClass = item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "sev-normal";
+  const ageDate = item.date_found || item.created_at;
+  const ageStale = staleClass(ageDate);
+  const statusStale = staleClass(item.updated_at);
+  if (ageStale === "stale-red") el.classList.add("stale-row");
 
   el.innerHTML = `
     <div class="tracker-item-row">
@@ -3049,7 +3061,8 @@ function buildTrackerItem(item) {
       <span class="tracker-item-title">${item.title}</span>
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
-      <span class="tracker-age">${fmtAge(item.created_at)}</span>
+      <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
+      <span class="tracker-status-age ${statusStale}">${fmtAge(item.updated_at)}</span>
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
@@ -3081,10 +3094,14 @@ function patchTrackerItem(el, item) {
     sevEl.textContent = item.severity || "normal";
     sevEl.className = `tracker-severity ${item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "sev-normal"}`;
   }
+  const ageDate = item.date_found || item.created_at;
   const ageEl = el.querySelector(".tracker-age");
-  if (ageEl) ageEl.textContent = fmtAge(item.created_at);
+  if (ageEl) { ageEl.textContent = fmtAge(ageDate); ageEl.className = `tracker-age ${staleClass(ageDate)}`; }
+  const statusAgeEl = el.querySelector(".tracker-status-age");
+  if (statusAgeEl) { statusAgeEl.textContent = fmtAge(item.updated_at); statusAgeEl.className = `tracker-status-age ${staleClass(item.updated_at)}`; }
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
+  el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
 }
 
 function renderTracker() {
@@ -3107,8 +3124,9 @@ function renderTracker() {
         <div class="tracker-th" data-sort="ref">Ref <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="severity">Severity <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="severity">Sev <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="age">Age <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="updated">In Status <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
       </div>
       <div class="tracker-body"></div>`;
