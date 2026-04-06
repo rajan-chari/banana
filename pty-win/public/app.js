@@ -3113,7 +3113,14 @@ function buildTrackerItem(item) {
       </div>
     </div>`;
 
-  el.querySelector(".tracker-item-row").onclick = () => el.classList.toggle("expanded");
+  el.querySelector(".tracker-item-row").onclick = () => {
+    const wasExpanded = el.classList.contains("expanded");
+    el.classList.toggle("expanded");
+    // Lazy-load history on first expand
+    if (!wasExpanded && !el.dataset.historyLoaded) {
+      loadTrackerHistory(el, item.id);
+    }
+  };
   return el;
 }
 
@@ -3136,6 +3143,62 @@ function patchTrackerItem(el, item) {
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
+}
+
+function loadTrackerHistory(el, itemId) {
+  const identity = localStorage.getItem("pty-win-feed-identity") || "";
+  const detail = el.querySelector(".tracker-item-detail");
+  if (!detail) return;
+
+  // Add loading placeholder
+  let timeline = detail.querySelector(".tracker-timeline");
+  if (!timeline) {
+    timeline = document.createElement("div");
+    timeline.className = "tracker-timeline";
+    timeline.innerHTML = `<div class="tracker-timeline-title">History</div><div class="tracker-timeline-loading">Loading...</div>`;
+    detail.appendChild(timeline);
+  }
+
+  fetch(`/api/emcom-proxy/tracker/${itemId}`, { headers: { "X-Emcom-Name": identity } })
+    .then(r => r.json())
+    .then(data => {
+      el.dataset.historyLoaded = "true";
+      const history = data.history || [];
+      if (history.length === 0) {
+        timeline.innerHTML = `<div class="tracker-timeline-title">History</div><div class="tracker-timeline-loading">No history</div>`;
+        return;
+      }
+
+      const fmtTs = (ts) => {
+        const d = new Date(ts);
+        return `${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getDate().toString().padStart(2,"0")} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
+      };
+
+      const entries = history.map(h => {
+        let what = "";
+        if (h.field === "status") {
+          what = `<span class="tl-arrow">\u2192</span> ${h.new_value}`;
+        } else if (h.field === "assigned_to") {
+          what = `assigned \u2192 ${h.new_value || "unassigned"}`;
+        } else if (h.field === "blocker") {
+          what = h.new_value ? `blocker: ${h.new_value}` : "blocker cleared";
+        } else {
+          what = `${h.field}: ${h.new_value || "(cleared)"}`;
+        }
+        if (h.comment) what += ` <span class="tl-comment">${h.comment}</span>`;
+
+        return `<div class="tracker-timeline-entry">
+          <span class="tracker-timeline-date">${fmtTs(h.changed_at)}</span>
+          <span class="tracker-timeline-who">[${h.changed_by}]</span>
+          <span class="tracker-timeline-what">${what}</span>
+        </div>`;
+      }).join("");
+
+      timeline.innerHTML = `<div class="tracker-timeline-title">History</div>${entries}`;
+    })
+    .catch(() => {
+      timeline.innerHTML = `<div class="tracker-timeline-title">History</div><div class="tracker-timeline-loading">Failed to load</div>`;
+    });
 }
 
 function renderTracker() {
