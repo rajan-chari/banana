@@ -168,6 +168,52 @@ html, body {
 }
 #feed-panel.hidden { display: none; }
 
+/* Right panel tabs */
+#right-panel-tabs {
+  display: flex;
+  align-items: center;
+  background: #1a1a1e;
+  border-bottom: 1px solid var(--emcom-border);
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+.rp-tab {
+  background: none;
+  border: none;
+  color: #666;
+  font-family: var(--emcom-font);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.rp-tab:hover { color: #aaa; }
+.rp-tab.active { color: #d4882a; border-bottom-color: #d4882a; }
+.rp-tab-badge {
+  font-size: 9px;
+  color: #d4882a;
+  font-weight: 700;
+  margin-left: 2px;
+}
+.rp-tab-badge.hidden { display: none; }
+.rp-tab-spacer { flex: 1; }
+#right-panel-tabs #feed-collapse-btn {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 6px;
+}
+.rp-content { display: none; flex-direction: column; overflow: hidden; flex: 1; min-height: 0; }
+.rp-content.active { display: flex; }
+#feed-content { flex-direction: column; }
+#tracker-content { overflow-y: auto; }
+
 #feed-resize-handle {
   position: absolute;
   left: 0; top: 0; bottom: 0;

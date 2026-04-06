@@ -1593,12 +1593,6 @@ function renderTabs() {
   dashTab.onclick = () => switchToDashboard();
   tabsEl.appendChild(dashTab);
 
-  const trackerTab = document.createElement("div");
-  trackerTab.className = `tab ${state.isTracker ? "active" : ""}`;
-  trackerTab.textContent = state.trackerDecisionCount > 0 ? `Tracker (${state.trackerDecisionCount})` : "Tracker";
-  trackerTab.onclick = () => switchToTracker();
-  tabsEl.appendChild(trackerTab);
-
   for (const ws of state.workspaces) {
     const tab = document.createElement("div");
     tab.className = `tab ${ws.id === state.activeWorkspaceId ? "active" : ""}`;
@@ -3094,8 +3088,8 @@ function patchTrackerItem(el, item) {
 }
 
 function renderTracker() {
-  if (!state.isTracker) return;
-  const area = document.getElementById("workspace-area");
+  const area = document.getElementById("tracker-content");
+  if (!area) return;
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
 
   // Ensure container + chrome exist (build once)
@@ -3146,13 +3140,15 @@ function renderTracker() {
   })
     .then(r => r.json())
     .then(items => {
-      if (!state.isTracker) return;
       state.trackerItems = items;
       state.trackerDecisionCount = items.filter(i => i.status === "decision-pending").length;
 
-      // Update tab badge
-      const badge = document.querySelector(".tab-tracker-badge");
-      if (badge) badge.textContent = state.trackerDecisionCount > 0 ? ` (${state.trackerDecisionCount})` : "";
+      // Update right panel tracker tab badge
+      const badge = document.getElementById("tracker-tab-badge");
+      if (badge) {
+        badge.textContent = state.trackerDecisionCount > 0 ? ` (${state.trackerDecisionCount})` : "";
+        badge.classList.toggle("hidden", state.trackerDecisionCount === 0);
+      }
 
       // Update chrome stats
       const statsEl = container.querySelector(".tracker-chrome-stats");
@@ -3170,7 +3166,6 @@ function renderTracker() {
       renderTrackerBody(container, items);
     })
     .catch(() => {
-      if (!state.isTracker) return;
       const body = container.querySelector(".tracker-body");
       if (body) body.innerHTML = `<div class="tracker-error">// CONNECTION FAILED</div>`;
     });
@@ -3718,4 +3713,26 @@ connect();
     updateTitle();
     renderFeed();
   });
+})();
+
+// ===== Right Panel Tab Switching =====
+(function initRightPanelTabs() {
+  const tabs = document.querySelectorAll("#right-panel-tabs .rp-tab");
+  const feedContent = document.getElementById("feed-content");
+  const trackerContent = document.getElementById("tracker-content");
+
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      tabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const panel = tab.dataset.panel;
+      if (feedContent) feedContent.classList.toggle("active", panel === "feed");
+      if (trackerContent) trackerContent.classList.toggle("active", panel === "tracker");
+      if (panel === "tracker") renderTracker();
+    };
+  });
+
+  // Start tracker polling (updates badge even when feed tab is active)
+  renderTracker();
+  setInterval(renderTracker, 10000);
 })();

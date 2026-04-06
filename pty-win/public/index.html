@@ -58,28 +58,36 @@
     <div id="workspace-area"></div>
   </div>
 
-  <!-- Emcom feed panel (right side) -->
+  <!-- Right panel (feed + tracker toggle) -->
   <div id="feed-panel">
     <div id="feed-resize-handle"></div>
-    <div id="feed-header">
-      <div id="feed-header-left">
-        <span id="feed-title">EMCOM FEED</span>
-        <span id="feed-unread-badge" class="feed-badge hidden">0</span>
-      </div>
-      <div id="feed-header-right">
-        <span id="feed-identity-badge" class="feed-id-badge"></span>
-        <button id="feed-expand-all" class="feed-header-btn" title="Expand all">&#x25BC;</button>
-        <button id="feed-collapse-all" class="feed-header-btn" title="Collapse all">&#x25B2;</button>
-        <button id="feed-collapse-btn" title="Collapse feed">&#x276D;</button>
-      </div>
+    <div id="right-panel-tabs">
+      <button class="rp-tab active" data-panel="feed">Feed<span id="feed-tab-badge" class="rp-tab-badge hidden"></span></button>
+      <button class="rp-tab" data-panel="tracker">Tracker<span id="tracker-tab-badge" class="rp-tab-badge hidden"></span></button>
+      <div class="rp-tab-spacer"></div>
+      <button id="feed-collapse-btn" title="Collapse panel">&#x276D;</button>
     </div>
-    <div id="feed-toolbar">
-      <input id="feed-search" type="text" placeholder="filter..." autocomplete="off">
-      <select id="feed-sender-filter"><option value="">all</option></select>
-      <button id="feed-sort-btn" class="feed-header-btn" title="Toggle sort order">&#x25BC;</button>
-      <button id="feed-threads-btn" class="feed-header-btn" title="Toggle thread collapse">&#x2261;</button>
+    <div id="feed-content" class="rp-content active">
+      <div id="feed-header">
+        <div id="feed-header-left">
+          <span id="feed-title">EMCOM FEED</span>
+          <span id="feed-unread-badge" class="feed-badge hidden">0</span>
+        </div>
+        <div id="feed-header-right">
+          <span id="feed-identity-badge" class="feed-id-badge"></span>
+          <button id="feed-expand-all" class="feed-header-btn" title="Expand all">&#x25BC;</button>
+          <button id="feed-collapse-all" class="feed-header-btn" title="Collapse all">&#x25B2;</button>
+        </div>
+      </div>
+      <div id="feed-toolbar">
+        <input id="feed-search" type="text" placeholder="filter..." autocomplete="off">
+        <select id="feed-sender-filter"><option value="">all</option></select>
+        <button id="feed-sort-btn" class="feed-header-btn" title="Toggle sort order">&#x25BC;</button>
+        <button id="feed-threads-btn" class="feed-header-btn" title="Toggle thread collapse">&#x2261;</button>
+      </div>
+      <div id="feed-body"></div>
     </div>
-    <div id="feed-body"></div>
+    <div id="tracker-content" class="rp-content"></div>
   </div>
   <div id="feed-strip" class="hidden">
     <span id="feed-strip-badge" class="feed-strip-unread hidden">0</span>
