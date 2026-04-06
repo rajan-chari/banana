@@ -3029,10 +3029,12 @@ function filterTrackerItems(items) {
   const repo = document.getElementById("tracker-filter-repo")?.value || "";
   const sev = document.getElementById("tracker-filter-sev")?.value || "";
   const assignee = document.getElementById("tracker-filter-assignee")?.value || "";
+  const cat = localStorage.getItem("pty-win-tracker-cat") || "";
   return items.filter(i =>
     (!repo || i.repo === repo) &&
     (!sev || i.severity === sev) &&
-    (!assignee || i.assigned_to === assignee)
+    (!assignee || i.assigned_to === assignee) &&
+    (!cat || (i.labels && i.labels.includes(cat)))
   );
 }
 
@@ -3089,7 +3091,7 @@ function buildTrackerItem(item) {
 
   el.innerHTML = `
     <div class="tracker-item-row">
-      <span class="tracker-ref">${item.repo}#${item.number}</span>
+      <span class="tracker-ref">${item.number ? `${item.repo}#${item.number}` : item.repo}</span>
       <span class="tracker-item-title">${item.title}</span>
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
@@ -3098,7 +3100,7 @@ function buildTrackerItem(item) {
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
-      <div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>
+      ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>` : ""}
       ${item.blocker ? `<div class="tracker-blocker-badge">${item.blocker}</div>` : ""}
       ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${item.findings}</div></div>` : ""}
       ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${item.decision}</div></div>` : ""}
@@ -3274,6 +3276,12 @@ function renderTracker() {
         <div class="tracker-chrome-stats"></div>
       </div>
       <div class="tracker-filters">
+        <div class="tracker-category-btns">
+          <button class="tracker-cat-btn active" data-cat="">All</button>
+          <button class="tracker-cat-btn" data-cat="sdk">SDK</button>
+          <button class="tracker-cat-btn" data-cat="infra">Infra</button>
+          <button class="tracker-cat-btn" data-cat="ops">Ops</button>
+        </div>
         <select class="tracker-filter" id="tracker-filter-repo"><option value="">all repos</option></select>
         <select class="tracker-filter" id="tracker-filter-sev"><option value="">all sev</option><option value="critical">critical</option><option value="high">high</option><option value="normal">normal</option></select>
         <select class="tracker-filter" id="tracker-filter-assignee"><option value="">all assignees</option></select>
@@ -3327,6 +3335,21 @@ function renderTracker() {
     wireFilter("tracker-filter-repo", "repo");
     wireFilter("tracker-filter-sev", "severity");
     wireFilter("tracker-filter-assignee", "assigned_to");
+
+    // Wire category toggle buttons
+    const savedCat = localStorage.getItem("pty-win-tracker-cat") || "";
+    container.querySelectorAll(".tracker-cat-btn").forEach(btn => {
+      if (btn.dataset.cat === savedCat) {
+        container.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      }
+      btn.onclick = () => {
+        container.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        localStorage.setItem("pty-win-tracker-cat", btn.dataset.cat);
+        renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
+      };
+    });
   }
 
   fetch(`/api/emcom-proxy/tracker?status=open`, {

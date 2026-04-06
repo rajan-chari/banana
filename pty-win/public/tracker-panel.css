@@ -82,6 +82,29 @@
 
 .tracker-filter:focus { border-color: #d4882a; outline: none; }
 
+.tracker-category-btns {
+  display: flex;
+  gap: 2px;
+  margin-right: 8px;
+}
+
+.tracker-cat-btn {
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  background: #1e1e22;
+  color: #666;
+  border: 1px solid #2a2a2e;
+  padding: 2px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.tracker-cat-btn:hover { color: #999; border-color: #444; }
+.tracker-cat-btn.active { color: #d4882a; border-color: #d4882a; background: rgba(212, 136, 42, 0.1); }
+
 /* --- GitHub Link --- */
 .tracker-gh-link {
   color: #4a9eff;
