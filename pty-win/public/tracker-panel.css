@@ -60,6 +60,38 @@
   font-weight: 700;
 }
 
+/* --- Filter Bar --- */
+.tracker-filters {
+  display: flex;
+  gap: 6px;
+  padding: 5px 16px;
+  background: #141417;
+  border-bottom: 1px solid #2a2a2e;
+}
+
+.tracker-filter {
+  font-family: inherit;
+  font-size: 10px;
+  background: #1e1e22;
+  color: #999;
+  border: 1px solid #2a2a2e;
+  padding: 2px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.tracker-filter:focus { border-color: #d4882a; outline: none; }
+
+/* --- GitHub Link --- */
+.tracker-gh-link {
+  color: #4a9eff;
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.tracker-gh-link:hover { text-decoration: underline; color: #6ab0ff; }
+
 /* --- Table Header (sortable) --- */
 .tracker-thead {
   display: grid;

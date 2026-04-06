@@ -3025,6 +3025,38 @@ function fmtDate(dateStr) {
 
 function sevOrder(s) { return s === "critical" ? 0 : s === "high" ? 1 : 2; }
 
+function filterTrackerItems(items) {
+  const repo = document.getElementById("tracker-filter-repo")?.value || "";
+  const sev = document.getElementById("tracker-filter-sev")?.value || "";
+  const assignee = document.getElementById("tracker-filter-assignee")?.value || "";
+  return items.filter(i =>
+    (!repo || i.repo === repo) &&
+    (!sev || i.severity === sev) &&
+    (!assignee || i.assigned_to === assignee)
+  );
+}
+
+function populateTrackerFilters(items) {
+  const repoSel = document.getElementById("tracker-filter-repo");
+  const assigneeSel = document.getElementById("tracker-filter-assignee");
+  if (!repoSel || !assigneeSel) return;
+
+  const repos = [...new Set(items.map(i => i.repo).filter(Boolean))].sort();
+  const assignees = [...new Set(items.map(i => i.assigned_to).filter(Boolean))].sort();
+
+  const updateOptions = (sel, options, key) => {
+    const saved = localStorage.getItem(`pty-win-${sel.id}`) || "";
+    const current = sel.value;
+    if (sel.options.length - 1 === options.length) return; // no change
+    const firstLabel = sel.options[0].textContent;
+    sel.innerHTML = `<option value="">${firstLabel}</option>` + options.map(o => `<option value="${o}">${o}</option>`).join("");
+    sel.value = saved || current;
+  };
+
+  updateOptions(repoSel, repos, "repo");
+  updateOptions(assigneeSel, assignees, "assigned_to");
+}
+
 function sortTrackerItems(items) {
   if (trackerSortField === "status") return items; // use group order
   const sorted = [...items];
@@ -3066,6 +3098,7 @@ function buildTrackerItem(item) {
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
+      <div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/nicross/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>
       ${item.blocker ? `<div class="tracker-blocker-badge">${item.blocker}</div>` : ""}
       ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${item.findings}</div></div>` : ""}
       ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${item.decision}</div></div>` : ""}
@@ -3076,6 +3109,7 @@ function buildTrackerItem(item) {
         <span>Created by ${item.created_by || "?"}</span>
         <span>${new Date(item.created_at).toLocaleString()}</span>
         <span>Updated ${new Date(item.updated_at).toLocaleString()}</span>
+        <span>Status: ${item.status}</span>
       </div>
     </div>`;
 
@@ -3120,6 +3154,11 @@ function renderTracker() {
         <span class="tracker-chrome-title">Work Tracker</span>
         <div class="tracker-chrome-stats"></div>
       </div>
+      <div class="tracker-filters">
+        <select class="tracker-filter" id="tracker-filter-repo"><option value="">all repos</option></select>
+        <select class="tracker-filter" id="tracker-filter-sev"><option value="">all sev</option><option value="critical">critical</option><option value="high">high</option><option value="normal">normal</option></select>
+        <select class="tracker-filter" id="tracker-filter-assignee"><option value="">all assignees</option></select>
+      </div>
       <div class="tracker-thead">
         <div class="tracker-th" data-sort="ref">Ref <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
@@ -3148,9 +3187,24 @@ function renderTracker() {
           const arrow = h.querySelector(".sort-arrow");
           if (arrow) arrow.textContent = h.dataset.sort === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
         });
-        renderTrackerBody(container, state.trackerItems || []);
+        renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
       };
     });
+
+    // Wire filter dropdowns
+    const wireFilter = (id, key) => {
+      const el = container.querySelector(`#${id}`);
+      if (!el) return;
+      const saved = localStorage.getItem(`pty-win-${id}`);
+      if (saved) el.value = saved;
+      el.onchange = () => {
+        localStorage.setItem(`pty-win-${id}`, el.value);
+        renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
+      };
+    };
+    wireFilter("tracker-filter-repo", "repo");
+    wireFilter("tracker-filter-sev", "severity");
+    wireFilter("tracker-filter-assignee", "assigned_to");
   }
 
   fetch(`/api/emcom-proxy/tracker?status=open`, {
@@ -3181,7 +3235,8 @@ function renderTracker() {
           <span class="tracker-chrome-stat"><span class="val">${items.length}</span> total</span>`;
       }
 
-      renderTrackerBody(container, items);
+      populateTrackerFilters(items);
+      renderTrackerBody(container, filterTrackerItems(items));
     })
     .catch(() => {
       const body = container.querySelector(".tracker-body");
