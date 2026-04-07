@@ -4056,7 +4056,11 @@ function renderAgentsPanel() {
     const idle = allSessions.filter(([, i]) => i.status === "idle").length;
     const needsInputCount = allSessions.filter(([name, i]) => {
       const st = statsMap.get(name);
-      return i.status === "idle" && (!st || st.busy.callbacksPerSec === 0) && i.status !== "dead";
+      const cbs = st ? st.busy.callbacksPerSec : 0;
+      return i.status !== "dead" && i.status !== "waiting" && (
+        i.hookNotificationType === "permission_prompt" ||
+        (i.status === "busy" && cbs === 0)
+      );
     }).length;
     const totalCost = allSessions.reduce((s, [, i]) => s + (i.costUsd || 0), 0);
     const summaryEl = panel.querySelector(".agents-summary");
@@ -4090,7 +4094,11 @@ function renderAgentsPanel() {
 
       const cbs = s ? s.busy.callbacksPerSec : 0;
       const isBlocked = info.status === "waiting";
-      const needsInput = info.status === "idle" && cbs === 0 && info.status !== "dead";
+      // permission_prompt hook = definite needs input; busy + 0 cb/s = probable needs input
+      const needsInput = !isBlocked && info.status !== "dead" && (
+        info.hookNotificationType === "permission_prompt" ||
+        (info.status === "busy" && cbs === 0)
+      );
       row.className = `agents-row ${isBlocked ? "agents-blocked" : ""} ${needsInput ? "agents-needs-input" : ""}`;
 
       const cells = row.children;
