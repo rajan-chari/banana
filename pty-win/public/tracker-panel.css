@@ -495,6 +495,29 @@
 .tracker-group[data-status="merged"] .tracker-group-dot { background: #23d18b55; }
 .tracker-group[data-status="merged"] .tracker-group-name { color: #3a6a50; }
 
+/* Strikethrough + badge for closed/merged/deferred items */
+.tracker-group[data-status="closed"] .tracker-item-title,
+.tracker-group[data-status="merged"] .tracker-item-title,
+.tracker-group[data-status="deferred"] .tracker-item-title {
+  text-decoration: line-through;
+  text-decoration-color: #55555588;
+}
+
+.tracker-closed-badge {
+  display: inline-block;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: 6px;
+}
+
+.tracker-closed-badge.badge-closed { color: #666; background: #333; }
+.tracker-closed-badge.badge-merged { color: #23d18b99; background: rgba(35, 209, 139, 0.1); }
+.tracker-closed-badge.badge-deferred { color: #888; background: #2a2a2e; }
+
 /* --- Empty State --- */
 .tracker-empty {
   display: flex;

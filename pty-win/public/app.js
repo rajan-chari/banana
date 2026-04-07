@@ -3092,7 +3092,7 @@ function buildTrackerItem(item) {
   el.innerHTML = `
     <div class="tracker-item-row">
       <span class="tracker-ref">${item.number ? `${item.repo}#${item.number}` : item.repo}</span>
-      <span class="tracker-item-title">${item.title}</span>
+      <span class="tracker-item-title">${item.title}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${item.status}">${item.status}</span>` : ""}</span>
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
