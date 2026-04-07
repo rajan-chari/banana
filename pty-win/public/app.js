@@ -307,6 +307,14 @@ function connect() {
         break;
       }
     }
+
+    // Restore terminal focus after DOM rebuilds (prevents WS updates from stealing focus)
+    if (state.focusedPane && !state.isDashboard) {
+      const entry = state.terminals.get(state.focusedPane);
+      if (entry && document.activeElement?.closest(".pane")) {
+        entry.term.focus();
+      }
+    }
   };
 }
 
@@ -2529,11 +2537,15 @@ function focusPane(groupName) {
   // Update sessions panel highlight
   document.querySelectorAll(".session-row").forEach((r) => r.classList.remove("active"));
   document.querySelector(`.session-row[data-group="${groupName}"]`)?.classList.add("active");
-  // Focus the active session's terminal
+  // Focus the active session's terminal (use rAF to run after any pending DOM updates)
   const pg = state.paneGroups.get(groupName);
   const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
   const entry = state.terminals.get(activeSessionName || groupName);
-  if (entry) entry.term.focus();
+  if (entry) {
+    entry.term.focus();
+    // Double-tap: rAF ensures focus sticks after any queued DOM mutations
+    requestAnimationFrame(() => entry.term.focus());
+  }
 }
 
 function truncatePath(p) {
