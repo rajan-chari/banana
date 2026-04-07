@@ -266,7 +266,19 @@ function connect() {
         renderSessionsPanel();
         renderQuickAccess();
         if (state.isDashboard) renderDashboard();
-        else renderActiveWorkspace();
+        else {
+          renderActiveWorkspace();
+          // Refit all terminals after layout rebuild — critical for Ctrl+F5
+          requestAnimationFrame(() => {
+            for (const [n, e] of state.terminals) {
+              try {
+                e.fitAddon.fit();
+                const { cols, rows } = e.term;
+                state.ws?.send(JSON.stringify({ type: "resize", session: n, payload: { cols, rows } }));
+              } catch {}
+            }
+          });
+        }
         break;
       }
       case "status": {
