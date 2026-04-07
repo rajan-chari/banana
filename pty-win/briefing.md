@@ -1,8 +1,8 @@
 # Briefing
-Last updated: 2026-04-06 15:30
+Last updated: 2026-04-07 15:30
 
 ## Current Focus
-Idle. Tracker panel was moved to right panel (Feed/Tracker tab toggle in index.html + tracker-panel.css) — done externally, likely by milo. New HTML structure: #right-panel-tabs with .rp-tab buttons, #tracker-content as sibling to #feed-content.
+Test pty-win instance running on port 3650 for Playwright MCP UI testing (Ctrl+F5 layout bug). Coordinating with milo. Injection format cleanup done.
 
 ## Don't Forget
 - Server restart needed — TS changes: Claude Code hooks, cost in checkpoints, last-active column, shutdown 4min, regex fix, force-idle log
@@ -14,6 +14,12 @@ Idle. Tracker panel was moved to right panel (Feed/Tracker tab toggle in index.h
 - tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-07 14:45 — Playwright MCP testing enabled
+Playwright MCP available for UI testing. Convention: always port 3650+, never 3600 (production). Test instance started on 3650 with banana root. Persisted to Claude-KB.md.
+
+### 2026-04-07 11:36 — Injection format cleanup
+All injection strings (emcom, startup, resume, checkpoint light/full, shutdown) now prepend [YYYY-MM-DD HH:MM pty-win:type] timestamp. Constants converted to functions for fresh timestamps. No leading whitespace. TS change, needs restart.
+
 ### 2026-04-04 05:55 — Reverted prefersReducedMotion from writeSessionHooks
 Those are user-level global settings (go in ~/.claude/settings.json), not per-session via pty-win.
 

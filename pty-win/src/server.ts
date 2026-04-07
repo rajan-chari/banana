@@ -585,7 +585,11 @@ public class Win32Focus {
 
   // Graceful shutdown with save injection
   const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
-  const SHUTDOWN_SAVE_PROMPT = "[pty-win:shutdown:urgent:urgent]\nServer shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.\r";
+  function shutdownPrompt(): string {
+    const d = new Date();
+    const ts = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
+    return `[${ts} pty-win:shutdown:urgent:urgent]\nServer shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.\r`;
+  }
   const SHUTDOWN_TIMEOUT_MS = 240_000;
 
   const shutdown = async () => {
@@ -623,7 +627,7 @@ public class Win32Focus {
               const label = identity ? `${name} (@${identity})` : name;
               clog(`${label}: saving...${delay > 0 ? ` (delayed ${delay / 1000}s)` : ""}`);
               session.forceIdle();
-              session.write(SHUTDOWN_SAVE_PROMPT);
+              session.write(shutdownPrompt());
               resolve();
             }, delay);
           }));

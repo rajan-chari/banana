@@ -109,6 +109,9 @@ When an ONNX model outputs `seq(map(string, float))` (e.g. sklearn pipeline prob
 ### 2026-04-01: Status bar hook approach doesn't work with multiple pty-win instances
 Claude Code's statusLine.command is global (or per-CWD). If user runs multiple pty-win instances on different ports, the POST targets a single hardcoded port. Regex scraping from the PTY data stream is simpler and works correctly per-instance. The hook idea is sound for single-instance but was reverted.
 
+### 2026-04-07: Playwright MCP testing — use port 3650+, never 3600
+Playwright MCP is available for UI testing. Always start a test pty-win instance on port 3650 or higher. NEVER test against production on port 3600 — it has live agent sessions. Start with: `node dist/index.js --port 3650`. Then use Playwright MCP tools to navigate, snapshot, interact, and verify DOM state.
+
 ### 2026-04-04: Work tracker CLI
 `tracker` command is in PATH. Create items with `tracker create --repo X --number N --title 'desc' --severity normal|high|critical --assigned NAME`. Update with `tracker update repo#N --status STATUS --comment 'reason'`. States: new → triaged → investigating → findings-reported → decision-pending → pr-up → testing → ready-to-merge → merged/deferred/closed. Set `--blocker 'who/what'` when blocked. Tracker panel visible in pty-win Dashboard tab.
 

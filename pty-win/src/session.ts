@@ -84,9 +84,15 @@ export interface SessionInfo {
   lastActiveMs: number;
 }
 
-const INJECTION_PROMPT = "[pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare `emcom` command (it's in PATH).\r";
-const STARTUP_KICK = "[pty-win:startup-kick:routine:brief]\nhi\r";
-const RESUME_KICK = "[pty-win:session-resumed:normal:brief]\nSession resumed. Restart any loops or crons that were running before shutdown.\r";
+function INJECTION_PROMPT() {
+  return `[${fmtNow()} pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).\r`;
+}
+function STARTUP_KICK() {
+  return `[${fmtNow()} pty-win:startup-kick:routine:brief]\nhi\r`;
+}
+function RESUME_KICK() {
+  return `[${fmtNow()} pty-win:session-resumed:normal:brief]\nSession resumed. Restart any loops or crons that were running before shutdown.\r`;
+}
 const STARTUP_GRACE_MS = 10_000;
 
 const EMCOM_PREAMBLE =
@@ -110,12 +116,22 @@ function fmtNextTime(intervalMs: number): string {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
+function fmtNow(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const mo = (d.getMonth() + 1).toString().padStart(2, "0");
+  const da = d.getDate().toString().padStart(2, "0");
+  const h = d.getHours().toString().padStart(2, "0");
+  const mi = d.getMinutes().toString().padStart(2, "0");
+  return `${y}-${mo}-${da} ${h}:${mi}`;
+}
+
 function makeCheckpointLightPrompt(nextTime: string): string {
-  return `[pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.\r`;
+  return `[${fmtNow()} pty-win:checkpoint-light:routine:brief:skip-if-busy]\nCheckpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.\r`;
 }
 
 function makeCheckpointFullPrompt(nextTime: string): string {
-  return `[pty-win:checkpoint-full:normal:normal]\nFull checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.\r`;
+  return `[${fmtNow()} pty-win:checkpoint-full:normal:normal]\nFull checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.\r`;
 }
 
 export class PtySession extends EventEmitter {
@@ -315,7 +331,7 @@ export class PtySession extends EventEmitter {
     clog(`hook:stop → ${this.name} (was ${this.status})`);
     if (this.needsStartupKick) {
       this.needsStartupKick = false;
-      const kick = this.isResumedSession ? RESUME_KICK : STARTUP_KICK;
+      const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
       log(`[${this.name}] Hook-triggered ${this.isResumedSession ? "resume" : "startup"} kick`);
       this.ptyProcess.write(kick);
       this.setStatus("busy");
@@ -526,7 +542,7 @@ export class PtySession extends EventEmitter {
         if (promptType === "input") {
           if (this.needsStartupKick) {
             this.needsStartupKick = false;
-            const kick = this.isResumedSession ? RESUME_KICK : STARTUP_KICK;
+            const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
             log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
             this.ptyProcess.write(kick);
             this.setStatus("busy");
@@ -576,7 +592,7 @@ export class PtySession extends EventEmitter {
     const identity = this.config.emcomIdentity;
     const label = identity ? `${this.name} (@${identity})` : this.name;
     clog(`emcom check → ${label}`);
-    this.ptyProcess.write(INJECTION_PROMPT);
+    this.ptyProcess.write(INJECTION_PROMPT());
     this.setStatus("busy");
 
     // Cooldown: don't go idle again for a while

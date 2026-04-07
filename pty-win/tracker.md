@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-04 06:00
+Last updated: 2026-04-07 15:30
 
 ## In Motion
 
@@ -19,6 +19,8 @@ Last updated: 2026-04-04 06:00
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-07 | Playwright MCP testing convention | Port 3650+ for testing, never 3600 production. Persisted to KB |
+| 2026-04-07 | Injection format cleanup | Timestamps on all injections, constants→functions, no leading whitespace |
 | 2026-04-04 | Reverted prefersReducedMotion from hooks | User-level setting, not per-session |
 | 2026-04-04 | Hook JSON fix: {} for Zod validation | Claude Code rejects custom fields in hook responses |
 | 2026-04-04 | Tracker panel + proxy endpoint | New tab, grouped by status, 10s refresh, /api/emcom-proxy/tracker |
