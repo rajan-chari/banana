@@ -4028,79 +4028,89 @@ function renderAgentsPanel() {
         <span class="agents-summary"></span>
       </div>
       <table class="agents-table">
-        <thead><tr><th>Agent</th><th>Status</th><th>Active</th><th>Cost</th></tr></thead>
+        <thead><tr><th>Agent</th><th>Status</th><th>cb/s</th><th>Active</th><th>Cost</th></tr></thead>
         <tbody></tbody>
       </table>`;
     area.appendChild(panel);
   }
 
-  // Patch summary
-  const blocked = allSessions.filter(([, i]) => i.status === "waiting").length;
-  const busy = allSessions.filter(([, i]) => i.status === "busy").length;
-  const idle = allSessions.filter(([, i]) => i.status === "idle").length;
-  const totalCost = allSessions.reduce((s, [, i]) => s + (i.costUsd || 0), 0);
-  const summaryEl = panel.querySelector(".agents-summary");
-  if (summaryEl) {
-    summaryEl.innerHTML = `${busy} busy · ${idle} idle${blocked > 0 ? ` · <span class="agents-blocked-count">${blocked} blocked</span>` : ""} · $${totalCost.toFixed(2)}`;
-  }
+  // Fetch stats for cb/s data
+  fetch("/api/stats").then(r => r.json()).then(stats => {
+    const statsMap = new Map(stats.map(s => [s.name, s]));
 
-  const tbody = panel.querySelector("tbody");
-  const currentNames = new Set(state.sessions.keys());
-
-  // Remove rows for gone sessions
-  for (const row of [...tbody.querySelectorAll(".agents-row")]) {
-    if (!currentNames.has(row.dataset.session)) row.remove();
-  }
-
-  // Add or patch rows
-  for (const [name, info] of allSessions) {
-    let row = tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`);
-    if (!row) {
-      row = document.createElement("tr");
-      row.className = "agents-row";
-      row.dataset.session = name;
-      row.style.cursor = "pointer";
-      row.onclick = () => focusExistingSession(name);
-      row.innerHTML = `<td class="agents-name"></td><td class="agents-status"></td><td class="agents-active"></td><td class="agents-cost"></td>`;
-      const totalRow = tbody.querySelector(".agents-total-row");
-      tbody.insertBefore(row, totalRow);
+    // Patch summary
+    const blocked = allSessions.filter(([, i]) => i.status === "waiting").length;
+    const busy = allSessions.filter(([, i]) => i.status === "busy").length;
+    const idle = allSessions.filter(([, i]) => i.status === "idle").length;
+    const totalCost = allSessions.reduce((s, [, i]) => s + (i.costUsd || 0), 0);
+    const summaryEl = panel.querySelector(".agents-summary");
+    if (summaryEl) {
+      summaryEl.innerHTML = `${busy} busy · ${idle} idle${blocked > 0 ? ` · <span class="agents-blocked-count">${blocked} blocked</span>` : ""} · $${totalCost.toFixed(2)}`;
     }
 
-    const isBlocked = info.status === "waiting";
-    row.className = `agents-row ${isBlocked ? "agents-blocked" : ""}`;
+    const tbody = panel.querySelector("tbody");
+    if (!tbody) return;
+    const currentNames = new Set(state.sessions.keys());
 
-    const cells = row.children;
-    const nameText = info.emcomIdentity ? `${name} @${info.emcomIdentity}` : name;
-    if (cells[0].textContent !== nameText) cells[0].textContent = nameText;
-
-    const statusText = info.status || "unknown";
-    if (cells[1].textContent !== statusText) {
-      cells[1].textContent = statusText;
-      cells[1].className = `agents-status status-${info.status}`;
+    // Remove rows for gone sessions
+    for (const row of [...tbody.querySelectorAll(".agents-row")]) {
+      if (!currentNames.has(row.dataset.session)) row.remove();
     }
 
-    const agoText = fmtAgo(info.lastActiveMs);
-    if (cells[2].textContent !== agoText) cells[2].textContent = agoText;
+    // Add or patch rows
+    for (const [name, info] of allSessions) {
+      const s = statsMap.get(name);
+      let row = tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`);
+      if (!row) {
+        row = document.createElement("tr");
+        row.className = "agents-row";
+        row.dataset.session = name;
+        row.style.cursor = "pointer";
+        row.onclick = () => focusExistingSession(name);
+        row.innerHTML = `<td class="agents-name"></td><td class="agents-status"></td><td class="agents-cbs"></td><td class="agents-active"></td><td class="agents-cost"></td>`;
+        const totalRow = tbody.querySelector(".agents-total-row");
+        tbody.insertBefore(row, totalRow);
+      }
 
-    const costText = `$${(info.costUsd || 0).toFixed(2)}`;
-    if (cells[3].textContent !== costText) cells[3].textContent = costText;
-  }
+      const isBlocked = info.status === "waiting";
+      row.className = `agents-row ${isBlocked ? "agents-blocked" : ""}`;
 
-  // Patch or create total row
-  let totalRow = tbody.querySelector(".agents-total-row");
-  if (totalCost > 0) {
-    if (!totalRow) {
-      totalRow = document.createElement("tr");
-      totalRow.className = "agents-total-row";
-      totalRow.innerHTML = `<td colspan="3">Total</td><td class="agents-cost"></td>`;
-      tbody.appendChild(totalRow);
+      const cells = row.children;
+      const nameText = name;
+      if (cells[0].textContent !== nameText) cells[0].textContent = nameText;
+
+      const statusText = info.status || "unknown";
+      if (cells[1].textContent !== statusText) {
+        cells[1].textContent = statusText;
+        cells[1].className = `agents-status status-${info.status}`;
+      }
+
+      const cbsText = s ? String(s.busy.callbacksPerSec) : "0";
+      if (cells[2].textContent !== cbsText) cells[2].textContent = cbsText;
+
+      const agoText = fmtAgo(info.lastActiveMs);
+      if (cells[3].textContent !== agoText) cells[3].textContent = agoText;
+
+      const costText = `$${(info.costUsd || 0).toFixed(2)}`;
+      if (cells[4].textContent !== costText) cells[4].textContent = costText;
     }
-    const totalCell = totalRow.querySelector(".agents-cost");
-    const totalText = `$${totalCost.toFixed(2)}`;
-    if (totalCell.textContent !== totalText) totalCell.textContent = totalText;
-  } else if (totalRow) {
-    totalRow.remove();
-  }
+
+    // Patch or create total row
+    let totalRow = tbody.querySelector(".agents-total-row");
+    if (totalCost > 0) {
+      if (!totalRow) {
+        totalRow = document.createElement("tr");
+        totalRow.className = "agents-total-row";
+        totalRow.innerHTML = `<td colspan="4">Total</td><td class="agents-cost"></td>`;
+        tbody.appendChild(totalRow);
+      }
+      const totalCell = totalRow.querySelector(".agents-cost");
+      const totalText = `$${totalCost.toFixed(2)}`;
+      if (totalCell.textContent !== totalText) totalCell.textContent = totalText;
+    } else if (totalRow) {
+      totalRow.remove();
+    }
+  }).catch(() => {});
 }
 
 (function initRightPanelTabs() {

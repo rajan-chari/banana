@@ -222,13 +222,14 @@ html, body {
 .agents-summary { font-size: 10px; color: #666; }
 .agents-blocked-count { color: #f14c4c; font-weight: 600; }
 .agents-table { width: 100%; border-collapse: collapse; }
-.agents-table th { font-size: 9px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; color: #555; padding: 4px 8px; text-align: left; border-bottom: 1px solid #2a2a2e; }
+.agents-table th { font-size: 8px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; color: #555; padding: 2px 6px; text-align: left; border-bottom: 1px solid #2a2a2e; }
 .agents-row { border-bottom: 1px solid #1e1e22; }
 .agents-row:nth-child(even) { background: rgba(255,255,255,0.02); }
 .agents-row:hover { background: rgba(255,255,255,0.05); }
-.agents-row td { padding: 4px 8px; }
-.agents-name { color: #ccc; white-space: nowrap; }
-.agents-status { font-size: 10px; }
+.agents-row td { padding: 2px 6px; }
+.agents-name { color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; font-size: 10px; }
+.agents-status { font-size: 9px; }
+.agents-cbs { font-size: 9px; color: #888; text-align: right; }
 .agents-status.status-idle { color: #23d18b; }
 .agents-status.status-busy { color: #d4882a; }
 .agents-status.status-waiting { color: #f14c4c; }
