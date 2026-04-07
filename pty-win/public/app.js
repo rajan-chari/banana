@@ -4054,10 +4054,14 @@ function renderAgentsPanel() {
     const blocked = allSessions.filter(([, i]) => i.status === "waiting").length;
     const busy = allSessions.filter(([, i]) => i.status === "busy").length;
     const idle = allSessions.filter(([, i]) => i.status === "idle").length;
+    const needsInputCount = allSessions.filter(([name, i]) => {
+      const st = statsMap.get(name);
+      return i.status === "idle" && (!st || st.busy.callbacksPerSec === 0) && i.status !== "dead";
+    }).length;
     const totalCost = allSessions.reduce((s, [, i]) => s + (i.costUsd || 0), 0);
     const summaryEl = panel.querySelector(".agents-summary");
     if (summaryEl) {
-      summaryEl.innerHTML = `${busy} busy · ${idle} idle${blocked > 0 ? ` · <span class="agents-blocked-count">${blocked} blocked</span>` : ""} · $${totalCost.toFixed(2)}`;
+      summaryEl.innerHTML = `${busy} busy · ${idle} idle${needsInputCount > 0 ? ` · <span class="agents-needs-input-count">${needsInputCount} need input</span>` : ""}${blocked > 0 ? ` · <span class="agents-blocked-count">${blocked} blocked</span>` : ""} · $${totalCost.toFixed(2)}`;
     }
 
     const tbody = panel.querySelector("tbody");
@@ -4084,17 +4088,19 @@ function renderAgentsPanel() {
         tbody.insertBefore(row, totalRow);
       }
 
+      const cbs = s ? s.busy.callbacksPerSec : 0;
       const isBlocked = info.status === "waiting";
-      row.className = `agents-row ${isBlocked ? "agents-blocked" : ""}`;
+      const needsInput = info.status === "idle" && cbs === 0 && info.status !== "dead";
+      row.className = `agents-row ${isBlocked ? "agents-blocked" : ""} ${needsInput ? "agents-needs-input" : ""}`;
 
       const cells = row.children;
       const nameText = name;
       if (cells[0].textContent !== nameText) cells[0].textContent = nameText;
 
-      const statusText = info.status || "unknown";
+      const statusText = needsInput ? "needs input" : (info.status || "unknown");
       if (cells[1].textContent !== statusText) {
         cells[1].textContent = statusText;
-        cells[1].className = `agents-status status-${info.status}`;
+        cells[1].className = `agents-status ${needsInput ? "status-needs-input" : `status-${info.status}`}`;
       }
 
       const cbsText = s ? String(s.busy.callbacksPerSec) : "0";

@@ -221,6 +221,7 @@ html, body {
 .agents-title { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: #888; }
 .agents-summary { font-size: 10px; color: #666; }
 .agents-blocked-count { color: #f14c4c; font-weight: 600; }
+.agents-needs-input-count { color: #d4882a; font-weight: 600; }
 .agents-table { width: auto; border-collapse: collapse; }
 .agents-table th { font-size: 10px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; color: #555; padding: 2px 6px; text-align: left; border-bottom: 1px solid #2a2a2e; }
 .agents-row { border-bottom: 1px solid #1e1e22; }
@@ -237,6 +238,8 @@ html, body {
 .agents-active { color: #666; font-size: 11px; }
 .agents-cost { color: #888; font-size: 11px; text-align: right; }
 .agents-blocked { background: rgba(241, 76, 76, 0.06) !important; }
+.agents-needs-input { background: rgba(212, 136, 42, 0.08) !important; }
+.agents-status.status-needs-input { color: #d4882a; font-weight: 600; }
 .agents-total-row td { padding: 6px 8px; border-top: 1px solid #333; font-weight: 600; color: #d4882a; }
 .agents-empty { padding: 40px; text-align: center; color: #444; }
 
