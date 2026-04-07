@@ -61,6 +61,7 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **formatCost()**: cost > $0.50 → 2 decimal places, cost ≤ $0.50 → 4 decimal places.
 - **emcom binaries**: emcom.exe is C# AOT native (5.8MB), emcom-server.exe is Python/PyInstaller (27MB), emcom-tui.exe is Python/PyInstaller (22MB). All in `~/.claude/skills/emcom/bin/`.
 - **Work tracker CLI**: `tracker` command (in PATH). Hosted on emcom-server. API: GET /tracker on same host:port as emcom (requires X-Emcom-Name header). States: new → triaged → investigating → findings-reported → decision-pending → pr-up → testing → ready-to-merge → merged/deferred/closed. Key commands: `tracker create --repo X --number N --title 'desc' --severity high --assigned name`, `tracker update repo#N --status S --comment 'reason'`, `tracker list --status open --assigned name`, `tracker list --needs-decision`, `tracker stats`. Use when delegating work or completing tasks.
+- **Tracker reminders**: Use tracker with 'reminder' label: `tracker create --repo reminders --title 'description' --labels 'reminder'`. Dismiss with `tracker update <id> --status closed`. Sub-labels: standup, once, weekly. Tracker panel has a Reminders filter button.
 - **Chrome DevTools MCP ports**: 3600 = Rajan's session, 3601 = milo's session. MCP goes stale after session restart.
 - **emcom usernames are case-sensitive**: `--to rajan` fails, `--to Rajan` works.
 - **httpx + localhost on Windows**: ~2s penalty per request due to IPv6 DNS. Use `127.0.0.1` instead.

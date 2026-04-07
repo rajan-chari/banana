@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-07 03:22
+Last updated: 2026-04-07 05:16
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,9 +13,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-07 03:20 — Fixed pane layout on Ctrl+F5 (47d2e09): fitAddon.fit() ran before fonts/CSS loaded on hard refresh. Added 3 layers of delayed fit (per-terminal + global window.load). No more zoom workaround.
-- 2026-04-07 03:14 — Fixed focus loss (dea5f14): WS DOM rebuilds (renderSessionsPanel, renderTabs) stole terminal focus. Now re-focuses active terminal after every WS update + rAF double-tap in focusPane().
-- 2026-04-07 03:13 — Feed shows recipient (a27f694): "sender → recipient" format using to[] field.
+- 2026-04-07 05:15 — Tracker: Reminders category button (f052bc8), stale "NO OPEN ITEMS" bug fix (84378ef), reminder convention saved to KB + sent to agents. Dashboard scrollbar themed (edcdd28).
+- 2026-04-07 03:20 — Ctrl+F5 layout fix (47d2e09): delayed fitAddon.fit() after full page load. Focus loss fix (dea5f14): re-focus terminal after WS DOM rebuilds. Feed recipient display (a27f694): "sender → recipient".
 - 2026-04-07 01:00 — Tracker polish: category filter, null issue fix, show-closed toggle, closed styling on item class (DOM-persistent), zebra/hover, refresh button, resizable columns, history timeline, GitHub microsoft/ link.
 - 2026-04-06 16:37 — Dashboard flicker fix + tracker panel redesign + right panel toggle.
 - 2026-04-06 18:24 — Tracker Round 1 shipped (4a4ba0f): IBM Plex Mono font, brighter text (#ccc/#a080c0), tighter rows (3px padding), zebra striping.
