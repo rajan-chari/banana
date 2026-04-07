@@ -1,8 +1,8 @@
 # Briefing
-Last updated: 2026-04-07 15:30
+Last updated: 2026-04-07 17:00
 
 ## Current Focus
-Test pty-win instance running on port 3650 for Playwright MCP UI testing (Ctrl+F5 layout bug). Coordinating with milo. Injection format cleanup done.
+Shutdown save. Cost history sampling implemented. Right panel now has 3 tabs: Feed/Tracker/Agents (external change to index.html).
 
 ## Don't Forget
 - Server restart needed — TS changes: Claude Code hooks, cost in checkpoints, last-active column, shutdown 4min, regex fix, force-idle log
@@ -14,6 +14,12 @@ Test pty-win instance running on port 3650 for Playwright MCP UI testing (Ctrl+F
 - tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-07 17:00 — Cost history sampling
+60s interval samples each session's costUsd to in-memory array (cap 1440 = 24h). GET /api/cost-history endpoint. Persisted to cost-history.json on shutdown, loaded on startup. Milo will build frontend sparklines.
+
+### 2026-04-07 16:00 — Right panel: Agents tab added (external)
+index.html updated externally — right panel now has Feed/Tracker/Agents tabs (#right-panel-tabs with .rp-tab buttons). #agents-content div added as sibling to feed-content and tracker-content.
+
 ### 2026-04-07 14:45 — Playwright MCP testing enabled
 Playwright MCP available for UI testing. Convention: always port 3650+, never 3600 (production). Test instance started on 3650 with banana root. Persisted to Claude-KB.md.
 

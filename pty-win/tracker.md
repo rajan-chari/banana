@@ -19,6 +19,7 @@ Last updated: 2026-04-07 15:30
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-07 | Cost history sampling | 60s interval, 24h cap, /api/cost-history, persist on shutdown |
 | 2026-04-07 | Playwright MCP testing convention | Port 3650+ for testing, never 3600 production. Persisted to KB |
 | 2026-04-07 | Injection format cleanup | Timestamps on all injections, constants→functions, no leading whitespace |
 | 2026-04-04 | Reverted prefersReducedMotion from hooks | User-level setting, not per-session |

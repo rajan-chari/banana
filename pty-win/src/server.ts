@@ -82,6 +82,21 @@ export async function startServer(config: ServerConfig): Promise<void> {
     }
   } catch { /* ignore corrupt file */ }
 
+  // Load cost history from previous run
+  interface CostSample { timestamp: number; sessions: Record<string, number>; }
+  const costHistory: CostSample[] = [];
+  const costHistoryPath = join(__dirname, "..", "cost-history.json");
+  const COST_HISTORY_MAX = 1440; // 24h at 60s intervals
+  try {
+    if (existsSync(costHistoryPath)) {
+      const data = JSON.parse(readFileSync(costHistoryPath, "utf-8"));
+      if (Array.isArray(data)) {
+        costHistory.push(...data.slice(-COST_HISTORY_MAX));
+        clog(`Loaded ${costHistory.length} cost history sample(s)`);
+      }
+    }
+  } catch { /* ignore */ }
+
   const app = express();
   app.use(express.json());
 
@@ -404,6 +419,10 @@ public class Win32Focus {
     res.json({ sessions: sessionCosts, totalUsd: Math.round(totalUsd * 100) / 100 });
   });
 
+  app.get("/api/cost-history", (_req, res) => {
+    res.json(costHistory);
+  });
+
   // emcom/who kept for dashboard reference
   app.get("/api/emcom/who", async (_req, res) => {
     try {
@@ -583,6 +602,18 @@ public class Win32Focus {
     }
   }, 30_000);
 
+  // 60s cost history sampling
+  setInterval(() => {
+    if (sessions.size === 0) return;
+    const sample: CostSample = { timestamp: Date.now(), sessions: {} };
+    for (const [name, session] of sessions) {
+      const cost = session.getInfo().costUsd;
+      if (cost > 0) sample.sessions[name] = cost;
+    }
+    costHistory.push(sample);
+    if (costHistory.length > COST_HISTORY_MAX) costHistory.splice(0, costHistory.length - COST_HISTORY_MAX);
+  }, 60_000);
+
   // Graceful shutdown with save injection
   const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
   function shutdownPrompt(): string {
@@ -686,6 +717,14 @@ public class Win32Focus {
       clog(`Saved costs for ${Object.keys(costsData).length} session(s)`);
     } catch (e) {
       clog(`WARNING: Failed to save costs.json: ${e}`);
+    }
+
+    // Persist cost history
+    try {
+      writeFileSync(costHistoryPath, JSON.stringify(costHistory));
+      clog(`Saved ${costHistory.length} cost history sample(s)`);
+    } catch (e) {
+      clog(`WARNING: Failed to save cost-history.json: ${e}`);
     }
 
     // Kill all sessions and shut down
