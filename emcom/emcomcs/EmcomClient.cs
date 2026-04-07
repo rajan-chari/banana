@@ -95,6 +95,62 @@ public sealed class EmcomClient
     private HttpResponseMessage Get(string path) => Request(HttpMethod.Get, path);
     private HttpResponseMessage Delete(string path) => Request(HttpMethod.Delete, path);
 
+    /// <summary>Check if server is running; if not, start it as a background process.</summary>
+    public void EnsureServer()
+    {
+        // Quick health check
+        try
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, "/health");
+            var resp = _http.Send(req);
+            if (resp.IsSuccessStatusCode) return;
+        }
+        catch { /* server not running */ }
+
+        // Find emcom-server exe — same directory as this exe, or in PATH
+        var thisDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        var serverExe = Path.Combine(thisDir, "emcom-server.exe");
+        if (!File.Exists(serverExe))
+            serverExe = "emcom-server"; // fall back to PATH
+
+        // Start as detached background process
+        var psi = new System.Diagnostics.ProcessStartInfo(serverExe)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        try
+        {
+            var proc = System.Diagnostics.Process.Start(psi);
+            if (proc == null) return;
+
+            // Write PID file
+            var pidFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".emcom-server.pid");
+            File.WriteAllText(pidFile, proc.Id.ToString());
+        }
+        catch
+        {
+            return; // can't start server — let the caller hit the connection error
+        }
+
+        // Wait for health (up to 5 seconds)
+        for (int i = 0; i < 50; i++)
+        {
+            System.Threading.Thread.Sleep(100);
+            try
+            {
+                var req = new HttpRequestMessage(HttpMethod.Get, "/health");
+                var resp = _http.Send(req);
+                if (resp.IsSuccessStatusCode) return;
+            }
+            catch { /* not ready yet */ }
+        }
+    }
+
     private HttpResponseMessage PostJson<T>(string path, T body) where T : class =>
         Request(HttpMethod.Post, path, new StringContent(
             JsonSerializer.Serialize(body, (JsonTypeInfo<T>)EmcomJsonContext.Default.GetTypeInfo(typeof(T))!),

@@ -66,6 +66,7 @@ public static class Program
         var cmd = args[0];
         var rest = args.Skip(1).ToList();
         var c = MakeClient(server, identity);
+        c.EnsureServer();
 
         switch (cmd)
         {

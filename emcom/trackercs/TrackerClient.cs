@@ -77,6 +77,53 @@ public sealed class TrackerClient
     private HttpResponseMessage Get(string path) => Request(HttpMethod.Get, path);
     private HttpResponseMessage Delete(string path) => Request(HttpMethod.Delete, path);
 
+    /// <summary>Check if server is running; if not, start it as a background process.</summary>
+    public void EnsureServer()
+    {
+        try
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, "/health");
+            var resp = _http.Send(req);
+            if (resp.IsSuccessStatusCode) return;
+        }
+        catch { /* server not running */ }
+
+        var thisDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        var serverExe = Path.Combine(thisDir, "emcom-server.exe");
+        if (!File.Exists(serverExe))
+            serverExe = "emcom-server";
+
+        var psi = new System.Diagnostics.ProcessStartInfo(serverExe)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        try
+        {
+            var proc = System.Diagnostics.Process.Start(psi);
+            if (proc == null) return;
+            var pidFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".emcom-server.pid");
+            File.WriteAllText(pidFile, proc.Id.ToString());
+        }
+        catch { return; }
+
+        for (int i = 0; i < 50; i++)
+        {
+            Thread.Sleep(100);
+            try
+            {
+                var req = new HttpRequestMessage(HttpMethod.Get, "/health");
+                var resp = _http.Send(req);
+                if (resp.IsSuccessStatusCode) return;
+            }
+            catch { }
+        }
+    }
+
     private HttpResponseMessage PostJson<T>(string path, T body) where T : class =>
         Request(HttpMethod.Post, path, new StringContent(
             JsonSerializer.Serialize(body, (JsonTypeInfo<T>)TrackerJsonContext.Default.GetTypeInfo(typeof(T))!),

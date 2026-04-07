@@ -52,6 +52,10 @@ public static class Program
         var rest = args.Skip(1).ToList();
         var c = MakeClient(server, identity);
 
+        // Auto-start server if not running (skip for register which might be first-time setup)
+        if (cmd != "register")
+            c.EnsureServer();
+
         switch (cmd)
         {
             case "register":
