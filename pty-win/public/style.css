@@ -243,6 +243,16 @@ html, body {
 .agents-total-row td { padding: 6px 8px; border-top: 1px solid #333; font-weight: 600; color: #d4882a; }
 .agents-empty { padding: 40px; text-align: center; color: #444; }
 
+/* Cost bar chart */
+.agents-cost-chart { padding: 8px 12px; border-top: 1px solid #2a2a2e; }
+.agents-chart-title { font-size: 10px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; color: #555; margin-bottom: 6px; }
+.agents-bars { display: flex; flex-direction: column; gap: 3px; }
+.agents-bar { display: flex; align-items: center; gap: 6px; }
+.agents-bar-label { font-size: 10px; color: #999; width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+.agents-bar-track { flex: 1; height: 10px; background: #1a1a1e; border-radius: 2px; overflow: hidden; }
+.agents-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; min-width: 2px; }
+.agents-bar-value { font-size: 10px; color: #888; width: 50px; text-align: right; flex-shrink: 0; }
+
 #feed-resize-handle {
   position: absolute;
   left: 0; top: 0; bottom: 0;

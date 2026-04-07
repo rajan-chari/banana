@@ -4136,7 +4136,58 @@ function renderAgentsPanel() {
     } else if (totalRow) {
       totalRow.remove();
     }
+    // Render cost bar chart below table
+    renderCostBars(panel, allSessions, totalCost);
   }).catch(() => {});
+}
+
+function renderCostBars(panel, sessions, totalCost) {
+  if (totalCost <= 0) return;
+
+  let chart = panel.querySelector(".agents-cost-chart");
+  if (!chart) {
+    chart = document.createElement("div");
+    chart.className = "agents-cost-chart";
+    chart.innerHTML = `<div class="agents-chart-title">COST BY SESSION</div><div class="agents-bars"></div>`;
+    panel.appendChild(chart);
+  }
+
+  const barsContainer = chart.querySelector(".agents-bars");
+  const sorted = [...sessions].sort(([, a], [, b]) => (b.costUsd || 0) - (a.costUsd || 0));
+  const maxCost = sorted.length > 0 ? (sorted[0][1].costUsd || 0) : 1;
+
+  // Patch bars
+  const existingBars = new Set();
+  for (const [name, info] of sorted) {
+    const cost = info.costUsd || 0;
+    if (cost <= 0) continue;
+    existingBars.add(name);
+    const pct = Math.max(2, Math.round((cost / maxCost) * 100));
+    const color = cost > 10 ? "#f14c4c" : cost > 5 ? "#d4882a" : cost > 1 ? "#e8b830" : "#23d18b";
+
+    let bar = barsContainer.querySelector(`.agents-bar[data-session="${CSS.escape(name)}"]`);
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.className = "agents-bar";
+      bar.dataset.session = name;
+      bar.innerHTML = `<span class="agents-bar-label"></span><div class="agents-bar-track"><div class="agents-bar-fill"></div></div><span class="agents-bar-value"></span>`;
+      barsContainer.appendChild(bar);
+    }
+
+    const label = bar.querySelector(".agents-bar-label");
+    if (label.textContent !== name) label.textContent = name;
+    const fill = bar.querySelector(".agents-bar-fill");
+    fill.style.width = `${pct}%`;
+    fill.style.background = color;
+    const value = bar.querySelector(".agents-bar-value");
+    const valText = `$${cost.toFixed(2)}`;
+    if (value.textContent !== valText) value.textContent = valText;
+  }
+
+  // Remove bars for sessions no longer present
+  for (const bar of [...barsContainer.querySelectorAll(".agents-bar")]) {
+    if (!existingBars.has(bar.dataset.session)) bar.remove();
+  }
 }
 
 (function initRightPanelTabs() {
