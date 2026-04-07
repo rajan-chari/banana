@@ -4138,6 +4138,8 @@ function renderAgentsPanel() {
     }
     // Render cost bar chart below table
     renderCostBars(panel, allSessions, totalCost);
+    // Fetch and render sparklines
+    fetchCostHistory(panel);
   }).catch(() => {});
 }
 
@@ -4188,6 +4190,66 @@ function renderCostBars(panel, sessions, totalCost) {
   for (const bar of [...barsContainer.querySelectorAll(".agents-bar")]) {
     if (!existingBars.has(bar.dataset.session)) bar.remove();
   }
+}
+
+function fetchCostHistory(panel) {
+  fetch("/api/cost-history").then(r => r.json()).then(history => {
+    if (!history || history.length < 2) return;
+
+    // Extract per-session time series
+    const sessionSeries = new Map();
+    for (const sample of history) {
+      for (const [name, cost] of Object.entries(sample.sessions)) {
+        if (!sessionSeries.has(name)) sessionSeries.set(name, []);
+        sessionSeries.get(name).push(cost);
+      }
+    }
+
+    // Draw sparklines on existing bar elements
+    const barsContainer = panel.querySelector(".agents-bars");
+    if (!barsContainer) return;
+
+    for (const [name, series] of sessionSeries) {
+      const bar = barsContainer.querySelector(`.agents-bar[data-session="${CSS.escape(name)}"]`);
+      if (!bar) continue;
+
+      let canvas = bar.querySelector(".agents-sparkline");
+      if (!canvas) {
+        canvas = document.createElement("canvas");
+        canvas.className = "agents-sparkline";
+        canvas.width = 60;
+        canvas.height = 16;
+        // Insert after the bar track
+        const track = bar.querySelector(".agents-bar-track");
+        if (track) track.after(canvas);
+      }
+
+      drawSparkline(canvas, series);
+    }
+  }).catch(() => {});
+}
+
+function drawSparkline(canvas, data) {
+  if (data.length < 2) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  ctx.strokeStyle = "#d4882a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((data[i] - min) / range) * (h - 2) - 1;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
 }
 
 (function initRightPanelTabs() {
