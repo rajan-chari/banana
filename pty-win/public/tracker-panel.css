@@ -2,7 +2,7 @@
 
 /* --- Layout --- */
 .tracker-view {
-  font-family: 'IBM Plex Mono', 'Cascadia Code', monospace;
+  font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
   color: #ccc;
   padding: 0;
   overflow-y: auto;
