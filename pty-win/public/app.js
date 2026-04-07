@@ -3304,6 +3304,7 @@ function renderTracker() {
           <button class="tracker-cat-btn" data-cat="sdk">SDK</button>
           <button class="tracker-cat-btn" data-cat="infra">Infra</button>
           <button class="tracker-cat-btn" data-cat="ops">Ops</button>
+          <button class="tracker-cat-btn" data-cat="reminder">Reminders</button>
         </div>
         <select class="tracker-filter" id="tracker-filter-repo"><option value="">all repos</option></select>
         <select class="tracker-filter" id="tracker-filter-sev"><option value="">all sev</option><option value="critical">critical</option><option value="high">high</option><option value="normal">normal</option></select>
