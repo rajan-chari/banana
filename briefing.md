@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-06 22:25
+Last updated: 2026-04-07 03:22
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,9 +13,11 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-06 22:24 — 3 tracker fixes shipped (a5e4a71): (1) history proxy endpoint was missing (GET /api/emcom-proxy/tracker/:id — caused "Failed to load"), (2) GitHub link fixed to microsoft/ org (was nicross/), (3) resizable columns with drag handles + localStorage persistence. TS change needs restart.
-- 2026-04-06 21:25 — Tracker history timeline shipped (0028602): lazy-load history from /tracker/{id} on expand.
-- 2026-04-06 18:29 — Tracker Rounds 1+2: font, text, rows, zebra, filter bar, GitHub links.
+- 2026-04-07 03:20 — Fixed pane layout on Ctrl+F5 (47d2e09): fitAddon.fit() ran before fonts/CSS loaded on hard refresh. Added 3 layers of delayed fit (per-terminal + global window.load). No more zoom workaround.
+- 2026-04-07 03:14 — Fixed focus loss (dea5f14): WS DOM rebuilds (renderSessionsPanel, renderTabs) stole terminal focus. Now re-focuses active terminal after every WS update + rAF double-tap in focusPane().
+- 2026-04-07 03:13 — Feed shows recipient (a27f694): "sender → recipient" format using to[] field.
+- 2026-04-07 01:00 — Tracker polish: category filter, null issue fix, show-closed toggle, closed styling on item class (DOM-persistent), zebra/hover, refresh button, resizable columns, history timeline, GitHub microsoft/ link.
+- 2026-04-06 16:37 — Dashboard flicker fix + tracker panel redesign + right panel toggle.
 - 2026-04-06 18:24 — Tracker Round 1 shipped (4a4ba0f): IBM Plex Mono font, brighter text (#ccc/#a080c0), tighter rows (3px padding), zebra striping.
 - 2026-04-06 18:02 — Tracker staleness shipped (90c476a): age + time-in-status columns with green/yellow/red coding (<3d/3-7d/>7d). Stale items get red row highlight. Uses date_found when available, falls back to created_at.
 - 2026-04-06 17:47 — Tracker moved to right panel (b193e2d): Feed/Tracker toggle tabs instead of workspace tab. Badge shows decision-pending count. Auto-polls 10s.

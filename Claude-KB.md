@@ -43,6 +43,8 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **2026-04-03:** `#` after a newline in Bash --body/--message args triggers "can hide arguments from line-based permission checks" prompt. Issue numbers like #2737 in emcom send --body cause this. Fix: pipe body via stdin instead of inline --body.
 
 - **2026-04-06:** When implementing frontend directly (not via moss), always: (1) check JS syntax with `new Function(code)`, (2) run `npm test` (79 tests), (3) commit per feature not batched. Rajan approved milo implementing directly when moss is on other work — the test suite is the safety net.
+- **2026-04-07:** CSS styling on parent group selectors breaks when DOM is patched/rebuilt — items lose parent context. Put styling directly on the item element (e.g. `.tracker-item-done` class) and toggle it in both `buildTrackerItem` and `patchTrackerItem`.
+- **2026-04-07:** xterm.js fitAddon.fit() on page load needs multiple delayed calls because fonts/CSS/CDN scripts load asynchronously. Single rAF + 150ms isn't enough on hard refresh. Use: rAF + 150ms + 500ms + window.load event + global window.load handler that refits all terminals.
 
 ## Decisions
 
