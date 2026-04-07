@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-07 shutdown
+Last updated: 2026-04-07 checkpoint
 
 ## Current Focus
 
-Session ending. Recent deliverables: (1) null issue number display fix (`582f59d`), (2) reminders convention saved to Claude-KB, (3) `--append-notes` feature for tracker — appends timestamped entries instead of replacing notes (`1ee7b30`). emcom-server.exe with all recent features staged at `emcom/dist/` — deploy on next restart. No outstanding work.
+Completed all 3 one-click deploy tasks from Rajan: (1) ported ensure_server() to C# — both emcom.exe and tracker.exe auto-start the server if it's down (`3db974b`), (2) GitHub Actions CI workflow for cross-platform builds — win-x64/osx-arm64/linux-x64 with Python tests (`f8eb88f`), (3) verified pip install path works for Mac/Linux server. Milo pulling binaries into fellow-agents. No outstanding work.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Session ending. Recent deliverables: (1) null issue number display fix (`582f59d
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-07 — One-click deploy: ensure_server + CI + pip verify
+Completed Rajan's 3-task GO for fellow-agents packaging: (1) Ported ensure_server() to C# CLIs — both emcom.exe and tracker.exe now auto-start emcom-server if /health check fails, spawning it as background process from same dir or PATH. Used AppContext.BaseDirectory for AOT compat. Commit `3db974b`. (2) GitHub Actions CI workflow (`.github/workflows/emcom-build.yml`) — builds emcom+tracker for win-x64/osx-arm64/linux-x64, runs Python server tests, manual dispatch creates GitHub Release with 6 binaries. Commit `f8eb88f`. (3) Verified pip install works cleanly for Mac/Linux server deployment. Also shipped --append-notes (`1ee7b30`), null number fix (`582f59d`), reminders convention to Claude-KB.
 
 ### 2026-04-07 — append-notes + null number fix + reminders convention
 Added `--append-notes` flag to tracker update — appends timestamped entries with author prefix (`[04-07 15:50 frost] note text`) instead of replacing the notes field. `--notes` still replaces for backwards compat. Commit `1ee7b30`. Also fixed null issue numbers displaying as "repo#null" — now shows just repo name (`582f59d`). Saved tracker-based reminders convention to Claude-KB (use `--labels 'reminder'` with sub-labels: standup, once, weekly). Replied to Rajan's RFC on context collapse persistence rule.

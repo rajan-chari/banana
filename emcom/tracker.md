@@ -7,7 +7,7 @@ Last updated: 2026-03-30
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win: force-not-busy context menu | Not started | frost | Rajan wants right-click "force not busy" on session entries. Check if commit `8f0340c` already covers this. |
-| emcom-server.exe deploy | Staged, deploy on next restart | frost | Binary at `emcom/dist/emcom-server.exe` includes WS endpoint + date_found + runtime-tmpdir fix. Copy to `~/.claude/skills/emcom/bin/` when server stops. |
+| emcom-server.exe deploy | Staged, deploy on next restart | frost | Binary at `emcom/dist/emcom-server.exe` includes WS endpoint + date_found + append-notes + runtime-tmpdir fix. Copy to `~/.claude/skills/emcom/bin/` when server stops. |
 
 ## Watching
 
@@ -30,6 +30,8 @@ Last updated: 2026-03-30
 | 2026-04-06 | date_found field | Optional field for staleness tracking. DB migration included. tracker.exe deployed. Commit `52e8087`. |
 | 2026-04-07 | Null number display fix | Items without GitHub issue number show repo name instead of "repo#null". Commit `582f59d`. |
 | 2026-04-07 | --append-notes feature | Appends timestamped entries to notes field instead of replacing. Commit `1ee7b30`. |
+| 2026-04-07 | ensure_server() C# port | Both CLIs auto-start server if down. Commit `3db974b`. |
+| 2026-04-07 | GitHub Actions CI workflow | Cross-platform builds (win/mac/linux) + Python tests. Commit `f8eb88f`. |
 |------|------|---------|
 | 2026-03-25 | Adopt briefing.md spec | Created briefing.md, updated CLAUDE.md startup + session-end, commit `4cdeb73` |
 | 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |
