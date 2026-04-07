@@ -28,6 +28,8 @@ Last updated: 2026-03-30
 | 2026-04-06 | PyInstaller --runtime-tmpdir fix | Rebuilt emcom-server.exe + emcom-tui.exe to extract to `~/.emcom/runtime/` instead of %TEMP%. Commit `bd2c71d`. |
 | 2026-04-06 | Tracker WebSocket endpoint | /tracker/ws for real-time updates — snapshot on connect, broadcast on mutations. Commit `29c7ac6`. |
 | 2026-04-06 | date_found field | Optional field for staleness tracking. DB migration included. tracker.exe deployed. Commit `52e8087`. |
+| 2026-04-07 | Null number display fix | Items without GitHub issue number show repo name instead of "repo#null". Commit `582f59d`. |
+| 2026-04-07 | --append-notes feature | Appends timestamped entries to notes field instead of replacing. Commit `1ee7b30`. |
 |------|------|---------|
 | 2026-03-25 | Adopt briefing.md spec | Created briefing.md, updated CLAUDE.md startup + session-end, commit `4cdeb73` |
 | 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |

@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-06 checkpoint
+Last updated: 2026-04-07 shutdown
 
 ## Current Focus
 
-Active session. Shipped: (1) PyInstaller --runtime-tmpdir fix for Application Control blocking emcom-server.exe/emcom-tui.exe, (2) tracker WebSocket endpoint for real-time updates (commit `29c7ac6`), (3) date_found field for staleness tracking (commit `52e8087`). emcom-server.exe with date_found staged at `emcom/dist/` — deploy on next restart. tracker.exe deployed. No outstanding work requests.
+Session ending. Recent deliverables: (1) null issue number display fix (`582f59d`), (2) reminders convention saved to Claude-KB, (3) `--append-notes` feature for tracker — appends timestamped entries instead of replacing notes (`1ee7b30`). emcom-server.exe with all recent features staged at `emcom/dist/` — deploy on next restart. No outstanding work.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Active session. Shipped: (1) PyInstaller --runtime-tmpdir fix for Application Co
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-07 — append-notes + null number fix + reminders convention
+Added `--append-notes` flag to tracker update — appends timestamped entries with author prefix (`[04-07 15:50 frost] note text`) instead of replacing the notes field. `--notes` still replaces for backwards compat. Commit `1ee7b30`. Also fixed null issue numbers displaying as "repo#null" — now shows just repo name (`582f59d`). Saved tracker-based reminders convention to Claude-KB (use `--labels 'reminder'` with sub-labels: standup, once, weekly). Replied to Rajan's RFC on context collapse persistence rule.
 
 ### 2026-04-06 — date_found field + tracker WebSocket + PyInstaller fix
 Three features shipped: (1) Fixed PyInstaller exe blocked by Windows Application Control — rebuilt emcom-server.exe and emcom-tui.exe with `--runtime-tmpdir ~/.emcom/runtime/` so DLL extraction goes to whitelisted path instead of %TEMP% (commit `bd2c71d`). (2) Tracker WebSocket endpoint `/tracker/ws?name=<agent>` for real-time updates — sends snapshot on connect, broadcasts on create/update/comment mutations (commit `29c7ac6`). (3) Added `date_found` optional field to work_items for staleness/age tracking — enables time-to-detect and total age calculations for the tracker panel (commit `52e8087`). tracker.exe deployed. emcom-server.exe staged for next restart.
