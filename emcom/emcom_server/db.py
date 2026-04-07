@@ -676,6 +676,17 @@ class Database:
         sets = ["updated_at=?"]
         params: list = [now]
 
+        # Handle append_notes specially — append with timestamp prefix
+        append_notes = updates.pop("append_notes", None)
+        if append_notes:
+            old_notes = old.get("notes") or ""
+            short_now = now[5:16].replace("T", " ")  # MM-DD HH:MM
+            entry = f"[{short_now} {changed_by}] {append_notes}"
+            new_notes = f"{old_notes}\n{entry}".strip()
+            sets.append("notes=?")
+            params.append(new_notes)
+            self._record_history(conn, item_id, "notes", old_notes or None, new_notes, changed_by, comment)
+
         for field, new_val in updates.items():
             if field not in TRACKED_FIELDS:
                 continue

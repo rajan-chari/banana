@@ -81,6 +81,7 @@ public sealed class UpdateWorkItemRequest
     [JsonPropertyName("number")] public int? Number { get; set; }
     [JsonPropertyName("blocker")] public string? Blocker { get; set; }
     [JsonPropertyName("date_found")] public string? DateFound { get; set; }
+    [JsonPropertyName("append_notes")] public string? AppendNotes { get; set; }
     [JsonPropertyName("findings")] public string? Findings { get; set; }
     [JsonPropertyName("decision")] public string? Decision { get; set; }
     [JsonPropertyName("decision_rationale")] public string? DecisionRationale { get; set; }

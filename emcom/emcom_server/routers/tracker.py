@@ -84,6 +84,7 @@ class UpdateWorkItemRequest(BaseModel):
     number: int | None = None
     blocker: str | None = None
     date_found: str | None = None
+    append_notes: str | None = None
     findings: str | None = None
     decision: str | None = None
     decision_rationale: str | None = None

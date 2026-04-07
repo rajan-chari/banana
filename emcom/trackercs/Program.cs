@@ -124,6 +124,7 @@ public static class Program
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)
                         req.Labels = [..rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
                     else if (rest[i] == "--notes" && i + 1 < rest.Count) req.Notes = rest[++i];
+                    else if (rest[i] == "--append-notes" && i + 1 < rest.Count) req.AppendNotes = rest[++i];
                     else if (rest[i] == "--comment" && i + 1 < rest.Count) req.Comment = rest[++i];
                 }
                 var item = c.Update(itemRef, req);
