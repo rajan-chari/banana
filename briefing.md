@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-07 05:16
+Last updated: 2026-04-07 15:02
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,7 +13,10 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-07 05:15 — Tracker: Reminders category button (f052bc8), stale "NO OPEN ITEMS" bug fix (84378ef), reminder convention saved to KB + sent to agents. Dashboard scrollbar themed (edcdd28).
+- 2026-04-07 15:01 — Subagent pattern: evaluated vale, bolt, scout-triage, SDK agents. Bolt architecture drafted (coordinator + per-PR subagent). Open blocker: do Agent tool subagents inherit MCP/skills? Asked jade. Persist to bolt KB once validated.
+- 2026-04-07 14:45 — Playwright MCP testing approach for Ctrl+F5 layout bug: use port 3650+ test instance, real browser inspection. Persisted in Claude-KB.md. Sent moss to start test instance.
+- 2026-04-07 11:38 — Injection format cleanup by moss: timestamps prepended, whitespace removed, functions for fresh timestamps. Jade confirmed injection convention. Needs restart.
+- 2026-04-07 05:15 — Tracker: Reminders button, stale empty fix, reminder convention. Dashboard scrollbar themed.
 - 2026-04-07 03:20 — Ctrl+F5 layout fix (47d2e09): delayed fitAddon.fit() after full page load. Focus loss fix (dea5f14): re-focus terminal after WS DOM rebuilds. Feed recipient display (a27f694): "sender → recipient".
 - 2026-04-07 01:00 — Tracker polish: category filter, null issue fix, show-closed toggle, closed styling on item class (DOM-persistent), zebra/hover, refresh button, resizable columns, history timeline, GitHub microsoft/ link.
 - 2026-04-06 16:37 — Dashboard flicker fix + tracker panel redesign + right panel toggle.
@@ -30,7 +33,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Server restart needed by Rajan: hook-based idle detection (priority), cost regex, merged dashboard, pane separation, drag-and-drop, cost in checkpoints, last-active column, double-Ctrl+C fix. Large TS backlog.
 - Tracker panel complete (2 rounds). Milo now implementing frontend directly (Rajan approved). Moss on test coverage.
 - Frost's tracker WS endpoint ready but emcom-server.exe needs rebuild. Frontend WS subscription not yet wired (polling works).
-- Detach/reattach ideated but not confirmed. PID file cwd helps with session matching.
-- Jade: available for next task. Resume behavior still unexplored.
+- Jade: investigating subagent tool/skill/MCP inheritance (blocker for bolt architecture).
+- Moss: starting test pty-win on port 3650 for Playwright layout testing. Waiting for confirmation.
+- Bolt subagent architecture drafted, pending jade's inheritance answer + scout's pattern validation.
+- Detach/reattach ideated but not confirmed.
 - Scout cost optimization: Rajan has fix vectors but hasn't acted.
-- emcom next round: message priority, read receipts, forward, broadcast/groups. Waiting on Rajan.

@@ -46,6 +46,8 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **2026-04-07:** CSS styling on parent group selectors breaks when DOM is patched/rebuilt — items lose parent context. Put styling directly on the item element (e.g. `.tracker-item-done` class) and toggle it in both `buildTrackerItem` and `patchTrackerItem`.
 - **2026-04-07:** xterm.js fitAddon.fit() on page load needs multiple delayed calls because fonts/CSS/CDN scripts load asynchronously. Single rAF + 150ms isn't enough on hard refresh. Use: rAF + 150ms + 500ms + window.load event + global window.load handler that refits all terminals.
 
+- **2026-04-07:** Use Playwright MCP for real browser testing of pty-win UI, not just code analysis. Test on port 3650+ (never 3600 production). Pattern: moss runs test instance, milo/moss uses Playwright to navigate, hard refresh, inspect terminal sizes, verify layout. Persist this as a standing practice.
+
 ## Decisions
 
 - **2026-04-06:** Tracker panel lives in the right panel as a Feed/Tracker toggle — not a workspace tab. Rajan chose option B (toggle) over option A (stacked). Keeps workspace area clear for panes.
