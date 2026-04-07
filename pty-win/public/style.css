@@ -422,6 +422,8 @@ html, body {
   flex: 1;
   min-width: 0;
 }
+.feed-arrow { color: #555; margin: 0 3px; font-size: 9px; }
+.feed-recipient { color: #888; font-weight: 400; font-size: 10px; }
 .feed-time {
   font-size: 9px;
   color: var(--emcom-text-dim);

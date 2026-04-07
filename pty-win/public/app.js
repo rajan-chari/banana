@@ -3899,7 +3899,7 @@ connect();
           div.style.setProperty("--sender-color", senderColor);
           div.innerHTML = `
             <div class="feed-meta">
-              <span class="feed-sender" style="color:${senderColor}">${isUnread ? '<span class="feed-unread-dot"></span>' : ""}${escHtml(root.sender)}</span>
+              <span class="feed-sender" style="color:${senderColor}">${isUnread ? '<span class="feed-unread-dot"></span>' : ""}${escHtml(root.sender)}${root.to?.length ? `<span class="feed-arrow">\u2192</span><span class="feed-recipient">${escHtml(root.to.join(", "))}</span>` : ""}</span>
               <span class="feed-time">${fmtTime(root.created_at)}</span>
             </div>
             <div class="feed-subject">${escHtml(root.subject)}${replies.length > 0 ? `<span class="feed-thread-count">[${replies.length + 1}]</span>` : ""}</div>
@@ -3924,7 +3924,7 @@ connect();
             rdiv.style.setProperty("--sender-color", rColor);
             rdiv.innerHTML = `
               <div class="feed-meta">
-                <span class="feed-sender" style="color:${rColor}">${rUnread ? '<span class="feed-unread-dot"></span>' : ""}${escHtml(reply.sender)}</span>
+                <span class="feed-sender" style="color:${rColor}">${rUnread ? '<span class="feed-unread-dot"></span>' : ""}${escHtml(reply.sender)}${reply.to?.length ? `<span class="feed-arrow">\u2192</span><span class="feed-recipient">${escHtml(reply.to.join(", "))}</span>` : ""}</span>
                 <span class="feed-time">${fmtTime(reply.created_at)}</span>
               </div>
               <div class="feed-preview">${escHtml((reply.body || "").slice(0, 100))}</div>
