@@ -2219,6 +2219,9 @@ function createPane(groupName) {
   // Fit terminal and explicitly notify server of new dimensions
   const fitAndSync = () => {
     try {
+      // Skip fit if container has no usable height yet (flex not resolved)
+      const h = termArea.offsetHeight;
+      if (h < 50) return;
       entry.fitAddon.fit();
       const { cols, rows } = entry.term;
       state.ws?.send(JSON.stringify({ type: "resize", session: activeSessionName, payload: { cols, rows } }));
@@ -2234,18 +2237,24 @@ function createPane(groupName) {
     } else {
       termArea.appendChild(entry.wrapperEl);
     }
-    fitAndSync();
-    setTimeout(fitAndSync, 150);
-    setTimeout(fitAndSync, 500);
-    // Ensure fit after all resources loaded (fonts, CSS, CDN scripts)
-    if (document.readyState === "complete") {
-      setTimeout(fitAndSync, 50);
-    } else {
-      window.addEventListener("load", () => setTimeout(fitAndSync, 50), { once: true });
-    }
+    // Retry fit until container has usable height (flex layout resolved)
+    let fitRetries = 0;
+    const retryFit = () => {
+      fitAndSync();
+      if (termArea.offsetHeight < 50 && fitRetries < 20) {
+        fitRetries++;
+        setTimeout(retryFit, 100);
+      }
+    };
+    retryFit();
+    setTimeout(fitAndSync, 300);
+    setTimeout(fitAndSync, 1000);
 
     if (!entry.resizeObserver) {
-      entry.resizeObserver = new ResizeObserver(fitAndSync);
+      entry.resizeObserver = new ResizeObserver(() => {
+        // Only fit when container has real dimensions
+        if (termArea.offsetHeight >= 50) fitAndSync();
+      });
       entry.resizeObserver.observe(termArea);
     } else {
       entry.resizeObserver.disconnect();
@@ -3602,11 +3611,18 @@ connect();
 
 // Refit all terminals after page fully loads (fixes Ctrl+F5 layout)
 window.addEventListener("load", () => {
-  setTimeout(() => {
-    for (const [, entry] of state.terminals) {
-      try { entry.fitAddon.fit(); } catch {}
-    }
-  }, 200);
+  // Multiple delayed refits to handle async font/CSS loading
+  for (const delay of [100, 300, 600, 1200]) {
+    setTimeout(() => {
+      for (const [name, entry] of state.terminals) {
+        try {
+          entry.fitAddon.fit();
+          const { cols, rows } = entry.term;
+          state.ws?.send(JSON.stringify({ type: "resize", session: name, payload: { cols, rows } }));
+        } catch {}
+      }
+    }, delay);
+  }
 });
 
 // ===== Emcom feed panel (neo-terminal theme) =====
