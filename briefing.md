@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-07 18:53
+Last updated: 2026-04-07 21:15
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,7 +13,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-07 18:50 — Cost bar chart shipped (d1df0f9): horizontal bars in Agents tab, sorted by cost, color-coded green/yellow/orange/red. CSS-only, DOM patched. Sparklines pending server restart for /api/cost-history.
+- 2026-04-07 20:55 — fellow-agents one-click deploy: repo rebuilt (setup.ps1 + setup.sh), all 3 tracks complete (moss: prebuilt node-pty + CI, frost: emcom/tracker CI 3-platform, milo: install scripts + workspace templates). Binaries removed from repo — download from GitHub Releases. Tracker polish (column alignment, headers, zebra, density). Total cost sparkline. Inline sparklines in table.
+- 2026-04-07 18:50 — Cost bar chart + sparklines shipped. Needs-input rule corrected (busy+0cb/s). Agents tab: cb/s column, compact, font match.
 - 2026-04-07 18:12 — Needs-input rule fixed (796778c): busy + 0 cb/s = needs input. Font bumped (649e8d6). Agents compact + Ctrl+F5 v3 (341337b). cb/s column (a2516ef).
 - 2026-04-07 17:34 — Agents compact (341337b): table width:auto + Ctrl+F5 fix v3 (refit on WS sessions message via rAF). cb/s column added (a2516ef).
 - 2026-04-07 17:12 — Agents tab empty state fix (4803bbc) + Ctrl+F5 height fix v2 (116934b, retry loop) + Agents tab shipped (75ac23d, Feed/Tracker/Agents right panel). Cost history sampling by moss (60s, 24h, GET /api/cost-history).
@@ -36,7 +37,7 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Server restart needed by Rajan: hook-based idle detection (priority), cost regex, merged dashboard, pane separation, drag-and-drop, cost in checkpoints, last-active column, double-Ctrl+C fix. Large TS backlog.
 - Tracker panel complete (2 rounds). Milo now implementing frontend directly (Rajan approved). Moss on test coverage.
 - Frost's tracker WS endpoint ready but emcom-server.exe needs rebuild. Frontend WS subscription not yet wired (polling works).
-- Cost bar chart + sparkline: moss shipped history endpoint, frontend chart not yet built.
+- **fellow-agents one-click deploy IN PROGRESS**: repo rebuilt (f2cbb99). setup.ps1 has download-from-release function. setup.sh written. Moss + frost CI done. REMAINING: milo writes the release workflow (GitHub Actions on fellow-agents repo) that pulls artifacts and publishes combined release. Then E2E test.
 - Bolt subagent architecture validated (jade confirmed inheritance). Waiting for scout's pattern to ship first.
-- Server restart needed: hook-based idle detection, injection timestamps, cost history sampling, many TS changes.
+- Server restart backlog: hook-based idle detection, injection timestamps, cost history sampling, many TS changes.
 - Detach/reattach ideated but not confirmed.
