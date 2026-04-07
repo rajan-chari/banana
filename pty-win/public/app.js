@@ -2758,16 +2758,6 @@ function renderDashboard() {
   header.innerHTML = buildHeaderHTML();
   dash.appendChild(header);
 
-  // Stats + costs section (above cards)
-  const statsSection = document.createElement("div");
-  statsSection.className = "dash-stats-section";
-  const statsContainer = document.createElement("div");
-  statsContainer.className = "diag-view";
-  statsContainer.id = "dashboard-stats";
-  statsSection.appendChild(statsContainer);
-  dash.appendChild(statsSection);
-  renderDashboardStats();
-
   // Collapsible cards section
   const cardsCollapsed = localStorage.getItem("pty-win-dash-cards-collapsed") === "true";
   const cardsSection = document.createElement("div");
@@ -2900,8 +2890,6 @@ function patchDashboard(dash) {
     }
   }
 
-  // Patch stats table
-  renderDashboardStats();
 }
 
 async function loadSnapshot(sessionName) {
@@ -3990,10 +3978,120 @@ window.addEventListener("load", () => {
 })();
 
 // ===== Right Panel Tab Switching =====
+// ===== Agents Panel =====
+
+function renderAgentsPanel() {
+  const area = document.getElementById("agents-content");
+  if (!area) return;
+
+  const fmtAgo = (ms) => {
+    if (!ms) return "-";
+    const sec = Math.floor((Date.now() - ms) / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    return `${hr}h${min % 60}m`;
+  };
+
+  const allSessions = [...state.sessions.entries()];
+  if (allSessions.length === 0) {
+    area.innerHTML = `<div class="agents-panel"><div class="agents-empty">No active sessions</div></div>`;
+    return;
+  }
+
+  // Build table structure once, then patch
+  let panel = area.querySelector(".agents-panel");
+  if (!panel) {
+    area.innerHTML = "";
+    panel = document.createElement("div");
+    panel.className = "agents-panel";
+    panel.innerHTML = `
+      <div class="agents-header">
+        <span class="agents-title">AGENT STATUS</span>
+        <span class="agents-summary"></span>
+      </div>
+      <table class="agents-table">
+        <thead><tr><th>Agent</th><th>Status</th><th>Active</th><th>Cost</th></tr></thead>
+        <tbody></tbody>
+      </table>`;
+    area.appendChild(panel);
+  }
+
+  // Patch summary
+  const blocked = allSessions.filter(([, i]) => i.status === "waiting").length;
+  const busy = allSessions.filter(([, i]) => i.status === "busy").length;
+  const idle = allSessions.filter(([, i]) => i.status === "idle").length;
+  const totalCost = allSessions.reduce((s, [, i]) => s + (i.costUsd || 0), 0);
+  const summaryEl = panel.querySelector(".agents-summary");
+  if (summaryEl) {
+    summaryEl.innerHTML = `${busy} busy · ${idle} idle${blocked > 0 ? ` · <span class="agents-blocked-count">${blocked} blocked</span>` : ""} · $${totalCost.toFixed(2)}`;
+  }
+
+  const tbody = panel.querySelector("tbody");
+  const currentNames = new Set(state.sessions.keys());
+
+  // Remove rows for gone sessions
+  for (const row of [...tbody.querySelectorAll(".agents-row")]) {
+    if (!currentNames.has(row.dataset.session)) row.remove();
+  }
+
+  // Add or patch rows
+  for (const [name, info] of allSessions) {
+    let row = tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`);
+    if (!row) {
+      row = document.createElement("tr");
+      row.className = "agents-row";
+      row.dataset.session = name;
+      row.style.cursor = "pointer";
+      row.onclick = () => focusExistingSession(name);
+      row.innerHTML = `<td class="agents-name"></td><td class="agents-status"></td><td class="agents-active"></td><td class="agents-cost"></td>`;
+      const totalRow = tbody.querySelector(".agents-total-row");
+      tbody.insertBefore(row, totalRow);
+    }
+
+    const isBlocked = info.status === "waiting";
+    row.className = `agents-row ${isBlocked ? "agents-blocked" : ""}`;
+
+    const cells = row.children;
+    const nameText = info.emcomIdentity ? `${name} @${info.emcomIdentity}` : name;
+    if (cells[0].textContent !== nameText) cells[0].textContent = nameText;
+
+    const statusText = info.status || "unknown";
+    if (cells[1].textContent !== statusText) {
+      cells[1].textContent = statusText;
+      cells[1].className = `agents-status status-${info.status}`;
+    }
+
+    const agoText = fmtAgo(info.lastActiveMs);
+    if (cells[2].textContent !== agoText) cells[2].textContent = agoText;
+
+    const costText = `$${(info.costUsd || 0).toFixed(2)}`;
+    if (cells[3].textContent !== costText) cells[3].textContent = costText;
+  }
+
+  // Patch or create total row
+  let totalRow = tbody.querySelector(".agents-total-row");
+  if (totalCost > 0) {
+    if (!totalRow) {
+      totalRow = document.createElement("tr");
+      totalRow.className = "agents-total-row";
+      totalRow.innerHTML = `<td colspan="3">Total</td><td class="agents-cost"></td>`;
+      tbody.appendChild(totalRow);
+    }
+    const totalCell = totalRow.querySelector(".agents-cost");
+    const totalText = `$${totalCost.toFixed(2)}`;
+    if (totalCell.textContent !== totalText) totalCell.textContent = totalText;
+  } else if (totalRow) {
+    totalRow.remove();
+  }
+}
+
 (function initRightPanelTabs() {
   const tabs = document.querySelectorAll("#right-panel-tabs .rp-tab");
   const feedContent = document.getElementById("feed-content");
   const trackerContent = document.getElementById("tracker-content");
+  const agentsContent = document.getElementById("agents-content");
 
   tabs.forEach(tab => {
     tab.onclick = () => {
@@ -4002,16 +4100,21 @@ window.addEventListener("load", () => {
       const panel = tab.dataset.panel;
       if (feedContent) feedContent.classList.toggle("active", panel === "feed");
       if (trackerContent) trackerContent.classList.toggle("active", panel === "tracker");
+      if (agentsContent) agentsContent.classList.toggle("active", panel === "agents");
       if (panel === "tracker") {
-        // Force fresh fetch, don't use stale DOM
         const existing = trackerContent.querySelector(".tracker-view");
         if (existing) existing.remove();
         renderTracker();
       }
+      if (panel === "agents") renderAgentsPanel();
     };
   });
 
   // Start tracker polling (updates badge even when feed tab is active)
   renderTracker();
   setInterval(renderTracker, 10000);
+
+  // Start agents panel polling
+  renderAgentsPanel();
+  setInterval(renderAgentsPanel, 5000);
 })();
