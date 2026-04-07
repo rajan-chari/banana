@@ -3277,6 +3277,7 @@ function renderTracker() {
         <span class="tracker-chrome-title">Work Tracker</span>
         <div class="tracker-chrome-stats"></div>
         <label class="tracker-show-closed"><input type="checkbox" id="tracker-closed-toggle"> closed</label>
+        <button class="tracker-refresh-btn" id="tracker-refresh-btn" title="Refresh now">&#x21bb;</button>
       </div>
       <div class="tracker-filters">
         <div class="tracker-category-btns">
@@ -3320,6 +3321,10 @@ function renderTracker() {
         renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
       };
     });
+
+    // Wire refresh button
+    const refreshBtn = container.querySelector("#tracker-refresh-btn");
+    if (refreshBtn) refreshBtn.onclick = () => renderTracker();
 
     // Wire closed toggle
     const closedToggle = container.querySelector("#tracker-closed-toggle");
@@ -3963,7 +3968,12 @@ connect();
       const panel = tab.dataset.panel;
       if (feedContent) feedContent.classList.toggle("active", panel === "feed");
       if (trackerContent) trackerContent.classList.toggle("active", panel === "tracker");
-      if (panel === "tracker") renderTracker();
+      if (panel === "tracker") {
+        // Force fresh fetch, don't use stale DOM
+        const existing = trackerContent.querySelector(".tracker-view");
+        if (existing) existing.remove();
+        renderTracker();
+      }
     };
   });
 
