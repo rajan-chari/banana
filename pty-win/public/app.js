@@ -4040,7 +4040,7 @@ function renderAgentsPanel() {
         <span class="agents-summary"></span>
       </div>
       <table class="agents-table">
-        <thead><tr><th>Agent</th><th>Status</th><th>cb/s</th><th>Active</th><th>Cost</th></tr></thead>
+        <thead><tr><th>Agent</th><th>Status</th><th>cb/s</th><th>Active</th><th>Trend</th><th>Cost</th></tr></thead>
         <tbody></tbody>
       </table>`;
     area.appendChild(panel);
@@ -4087,7 +4087,7 @@ function renderAgentsPanel() {
         row.dataset.session = name;
         row.style.cursor = "pointer";
         row.onclick = () => focusExistingSession(name);
-        row.innerHTML = `<td class="agents-name"></td><td class="agents-status"></td><td class="agents-cbs"></td><td class="agents-active"></td><td class="agents-cost"></td>`;
+        row.innerHTML = `<td class="agents-name"></td><td class="agents-status"></td><td class="agents-cbs"></td><td class="agents-active"></td><td class="agents-trend"></td><td class="agents-cost"></td>`;
         const totalRow = tbody.querySelector(".agents-total-row");
         tbody.insertBefore(row, totalRow);
       }
@@ -4118,7 +4118,7 @@ function renderAgentsPanel() {
       if (cells[3].textContent !== agoText) cells[3].textContent = agoText;
 
       const costText = `$${(info.costUsd || 0).toFixed(2)}`;
-      if (cells[4].textContent !== costText) cells[4].textContent = costText;
+      if (cells[5].textContent !== costText) cells[5].textContent = costText;
     }
 
     // Patch or create total row
@@ -4127,7 +4127,7 @@ function renderAgentsPanel() {
       if (!totalRow) {
         totalRow = document.createElement("tr");
         totalRow.className = "agents-total-row";
-        totalRow.innerHTML = `<td colspan="4">Total</td><td class="agents-cost"></td>`;
+        totalRow.innerHTML = `<td colspan="5">Total</td><td class="agents-cost"></td>`;
         tbody.appendChild(totalRow);
       }
       const totalCell = totalRow.querySelector(".agents-cost");
@@ -4136,60 +4136,9 @@ function renderAgentsPanel() {
     } else if (totalRow) {
       totalRow.remove();
     }
-    // Render cost bar chart below table
-    renderCostBars(panel, allSessions, totalCost);
-    // Fetch and render sparklines
+    // Fetch and render sparklines into trend column
     fetchCostHistory(panel);
   }).catch(() => {});
-}
-
-function renderCostBars(panel, sessions, totalCost) {
-  if (totalCost <= 0) return;
-
-  let chart = panel.querySelector(".agents-cost-chart");
-  if (!chart) {
-    chart = document.createElement("div");
-    chart.className = "agents-cost-chart";
-    chart.innerHTML = `<div class="agents-chart-title">COST BY SESSION</div><div class="agents-bars"></div>`;
-    panel.appendChild(chart);
-  }
-
-  const barsContainer = chart.querySelector(".agents-bars");
-  const sorted = [...sessions].sort(([, a], [, b]) => (b.costUsd || 0) - (a.costUsd || 0));
-  const maxCost = sorted.length > 0 ? (sorted[0][1].costUsd || 0) : 1;
-
-  // Patch bars
-  const existingBars = new Set();
-  for (const [name, info] of sorted) {
-    const cost = info.costUsd || 0;
-    if (cost <= 0) continue;
-    existingBars.add(name);
-    const pct = Math.max(2, Math.round((cost / maxCost) * 100));
-    const color = cost > 10 ? "#f14c4c" : cost > 5 ? "#d4882a" : cost > 1 ? "#e8b830" : "#23d18b";
-
-    let bar = barsContainer.querySelector(`.agents-bar[data-session="${CSS.escape(name)}"]`);
-    if (!bar) {
-      bar = document.createElement("div");
-      bar.className = "agents-bar";
-      bar.dataset.session = name;
-      bar.innerHTML = `<span class="agents-bar-label"></span><div class="agents-bar-track"><div class="agents-bar-fill"></div></div><span class="agents-bar-value"></span>`;
-      barsContainer.appendChild(bar);
-    }
-
-    const label = bar.querySelector(".agents-bar-label");
-    if (label.textContent !== name) label.textContent = name;
-    const fill = bar.querySelector(".agents-bar-fill");
-    fill.style.width = `${pct}%`;
-    fill.style.background = color;
-    const value = bar.querySelector(".agents-bar-value");
-    const valText = `$${cost.toFixed(2)}`;
-    if (value.textContent !== valText) value.textContent = valText;
-  }
-
-  // Remove bars for sessions no longer present
-  for (const bar of [...barsContainer.querySelectorAll(".agents-bar")]) {
-    if (!existingBars.has(bar.dataset.session)) bar.remove();
-  }
 }
 
 function fetchCostHistory(panel) {
@@ -4205,23 +4154,24 @@ function fetchCostHistory(panel) {
       }
     }
 
-    // Draw sparklines on existing bar elements
-    const barsContainer = panel.querySelector(".agents-bars");
-    if (!barsContainer) return;
+    // Draw sparklines into table trend cells
+    const tbody = panel.querySelector("tbody");
+    if (!tbody) return;
 
     for (const [name, series] of sessionSeries) {
-      const bar = barsContainer.querySelector(`.agents-bar[data-session="${CSS.escape(name)}"]`);
-      if (!bar) continue;
+      const row = tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`);
+      if (!row) continue;
 
-      let canvas = bar.querySelector(".agents-sparkline");
+      const trendCell = row.querySelector(".agents-trend");
+      if (!trendCell) continue;
+
+      let canvas = trendCell.querySelector(".agents-sparkline");
       if (!canvas) {
         canvas = document.createElement("canvas");
         canvas.className = "agents-sparkline";
-        canvas.width = 60;
-        canvas.height = 16;
-        // Insert after the bar track
-        const track = bar.querySelector(".agents-bar-track");
-        if (track) track.after(canvas);
+        canvas.width = 50;
+        canvas.height = 14;
+        trendCell.appendChild(canvas);
       }
 
       drawSparkline(canvas, series);
