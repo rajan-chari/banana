@@ -4016,9 +4016,9 @@ function renderAgentsPanel() {
     return;
   }
 
-  // Build table structure once, then patch
+  // Build table structure once, then patch. If empty state was showing, rebuild.
   let panel = area.querySelector(".agents-panel");
-  if (!panel) {
+  if (!panel || !panel.querySelector(".agents-table")) {
     area.innerHTML = "";
     panel = document.createElement("div");
     panel.className = "agents-panel";
