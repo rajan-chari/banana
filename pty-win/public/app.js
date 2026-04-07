@@ -4127,7 +4127,7 @@ function renderAgentsPanel() {
       if (!totalRow) {
         totalRow = document.createElement("tr");
         totalRow.className = "agents-total-row";
-        totalRow.innerHTML = `<td colspan="5">Total</td><td class="agents-cost"></td>`;
+        totalRow.innerHTML = `<td colspan="4">Total</td><td class="agents-trend"></td><td class="agents-cost"></td>`;
         tbody.appendChild(totalRow);
       }
       const totalCell = totalRow.querySelector(".agents-cost");
@@ -4175,6 +4175,35 @@ function fetchCostHistory(panel) {
       }
 
       drawSparkline(canvas, series);
+    }
+
+    // Total sparkline — sum all sessions per timestamp
+    const totalSeries = history.map(sample => {
+      let sum = 0;
+      for (const cost of Object.values(sample.sessions)) sum += cost;
+      return sum;
+    });
+
+    const totalRow = tbody.querySelector(".agents-total-row");
+    if (totalRow && totalSeries.length >= 2) {
+      // Find or create trend cell in total row
+      let trendCell = totalRow.querySelector(".agents-trend");
+      if (!trendCell) {
+        // Total row has colspan — need to restructure: remove colspan, add trend cell
+        totalRow.innerHTML = `<td colspan="4">Total</td><td class="agents-trend"></td><td class="agents-cost"></td>`;
+      }
+      trendCell = totalRow.querySelector(".agents-trend");
+      if (trendCell) {
+        let canvas = trendCell.querySelector(".agents-sparkline");
+        if (!canvas) {
+          canvas = document.createElement("canvas");
+          canvas.className = "agents-sparkline";
+          canvas.width = 50;
+          canvas.height = 14;
+          trendCell.appendChild(canvas);
+        }
+        drawSparkline(canvas, totalSeries);
+      }
     }
   }).catch(() => {});
 }
