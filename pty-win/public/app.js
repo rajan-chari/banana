@@ -3088,6 +3088,7 @@ function buildTrackerItem(item) {
   const ageStale = staleClass(ageDate);
   const statusStale = staleClass(item.updated_at);
   if (ageStale === "stale-red") el.classList.add("stale-row");
+  if (["closed", "merged", "deferred"].includes(item.status)) el.classList.add("tracker-item-done");
 
   el.innerHTML = `
     <div class="tracker-item-row">
@@ -3145,6 +3146,7 @@ function patchTrackerItem(el, item) {
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
+  el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
 }
 
 const TRACKER_DEFAULT_COLS = [110, 0, 90, 70, 60, 60, 60]; // 0 = flex
