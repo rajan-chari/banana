@@ -52,12 +52,17 @@ public static class Program
         var rest = args.Skip(1).ToList();
         var c = MakeClient(server, identity);
 
-        // Auto-start server if not running (skip for register which might be first-time setup)
-        if (cmd != "register")
+        // Auto-start server if not running (skip for register/version)
+        if (cmd is not "register" and not "version")
             c.EnsureServer();
 
         switch (cmd)
         {
+            case "version":
+                Console.WriteLine($"emcom {BuildInfo.Version}");
+                Console.WriteLine($"Built: {BuildInfo.BuildTime}");
+                Console.WriteLine($"Features: check, read-all, status, inbox --full, tag batch, reply --handled, inbox filters, CC comma, stdin body");
+                break;
             case "register":
             {
                 string? name = null; string desc = ""; bool force = false;
@@ -293,7 +298,7 @@ public static class Program
             }
             default:
                 Console.Error.WriteLine($"Unknown command: {cmd}");
-                Console.Error.WriteLine("Commands: register, unregister, who, update, status, inbox, read, read-all, send, reply, check, thread, threads, sent, all, tag, untag, tagged, search, purge, names");
+                Console.Error.WriteLine("Commands: version, register, unregister, who, update, status, inbox, read, read-all, send, reply, check, thread, threads, sent, all, tag, untag, tagged, search, purge, names");
                 return 1;
         }
         return 0;
