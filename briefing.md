@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-07 15:02
+Last updated: 2026-04-07 18:13
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,9 +13,11 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-07 15:01 — Subagent pattern: evaluated vale, bolt, scout-triage, SDK agents. Bolt architecture drafted (coordinator + per-PR subagent). Open blocker: do Agent tool subagents inherit MCP/skills? Asked jade. Persist to bolt KB once validated.
-- 2026-04-07 14:45 — Playwright MCP testing approach for Ctrl+F5 layout bug: use port 3650+ test instance, real browser inspection. Persisted in Claude-KB.md. Sent moss to start test instance.
-- 2026-04-07 11:38 — Injection format cleanup by moss: timestamps prepended, whitespace removed, functions for fresh timestamps. Jade confirmed injection convention. Needs restart.
+- 2026-04-07 18:12 — Needs-input rule fixed (796778c): busy + 0 cb/s = needs input (stuck), not idle + 0 cb/s. Two signals: permission_prompt hook (ground truth, needs restart) + busy+0cb/s heuristic (works now). Font bumped to match left panel (649e8d6).
+- 2026-04-07 17:34 — Agents compact (341337b): table width:auto + Ctrl+F5 fix v3 (refit on WS sessions message via rAF). cb/s column added (a2516ef).
+- 2026-04-07 17:12 — Agents tab empty state fix (4803bbc) + Ctrl+F5 height fix v2 (116934b, retry loop) + Agents tab shipped (75ac23d, Feed/Tracker/Agents right panel). Cost history sampling by moss (60s, 24h, GET /api/cost-history).
+- 2026-04-07 15:29 — Subagent inheritance confirmed by jade: MCP tools YES, skills via frontmatter, hooks YES, permissions inherited. No blockers for bolt. Saved to research/subagent-inheritance.md. Persistence rule RFC added to team-manual.md (5855e01).
+- 2026-04-07 14:45 — Playwright MCP testing on port 3650+. Injection format cleanup by moss (timestamps, whitespace).
 - 2026-04-07 05:15 — Tracker: Reminders button, stale empty fix, reminder convention. Dashboard scrollbar themed.
 - 2026-04-07 03:20 — Ctrl+F5 layout fix (47d2e09): delayed fitAddon.fit() after full page load. Focus loss fix (dea5f14): re-focus terminal after WS DOM rebuilds. Feed recipient display (a27f694): "sender → recipient".
 - 2026-04-07 01:00 — Tracker polish: category filter, null issue fix, show-closed toggle, closed styling on item class (DOM-persistent), zebra/hover, refresh button, resizable columns, history timeline, GitHub microsoft/ link.
@@ -33,8 +35,7 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Server restart needed by Rajan: hook-based idle detection (priority), cost regex, merged dashboard, pane separation, drag-and-drop, cost in checkpoints, last-active column, double-Ctrl+C fix. Large TS backlog.
 - Tracker panel complete (2 rounds). Milo now implementing frontend directly (Rajan approved). Moss on test coverage.
 - Frost's tracker WS endpoint ready but emcom-server.exe needs rebuild. Frontend WS subscription not yet wired (polling works).
-- Jade: investigating subagent tool/skill/MCP inheritance (blocker for bolt architecture).
-- Moss: starting test pty-win on port 3650 for Playwright layout testing. Waiting for confirmation.
-- Bolt subagent architecture drafted, pending jade's inheritance answer + scout's pattern validation.
+- Cost bar chart + sparkline: moss shipped history endpoint, frontend chart not yet built.
+- Bolt subagent architecture validated (jade confirmed inheritance). Waiting for scout's pattern to ship first.
+- Server restart needed: hook-based idle detection, injection timestamps, cost history sampling, many TS changes.
 - Detach/reattach ideated but not confirmed.
-- Scout cost optimization: Rajan has fix vectors but hasn't acted.

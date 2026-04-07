@@ -6,10 +6,10 @@ Last updated: 2026-03-31
 |------|--------|-------|-------------|
 | pty-win server restart | Rajan | Cost regex, merged dashboard, unfocused border, hook revert, checkpoint prompts |
 | Dashboard flicker fix | Done | milo | 21359a8 — DOM patching in-place, 79 tests pass |
-| Pane layout fix on Ctrl+F5 | Done | milo | 47d2e09 — delayed fitAddon.fit() after full page load |
-| Focus loss fix | Done | milo | dea5f14 — re-focus terminal after WS DOM rebuilds + rAF double-tap |
-| Feed recipient display | Done | milo | a27f694 — sender → recipient format |
-| Tracker panel complete | Done | milo | Category filter, closed toggle, history, resizable cols, staleness, refresh btn |
+| Needs-input indicator | Done | milo | 796778c — busy+0cb/s + permission_prompt hook. Amber highlight. |
+| Agents tab (full feature) | Done | milo | cb/s column, compact table, font match, empty state fix, needs-input |
+| Ctrl+F5 fix v3 | Done | milo | 341337b — refit on WS sessions message (event-driven, not timer) |
+| Focus loss + feed recipient + tracker panel | Done | milo | Multiple commits — see briefing |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 
 ## Watching
