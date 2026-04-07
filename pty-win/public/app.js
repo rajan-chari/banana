@@ -3432,7 +3432,12 @@ function renderTrackerBody(container, items) {
   const body = container.querySelector(".tracker-body");
   if (!body) return;
 
+  // Always remove stale empty state before rendering
+  const existingEmpty = body.querySelector(".tracker-empty");
+  if (existingEmpty) existingEmpty.remove();
+
   if (items.length === 0) {
+    // Clear all groups and items, show empty state
     body.innerHTML = `<div class="tracker-empty">// NO OPEN ITEMS</div>`;
     trackerPrevItems.clear();
     return;
