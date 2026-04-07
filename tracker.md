@@ -6,6 +6,7 @@ Last updated: 2026-03-31
 |------|--------|-------|-------------|
 | pty-win server restart | Rajan | Cost regex, merged dashboard, unfocused border, hook revert, checkpoint prompts |
 | Dashboard flicker fix | Done | milo | 21359a8 — DOM patching in-place, 79 tests pass |
+| Cost bar chart | Done | milo | d1df0f9 — horizontal bars in Agents tab, color-coded by cost |
 | Needs-input indicator | Done | milo | 796778c — busy+0cb/s + permission_prompt hook. Amber highlight. |
 | Agents tab (full feature) | Done | milo | cb/s column, compact table, font match, empty state fix, needs-input |
 | Ctrl+F5 fix v3 | Done | milo | 341337b — refit on WS sessions message (event-driven, not timer) |

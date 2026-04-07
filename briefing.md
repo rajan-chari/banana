@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-07 18:13
+Last updated: 2026-04-07 18:53
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,7 +13,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-07 18:12 — Needs-input rule fixed (796778c): busy + 0 cb/s = needs input (stuck), not idle + 0 cb/s. Two signals: permission_prompt hook (ground truth, needs restart) + busy+0cb/s heuristic (works now). Font bumped to match left panel (649e8d6).
+- 2026-04-07 18:50 — Cost bar chart shipped (d1df0f9): horizontal bars in Agents tab, sorted by cost, color-coded green/yellow/orange/red. CSS-only, DOM patched. Sparklines pending server restart for /api/cost-history.
+- 2026-04-07 18:12 — Needs-input rule fixed (796778c): busy + 0 cb/s = needs input. Font bumped (649e8d6). Agents compact + Ctrl+F5 v3 (341337b). cb/s column (a2516ef).
 - 2026-04-07 17:34 — Agents compact (341337b): table width:auto + Ctrl+F5 fix v3 (refit on WS sessions message via rAF). cb/s column added (a2516ef).
 - 2026-04-07 17:12 — Agents tab empty state fix (4803bbc) + Ctrl+F5 height fix v2 (116934b, retry loop) + Agents tab shipped (75ac23d, Feed/Tracker/Agents right panel). Cost history sampling by moss (60s, 24h, GET /api/cost-history).
 - 2026-04-07 15:29 — Subagent inheritance confirmed by jade: MCP tools YES, skills via frontmatter, hooks YES, permissions inherited. No blockers for bolt. Saved to research/subagent-inheritance.md. Persistence rule RFC added to team-manual.md (5855e01).
