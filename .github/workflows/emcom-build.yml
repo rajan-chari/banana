@@ -1,0 +1,95 @@
+name: Build emcom + tracker CLIs
+
+on:
+  push:
+    paths:
+      - 'emcom/emcomcs/**'
+      - 'emcom/trackercs/**'
+      - '.github/workflows/emcom-build.yml'
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            suffix: .exe
+          - os: macos-latest
+            rid: osx-arm64
+            suffix: ''
+          - os: ubuntu-latest
+            rid: linux-x64
+            suffix: ''
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build emcom CLI
+        run: dotnet publish emcom/emcomcs/emcomcs.csproj -c Release -r ${{ matrix.rid }} --self-contained -o out/emcom
+
+      - name: Build tracker CLI
+        run: dotnet publish emcom/trackercs/trackercs.csproj -c Release -r ${{ matrix.rid }} --self-contained -o out/tracker
+
+      - name: Upload emcom binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: emcom-${{ matrix.rid }}
+          path: out/emcom/emcom${{ matrix.suffix }}
+
+      - name: Upload tracker binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracker-${{ matrix.rid }}
+          path: out/tracker/tracker${{ matrix.suffix }}
+
+  # Run Python server tests to ensure nothing is broken
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -e "emcom/.[dev]"
+
+      - name: Run server + tracker tests
+        run: pytest emcom/tests/test_db.py emcom/tests/test_server.py emcom/tests/test_tracker.py -v
+
+  release:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: emcom-${{ github.run_number }}
+          name: emcom build ${{ github.run_number }}
+          files: |
+            artifacts/emcom-win-x64/emcom.exe
+            artifacts/emcom-osx-arm64/emcom
+            artifacts/emcom-linux-x64/emcom
+            artifacts/tracker-win-x64/tracker.exe
+            artifacts/tracker-osx-arm64/tracker
+            artifacts/tracker-linux-x64/tracker
+          draft: false
+          prerelease: false
