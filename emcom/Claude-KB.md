@@ -67,6 +67,9 @@ Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't wor
 - Lookups: `teams.py#344`, `344` (if unambiguous), or UUID prefix all work.
 Rule: when shipping features to emcom-server, update relevant tracker items. When blocked, set --blocker.
 
+### 2026-04-07: Team convention — tracker-based reminders
+Reminders use the tracker with a `reminder` label: `tracker create --repo reminders --title 'Do X' --labels 'reminder'`. Sub-labels for scheduling: `standup` (daily), `once` (one-time), `weekly`. Query with `tracker list --label reminder`.
+
 ### 2026-04-06: PyInstaller --onefile blocked by Windows Application Control — use --runtime-tmpdir
 PyInstaller `--onefile` extracts bundled DLLs (python313.dll etc.) to `%TEMP%\_MEIxxxxxx\` on every launch. Corporate Application Control policies (AppLocker/WDAC) block DLL loads from Temp. Fix: rebuild with `--runtime-tmpdir "$HOME/.emcom/runtime"` so extraction goes to a whitelisted path. Applied to both emcom-server.exe and emcom-tui.exe. Always include this flag in future PyInstaller builds.
 
