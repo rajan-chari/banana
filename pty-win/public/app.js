@@ -2993,7 +2993,7 @@ function renderDashboardStats() {
 
 // ===== Tracker Panel (Redesigned) =====
 
-const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred"];
+const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred", "merged", "closed", "ready-to-merge", "testing", "pr-up"];
 const TRACKER_SORT_FIELDS = ["ref", "title", "assignee", "severity", "age", "updated"];
 let trackerSortField = "status"; // default: grouped by status
 let trackerSortDir = "asc";
@@ -3274,6 +3274,7 @@ function renderTracker() {
       <div class="tracker-chrome">
         <span class="tracker-chrome-title">Work Tracker</span>
         <div class="tracker-chrome-stats"></div>
+        <label class="tracker-show-closed"><input type="checkbox" id="tracker-closed-toggle"> closed</label>
       </div>
       <div class="tracker-filters">
         <div class="tracker-category-btns">
@@ -3318,6 +3319,16 @@ function renderTracker() {
       };
     });
 
+    // Wire closed toggle
+    const closedToggle = container.querySelector("#tracker-closed-toggle");
+    if (closedToggle) {
+      closedToggle.checked = localStorage.getItem("pty-win-tracker-show-closed") === "true";
+      closedToggle.onchange = () => {
+        localStorage.setItem("pty-win-tracker-show-closed", closedToggle.checked);
+        renderTracker();
+      };
+    }
+
     // Wire column resize handles
     initTrackerColumnResize(container);
 
@@ -3352,7 +3363,8 @@ function renderTracker() {
     });
   }
 
-  fetch(`/api/emcom-proxy/tracker?status=open`, {
+  const showClosed = localStorage.getItem("pty-win-tracker-show-closed") === "true";
+  fetch(`/api/emcom-proxy/tracker${showClosed ? "" : "?status=open"}`, {
     headers: { "X-Emcom-Name": identity },
   })
     .then(r => r.json())
