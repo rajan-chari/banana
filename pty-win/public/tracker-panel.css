@@ -488,12 +488,26 @@
 /* --- Closed/Merged/Deferred Items (dimmed) --- */
 .tracker-group[data-status="closed"],
 .tracker-group[data-status="merged"],
-.tracker-group[data-status="deferred"] { opacity: 0.5; }
+.tracker-group[data-status="deferred"] { opacity: 0.35; }
+
+.tracker-group[data-status="closed"] .tracker-item-row,
+.tracker-group[data-status="merged"] .tracker-item-row,
+.tracker-group[data-status="deferred"] .tracker-item-row {
+  background: #0a0a0c;
+}
 
 .tracker-group[data-status="closed"] .tracker-group-dot { background: #444; }
 .tracker-group[data-status="closed"] .tracker-group-name { color: #444; }
 .tracker-group[data-status="merged"] .tracker-group-dot { background: #23d18b55; }
 .tracker-group[data-status="merged"] .tracker-group-name { color: #3a6a50; }
+
+/* Separator before closed sections */
+.tracker-group[data-status="closed"]:first-of-type,
+.tracker-group[data-status="merged"]:first-of-type,
+.tracker-group[data-status="deferred"]:first-of-type {
+  border-top: 2px solid #333;
+  margin-top: 4px;
+}
 
 /* Strikethrough + badge for closed/merged/deferred items */
 .tracker-group[data-status="closed"] .tracker-item-title,
