@@ -2236,6 +2236,13 @@ function createPane(groupName) {
     }
     fitAndSync();
     setTimeout(fitAndSync, 150);
+    setTimeout(fitAndSync, 500);
+    // Ensure fit after all resources loaded (fonts, CSS, CDN scripts)
+    if (document.readyState === "complete") {
+      setTimeout(fitAndSync, 50);
+    } else {
+      window.addEventListener("load", () => setTimeout(fitAndSync, 50), { once: true });
+    }
 
     if (!entry.resizeObserver) {
       entry.resizeObserver = new ResizeObserver(fitAndSync);
@@ -3598,6 +3605,15 @@ renderTabs();
 if (state.isDashboard) renderDashboard();
 else renderActiveWorkspace();
 connect();
+
+// Refit all terminals after page fully loads (fixes Ctrl+F5 layout)
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    for (const [, entry] of state.terminals) {
+      try { entry.fitAddon.fit(); } catch {}
+    }
+  }, 200);
+});
 
 // ===== Emcom feed panel (neo-terminal theme) =====
 
