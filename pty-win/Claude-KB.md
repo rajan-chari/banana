@@ -121,5 +121,11 @@ Hook responses are validated against `hookJSONOutputSchema`. Valid fields: `cont
 ### 2026-04-01: Cost regex must match both duration formats
 Status line outputs `$9.97 2m34s` (minutes+seconds) and `$0.50 553ms` (milliseconds). Regex `/\$(\d+\.\d+)\s+\d+m\d*s/` handles both. The `\d*` after `m` optionally matches the seconds digits.
 
+### 2026-04-07: @homebridge/node-pty-prebuilt-multiarch — scoped package + type difference
+The prebuilt node-pty replacement is `@homebridge/node-pty-prebuilt-multiarch` (scoped!), not `node-pty-prebuilt-multiarch`. Its `write()` method accepts only `string`, not `string | Buffer` like the original node-pty. Fix: coerce with `typeof data === "string" ? data : data.toString()`. API is otherwise identical.
+
+### 2026-04-07: Making onnxruntime-node optional via dynamic import in worker
+Move to `optionalDependencies` in package.json. In the worker thread (ml-worker.ts), use `await import("onnxruntime-node")` wrapped in try/catch. If import fails, register a message handler that returns `{ error: "not installed" }` so the main thread's ML pipeline degrades gracefully (returns null, heuristic + hooks remain primary idle detection).
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.

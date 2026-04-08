@@ -1,19 +1,20 @@
 # Briefing
-Last updated: 2026-04-07 17:00
+Last updated: 2026-04-07 21:39
 
 ## Current Focus
-Shutdown save. Cost history sampling implemented. Right panel now has 3 tabs: Feed/Tracker/Agents (external change to index.html).
+Idle after one-click deploy packaging. Three tasks done (node-pty prebuilt, onnxruntime optional, CI workflow). Waiting on milo to pull dist into fellow-agents. No active work items for moss.
 
 ## Don't Forget
-- Server restart needed — TS changes: Claude Code hooks, cost in checkpoints, last-active column, shutdown 4min, regex fix, force-idle log
-- Browser refresh for frontend (dashboard redesign, pane borders, card costs, stats on top, drag-drop)
-- Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, prefersReducedMotion reverted
-- Browser refresh for frontend: tracker panel tab, dashboard redesign, drag-drop, pane borders
+- Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, injection timestamps, cost history sampling, node-pty swap
+- Browser refresh needed for frontend: tracker panel tab, dashboard redesign, drag-drop, pane borders, agents tab
 - Duplication: src/tiling.ts, src/pane-groups.ts, src/session-state.ts are extracted copies of app.js/session.ts — don't let them drift
 - Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests
 - tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-07 20:38 — One-click deploy packaging (3 tasks)
+Swapped node-pty → @homebridge/node-pty-prebuilt-multiarch (prebuilt binaries, no build tools needed). Moved onnxruntime-node to optionalDependencies with dynamic import in ml-worker.ts (graceful degradation). Created .github/workflows/build.yml: matrix CI (3 OS × 3 Node versions), npm pack artifact on main push. Build clean, 79 tests pass. Milo will pull dist into fellow-agents.
+
 ### 2026-04-07 17:00 — Cost history sampling
 60s interval samples each session's costUsd to in-memory array (cap 1440 = 24h). GET /api/cost-history endpoint. Persisted to cost-history.json on shutdown, loaded on startup. Milo will build frontend sparklines.
 

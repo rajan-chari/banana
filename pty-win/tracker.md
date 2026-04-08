@@ -1,12 +1,13 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-07 15:30
+Last updated: 2026-04-07 20:38
 
 ## In Motion
 
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | Server restart + browser refresh | Needed | Rajan | Server: 6a1cd5f; frontend: fbb0de3 |
+| fellow-agents dist pull | Waiting on milo | milo | moss tasks done, milo integrating |
 
 ## Watching
 
@@ -19,6 +20,7 @@ Last updated: 2026-04-07 15:30
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-07 | One-click deploy packaging | node-pty prebuilt, onnxruntime optional, CI workflow |
 | 2026-04-07 | Cost history sampling | 60s interval, 24h cap, /api/cost-history, persist on shutdown |
 | 2026-04-07 | Playwright MCP testing convention | Port 3650+ for testing, never 3600 production. Persisted to KB |
 | 2026-04-07 | Injection format cleanup | Timestamps on all injections, constants→functions, no leading whitespace |

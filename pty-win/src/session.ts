@@ -1,4 +1,4 @@
-import * as pty from "node-pty";
+import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
 import { execFile } from "child_process";
 import { EventEmitter } from "events";
 import { EmcomClient } from "./emcom/client.js";
@@ -279,7 +279,7 @@ export class PtySession extends EventEmitter {
   }
 
   write(data: string | Buffer): void {
-    this.ptyProcess.write(data);
+    this.ptyProcess.write(typeof data === "string" ? data : data.toString());
   }
 
   resize(cols: number, rows: number): void {

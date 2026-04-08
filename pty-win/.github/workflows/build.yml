@@ -1,0 +1,74 @@
+name: Build pty-win
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pty-win/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "pty-win/**"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: pty-win
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [18, 20, 22]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Verify dist output
+        run: node dist/index.js --help
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: pty-win
+        run: npm install
+
+      - name: Build
+        working-directory: pty-win
+        run: npm run build
+
+      - name: Create tarball
+        working-directory: pty-win
+        run: npm pack
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pty-win-dist
+          path: pty-win/pty-win-*.tgz
+          retention-days: 30
