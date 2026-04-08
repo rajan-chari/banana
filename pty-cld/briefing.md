@@ -1,23 +1,19 @@
 # Briefing — pty-cld
 
-**Last updated:** 2026-04-04 ~01:25
-**Status:** Tests added — code quality audit complete, holding on refactoring per Rajan
+**Last updated:** 2026-04-07 ~19:38
+**Status:** Stable, no code changes. Confirmed pty-cld is optional for v1 deploy.
 
 ## Current State
 
 - Screen-aware idle detection working in production
 - All code committed and pushed on `main` (latest: `cdc54f6`)
-- **42 vitest tests** covering the two riskiest modules:
-  - `input-injector.ts`: 26 tests — all state machine transitions (startup, idle, busy, cooldown, injection, checkpoints)
-  - `screen-detector.ts`: 16 tests — regex patterns for input/busy/permission/status-bar detection
+- **42 vitest tests** covering input-injector (26) and screen-detector (16)
 - Rajan directive: **hold on refactoring** — safety net is in place, document edge cases if found
 
 ## This Session
 
-- **Code quality audit** — Rajan requested assessment of test coverage, riskiest code, refactoring risks, and confidence level. Reported: zero tests, input-injector state machine is riskiest (12 transition paths), low-medium confidence for safe changes.
-- **Wrote vitest test suite** — Installed vitest, wrote 42 tests for input-injector and screen-detector. All passing.
-- **Edge case discovered** — `signalIdle()` (hook path) does not consume `needsStartupKick`; only the heuristic path does. Documented in Claude-KB.md.
-- **Claude-KB updated** — 2 new lessons: xterm-headless async writes need flush callbacks; startup kick hook vs heuristic behavior.
+- **One-click deploy discussion** — Rajan and milo asked about pty-cld's packaging constraints for a one-click agent system installer. Responded: pty-cld is **optional for v1** because node-pty (native C++ addon) requires per-OS compilation (VS Build Tools on Windows, Xcode CLI on macOS, build-essential on Linux). All other deps are pure JS. pty-win covers the browser use case.
+- **Consolidated plan approved** — Rajan confirmed pty-cld skipped for v1, will add as optional in v2. No concerns from our side.
 
 ## Open Items
 
