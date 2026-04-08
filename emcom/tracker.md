@@ -32,6 +32,7 @@ Last updated: 2026-03-30
 | 2026-04-07 | --append-notes feature | Appends timestamped entries to notes field instead of replacing. Commit `1ee7b30`. |
 | 2026-04-07 | ensure_server() C# port | Both CLIs auto-start server if down. Commit `3db974b`. |
 | 2026-04-07 | GitHub Actions CI workflow | Cross-platform builds (win/mac/linux) + Python tests. Commit `f8eb88f`. |
+| 2026-04-07 | emcom version command | Detects binary reversion — prints v2.0.0, build time, features. Commit `08ba541`. |
 |------|------|---------|
 | 2026-03-25 | Adopt briefing.md spec | Created briefing.md, updated CLAUDE.md startup + session-end, commit `4cdeb73` |
 | 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |

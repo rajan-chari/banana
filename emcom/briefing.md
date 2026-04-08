@@ -4,7 +4,7 @@ Last updated: 2026-04-07 checkpoint
 
 ## Current Focus
 
-Completed all 3 one-click deploy tasks from Rajan: (1) ported ensure_server() to C# — both emcom.exe and tracker.exe auto-start the server if it's down (`3db974b`), (2) GitHub Actions CI workflow for cross-platform builds — win-x64/osx-arm64/linux-x64 with Python tests (`f8eb88f`), (3) verified pip install path works for Mac/Linux server. Milo pulling binaries into fellow-agents. No outstanding work.
+Idle. Fixed recurring emcom.exe binary reversion (2nd occurrence) by adding `emcom version` command (v2.0.0) that prints build timestamp + feature list for quick verification. Root cause of overwrite still unknown — no hooks or scripts found that copy old builds. Version command is the detection mechanism. All one-click deploy tasks done. No outstanding work.
 
 ## Don't Forget
 
@@ -12,6 +12,9 @@ Completed all 3 one-click deploy tasks from Rajan: (1) ported ensure_server() to
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-07 — emcom version command (binary reversion fix)
+emcom.exe reverted to old build for the 2nd time (lost batch 1+2 features). Investigated: no hooks or scripts found that overwrite. Added `emcom version` command (BuildInfo.cs) that prints v2.0.0, build timestamp from exe mtime, and feature list. Redeployed correct AOT binary. Commit `08ba541`.
 
 ### 2026-04-07 — One-click deploy: ensure_server + CI + pip verify
 Completed Rajan's 3-task GO for fellow-agents packaging: (1) Ported ensure_server() to C# CLIs — both emcom.exe and tracker.exe now auto-start emcom-server if /health check fails, spawning it as background process from same dir or PATH. Used AppContext.BaseDirectory for AOT compat. Commit `3db974b`. (2) GitHub Actions CI workflow (`.github/workflows/emcom-build.yml`) — builds emcom+tracker for win-x64/osx-arm64/linux-x64, runs Python server tests, manual dispatch creates GitHub Release with 6 binaries. Commit `f8eb88f`. (3) Verified pip install works cleanly for Mac/Linux server deployment. Also shipped --append-notes (`1ee7b30`), null number fix (`582f59d`), reminders convention to Claude-KB.
