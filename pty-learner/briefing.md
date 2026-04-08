@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-03 21:16
+Last updated: 2026-04-08 19:07
 
 ## Current Focus
 Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) was integrated into pty-win by moss (commit d7de3df). No new work has been requested since initial deployment.
