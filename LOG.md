@@ -208,3 +208,13 @@ Added `location` field (last 3 CWD segments) to identity registration so `emcom 
 - NSG rules locked to Rajan's IP (141.157.209.78)
 - Installing xfce4 + xrdp + firefox on dev-linux for desktop access (background task)
 - Creds saved to fellow_scholars/claude/rules/azure-vms.json
+
+### 2026-04-08 04:15 — fellow-agents E2E test complete (both platforms)
+
+**Linux (Ubuntu 24.04):** setup.sh works. Binaries download, emcom-server starts, agents register, pty-win serves UI. Fixes pushed: executable bit, Claude optional, sudo npm link. Key bug: pty-win shell button hardcodes pwsh (moss notified).
+
+**Windows (Server 2022):** setup.ps1 works with pwsh 7. PS 5.1 can't parse nested hashtables — replaced with JSON here-string but PS 5.1 still chokes. pwsh 7 required. pty-win serves UI, terminal works. npm link launch from setup.ps1 broken — manual `node dist\index.js` works.
+
+**Fixes pushed to fellow-agents:** 0420a53, ed5ed9c, d8731d4, fc06605, efe730b (5 commits).
+
+Both VMs deallocated. Auto-shutdown configured at midnight ET.

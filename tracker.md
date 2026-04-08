@@ -12,7 +12,9 @@ Last updated: 2026-03-31
 | Ctrl+F5 fix v3 | Done | milo | 341337b — refit on WS sessions message (event-driven, not timer) |
 | Focus loss + feed recipient + tracker panel | Done | milo | Multiple commits — see briefing |
 | fellow-agents release workflow | Done | milo | 461f96a+756675f+1dd60ef — GHA builds emcom+tracker+emcom-server+pty-win, 3 platforms, publishes release. v1.0.0 published. |
-| fellow-agents E2E test | In progress | milo | 2x D2s_v4 VMs in rajan-rg (eastus). dev-windows deallocated, dev-linux running. xfce+xrdp installing. Next: clone + setup.sh test. |
+| fellow-agents E2E test (Linux) | Done | milo | setup.sh works. 8 findings logged in briefing. Key bug: pty-win shell button hardcodes pwsh (needs moss fix). |
+| fellow-agents E2E test (Windows) | Done | milo | setup.ps1 works with pwsh 7. PS 5.1 can't parse nested hashtables or JSON here-strings. pty-win serves UI. npm link launch broken — manual node start works. |
+| pty-win: Linux shell support | New | moss | Shell button hardcodes "pwsh". Need platform detection: bash on Linux, pwsh on Windows. Found during E2E test. |
 | Azure tenant migration | Done | milo | Old BAMI1 (9a9b49fd) → new teamssdk (3f3d1cea). azure-env.json/md updated. bolt, sage, blake notified. |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 

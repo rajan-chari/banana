@@ -39,7 +39,23 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Server restart needed by Rajan: hook-based idle detection (priority), cost regex, merged dashboard, pane separation, drag-and-drop, cost in checkpoints, last-active column, double-Ctrl+C fix. Large TS backlog.
 - Tracker panel complete (2 rounds). Milo now implementing frontend directly (Rajan approved). Moss on test coverage.
 - Frost's tracker WS endpoint ready but emcom-server.exe needs rebuild. Frontend WS subscription not yet wired (polling works).
-- **fellow-agents E2E test IN PROGRESS**: Two Azure VMs provisioned (D2s_v4, rajan-rg, eastus). dev-windows deallocated (`az vm start -g rajan-rg -n dev-windows` to resume). dev-linux running — Rajan SSHed in, xfce4+xrdp+firefox install may be stuck/slow (apt process). If stuck: kill apt, `dpkg --configure -a`, reinstall without xfce4-goodies. Once xrdp works, set password (`sudo passwd azuredev`), RDP in, test pty-win in browser. NSG locked to 52.177.6.198 (Rajan's actual egress IP, not ifconfig.me IP). Creds in fellow_scholars/claude/rules/azure-vms.json.
+- **fellow-agents E2E test COMPLETE (both platforms)**. Both VMs deallocated. setup.sh and setup.ps1 work end-to-end: binaries download from GitHub Release, emcom-server starts, agents register, pty-win serves UI in browser.
+
+**E2E Findings — Fixes pushed to fellow-agents:**
+1. setup.sh not executable → fixed (0420a53)
+2. Claude Code hard requirement → now optional warning on both scripts (ed5ed9c, efe730b)
+3. npm link needs sudo on Linux → fixed (d8731d4)
+4. setup.ps1 PS 5.1 parse error → nested hashtable replaced with JSON here-string (fc06605). Still needs pwsh 7 — PS 5.1 can't handle the JSON here-string either. **Action: document pwsh 7 as prerequisite or fix PS 5.1 compat.**
+
+**E2E Findings — Open bugs for moss/frost:**
+5. pty-win shell button hardcodes "pwsh" → can't open terminal on Linux (moss notified)
+6. Default folder root is C:\ even when --root is set → cosmetic but confusing
+7. setup.ps1 pty-win launch via npm link doesn't work → manual `node dist\index.js` works. Start-Process in setup.ps1 may need fixing.
+8. Health check URL `/api/health` returns 401 (requires auth) → health check silently fails
+
+**Infra findings (not fellow-agents bugs):**
+9. Snap browsers (Firefox, Chromium) broken in xrdp → use Google Chrome .deb
+10. xrdp on Ubuntu 24.04 needs: TLS key chmod, dbus-x11 pkg, startwm.sh → xfce4-session, high-DPI scaling hacks
 - Bolt subagent architecture validated (jade confirmed inheritance). Waiting for scout's pattern to ship first.
 - Server restart backlog: hook-based idle detection, injection timestamps, cost history sampling, many TS changes.
 - Detach/reattach ideated but not confirmed.
