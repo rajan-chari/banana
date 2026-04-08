@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-08 01:55
+Last updated: 2026-04-08 07:07
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,8 +13,10 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-08 01:30 — Azure dev VMs provisioned for E2E testing. Two D2s_v4 VMs (2 vCPU, 8GB) in rajan-rg (eastus): dev-windows (40.117.128.81, RDP, deallocated) and dev-linux (13.72.81.221, SSH+RDP). NSG locked to Rajan's IP. xfce4+xrdp+firefox installing on Linux (background task bb9iy4n7s). Creds in fellow_scholars/claude/rules/azure-vms.json. New Azure tenant: teamssdk (3f3d1cea), subscription dcdaf10d, resource group rajan-rg. Config updated in azure-env.json/md. Notified bolt, sage, blake.
-- 2026-04-08 00:00 — fellow-agents release workflow shipped (461f96a) and v1.0.0 published. Fixed: removed BANANA_PAT (banana is public, 756675f), npm ci→npm install (lock file drift, 1dd60ef). All 3 binary builds pass. setup.sh updated with auto-download.
+- 2026-04-08 07:07 — pwsh 7 now required for setup.ps1 (PS 5.1 incompatible). Version check + install instructions added (9524064). README updated. Moss fixed pty-win shell button (6f92b40): server normalizes pwsh→bash on Linux, new /api/config endpoint.
+- 2026-04-08 04:15 — E2E test complete on both platforms. 5 fixes pushed, 10 findings logged. Both VMs deallocated, auto-shutdown at midnight ET.
+- 2026-04-08 01:30 — Azure dev VMs provisioned (D2s_v4, rajan-rg, eastus). Tenant migration: BAMI1→teamssdk. Config updated, team notified.
+- 2026-04-08 00:00 — fellow-agents release workflow shipped (461f96a), v1.0.0 published. 3 CI fixes (BANANA_PAT removal, npm ci→install, pty-win build).
 - 2026-04-07 20:55 — fellow-agents one-click deploy: repo rebuilt (setup.ps1 + setup.sh), all 3 tracks complete (moss: prebuilt node-pty + CI, frost: emcom/tracker CI 3-platform, milo: install scripts + workspace templates). Binaries removed from repo — download from GitHub Releases. Tracker polish (column alignment, headers, zebra, density). Total cost sparkline. Inline sparklines in table.
 - 2026-04-07 18:50 — Cost bar chart + sparklines shipped. Needs-input rule corrected (busy+0cb/s). Agents tab: cb/s column, compact, font match.
 - 2026-04-07 18:12 — Needs-input rule fixed (796778c): busy + 0 cb/s = needs input. Font bumped (649e8d6). Agents compact + Ctrl+F5 v3 (341337b). cb/s column (a2516ef).
