@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-07 21:15
+Last updated: 2026-04-08 01:55
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,6 +13,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
+- 2026-04-08 01:30 — Azure dev VMs provisioned for E2E testing. Two D2s_v4 VMs (2 vCPU, 8GB) in rajan-rg (eastus): dev-windows (40.117.128.81, RDP, deallocated) and dev-linux (13.72.81.221, SSH+RDP). NSG locked to Rajan's IP. xfce4+xrdp+firefox installing on Linux (background task bb9iy4n7s). Creds in fellow_scholars/claude/rules/azure-vms.json. New Azure tenant: teamssdk (3f3d1cea), subscription dcdaf10d, resource group rajan-rg. Config updated in azure-env.json/md. Notified bolt, sage, blake.
+- 2026-04-08 00:00 — fellow-agents release workflow shipped (461f96a) and v1.0.0 published. Fixed: removed BANANA_PAT (banana is public, 756675f), npm ci→npm install (lock file drift, 1dd60ef). All 3 binary builds pass. setup.sh updated with auto-download.
 - 2026-04-07 20:55 — fellow-agents one-click deploy: repo rebuilt (setup.ps1 + setup.sh), all 3 tracks complete (moss: prebuilt node-pty + CI, frost: emcom/tracker CI 3-platform, milo: install scripts + workspace templates). Binaries removed from repo — download from GitHub Releases. Tracker polish (column alignment, headers, zebra, density). Total cost sparkline. Inline sparklines in table.
 - 2026-04-07 18:50 — Cost bar chart + sparklines shipped. Needs-input rule corrected (busy+0cb/s). Agents tab: cb/s column, compact, font match.
 - 2026-04-07 18:12 — Needs-input rule fixed (796778c): busy + 0 cb/s = needs input. Font bumped (649e8d6). Agents compact + Ctrl+F5 v3 (341337b). cb/s column (a2516ef).
@@ -37,7 +39,7 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Server restart needed by Rajan: hook-based idle detection (priority), cost regex, merged dashboard, pane separation, drag-and-drop, cost in checkpoints, last-active column, double-Ctrl+C fix. Large TS backlog.
 - Tracker panel complete (2 rounds). Milo now implementing frontend directly (Rajan approved). Moss on test coverage.
 - Frost's tracker WS endpoint ready but emcom-server.exe needs rebuild. Frontend WS subscription not yet wired (polling works).
-- **fellow-agents one-click deploy IN PROGRESS**: repo rebuilt (f2cbb99). setup.ps1 has download-from-release function. setup.sh written. Moss + frost CI done. REMAINING: milo writes the release workflow (GitHub Actions on fellow-agents repo) that pulls artifacts and publishes combined release. Then E2E test.
+- **fellow-agents E2E test IN PROGRESS**: Two Azure VMs provisioned (D2s_v4, rajan-rg, eastus). dev-windows deallocated (`az vm start -g rajan-rg -n dev-windows` to resume). dev-linux running — Rajan SSHed in, xfce4+xrdp+firefox install may be stuck/slow (apt process). If stuck: kill apt, `dpkg --configure -a`, reinstall without xfce4-goodies. Once xrdp works, set password (`sudo passwd azuredev`), RDP in, test pty-win in browser. NSG locked to 52.177.6.198 (Rajan's actual egress IP, not ifconfig.me IP). Creds in fellow_scholars/claude/rules/azure-vms.json.
 - Bolt subagent architecture validated (jade confirmed inheritance). Waiting for scout's pattern to ship first.
 - Server restart backlog: hook-based idle detection, injection timestamps, cost history sampling, many TS changes.
 - Detach/reattach ideated but not confirmed.

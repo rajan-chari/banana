@@ -48,6 +48,10 @@ python query_db.py "SELECT ..."     # inspect SQLite
 
 - **2026-04-07:** Use Playwright MCP for real browser testing of pty-win UI, not just code analysis. Test on port 3650+ (never 3600 production). Pattern: moss runs test instance, milo/moss uses Playwright to navigate, hard refresh, inspect terminal sizes, verify layout. Persist this as a standing practice.
 
+- **2026-04-08:** New Azure subscription (teamssdk) has capacity restrictions on B-series and most D-series VMs across all regions — `SkuNotAvailable` even where SKU queries show no restrictions. This is a subscription-level trust gate on new subscriptions. Workaround: check quotas page for families WITHOUT orange warning triangles, then try those. DSv4 family worked. Also: `curl ifconfig.me` from Claude Code bash gives a different IP than Azure NSG sees (corporate VPN/proxy). Always check actual source IP from SSH auth logs (`grep Accepted /var/log/auth.log`) to set NSG rules.
+- **2026-04-08:** `npm ci` in GitHub Actions fails when `package-lock.json` is out of sync with `package.json` (e.g., optional deps like onnxruntime-node adding transitive deps). Use `npm install` instead in CI if lockfile freshness isn't guaranteed. The lock file in the source repo may not be updated after adding optional dependencies.
+- **2026-04-08:** Windows Server 2022 VM image requires minimum 127GB OS disk — `--os-disk-size-gb 64` fails. Use 128+ for Windows VMs.
+
 ## Decisions
 
 - **2026-04-06:** Tracker panel lives in the right panel as a Feed/Tracker toggle — not a workspace tab. Rajan chose option B (toggle) over option A (stacked). Keeps workspace area clear for panes.

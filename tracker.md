@@ -11,6 +11,9 @@ Last updated: 2026-03-31
 | Agents tab (full feature) | Done | milo | cb/s column, compact table, font match, empty state fix, needs-input |
 | Ctrl+F5 fix v3 | Done | milo | 341337b — refit on WS sessions message (event-driven, not timer) |
 | Focus loss + feed recipient + tracker panel | Done | milo | Multiple commits — see briefing |
+| fellow-agents release workflow | Done | milo | 461f96a+756675f+1dd60ef — GHA builds emcom+tracker+emcom-server+pty-win, 3 platforms, publishes release. v1.0.0 published. |
+| fellow-agents E2E test | In progress | milo | 2x D2s_v4 VMs in rajan-rg (eastus). dev-windows deallocated, dev-linux running. xfce+xrdp installing. Next: clone + setup.sh test. |
+| Azure tenant migration | Done | milo | Old BAMI1 (9a9b49fd) → new teamssdk (3f3d1cea). azure-env.json/md updated. bolt, sage, blake notified. |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 
 ## Watching

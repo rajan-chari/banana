@@ -182,3 +182,29 @@ Added `location` field (last 3 CWD segments) to identity registration so `emcom 
 - Replied with new-agent perspective: emcom registration checklist, stale message handling, first-10-minutes quick-start, event-driven checkpoints over wall-clock
 - Updated briefing.md with RFC activity
 - Added 2 learnings to Claude-KB.md: emcom --cc limitation, disabled skills (rc-session-save, rc-greet-save)
+
+### 2026-04-07 21:58 — fellow-agents release workflow
+
+- Created `.github/workflows/release.yml` in fellow-agents repo (461f96a)
+- Workflow: workflow_dispatch → checkout banana → build emcom+tracker (.NET 10), emcom-server (PyInstaller), pty-win (tsc) → 3 platforms (win-x64, osx-arm64, linux-x64) → zip per platform + pty-win.zip → GitHub Release
+- Updated `setup.sh` with auto-download from releases (matching setup.ps1 behavior)
+- Pushed to rajan-chari/fellow-agents
+- Remaining: BANANA_PAT secret, first workflow_dispatch, E2E test from fresh clone
+
+### 2026-04-08 00:30 — fellow-agents release v1.0.0 published
+
+- Rajan triggered workflow_dispatch, pty-win build failed (npm ci lockfile drift)
+- Fixed: npm ci → npm install (1dd60ef), pushed
+- Re-triggered: all jobs pass, v1.0.0 release published on rajan-chari/fellow-agents
+- BANANA_PAT already removed (756675f) — banana repo is public
+
+### 2026-04-08 01:30 — Azure tenant migration + dev VMs provisioned
+
+- New BAMI tenant: teamssdk (tenantId 3f3d1cea-7a18-41af-872b-cfbbd5140984, subscription dcdaf10d-a590-4515-8500-11ac049fd36a, resource group rajan-rg)
+- Updated azure-env.json and azure-env.md in fellow_scholars/claude/rules/
+- Notified bolt, sage, blake via emcom
+- B-series VMs capacity-restricted on new subscription. Used D2s_v4 (2 vCPU, 8GB) instead
+- Created dev-windows (40.117.128.81, RDP, then deallocated) and dev-linux (13.72.81.221, SSH)
+- NSG rules locked to Rajan's IP (141.157.209.78)
+- Installing xfce4 + xrdp + firefox on dev-linux for desktop access (background task)
+- Creds saved to fellow_scholars/claude/rules/azure-vms.json
