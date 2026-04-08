@@ -153,7 +153,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
   // Config: return root dirs for initial favorites
   app.get("/api/config", (_req, res) => {
-    res.json({ rootDirs: config.rootDirs });
+    res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell });
   });
 
   app.get("/api/sessions", (_req, res) => {
@@ -168,15 +168,16 @@ export async function startServer(config: ServerConfig): Promise<void> {
     }
 
     const resolvedDir = resolve(workingDir);
-    const suffix = command === "pwsh" ? "~pwsh" : "";
+    const isShell = command === "pwsh" || command === "bash" || command === "shell";
+    const suffix = isShell ? "~pwsh" : "";
     const name = basename(resolvedDir) + suffix;
 
     if (sessions.has(name)) {
       return res.status(409).json({ error: "Session already exists" });
     }
 
-    // Auto-detect identity from folder (only for AI sessions, not shells)
-    const isShell = command === "pwsh";
+    // Normalize shell command to platform default (pwsh on Windows, bash on Linux/Mac)
+    const resolvedCommand = isShell ? DEFAULTS.defaultShell : command;
     const identity = isShell ? null : readIdentity(resolvedDir);
 
     // Detect git repo root for checkpoint staggering
@@ -193,7 +194,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     const sessionConfig: SessionConfig = {
       name,
-      command: command || "claude",
+      command: resolvedCommand || "claude",
       args,
       workingDir: resolvedDir,
       cols: cols || 120,
