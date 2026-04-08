@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-07 20:38
+Last updated: 2026-04-08 03:07
 
 ## In Motion
 
@@ -20,6 +20,7 @@ Last updated: 2026-04-07 20:38
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-08 | Shell button cross-platform fix | pwsh→bash on Linux/Mac, /api/config exposes platform |
 | 2026-04-07 | One-click deploy packaging | node-pty prebuilt, onnxruntime optional, CI workflow |
 | 2026-04-07 | Cost history sampling | 60s interval, 24h cap, /api/cost-history, persist on shutdown |
 | 2026-04-07 | Playwright MCP testing convention | Port 3650+ for testing, never 3600 production. Persisted to KB |
