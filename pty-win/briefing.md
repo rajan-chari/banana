@@ -1,17 +1,20 @@
 # Briefing
-Last updated: 2026-04-08 03:07
+Last updated: 2026-04-09 10:08
 
 ## Current Focus
-Idle. Deploy packaging done, cross-platform shell bug fixed. Waiting on milo to pull dist into fellow-agents.
+Idle after xterm bug fixes. All work committed and pushed. Rajan acknowledged fixes, will apply on next restart.
 
 ## Don't Forget
-- Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, injection timestamps, cost history sampling, node-pty swap, shell cross-platform fix
+- Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, injection timestamps, cost history sampling, node-pty swap, shell cross-platform fix, scroll/focus fix (hooks→broadcastStatus)
 - Browser refresh needed for frontend: tracker panel tab, dashboard redesign, drag-drop, pane borders, agents tab
 - Duplication: src/tiling.ts, src/pane-groups.ts, src/session-state.ts are extracted copies of app.js/session.ts — don't let them drift
 - Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests
 - tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-09 09:44 — Fix: scroll jump + focus loss in xterm (high-impact)
+Hook callbacks (Stop/Notify/PromptSubmit) were calling broadcastSessionList() which triggered full DOM rebuild (renderActiveWorkspace → innerHTML="") on every hook event. Switched to broadcastStatus() (server) and skip renderActiveWorkspace when session set unchanged (frontend). Focus restore now catches focus-lost-to-body. Commit aa8c1ad.
+
 ### 2026-04-08 03:42 — Fix: shell button cross-platform (bug from milo)
 Shell button hardcoded "pwsh" which fails on Linux (no pwsh). Server now normalizes shell commands to DEFAULTS.defaultShell (pwsh on Windows, bash on Linux/Mac). /api/config exposes platform + defaultShell for frontend. Commit 6f92b40.
 
