@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-08 07:07
+Last updated: 2026-04-09 22:04
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,6 +13,7 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
+- 2026-04-09 22:04 — pty-win instance identification shipped (3 commits: d0fa117, 0043d6c, 97eef89). `--name` flag sets tab title + accent color + subtle background tint from name hash. Live name change via `POST /api/name` + clickable badge in sidebar header. Rajan doing server restart to pick up changes.
 - 2026-04-08 07:07 — pwsh 7 now required for setup.ps1 (PS 5.1 incompatible). Version check + install instructions added (9524064). README updated. Moss fixed pty-win shell button (6f92b40): server normalizes pwsh→bash on Linux, new /api/config endpoint.
 - 2026-04-08 04:15 — E2E test complete on both platforms. 5 fixes pushed, 10 findings logged. Both VMs deallocated, auto-shutdown at midnight ET.
 - 2026-04-08 01:30 — Azure dev VMs provisioned (D2s_v4, rajan-rg, eastus). Tenant migration: BAMI1→teamssdk. Config updated, team notified.
