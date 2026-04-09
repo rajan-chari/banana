@@ -165,7 +165,14 @@ def work_item_decisions(request: Request, repo: str | None = None):
 @router.get("/report")
 def report(request: Request, period: str = "30d", repo: str | None = None):
     db = request.app.state.db
-    return db.report(period=period, repo=repo)
+    team_metrics = db.report(period=period, repo=repo)
+    # Merge GitHub data from scout's metrics.jsonl
+    try:
+        from emcom_server.metrics_reader import github_metrics
+        repo_metrics = github_metrics(period=period, repo=repo)
+    except Exception:
+        repo_metrics = None
+    return {"team_metrics": team_metrics, "repo_metrics": repo_metrics}
 
 
 @router.get("/report/people")
