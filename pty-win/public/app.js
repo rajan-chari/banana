@@ -2244,14 +2244,22 @@ function createPane(groupName) {
   let entry = ensureTerminal(activeSessionName);
 
   // Fit terminal and explicitly notify server of new dimensions
+  // Guards against unnecessary fit() calls that reset xterm scroll position
   const fitAndSync = () => {
     try {
       // Skip fit if container has no usable height yet (flex not resolved)
       const h = termArea.offsetHeight;
       if (h < 50) return;
+      // Compute what fit() would set without actually calling it
+      // FitAddon uses core._renderService.dimensions to calculate
+      const prevCols = entry.term.cols;
+      const prevRows = entry.term.rows;
       entry.fitAddon.fit();
       const { cols, rows } = entry.term;
-      state.ws?.send(JSON.stringify({ type: "resize", session: activeSessionName, payload: { cols, rows } }));
+      // Only notify server if dimensions actually changed
+      if (cols !== prevCols || rows !== prevRows) {
+        state.ws?.send(JSON.stringify({ type: "resize", session: activeSessionName, payload: { cols, rows } }));
+      }
     } catch {}
   };
 
@@ -2278,9 +2286,15 @@ function createPane(groupName) {
     setTimeout(fitAndSync, 1000);
 
     if (!entry.resizeObserver) {
-      entry.resizeObserver = new ResizeObserver(() => {
-        // Only fit when container has real dimensions
-        if (termArea.offsetHeight >= 50) fitAndSync();
+      let lastW = 0, lastH = 0;
+      entry.resizeObserver = new ResizeObserver((entries) => {
+        const rect = entries[0]?.contentRect;
+        if (!rect || rect.height < 50) return;
+        // Skip if dimensions haven't actually changed (prevents spurious scroll resets)
+        const w = Math.round(rect.width), h = Math.round(rect.height);
+        if (w === lastW && h === lastH) return;
+        lastW = w; lastH = h;
+        fitAndSync();
       });
       entry.resizeObserver.observe(termArea);
     } else {
