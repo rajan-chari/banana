@@ -209,8 +209,14 @@ function connect() {
         break;
       }
       case "sessions": {
-        // Replace full session list (server is authoritative)
+        // Detect if the set of sessions changed (not just status updates)
+        const prevNames = new Set(state.sessions.keys());
         const serverNames = new Set(msg.payload.map((s) => s.name));
+        const layoutChanged = prevNames.size !== serverNames.size ||
+          [...serverNames].some((n) => !prevNames.has(n)) ||
+          [...prevNames].some((n) => !serverNames.has(n));
+
+        // Replace full session list (server is authoritative)
         state.sessions.clear();
         for (const s of msg.payload) state.sessions.set(s.name, s);
 
@@ -266,7 +272,8 @@ function connect() {
         renderSessionsPanel();
         renderQuickAccess();
         if (state.isDashboard) renderDashboard();
-        else {
+        else if (layoutChanged) {
+          // Full re-render only when sessions added/removed — avoids scroll/focus disruption
           renderActiveWorkspace();
           // Refit all terminals after layout rebuild — critical for Ctrl+F5
           requestAnimationFrame(() => {
@@ -278,6 +285,9 @@ function connect() {
               } catch {}
             }
           });
+        } else {
+          // Status-only update — just refresh pane status indicators
+          for (const s of msg.payload) updatePaneStatus(s.name);
         }
         break;
       }
@@ -321,9 +331,14 @@ function connect() {
     }
 
     // Restore terminal focus after DOM rebuilds (prevents WS updates from stealing focus)
+    // Check if focus was in a pane OR was lost to <body> (due to DOM rebuild destroying the focused element)
     if (state.focusedPane && !state.isDashboard) {
-      const entry = state.terminals.get(state.focusedPane);
-      if (entry && document.activeElement?.closest(".pane")) {
+      const pg = state.paneGroups.get(state.focusedPane);
+      const sessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : state.focusedPane;
+      const entry = state.terminals.get(sessionName || state.focusedPane);
+      const focusInPane = document.activeElement?.closest(".pane");
+      const focusLostToBody = document.activeElement === document.body;
+      if (entry && (focusInPane || focusLostToBody)) {
         entry.term.focus();
       }
     }

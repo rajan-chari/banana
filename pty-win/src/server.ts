@@ -310,20 +310,20 @@ public class Win32Focus {
   app.post("/api/hook/stop", (req, res) => {
     res.json({});
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
-    if (session) { session.hookStop(); broadcastSessionList(); }
+    if (session) { session.hookStop(); broadcastStatus(session); }
   });
 
   app.post("/api/hook/notify", (req, res) => {
     res.json({});
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
     const type = req.body?.type || req.body?.notification_type || "";
-    if (session) { session.hookNotify(type); broadcastSessionList(); }
+    if (session) { session.hookNotify(type); broadcastStatus(session); }
   });
 
   app.post("/api/hook/prompt-submit", (req, res) => {
     res.json({});
     const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
-    if (session) { session.hookPromptSubmit(); broadcastSessionList(); }
+    if (session) { session.hookPromptSubmit(); broadcastStatus(session); }
   });
 
   app.post("/api/sessions/:name/quick-message", (req, res) => {
