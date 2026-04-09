@@ -180,6 +180,23 @@ public static class Program
                 Console.WriteLine(Fmt.FormatList(c.Queue(agent)));
                 break;
             }
+            case "report":
+            {
+                string period = "30d"; string? repo = null; string? subCmd = null;
+                for (int i = 0; i < rest.Count; i++)
+                {
+                    if (rest[i] == "--period" && i + 1 < rest.Count) period = rest[++i];
+                    else if (rest[i] == "--repo" && i + 1 < rest.Count) repo = rest[++i];
+                    else if (rest[i] is "people" or "sla") subCmd = rest[i];
+                }
+                if (subCmd == "people")
+                    Console.WriteLine(Fmt.FormatPeopleReport(c.ReportPeople(period)));
+                else if (subCmd == "sla")
+                    Console.WriteLine(Fmt.FormatSlaReport(c.ReportSla(repo)));
+                else
+                    Console.WriteLine(Fmt.FormatReport(c.Report(period, repo)));
+                break;
+            }
             case "stats":
                 Console.WriteLine(Fmt.FormatStats(c.Stats()));
                 break;

@@ -117,3 +117,72 @@ public sealed class StatusResponse
 {
     [JsonPropertyName("status")] public string Status { get; set; } = "";
 }
+
+public sealed class Report
+{
+    [JsonPropertyName("period")] public string Period { get; set; } = "";
+    [JsonPropertyName("repo")] public string? Repo { get; set; }
+    [JsonPropertyName("created")] public int Created { get; set; }
+    [JsonPropertyName("closed")] public int Closed { get; set; }
+    [JsonPropertyName("open")] public int Open { get; set; }
+    [JsonPropertyName("pr_velocity")] public PrVelocity? PrVelocity { get; set; }
+    [JsonPropertyName("sla")] public SlaMetrics? Sla { get; set; }
+    [JsonPropertyName("open_issue_age")] public AgeMetrics? OpenIssueAge { get; set; }
+    [JsonPropertyName("dwell_times")] public Dictionary<string, double>? DwellTimes { get; set; }
+}
+
+public sealed class PrVelocity
+{
+    [JsonPropertyName("merged_count")] public int MergedCount { get; set; }
+    [JsonPropertyName("avg_cycle_hours")] public double? AvgCycleHours { get; set; }
+    [JsonPropertyName("min_cycle_hours")] public double? MinCycleHours { get; set; }
+    [JsonPropertyName("max_cycle_hours")] public double? MaxCycleHours { get; set; }
+}
+
+public sealed class SlaMetrics
+{
+    [JsonPropertyName("avg_response_hours")] public double? AvgResponseHours { get; set; }
+    [JsonPropertyName("min_response_hours")] public double? MinResponseHours { get; set; }
+    [JsonPropertyName("max_response_hours")] public double? MaxResponseHours { get; set; }
+    [JsonPropertyName("items_measured")] public int ItemsMeasured { get; set; }
+}
+
+public sealed class AgeMetrics
+{
+    [JsonPropertyName("avg_hours")] public double? AvgHours { get; set; }
+    [JsonPropertyName("max_hours")] public double? MaxHours { get; set; }
+    [JsonPropertyName("count")] public int Count { get; set; }
+}
+
+public sealed class PeopleReport
+{
+    [JsonPropertyName("period")] public string Period { get; set; } = "";
+    [JsonPropertyName("people")] public Dictionary<string, PersonMetrics> People { get; set; } = new();
+}
+
+public sealed class PersonMetrics
+{
+    [JsonPropertyName("actions")] public int Actions { get; set; }
+    [JsonPropertyName("status_changes")] public int StatusChanges { get; set; }
+    [JsonPropertyName("comments")] public int Comments { get; set; }
+    [JsonPropertyName("items_touched")] public int ItemsTouched { get; set; }
+    [JsonPropertyName("resolved")] public int Resolved { get; set; }
+}
+
+public sealed class SlaReport
+{
+    [JsonPropertyName("repo")] public string? Repo { get; set; }
+    [JsonPropertyName("items")] public List<SlaItem> Items { get; set; } = [];
+}
+
+public sealed class SlaItem
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("repo")] public string Repo { get; set; } = "";
+    [JsonPropertyName("number")] public int? Number { get; set; }
+    [JsonPropertyName("title")] public string Title { get; set; } = "";
+    [JsonPropertyName("status")] public string Status { get; set; } = "";
+    [JsonPropertyName("severity")] public string Severity { get; set; } = "";
+    [JsonPropertyName("age_hours")] public double AgeHours { get; set; }
+    [JsonPropertyName("response_hours")] public double? ResponseHours { get; set; }
+}

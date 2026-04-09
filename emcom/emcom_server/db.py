@@ -906,3 +906,231 @@ class Database:
             (item_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # ===================== Reporting =====================
+
+    def _period_cutoff(self, period: str) -> str:
+        """Convert period string (7d, 30d, etc.) to ISO cutoff timestamp."""
+        from datetime import timedelta
+        days = int(period.rstrip("d")) if period.endswith("d") else 30
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        return cutoff.isoformat()
+
+    def report(self, period: str = "30d", repo: str | None = None) -> dict:
+        """Tier 1 report: PR velocity, throughput, SLA, status dwell times."""
+        conn = self._connect()
+        cutoff = self._period_cutoff(period)
+        repo_filter = "AND w.repo=?" if repo else ""
+        repo_params = [repo] if repo else []
+
+        # Items created in period
+        created = conn.execute(
+            f"SELECT COUNT(*) FROM work_items w WHERE w.created_at >= ? {repo_filter}",
+            [cutoff] + repo_params,
+        ).fetchone()[0]
+
+        # Items closed (merged/deferred/closed) in period
+        closed = conn.execute(
+            f"SELECT COUNT(*) FROM work_items w "
+            f"WHERE w.status IN ('merged','deferred','closed') AND w.updated_at >= ? {repo_filter}",
+            [cutoff] + repo_params,
+        ).fetchone()[0]
+
+        # PR velocity: cycle time for items that reached 'merged' in period
+        # Cycle time = time from creation to merged
+        merged_items = conn.execute(
+            f"SELECT w.id, w.created_at FROM work_items w "
+            f"WHERE w.status='merged' AND w.updated_at >= ? {repo_filter}",
+            [cutoff] + repo_params,
+        ).fetchall()
+        cycle_times = []
+        for item in merged_items:
+            merged_at = conn.execute(
+                "SELECT changed_at FROM work_item_history "
+                "WHERE work_item_id=? AND field='status' AND new_value='merged' "
+                "ORDER BY changed_at DESC LIMIT 1",
+                (item["id"],),
+            ).fetchone()
+            if merged_at:
+                created_dt = datetime.fromisoformat(item["created_at"])
+                merged_dt = datetime.fromisoformat(merged_at["changed_at"])
+                cycle_times.append((merged_dt - created_dt).total_seconds() / 3600)
+
+        # SLA: time from creation to first status change away from 'new'
+        response_times = []
+        items_in_period = conn.execute(
+            f"SELECT w.id, w.created_at FROM work_items w WHERE w.created_at >= ? {repo_filter}",
+            [cutoff] + repo_params,
+        ).fetchall()
+        for item in items_in_period:
+            first_response = conn.execute(
+                "SELECT changed_at FROM work_item_history "
+                "WHERE work_item_id=? AND field='status' AND old_value='new' "
+                "ORDER BY changed_at LIMIT 1",
+                (item["id"],),
+            ).fetchone()
+            if first_response:
+                created_dt = datetime.fromisoformat(item["created_at"])
+                response_dt = datetime.fromisoformat(first_response["changed_at"])
+                response_times.append((response_dt - created_dt).total_seconds() / 3600)
+
+        # Open issue age (currently open items)
+        open_ages = []
+        now = datetime.now(timezone.utc)
+        open_items = conn.execute(
+            f"SELECT w.created_at, w.date_found FROM work_items w "
+            f"WHERE w.status NOT IN ('merged','deferred','closed') {repo_filter}",
+            repo_params,
+        ).fetchall()
+        for item in open_items:
+            origin = item["date_found"] or item["created_at"]
+            origin_dt = datetime.fromisoformat(origin)
+            open_ages.append((now - origin_dt).total_seconds() / 3600)
+
+        # Status dwell times (avg hours in each status, for items in period)
+        dwell = self._compute_dwell_times(conn, cutoff, repo)
+
+        return {
+            "period": period,
+            "repo": repo,
+            "created": created,
+            "closed": closed,
+            "open": len(open_items),
+            "pr_velocity": {
+                "merged_count": len(cycle_times),
+                "avg_cycle_hours": round(sum(cycle_times) / len(cycle_times), 1) if cycle_times else None,
+                "min_cycle_hours": round(min(cycle_times), 1) if cycle_times else None,
+                "max_cycle_hours": round(max(cycle_times), 1) if cycle_times else None,
+            },
+            "sla": {
+                "avg_response_hours": round(sum(response_times) / len(response_times), 1) if response_times else None,
+                "min_response_hours": round(min(response_times), 1) if response_times else None,
+                "max_response_hours": round(max(response_times), 1) if response_times else None,
+                "items_measured": len(response_times),
+            },
+            "open_issue_age": {
+                "avg_hours": round(sum(open_ages) / len(open_ages), 1) if open_ages else None,
+                "max_hours": round(max(open_ages), 1) if open_ages else None,
+                "count": len(open_ages),
+            },
+            "dwell_times": dwell,
+        }
+
+    def _compute_dwell_times(self, conn, cutoff: str, repo: str | None) -> dict:
+        """Compute avg hours spent in each status for items active in period."""
+        repo_filter = "AND w.repo=?" if repo else ""
+        repo_params = [repo] if repo else []
+
+        items = conn.execute(
+            f"SELECT w.id, w.created_at FROM work_items w WHERE w.updated_at >= ? {repo_filter}",
+            [cutoff] + repo_params,
+        ).fetchall()
+
+        status_durations: dict[str, list[float]] = {}
+        for item in items:
+            history = conn.execute(
+                "SELECT field, old_value, new_value, changed_at FROM work_item_history "
+                "WHERE work_item_id=? AND field='status' ORDER BY changed_at",
+                (item["id"],),
+            ).fetchall()
+            prev_time = item["created_at"]
+            for h in history:
+                if h["old_value"]:
+                    dt_prev = datetime.fromisoformat(prev_time)
+                    dt_now = datetime.fromisoformat(h["changed_at"])
+                    hours = (dt_now - dt_prev).total_seconds() / 3600
+                    status_durations.setdefault(h["old_value"], []).append(hours)
+                prev_time = h["changed_at"]
+
+        return {
+            status: round(sum(durations) / len(durations), 1)
+            for status, durations in sorted(status_durations.items())
+        }
+
+    def report_people(self, period: str = "30d") -> dict:
+        """Tier 2 report: per-person activity from work_item_history."""
+        conn = self._connect()
+        cutoff = self._period_cutoff(period)
+
+        people: dict[str, dict] = {}
+        rows = conn.execute(
+            "SELECT changed_by, field, new_value, changed_at FROM work_item_history "
+            "WHERE changed_at >= ?",
+            (cutoff,),
+        ).fetchall()
+
+        for r in rows:
+            name = r["changed_by"]
+            if name not in people:
+                people[name] = {"actions": 0, "status_changes": 0, "comments": 0, "items_touched": set()}
+            people[name]["actions"] += 1
+            if r["field"] == "status":
+                people[name]["status_changes"] += 1
+            if r["field"] == "comment":
+                people[name]["comments"] += 1
+
+        # Count distinct items touched per person
+        for name in people:
+            items = conn.execute(
+                "SELECT COUNT(DISTINCT work_item_id) FROM work_item_history "
+                "WHERE changed_by=? AND changed_at >= ?",
+                (name, cutoff),
+            ).fetchone()[0]
+            people[name]["items_touched"] = items
+
+        # Items resolved (moved to merged/closed) per person
+        for name in people:
+            resolved = conn.execute(
+                "SELECT COUNT(*) FROM work_item_history "
+                "WHERE changed_by=? AND field='status' AND new_value IN ('merged','closed') "
+                "AND changed_at >= ?",
+                (name, cutoff),
+            ).fetchone()[0]
+            people[name]["resolved"] = resolved
+
+        return {"period": period, "people": people}
+
+    def report_sla(self, repo: str | None = None) -> dict:
+        """SLA report: response and resolution times for all open items."""
+        conn = self._connect()
+        repo_filter = "AND repo=?" if repo else ""
+        repo_params = [repo] if repo else []
+
+        items = conn.execute(
+            f"SELECT id, repo, number, title, status, created_at, date_found, severity "
+            f"FROM work_items WHERE status NOT IN ('merged','deferred','closed') {repo_filter} "
+            "ORDER BY created_at",
+            repo_params,
+        ).fetchall()
+
+        now = datetime.now(timezone.utc)
+        result = []
+        for item in items:
+            origin = item["date_found"] or item["created_at"]
+            age_hours = (now - datetime.fromisoformat(origin)).total_seconds() / 3600
+
+            first_response = conn.execute(
+                "SELECT changed_at FROM work_item_history "
+                "WHERE work_item_id=? AND field='status' AND old_value='new' "
+                "ORDER BY changed_at LIMIT 1",
+                (item["id"],),
+            ).fetchone()
+            response_hours = None
+            if first_response:
+                response_hours = (
+                    datetime.fromisoformat(first_response["changed_at"])
+                    - datetime.fromisoformat(item["created_at"])
+                ).total_seconds() / 3600
+
+            result.append({
+                "id": item["id"][:8],
+                "repo": item["repo"],
+                "number": item["number"],
+                "title": item["title"],
+                "status": item["status"],
+                "severity": item["severity"],
+                "age_hours": round(age_hours, 1),
+                "response_hours": round(response_hours, 1) if response_hours is not None else None,
+            })
+
+        return {"repo": repo, "items": result}

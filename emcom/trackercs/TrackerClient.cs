@@ -224,4 +224,22 @@ public sealed class TrackerClient
     {
         return Read(Get($"/tracker/{Uri.EscapeDataString(itemRef)}/history"), TrackerJsonContext.Default.ListHistoryEntry);
     }
+
+    public Report Report(string period = "30d", string? repo = null)
+    {
+        var qs = $"?period={Uri.EscapeDataString(period)}";
+        if (repo != null) qs += $"&repo={Uri.EscapeDataString(repo)}";
+        return Read(Get($"/tracker/report{qs}"), TrackerJsonContext.Default.Report);
+    }
+
+    public PeopleReport ReportPeople(string period = "30d")
+    {
+        return Read(Get($"/tracker/report/people?period={Uri.EscapeDataString(period)}"), TrackerJsonContext.Default.PeopleReport);
+    }
+
+    public SlaReport ReportSla(string? repo = null)
+    {
+        var qs = repo != null ? $"?repo={Uri.EscapeDataString(repo)}" : "";
+        return Read(Get($"/tracker/report/sla{qs}"), TrackerJsonContext.Default.SlaReport);
+    }
 }

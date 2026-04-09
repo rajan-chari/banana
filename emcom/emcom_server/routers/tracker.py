@@ -162,6 +162,24 @@ def work_item_decisions(request: Request, repo: str | None = None):
     return db.work_item_decisions(repo=repo)
 
 
+@router.get("/report")
+def report(request: Request, period: str = "30d", repo: str | None = None):
+    db = request.app.state.db
+    return db.report(period=period, repo=repo)
+
+
+@router.get("/report/people")
+def report_people(request: Request, period: str = "30d"):
+    db = request.app.state.db
+    return db.report_people(period=period)
+
+
+@router.get("/report/sla")
+def report_sla(request: Request, repo: str | None = None):
+    db = request.app.state.db
+    return db.report_sla(repo=repo)
+
+
 @router.get("/search")
 def search_work_items(request: Request, q: str = ""):
     if not q:
