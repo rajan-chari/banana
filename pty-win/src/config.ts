@@ -20,6 +20,7 @@ export interface SessionConfig {
 
 export interface ServerConfig {
   port: number;
+  name: string;
   emcomServer: string;
   rootDirs: string[];
   mlModelPath: string;

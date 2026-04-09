@@ -12,6 +12,7 @@ Usage: pty-win [options]
 
 Options:
   --port <number>          HTTP server port (default: ${DEFAULTS.port})
+  --name <string>          Instance name (shown in browser tab + accent color)
   --root <path>            Add a folder root to the sidebar (repeatable)
   --emcom <url>            Emcom server URL (default: ${DEFAULTS.emcomServer})
   --ml-model-path <path>   Path to ONNX classifier model (default: auto-detect)
@@ -26,6 +27,7 @@ Examples:
 }
 
 let port = DEFAULTS.port;
+let name = "";
 let emcomServer = DEFAULTS.emcomServer;
 let mlModelPath = "";
 const rootDirs: string[] = [];
@@ -33,6 +35,8 @@ const rootDirs: string[] = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port" && args[i + 1]) {
     port = parseInt(args[++i], 10);
+  } else if (args[i] === "--name" && args[i + 1]) {
+    name = args[++i];
   } else if (args[i] === "--emcom" && args[i + 1]) {
     emcomServer = args[++i];
   } else if (args[i] === "--root" && args[i + 1]) {
@@ -42,4 +46,4 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-startServer({ port, emcomServer, rootDirs, mlModelPath });
+startServer({ port, name, emcomServer, rootDirs, mlModelPath });

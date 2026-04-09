@@ -39,6 +39,10 @@
   --emcom-text: #b0b0b0;
   --emcom-text-bright: #d4d4d4;
   --emcom-text-dim: #606060;
+
+  /* Instance accent — set by JS from --name flag, falls back to defaults */
+  --instance-accent: #d4882a;
+  --instance-accent-dim: #6b4415;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -88,6 +92,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-top: 2px solid var(--instance-accent);
   height: 35px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
@@ -1291,8 +1296,8 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 .pane.focused .pane-identity { color: var(--identity); }
 
 .pane.focused .pane-topbar {
-  background: rgba(212, 136, 42, 0.15);
-  border-bottom: 2px solid #d4882a;
+  background: color-mix(in srgb, var(--instance-accent) 15%, transparent);
+  border-bottom: 2px solid var(--instance-accent);
 }
 
 .pane-cwd {

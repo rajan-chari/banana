@@ -153,7 +153,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
   // Config: return root dirs for initial favorites
   app.get("/api/config", (_req, res) => {
-    res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell });
+    res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name });
   });
 
   app.get("/api/sessions", (_req, res) => {

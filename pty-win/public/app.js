@@ -356,6 +356,16 @@ async function initApp() {
       }
     }
     saveFavorites();
+
+    // Instance name: set browser tab title + accent color
+    if (config.name) {
+      document.title = `pty-win \u2014 ${config.name}`;
+      let hash = 0;
+      for (let i = 0; i < config.name.length; i++) hash = ((hash << 5) - hash + config.name.charCodeAt(i)) | 0;
+      const hue = ((hash % 360) + 360) % 360;
+      document.documentElement.style.setProperty("--instance-accent", `hsl(${hue}, 60%, 50%)`);
+      document.documentElement.style.setProperty("--instance-accent-dim", `hsl(${hue}, 40%, 25%)`);
+    }
   } catch {}
 
   renderTree();
