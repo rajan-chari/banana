@@ -66,10 +66,16 @@ public static class Program
         var cmd = args[0];
         var rest = args.Skip(1).ToList();
         var c = MakeClient(server, identity);
-        c.EnsureServer();
+        if (cmd != "version")
+            c.EnsureServer();
 
         switch (cmd)
         {
+            case "version":
+                Console.WriteLine($"tracker {BuildInfo.Version}");
+                Console.WriteLine($"Built: {BuildInfo.BuildTime}");
+                Console.WriteLine($"Features: create, update, comment, link, list, view, queue, stats, report, decisions, stale, blocked, search, history");
+                break;
             case "create":
             {
                 string? repo = null, title = null, type = null, severity = null;
