@@ -69,10 +69,19 @@ def github_metrics(period: str = "30d", repo: str | None = None,
     reviews_by_person: dict[str, int] = {}
     commits_by_person: dict[str, int] = {}
     for d in daily:
-        for reviewer, count in d.get("reviews", {}).items():
-            reviews_by_person[reviewer] = reviews_by_person.get(reviewer, 0) + count
-        for author, count in d.get("commits", {}).items():
-            commits_by_person[author] = commits_by_person.get(author, 0) + count
+        # pr_reviews is a list of {repo, pr, author, reviewers: [{login, state, date}]}
+        for pr in d.get("pr_reviews", []):
+            for reviewer in pr.get("reviewers", []):
+                login = reviewer.get("login", "")
+                if login:
+                    reviews_by_person[login] = reviews_by_person.get(login, 0) + 1
+        # commits is a list of {repo, authors: [{login, count}], total}
+        for repo_commits in d.get("commits", []):
+            for author in repo_commits.get("authors", []):
+                login = author.get("login", "")
+                count = author.get("count", 0)
+                if login:
+                    commits_by_person[login] = commits_by_person.get(login, 0) + count
 
     # Issue age snapshots
     age_snapshots = [e for e in events if e.get("type") == "issue_age_snapshot"]
