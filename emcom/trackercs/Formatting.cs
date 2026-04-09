@@ -92,6 +92,50 @@ public static class Fmt
         return sb.ToString().TrimEnd();
     }
 
+    public static string FormatMergedReport(MergedReport mr)
+    {
+        var sb = new StringBuilder();
+        if (mr.TeamMetrics != null)
+            sb.AppendLine(FormatReport(mr.TeamMetrics));
+        if (mr.RepoMetrics != null)
+        {
+            sb.AppendLine();
+            sb.AppendLine(FormatRepoMetrics(mr.RepoMetrics));
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    public static string FormatRepoMetrics(RepoMetrics r)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"GitHub Metrics ({r.Period}, {r.Source}):");
+        if (r.PrVelocity != null)
+        {
+            sb.AppendLine($"  PRs merged: {r.PrVelocity.MergedCount}");
+            if (r.PrVelocity.AvgCycleHours.HasValue)
+                sb.AppendLine($"  Cycle time: avg {r.PrVelocity.AvgCycleHours:F1}h, " +
+                    $"min {r.PrVelocity.MinCycleHours:F1}h, max {r.PrVelocity.MaxCycleHours:F1}h");
+        }
+        if (r.FirstReview is { AvgHours: not null })
+            sb.AppendLine($"  First review: avg {r.FirstReview.AvgHours:F1}h ({r.FirstReview.Count} PRs)");
+        sb.AppendLine($"  Issues closed: {r.IssuesClosed}");
+        if (r.CommunityResponse is { AvgHours: not null })
+            sb.AppendLine($"  Community response: avg {r.CommunityResponse.AvgHours:F1}h ({r.CommunityResponse.Count} issues)");
+        if (r.ReviewsByPerson is { Count: > 0 })
+        {
+            sb.AppendLine("  Reviews by person:");
+            foreach (var (name, count) in r.ReviewsByPerson.Take(10))
+                sb.AppendLine($"    {name,-20} {count}");
+        }
+        if (r.CommitsByPerson is { Count: > 0 })
+        {
+            sb.AppendLine("  Commits by person:");
+            foreach (var (name, count) in r.CommitsByPerson.Take(10))
+                sb.AppendLine($"    {name,-20} {count}");
+        }
+        return sb.ToString().TrimEnd();
+    }
+
     public static string FormatReport(Report r)
     {
         var sb = new StringBuilder();

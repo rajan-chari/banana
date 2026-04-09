@@ -118,6 +118,12 @@ public sealed class StatusResponse
     [JsonPropertyName("status")] public string Status { get; set; } = "";
 }
 
+public sealed class MergedReport
+{
+    [JsonPropertyName("team_metrics")] public Report? TeamMetrics { get; set; }
+    [JsonPropertyName("repo_metrics")] public RepoMetrics? RepoMetrics { get; set; }
+}
+
 public sealed class Report
 {
     [JsonPropertyName("period")] public string Period { get; set; } = "";
@@ -129,6 +135,30 @@ public sealed class Report
     [JsonPropertyName("sla")] public SlaMetrics? Sla { get; set; }
     [JsonPropertyName("open_issue_age")] public AgeMetrics? OpenIssueAge { get; set; }
     [JsonPropertyName("dwell_times")] public Dictionary<string, double>? DwellTimes { get; set; }
+}
+
+public sealed class RepoMetrics
+{
+    [JsonPropertyName("source")] public string Source { get; set; } = "";
+    [JsonPropertyName("period")] public string Period { get; set; } = "";
+    [JsonPropertyName("pr_velocity")] public PrVelocity? PrVelocity { get; set; }
+    [JsonPropertyName("first_review")] public FirstReview? FirstReview { get; set; }
+    [JsonPropertyName("issues_closed")] public int IssuesClosed { get; set; }
+    [JsonPropertyName("community_response")] public CommunityResponse? CommunityResponse { get; set; }
+    [JsonPropertyName("reviews_by_person")] public Dictionary<string, int>? ReviewsByPerson { get; set; }
+    [JsonPropertyName("commits_by_person")] public Dictionary<string, int>? CommitsByPerson { get; set; }
+}
+
+public sealed class FirstReview
+{
+    [JsonPropertyName("avg_hours")] public double? AvgHours { get; set; }
+    [JsonPropertyName("count")] public int Count { get; set; }
+}
+
+public sealed class CommunityResponse
+{
+    [JsonPropertyName("avg_hours")] public double? AvgHours { get; set; }
+    [JsonPropertyName("count")] public int Count { get; set; }
 }
 
 public sealed class PrVelocity

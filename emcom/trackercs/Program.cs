@@ -194,7 +194,7 @@ public static class Program
                 else if (subCmd == "sla")
                     Console.WriteLine(Fmt.FormatSlaReport(c.ReportSla(repo)));
                 else
-                    Console.WriteLine(Fmt.FormatReport(c.Report(period, repo)));
+                    Console.WriteLine(Fmt.FormatMergedReport(c.Report(period, repo)));
                 break;
             }
             case "stats":

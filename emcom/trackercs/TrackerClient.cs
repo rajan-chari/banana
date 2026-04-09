@@ -225,11 +225,11 @@ public sealed class TrackerClient
         return Read(Get($"/tracker/{Uri.EscapeDataString(itemRef)}/history"), TrackerJsonContext.Default.ListHistoryEntry);
     }
 
-    public Report Report(string period = "30d", string? repo = null)
+    public MergedReport Report(string period = "30d", string? repo = null)
     {
         var qs = $"?period={Uri.EscapeDataString(period)}";
         if (repo != null) qs += $"&repo={Uri.EscapeDataString(repo)}";
-        return Read(Get($"/tracker/report{qs}"), TrackerJsonContext.Default.Report);
+        return Read(Get($"/tracker/report{qs}"), TrackerJsonContext.Default.MergedReport);
     }
 
     public PeopleReport ReportPeople(string period = "30d")
