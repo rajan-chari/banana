@@ -96,11 +96,12 @@ public static class Fmt
     {
         var sb = new StringBuilder();
         if (mr.TeamMetrics != null)
-            sb.AppendLine(FormatReport(mr.TeamMetrics));
+            sb.Append(FormatReport(mr.TeamMetrics));
         if (mr.RepoMetrics != null)
         {
             sb.AppendLine();
-            sb.AppendLine(FormatRepoMetrics(mr.RepoMetrics));
+            sb.AppendLine();
+            sb.Append(FormatRepoMetrics(mr.RepoMetrics));
         }
         return sb.ToString().TrimEnd();
     }
@@ -108,30 +109,45 @@ public static class Fmt
     public static string FormatRepoMetrics(RepoMetrics r)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"GitHub Metrics ({r.Period}, {r.Source}):");
-        if (r.PrVelocity != null)
+        sb.AppendLine($"=== GITHUB METRICS ({r.Period}) ===");
+        if (r.PrVelocity is { MergedCount: > 0 })
         {
-            sb.AppendLine($"  PRs merged: {r.PrVelocity.MergedCount}");
-            if (r.PrVelocity.AvgCycleHours.HasValue)
-                sb.AppendLine($"  Cycle time: avg {r.PrVelocity.AvgCycleHours:F1}h, " +
-                    $"min {r.PrVelocity.MinCycleHours:F1}h, max {r.PrVelocity.MaxCycleHours:F1}h");
+            sb.AppendLine();
+            sb.AppendLine("PR VELOCITY");
+            sb.AppendLine($"  {"Merged",-10}  {"Avg Cycle",-10}  {"Min",-8}  Max");
+            sb.AppendLine($"  {r.PrVelocity.MergedCount,-10}  {Hrs(r.PrVelocity.AvgCycleHours),-10}  {Hrs(r.PrVelocity.MinCycleHours),-8}  {Hrs(r.PrVelocity.MaxCycleHours)}");
         }
         if (r.FirstReview is { AvgHours: not null })
-            sb.AppendLine($"  First review: avg {r.FirstReview.AvgHours:F1}h ({r.FirstReview.Count} PRs)");
-        sb.AppendLine($"  Issues closed: {r.IssuesClosed}");
+        {
+            sb.AppendLine();
+            sb.AppendLine("FIRST REVIEW");
+            sb.AppendLine($"  {"Avg",-10}  PRs Measured");
+            sb.AppendLine($"  {Hrs(r.FirstReview.AvgHours),-10}  {r.FirstReview.Count}");
+        }
         if (r.CommunityResponse is { AvgHours: not null })
-            sb.AppendLine($"  Community response: avg {r.CommunityResponse.AvgHours:F1}h ({r.CommunityResponse.Count} issues)");
+        {
+            sb.AppendLine();
+            sb.AppendLine("COMMUNITY RESPONSE");
+            sb.AppendLine($"  {"Avg",-10}  Issues Measured");
+            sb.AppendLine($"  {Hrs(r.CommunityResponse.AvgHours),-10}  {r.CommunityResponse.Count}");
+        }
         if (r.ReviewsByPerson is { Count: > 0 })
         {
-            sb.AppendLine("  Reviews by person:");
+            sb.AppendLine();
+            sb.AppendLine("REVIEWS BY PERSON");
+            sb.AppendLine($"  {"Name",-20}  Reviews");
+            sb.AppendLine($"  {new string('-', 20)}  -------");
             foreach (var (name, count) in r.ReviewsByPerson.Take(10))
-                sb.AppendLine($"    {name,-20} {count}");
+                sb.AppendLine($"  {name,-20}  {count}");
         }
         if (r.CommitsByPerson is { Count: > 0 })
         {
-            sb.AppendLine("  Commits by person:");
+            sb.AppendLine();
+            sb.AppendLine("COMMITS BY PERSON");
+            sb.AppendLine($"  {"Name",-20}  Commits");
+            sb.AppendLine($"  {new string('-', 20)}  -------");
             foreach (var (name, count) in r.CommitsByPerson.Take(10))
-                sb.AppendLine($"    {name,-20} {count}");
+                sb.AppendLine($"  {name,-20}  {count}");
         }
         return sb.ToString().TrimEnd();
     }
@@ -139,40 +155,50 @@ public static class Fmt
     public static string FormatReport(Report r)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Report: {r.Period}" + (r.Repo != null ? $" (repo: {r.Repo})" : " (all repos)"));
-        sb.AppendLine($"  Created: {r.Created}  Closed: {r.Closed}  Open: {r.Open}");
+        sb.AppendLine($"=== TEAM METRICS ({r.Period}" + (r.Repo != null ? $", {r.Repo}" : "") + ") ===");
         sb.AppendLine();
-        if (r.PrVelocity != null)
+        sb.AppendLine("OVERVIEW");
+        sb.AppendLine($"  {"Created",-10}  {"Closed",-10}  Open");
+        sb.AppendLine($"  {r.Created,-10}  {r.Closed,-10}  {r.Open}");
+        if (r.PrVelocity is { MergedCount: > 0 })
         {
-            sb.AppendLine("PR Velocity:");
-            sb.AppendLine($"  Merged: {r.PrVelocity.MergedCount}");
-            if (r.PrVelocity.AvgCycleHours.HasValue)
-                sb.AppendLine($"  Cycle time: avg {r.PrVelocity.AvgCycleHours:F1}h, " +
-                    $"min {r.PrVelocity.MinCycleHours:F1}h, max {r.PrVelocity.MaxCycleHours:F1}h");
+            sb.AppendLine();
+            sb.AppendLine("PR VELOCITY");
+            sb.AppendLine($"  {"Merged",-10}  {"Avg Cycle",-10}  {"Min",-8}  Max");
+            sb.AppendLine($"  {r.PrVelocity.MergedCount,-10}  {Hrs(r.PrVelocity.AvgCycleHours),-10}  {Hrs(r.PrVelocity.MinCycleHours),-8}  {Hrs(r.PrVelocity.MaxCycleHours)}");
         }
         if (r.Sla != null)
         {
-            sb.AppendLine("SLA (first response):");
+            sb.AppendLine();
+            sb.AppendLine("SLA (first response)");
             if (r.Sla.AvgResponseHours.HasValue)
-                sb.AppendLine($"  Response time: avg {r.Sla.AvgResponseHours:F1}h, " +
-                    $"min {r.Sla.MinResponseHours:F1}h, max {r.Sla.MaxResponseHours:F1}h " +
-                    $"({r.Sla.ItemsMeasured} items)");
+            {
+                sb.AppendLine($"  {"Avg",-10}  {"Min",-8}  {"Max",-8}  Items");
+                sb.AppendLine($"  {Hrs(r.Sla.AvgResponseHours),-10}  {Hrs(r.Sla.MinResponseHours),-8}  {Hrs(r.Sla.MaxResponseHours),-8}  {r.Sla.ItemsMeasured}");
+            }
             else
                 sb.AppendLine("  No response data yet");
         }
         if (r.OpenIssueAge is { Count: > 0 })
         {
-            sb.AppendLine("Open issue age:");
-            sb.AppendLine($"  Avg: {r.OpenIssueAge.AvgHours:F1}h, Max: {r.OpenIssueAge.MaxHours:F1}h ({r.OpenIssueAge.Count} items)");
+            sb.AppendLine();
+            sb.AppendLine("OPEN ISSUE AGE");
+            sb.AppendLine($"  {"Avg",-10}  {"Max",-10}  Count");
+            sb.AppendLine($"  {Hrs(r.OpenIssueAge.AvgHours),-10}  {Hrs(r.OpenIssueAge.MaxHours),-10}  {r.OpenIssueAge.Count}");
         }
         if (r.DwellTimes is { Count: > 0 })
         {
-            sb.AppendLine("Avg dwell time per status (hours):");
+            sb.AppendLine();
+            sb.AppendLine("DWELL TIME BY STATUS");
+            sb.AppendLine($"  {"Status",-20}  Avg Hours");
+            sb.AppendLine($"  {new string('-', 20)}  ---------");
             foreach (var (status, hours) in r.DwellTimes)
-                sb.AppendLine($"  {status,-20} {hours:F1}h");
+                sb.AppendLine($"  {status,-20}  {hours:F1}h");
         }
         return sb.ToString().TrimEnd();
     }
+
+    private static string Hrs(double? h) => h.HasValue ? $"{h:F1}h" : "—";
 
     public static string FormatPeopleReport(PeopleReport r)
     {
