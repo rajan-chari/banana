@@ -229,7 +229,13 @@ public sealed class TrackerClient
     {
         var qs = $"?period={Uri.EscapeDataString(period)}";
         if (repo != null) qs += $"&repo={Uri.EscapeDataString(repo)}";
-        return Read(Get($"/tracker/report{qs}"), TrackerJsonContext.Default.MergedReport);
+        var resp = Get($"/tracker/report{qs}");
+        var text = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        // Handle both old (flat Report) and new (MergedReport) server formats
+        if (text.Contains("\"team_metrics\""))
+            return JsonSerializer.Deserialize(text, TrackerJsonContext.Default.MergedReport)!;
+        var report = JsonSerializer.Deserialize(text, TrackerJsonContext.Default.Report)!;
+        return new MergedReport { TeamMetrics = report };
     }
 
     public PeopleReport ReportPeople(string period = "30d")
