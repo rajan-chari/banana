@@ -122,6 +122,19 @@ html, body {
 
 #sidebar-header > div { display: flex; align-items: center; gap: 2px; }
 
+#instance-name-badge {
+  color: var(--instance-accent);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  margin-left: 6px;
+  opacity: 0.8;
+}
+#instance-name-badge:hover { opacity: 1; }
+#instance-name-badge:empty { display: none; }
+
 #folder-tree {
   overflow-x: hidden;
   padding: 4px 0;

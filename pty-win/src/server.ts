@@ -156,6 +156,14 @@ export async function startServer(config: ServerConfig): Promise<void> {
     res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name });
   });
 
+  app.post("/api/name", express.json(), (req, res) => {
+    const { name } = req.body;
+    if (typeof name !== "string") return res.status(400).json({ error: "name must be a string" });
+    config.name = name;
+    broadcastName();
+    res.json({ name: config.name });
+  });
+
   app.get("/api/sessions", (_req, res) => {
     const list = [...sessions.values()].map((s) => s.getInfo());
     res.json(list);
@@ -580,6 +588,13 @@ public class Win32Focus {
 
   function broadcastNotification(name: string, count: number, from: string[]): void {
     const msg = JSON.stringify({ type: "notification", session: name, payload: { count, from } });
+    for (const ws of wsClients) {
+      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
+    }
+  }
+
+  function broadcastName(): void {
+    const msg = JSON.stringify({ type: "config", name: config.name });
     for (const ws of wsClients) {
       if (ws.readyState === WebSocket.OPEN) ws.send(msg);
     }

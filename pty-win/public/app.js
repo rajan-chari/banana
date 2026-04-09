@@ -315,6 +315,10 @@ function connect() {
         }
         break;
       }
+      case "config": {
+        if (msg.name != null) applyInstanceName(msg.name);
+        break;
+      }
       case "notification": {
         const s = state.sessions.get(msg.session);
         if (s) {
@@ -345,6 +349,33 @@ function connect() {
   };
 }
 
+function applyInstanceName(name) {
+  const r = document.documentElement.style;
+  if (name) {
+    document.title = `pty-win \u2014 ${name}`;
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    const hue = ((hash % 360) + 360) % 360;
+    r.setProperty("--instance-accent", `hsl(${hue}, 60%, 50%)`);
+    r.setProperty("--instance-accent-dim", `hsl(${hue}, 40%, 25%)`);
+    r.setProperty("--bg-primary", `hsl(${hue}, 8%, 12%)`);
+    r.setProperty("--bg-secondary", `hsl(${hue}, 8%, 14%)`);
+    r.setProperty("--bg-tertiary", `hsl(${hue}, 7%, 17%)`);
+    r.setProperty("--bg-pane", `hsl(${hue}, 8%, 12%)`);
+  } else {
+    document.title = "pty-win";
+    r.removeProperty("--instance-accent");
+    r.removeProperty("--instance-accent-dim");
+    r.removeProperty("--bg-primary");
+    r.removeProperty("--bg-secondary");
+    r.removeProperty("--bg-tertiary");
+    r.removeProperty("--bg-pane");
+  }
+  // Update name badge in sidebar header
+  const badge = document.getElementById("instance-name-badge");
+  if (badge) badge.textContent = name || "";
+}
+
 async function initApp() {
   // Load server config for initial roots
   try {
@@ -357,21 +388,21 @@ async function initApp() {
     }
     saveFavorites();
 
-    // Instance name: set browser tab title + accent color
-    if (config.name) {
-      document.title = `pty-win \u2014 ${config.name}`;
-      let hash = 0;
-      for (let i = 0; i < config.name.length; i++) hash = ((hash << 5) - hash + config.name.charCodeAt(i)) | 0;
-      const hue = ((hash % 360) + 360) % 360;
-      document.documentElement.style.setProperty("--instance-accent", `hsl(${hue}, 60%, 50%)`);
-      document.documentElement.style.setProperty("--instance-accent-dim", `hsl(${hue}, 40%, 25%)`);
-      // Subtle background tint — just enough warmth/coolness to tell instances apart at a glance
-      document.documentElement.style.setProperty("--bg-primary", `hsl(${hue}, 8%, 12%)`);
-      document.documentElement.style.setProperty("--bg-secondary", `hsl(${hue}, 8%, 14%)`);
-      document.documentElement.style.setProperty("--bg-tertiary", `hsl(${hue}, 7%, 17%)`);
-      document.documentElement.style.setProperty("--bg-pane", `hsl(${hue}, 8%, 12%)`);
-    }
+    if (config.name) applyInstanceName(config.name);
   } catch {}
+
+  // Instance name badge — click to change
+  const nameBadge = document.getElementById("instance-name-badge");
+  if (nameBadge) {
+    nameBadge.onclick = async () => {
+      const current = nameBadge.textContent || "";
+      const newName = prompt("Instance name:", current);
+      if (newName === null) return; // cancelled
+      try {
+        await fetch("/api/name", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) });
+      } catch {}
+    };
+  }
 
   renderTree();
   renderQuickAccess();
