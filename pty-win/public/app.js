@@ -365,6 +365,11 @@ async function initApp() {
       const hue = ((hash % 360) + 360) % 360;
       document.documentElement.style.setProperty("--instance-accent", `hsl(${hue}, 60%, 50%)`);
       document.documentElement.style.setProperty("--instance-accent-dim", `hsl(${hue}, 40%, 25%)`);
+      // Subtle background tint — just enough warmth/coolness to tell instances apart at a glance
+      document.documentElement.style.setProperty("--bg-primary", `hsl(${hue}, 8%, 12%)`);
+      document.documentElement.style.setProperty("--bg-secondary", `hsl(${hue}, 8%, 14%)`);
+      document.documentElement.style.setProperty("--bg-tertiary", `hsl(${hue}, 7%, 17%)`);
+      document.documentElement.style.setProperty("--bg-pane", `hsl(${hue}, 8%, 12%)`);
     }
   } catch {}
 
