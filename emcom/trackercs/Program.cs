@@ -200,7 +200,18 @@ public static class Program
                 else if (subCmd == "sla")
                     Console.WriteLine(Fmt.FormatSlaReport(c.ReportSla(repo)));
                 else
-                    Console.WriteLine(Fmt.FormatMergedReport(c.Report(period, repo)));
+                    Console.WriteLine(Fmt.FormatReport(c.Report(period, repo)));
+                break;
+            }
+            case "github":
+            {
+                string period = "30d"; string? repo = null;
+                for (int i = 0; i < rest.Count; i++)
+                {
+                    if (rest[i] == "--period" && i + 1 < rest.Count) period = rest[++i];
+                    else if (rest[i] == "--repo" && i + 1 < rest.Count) repo = rest[++i];
+                }
+                Console.WriteLine(Fmt.FormatRepoMetrics(c.GithubReport(period, repo)));
                 break;
             }
             case "stats":

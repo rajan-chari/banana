@@ -92,20 +92,6 @@ public static class Fmt
         return sb.ToString().TrimEnd();
     }
 
-    public static string FormatMergedReport(MergedReport mr)
-    {
-        var sb = new StringBuilder();
-        if (mr.TeamMetrics != null)
-            sb.Append(FormatReport(mr.TeamMetrics));
-        if (mr.RepoMetrics != null)
-        {
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(FormatRepoMetrics(mr.RepoMetrics));
-        }
-        return sb.ToString().TrimEnd();
-    }
-
     public static string FormatRepoMetrics(RepoMetrics r)
     {
         var sb = new StringBuilder();
@@ -155,7 +141,7 @@ public static class Fmt
     public static string FormatReport(Report r)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"=== ISSUE WORKFLOW ({r.Period}" + (r.Repo != null ? $", {r.Repo}" : "") + ") ===");
+        sb.AppendLine($"=== AGENT WORKFLOW ({r.Period}" + (r.Repo != null ? $", {r.Repo}" : "") + ") ===");
         sb.AppendLine();
         sb.AppendLine("OVERVIEW");
         sb.AppendLine($"  {"Created",-10}  {"Closed",-10}  Open");

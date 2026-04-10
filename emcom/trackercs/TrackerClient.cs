@@ -225,17 +225,18 @@ public sealed class TrackerClient
         return Read(Get($"/tracker/{Uri.EscapeDataString(itemRef)}/history"), TrackerJsonContext.Default.ListHistoryEntry);
     }
 
-    public MergedReport Report(string period = "30d", string? repo = null)
+    public Report Report(string period = "30d", string? repo = null)
     {
         var qs = $"?period={Uri.EscapeDataString(period)}";
         if (repo != null) qs += $"&repo={Uri.EscapeDataString(repo)}";
-        var resp = Get($"/tracker/report{qs}");
-        var text = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        // Handle both old (flat Report) and new (MergedReport) server formats
-        if (text.Contains("\"team_metrics\""))
-            return JsonSerializer.Deserialize(text, TrackerJsonContext.Default.MergedReport)!;
-        var report = JsonSerializer.Deserialize(text, TrackerJsonContext.Default.Report)!;
-        return new MergedReport { TeamMetrics = report };
+        return Read(Get($"/tracker/report{qs}"), TrackerJsonContext.Default.Report);
+    }
+
+    public RepoMetrics GithubReport(string period = "30d", string? repo = null)
+    {
+        var qs = $"?period={Uri.EscapeDataString(period)}";
+        if (repo != null) qs += $"&repo={Uri.EscapeDataString(repo)}";
+        return Read(Get($"/tracker/github{qs}"), TrackerJsonContext.Default.RepoMetrics);
     }
 
     public PeopleReport ReportPeople(string period = "30d")

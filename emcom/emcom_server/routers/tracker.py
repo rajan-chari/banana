@@ -164,19 +164,16 @@ def work_item_decisions(request: Request, repo: str | None = None):
 
 @router.get("/report")
 def report(request: Request, period: str = "30d", repo: str | None = None):
+    """Agent workflow report — from work_items table only."""
     db = request.app.state.db
-    team_metrics = db.report(period=period, repo=repo)
-    # GitHub data from metrics DB table (preferred) or fallback to JSONL file
-    repo_metrics = None
-    try:
-        repo_metrics = db.github_report(period=period, repo=repo)
-        if not repo_metrics.get("pr_velocity", {}).get("merged_count"):
-            # DB empty — fallback to file
-            from emcom_server.metrics_reader import github_metrics
-            repo_metrics = github_metrics(period=period, repo=repo)
-    except Exception:
-        pass
-    return {"team_metrics": team_metrics, "repo_metrics": repo_metrics}
+    return db.report(period=period, repo=repo)
+
+
+@router.get("/github")
+def github_report(request: Request, period: str = "30d", repo: str | None = None):
+    """GitHub activity report — from metrics table only."""
+    db = request.app.state.db
+    return db.github_report(period=period, repo=repo)
 
 
 @router.get("/report/people")
