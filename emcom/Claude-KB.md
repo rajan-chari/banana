@@ -76,6 +76,9 @@ Reminders use the tracker with a `reminder` label: `tracker create --repo remind
 ### 2026-04-06: PyInstaller --onefile blocked by Windows Application Control — use --runtime-tmpdir
 PyInstaller `--onefile` extracts bundled DLLs (python313.dll etc.) to `%TEMP%\_MEIxxxxxx\` on every launch. Corporate Application Control policies (AppLocker/WDAC) block DLL loads from Temp. Fix: rebuild with `--runtime-tmpdir "$HOME/.emcom/runtime"` so extraction goes to a whitelisted path. Applied to both emcom-server.exe and emcom-tui.exe. Always include this flag in future PyInstaller builds.
 
+### 2026-04-10: Root cause of binary reversion: git-tracked in fellow_scholars
+The recurring emcom.exe/tracker.exe reversion was caused by binaries being git-tracked in the fellow_scholars repo. Any git pull/checkout/merge reverted them to the old committed version. Blake untracked them and added to .gitignore. Deploy script (deploy.ps1) is still recommended for safety — build to workspace dist/, deploy intentionally, verify with `emcom version` / `tracker version` after.
+
 ### 2026-04-04: Always AOT publish (not debug build) when deploying emcom.exe
 The deployed emcom.exe at `~/.claude/skills/emcom/bin/` was overwritten with a pre-feature build, losing batch 1+2 CLI features. The `emcomcs/bin/Debug/` directory contains a non-AOT build without all features compiled in. Always deploy from the AOT publish path: `emcomcs/bin/Release/net10.0/win-x64/publish/emcom.exe`. After deploying, verify with `emcom check` or `emcom status` to confirm features are present.
 
