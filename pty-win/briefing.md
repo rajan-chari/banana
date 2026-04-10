@@ -1,8 +1,8 @@
 # Briefing
-Last updated: 2026-04-09 10:08
+Last updated: 2026-04-10 12:13
 
 ## Current Focus
-Idle after xterm bug fixes. All work committed and pushed. Rajan acknowledged fixes, will apply on next restart.
+Idle. New team rule persisted (independent verification for community-facing content → Claude-KB.md + CLAUDE.md). Xterm fixes and deploy packaging all committed/pushed, awaiting server restart by Rajan.
 
 ## Don't Forget
 - Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, injection timestamps, cost history sampling, node-pty swap, shell cross-platform fix, scroll/focus fix (hooks→broadcastStatus)

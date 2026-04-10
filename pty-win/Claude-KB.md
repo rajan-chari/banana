@@ -2,6 +2,17 @@
 
 Domain knowledge and lessons learned for pty-win.
 
+## Team Rules
+
+### Independent Verification for Community-Facing Content
+All community-facing content (GitHub comments, PRs, docs, samples) must be independently verified before posting. Author prepares, a different agent tests/reviews. No self-verification.
+- **Code** (PRs, samples): must compile + run, tested by a different agent
+- **Non-code** (comments, recommendations): fact-checked by a different agent
+- **Exception**: low-risk responses (ack issues, asking for repro) exempt
+- **Scope**: GitHub/public only. Internal emcom/tracker/briefing excluded.
+
+Source: team-manual.md commit d83df24.
+
 ## Lessons Learned
 
 ### 2026-03-22: xterm.js open() can only be called once

@@ -80,6 +80,10 @@ Binary tree: `{type: "split", direction: "h"|"v", ratio, children}` or `{type: "
 ### Folder Browser
 Lazy-loaded tree via `GET /api/folders?path=...`. Checks each directory for `CLAUDE.md` (blue dot), `identity.json` (purple dot), `.claude/` dir. Favorites stored in localStorage. Play button (hover) opens session.
 
+## Team Rules
+
+- **Independent verification**: All community-facing content (GitHub comments, PRs, docs, samples) must be verified by a different agent before posting. See `Claude-KB.md > Team Rules` for details.
+
 ## Gotchas
 
 - **`@xterm/headless` is CJS** — import as `import pkg from "@xterm/headless"; const { Terminal } = pkg;`
