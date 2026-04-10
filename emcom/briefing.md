@@ -4,7 +4,7 @@ Last updated: 2026-04-10 checkpoint
 
 ## Current Focus
 
-Idle after refactoring metrics reporting. Key decision from Rajan: **agent workflow data (work_items) and GitHub activity data (metrics) must never be mixed** — they answer different questions (51 tracker items vs 104 GitHub PRs are not comparable). Split into separate commands: `tracker report` (agent workflow only) and `tracker github` (GitHub repos only). Scout bulk-imported 134 GitHub metrics into SQLite. All binaries deployed and current. No outstanding work.
+Binary reversion root cause found: binaries were git-tracked in fellow_scholars repo — git pull kept reverting them. Blake untracking + gitignoring. Built deploy.ps1 script for safe deployments (version check, backup, verify). Also fixed another tracker report zeros bug (CLI/server version mismatch). Saved independent verification rule and root cause to Claude-KB. No outstanding work.
 
 ## Don't Forget
 
