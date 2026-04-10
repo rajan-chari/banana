@@ -67,6 +67,9 @@ Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't wor
 - Lookups: `teams.py#344`, `344` (if unambiguous), or UUID prefix all work.
 Rule: when shipping features to emcom-server, update relevant tracker items. When blocked, set --blocker.
 
+### 2026-04-10: RULE — Independent verification for community-facing content
+All community-facing content (GitHub comments, PRs, docs, samples) must be independently verified before posting. Author prepares, a different agent tests/reviews. No self-verification. Two tiers: Code (PRs, samples) must compile+run and be tested by a different agent. Non-code (comments, recommendations) must be fact-checked by a different agent. Exception: low-risk responses (ack issues, asking for repro) are exempt. Scope: GitHub/public only — internal emcom/tracker/briefing excluded. Reference: team-manual.md commit `d83df24`.
+
 ### 2026-04-07: Team convention — tracker-based reminders
 Reminders use the tracker with a `reminder` label: `tracker create --repo reminders --title 'Do X' --labels 'reminder'`. Sub-labels for scheduling: `standup` (daily), `once` (one-time), `weekly`. Query with `tracker list --label reminder`.
 
