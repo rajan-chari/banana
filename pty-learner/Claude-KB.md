@@ -41,6 +41,15 @@ Written by `pty-win/src/ml-dataset.ts` → `pty-win/ml-dataset/labels.jsonl` (gi
 - Port plan: original spec said 3601, scaffold used 8710 — moss (pty-win) will coordinate which to use
 - `applyMLInference()` stub already exists in `pty-win/src/session.ts` — ready for inference integration
 
+## Guardrails
+
+### Independent verification for community-facing content (2026-04-10)
+All community-facing content (GitHub comments, PRs, docs, samples) must be independently verified before posting. Author prepares, a different agent tests/reviews. No self-verification.
+- **Code** (PRs, samples): must compile + run, tested by a different agent
+- **Non-code** (comments, recommendations): fact-checked by a different agent
+- **Exempt**: low-risk responses (ack issues, asking for repro)
+- **Scope**: GitHub/public only. Internal emcom/tracker/briefing excluded.
+
 ## Lessons Learned
 
 ### 2026-03-28: Label schema is "busy"/"not_busy" not "busy"/"idle"

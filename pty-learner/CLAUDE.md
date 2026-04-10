@@ -69,6 +69,10 @@ EOF
 
 Before ending a session, run `/rc-save` to commit and push changes.
 
+## Guardrails
+
+- **Independent verification**: All community-facing content (GitHub comments, PRs, docs, samples) must be verified by a different agent before posting. See `Claude-KB.md` Guardrails section for details.
+
 ## Lessons Learned
 
 Errors, workarounds, and gotchas go in `Claude-KB.md` — update it immediately when encountered. Key items:
