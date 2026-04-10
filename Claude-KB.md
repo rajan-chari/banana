@@ -55,6 +55,8 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **2026-04-08:** Ubuntu 24.04 snap packages (Firefox, Chromium) don't work inside xrdp sessions ("not a snap cgroup" error). Install Google Chrome .deb directly: `wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt install -y ./chrome.deb`. Launch with `--no-sandbox` flag.
 - **2026-04-08:** xrdp on Ubuntu 24.04 requires manual fixes: (1) `chmod 640 /etc/xrdp/key.pem && chown root:xrdp /etc/xrdp/key.pem` for TLS, (2) `apt install dbus-x11` for session bus, (3) write `startxfce4` to `/etc/xrdp/startwm.sh` with `unset DBUS_SESSION_BUS_ADDRESS`, (4) high-DPI: set GDK_SCALE=2 in ~/.xsessionrc.
 
+- **2026-04-10:** TEAM RULE — All community-facing content (GitHub comments, PRs, docs, samples) must be independently verified before posting. Code: compile + test by different agent. Non-code: fact-checked by different agent. Exception: low-risk responses (ack, repro requests). Scope: public only, internal excluded. See team-manual.md § Independent Verification.
+
 ## Decisions
 
 - **2026-04-06:** Tracker panel lives in the right panel as a Feed/Tracker toggle — not a workspace tab. Rajan chose option B (toggle) over option A (stacked). Keeps workspace area clear for panes.
