@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-07 checkpoint
+Last updated: 2026-04-10 checkpoint
 
 ## Current Focus
 
-Idle. Fixed recurring emcom.exe binary reversion (2nd occurrence) by adding `emcom version` command (v2.0.0) that prints build timestamp + feature list for quick verification. Root cause of overwrite still unknown — no hooks or scripts found that copy old builds. Version command is the detection mechanism. All one-click deploy tasks done. No outstanding work.
+Idle after refactoring metrics reporting. Key decision from Rajan: **agent workflow data (work_items) and GitHub activity data (metrics) must never be mixed** — they answer different questions (51 tracker items vs 104 GitHub PRs are not comparable). Split into separate commands: `tracker report` (agent workflow only) and `tracker github` (GitHub repos only). Scout bulk-imported 134 GitHub metrics into SQLite. All binaries deployed and current. No outstanding work.
 
 ## Don't Forget
 
@@ -12,6 +12,12 @@ Idle. Fixed recurring emcom.exe binary reversion (2nd occurrence) by adding `emc
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-10 — Split report/github commands — never mix data
+Rajan flagged that 51 tracker items vs 104 GitHub PRs in one report was misleading — they're different data answering different questions. Split into: `tracker report` (agent workflow from work_items only) and `tracker github` (GitHub activity from metrics table only). Removed merged report view. Separate endpoints: GET /tracker/report, GET /tracker/github. Commit `541dfe1`.
+
+### 2026-04-09 — Metrics reporting + SQLite migration
+Built tracker report endpoints (Tier 1+2 metrics: PR velocity, SLA, dwell times, people). Integrated scout's metrics.jsonl for GitHub data (reviews/commits by person, PR cycle time). Fixed JSONL parser to match actual format. Added clean table formatting for CLI output. Then migrated metrics storage from JSONL file to SQLite `metrics` table with POST API (`/tracker/metrics`, `/tracker/metrics/batch`). Report falls back to JSONL if DB empty. Section labels: "ISSUE WORKFLOW" (tracker DB) + "GITHUB ACTIVITY" (metrics DB). Also: tracker version command (`267b8b0`), report format backwards-compat fix for CLI/server version mismatch (`9d1f31b`). Key commits: `078f284` (report), `ca3ef1d` (metrics reader), `0032335` (JSONL fix), `1af1f38` (tables), `c41f0d7` (SQLite migration). All binaries rebuilt and deployed.
 
 ### 2026-04-07 — emcom version command (binary reversion fix)
 emcom.exe reverted to old build for the 2nd time (lost batch 1+2 features). Investigated: no hooks or scripts found that overwrite. Added `emcom version` command (BuildInfo.cs) that prints v2.0.0, build timestamp from exe mtime, and feature list. Redeployed correct AOT binary. Commit `08ba541`.

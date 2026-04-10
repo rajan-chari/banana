@@ -7,7 +7,7 @@ Last updated: 2026-03-30
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win: force-not-busy context menu | Not started | frost | Rajan wants right-click "force not busy" on session entries. Check if commit `8f0340c` already covers this. |
-| emcom-server.exe deploy | Staged, deploy on next restart | frost | Binary at `emcom/dist/emcom-server.exe` includes WS endpoint + date_found + append-notes + runtime-tmpdir fix. Copy to `~/.claude/skills/emcom/bin/` when server stops. |
+| — | — | — | No active items. All binaries current. |
 
 ## Watching
 
@@ -33,6 +33,11 @@ Last updated: 2026-03-30
 | 2026-04-07 | ensure_server() C# port | Both CLIs auto-start server if down. Commit `3db974b`. |
 | 2026-04-07 | GitHub Actions CI workflow | Cross-platform builds (win/mac/linux) + Python tests. Commit `f8eb88f`. |
 | 2026-04-07 | emcom version command | Detects binary reversion — prints v2.0.0, build time, features. Commit `08ba541`. |
+| 2026-04-09 | Tracker reporting (Tier 1+2) | PR velocity, SLA, dwell times, people metrics. Commit `078f284`. |
+| 2026-04-09 | GitHub metrics integration | Scout's JSONL reader, then migrated to SQLite metrics table with POST API. Commits `ca3ef1d`, `c41f0d7`. |
+| 2026-04-09 | Report table formatting | Clean aligned tables for standup/sharing. Commit `1af1f38`. |
+| 2026-04-09 | tracker version command | Same pattern as emcom version. Commit `267b8b0`. |
+| 2026-04-10 | Split report/github commands | Never mix agent workflow + GitHub data. Separate commands and endpoints. Commit `541dfe1`. |
 |------|------|---------|
 | 2026-03-25 | Adopt briefing.md spec | Created briefing.md, updated CLAUDE.md startup + session-end, commit `4cdeb73` |
 | 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |
