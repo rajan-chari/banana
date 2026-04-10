@@ -229,7 +229,15 @@ public sealed class TrackerClient
     {
         var qs = $"?period={Uri.EscapeDataString(period)}";
         if (repo != null) qs += $"&repo={Uri.EscapeDataString(repo)}";
-        return Read(Get($"/tracker/report{qs}"), TrackerJsonContext.Default.Report);
+        var resp = Get($"/tracker/report{qs}");
+        var text = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        // Handle old merged format (server not yet updated)
+        if (text.Contains("\"team_metrics\""))
+        {
+            var merged = JsonSerializer.Deserialize(text, TrackerJsonContext.Default.MergedReport);
+            if (merged?.TeamMetrics != null) return merged.TeamMetrics;
+        }
+        return JsonSerializer.Deserialize(text, TrackerJsonContext.Default.Report)!;
     }
 
     public RepoMetrics GithubReport(string period = "30d", string? repo = null)
