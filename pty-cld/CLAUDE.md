@@ -37,6 +37,10 @@ Each Claude spawned by pty-cld gets `--append-system-prompt` telling it not to u
 - **Untested**: Web UI (`--serve` mode with xterm.js) — code written but never run
 - **Not implemented**: `ws-bridge.ts` (WebSocket bridge for browser ↔ PTY)
 
+## Guardrails
+
+- **Independent verification required** for all community-facing content (GitHub comments, PRs, docs, samples). Author prepares, a different agent tests/reviews. No self-verification. Low-risk responses (ack, asking for repro) exempt. Details in `Claude-KB.md` under Guardrails.
+
 ## Lessons Learned
 
 This workspace is a **learning system**. `Claude-KB.md` contains a `## Lessons Learned` section that persists knowledge across sessions.

@@ -70,3 +70,15 @@ Only the heuristic path in `startHeuristic()` checks and clears `needsStartupKic
 
 ### 2026-04-04: Work tracker CLI is available
 `tracker` command is in PATH. Key commands: `tracker create`, `tracker update`, `tracker list`, `tracker view`, `tracker stats`. Use for tracking work items across sessions.
+
+## Guardrails
+
+### 2026-04-10: Independent verification for community-facing content
+All community-facing content (GitHub comments, PRs, docs, samples) must be independently verified before posting. Author prepares, a different agent tests/reviews. No self-verification.
+
+- **Code** (PRs, samples): must compile + run, tested by a different agent
+- **Non-code** (comments, recommendations): fact-checked by a different agent
+- **Exception**: low-risk responses (ack issues, asking for repro) are exempt
+- **Scope**: GitHub/public only. Internal emcom/tracker/briefing excluded.
+
+Source: team-manual.md (d83df24)
