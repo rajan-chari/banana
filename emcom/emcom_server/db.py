@@ -107,6 +107,19 @@ CREATE INDEX IF NOT EXISTS idx_work_items_repo_number ON work_items(repo, number
 CREATE INDEX IF NOT EXISTS idx_work_history_item ON work_item_history(work_item_id);
 CREATE INDEX IF NOT EXISTS idx_work_links_from ON work_item_links(from_id);
 CREATE INDEX IF NOT EXISTS idx_work_links_to ON work_item_links(to_id);
+
+-- GitHub metrics table
+CREATE TABLE IF NOT EXISTS metrics (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    repo TEXT,
+    data TEXT NOT NULL DEFAULT '{}',
+    collected_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(type);
+CREATE INDEX IF NOT EXISTS idx_metrics_repo ON metrics(repo);
+CREATE INDEX IF NOT EXISTS idx_metrics_collected ON metrics(collected_at);
 """
 
 VALID_STATUSES = {
@@ -906,6 +919,122 @@ class Database:
             (item_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # ===================== Metrics =====================
+
+    def store_metric(self, type_: str, data: dict, repo: str | None = None,
+                     collected_at: str | None = None) -> dict:
+        conn = self._connect()
+        metric_id = str(uuid.uuid4())
+        now = collected_at or _now()
+        conn.execute(
+            "INSERT INTO metrics (id, type, repo, data, collected_at) VALUES (?, ?, ?, ?, ?)",
+            (metric_id, type_, repo, json.dumps(data), now),
+        )
+        conn.commit()
+        return {"id": metric_id, "type": type_, "repo": repo, "collected_at": now}
+
+    def store_metrics_batch(self, items: list[dict]) -> int:
+        conn = self._connect()
+        count = 0
+        for item in items:
+            conn.execute(
+                "INSERT INTO metrics (id, type, repo, data, collected_at) VALUES (?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), item["type"], item.get("repo"),
+                 json.dumps(item.get("data", item)), item.get("collected_at", item.get("date", _now()))),
+            )
+            count += 1
+        conn.commit()
+        return count
+
+    def query_metrics(self, type_: str | None = None, repo: str | None = None,
+                      since: str | None = None) -> list[dict]:
+        conn = self._connect()
+        query = "SELECT * FROM metrics"
+        conditions = []
+        params: list = []
+        if type_:
+            conditions.append("type=?")
+            params.append(type_)
+        if repo:
+            conditions.append("repo=?")
+            params.append(repo)
+        if since:
+            conditions.append("collected_at >= ?")
+            params.append(since)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY collected_at DESC"
+        rows = conn.execute(query, params).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["data"] = json.loads(d["data"])
+            result.append(d)
+        return result
+
+    def github_report(self, period: str = "30d", repo: str | None = None) -> dict:
+        """Generate GitHub activity report from metrics table."""
+        from datetime import timedelta
+        days = int(period.rstrip("d")) if period.endswith("d") else 30
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+        metrics = self.query_metrics(since=cutoff)
+        if repo:
+            metrics = [m for m in metrics if m.get("repo") == repo or repo in (m.get("repo") or "")]
+
+        # PR velocity from pr_merged metrics
+        pr_merged = [m for m in metrics if m["type"] == "pr_merged"]
+        cycle_times = [m["data"].get("open_to_merge_hours") for m in pr_merged
+                       if m["data"].get("open_to_merge_hours") is not None]
+        first_review_times = [m["data"].get("first_review_hours") for m in pr_merged
+                              if m["data"].get("first_review_hours") is not None]
+
+        # Daily metrics
+        daily = [m for m in metrics if m["type"] == "daily"]
+        reviews_by_person: dict[str, int] = {}
+        commits_by_person: dict[str, int] = {}
+        for d in daily:
+            data = d["data"]
+            for pr in data.get("pr_reviews", []):
+                for reviewer in pr.get("reviewers", []):
+                    login = reviewer.get("login", "")
+                    if login:
+                        reviews_by_person[login] = reviews_by_person.get(login, 0) + 1
+            for repo_commits in data.get("commits", []):
+                for author in repo_commits.get("authors", []):
+                    login = author.get("login", "")
+                    count = author.get("count", 0)
+                    if login:
+                        commits_by_person[login] = commits_by_person.get(login, 0) + count
+
+        # Issue metrics
+        issues_closed = len([m for m in metrics if m["type"] == "issue_closed"])
+        community = [m for m in metrics if m["type"] == "community_issue"]
+        response_times = [m["data"].get("first_response_hours") for m in community
+                          if m["data"].get("first_response_hours") is not None]
+
+        return {
+            "source": "github (metrics DB)",
+            "period": period,
+            "pr_velocity": {
+                "merged_count": len(pr_merged),
+                "avg_cycle_hours": round(sum(cycle_times) / len(cycle_times), 1) if cycle_times else None,
+                "min_cycle_hours": round(min(cycle_times), 1) if cycle_times else None,
+                "max_cycle_hours": round(max(cycle_times), 1) if cycle_times else None,
+            },
+            "first_review": {
+                "avg_hours": round(sum(first_review_times) / len(first_review_times), 1) if first_review_times else None,
+                "count": len(first_review_times),
+            },
+            "issues_closed": issues_closed,
+            "community_response": {
+                "avg_hours": round(sum(response_times) / len(response_times), 1) if response_times else None,
+                "count": len(response_times),
+            },
+            "reviews_by_person": dict(sorted(reviews_by_person.items(), key=lambda x: -x[1])[:15]),
+            "commits_by_person": dict(sorted(commits_by_person.items(), key=lambda x: -x[1])[:15]),
+        }
 
     # ===================== Reporting =====================
 

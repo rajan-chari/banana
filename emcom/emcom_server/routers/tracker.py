@@ -166,12 +166,16 @@ def work_item_decisions(request: Request, repo: str | None = None):
 def report(request: Request, period: str = "30d", repo: str | None = None):
     db = request.app.state.db
     team_metrics = db.report(period=period, repo=repo)
-    # Merge GitHub data from scout's metrics.jsonl
+    # GitHub data from metrics DB table (preferred) or fallback to JSONL file
+    repo_metrics = None
     try:
-        from emcom_server.metrics_reader import github_metrics
-        repo_metrics = github_metrics(period=period, repo=repo)
+        repo_metrics = db.github_report(period=period, repo=repo)
+        if not repo_metrics.get("pr_velocity", {}).get("merged_count"):
+            # DB empty — fallback to file
+            from emcom_server.metrics_reader import github_metrics
+            repo_metrics = github_metrics(period=period, repo=repo)
     except Exception:
-        repo_metrics = None
+        pass
     return {"team_metrics": team_metrics, "repo_metrics": repo_metrics}
 
 
@@ -185,6 +189,41 @@ def report_people(request: Request, period: str = "30d"):
 def report_sla(request: Request, repo: str | None = None):
     db = request.app.state.db
     return db.report_sla(repo=repo)
+
+
+# --- Metrics ingestion ---
+
+class StoreMetricRequest(BaseModel):
+    type: str
+    repo: str | None = None
+    data: dict = {}
+    collected_at: str | None = None
+
+
+class StoreBatchRequest(BaseModel):
+    items: list[dict]
+
+
+@router.post("/metrics")
+def store_metric(req: StoreMetricRequest, request: Request):
+    caller = _get_caller(request)
+    db = request.app.state.db
+    return db.store_metric(type_=req.type, data=req.data, repo=req.repo, collected_at=req.collected_at)
+
+
+@router.post("/metrics/batch")
+def store_metrics_batch(req: StoreBatchRequest, request: Request):
+    caller = _get_caller(request)
+    db = request.app.state.db
+    count = db.store_metrics_batch(req.items)
+    return {"stored": count}
+
+
+@router.get("/metrics")
+def query_metrics(request: Request, type: str | None = None, repo: str | None = None,
+                  since: str | None = None):
+    db = request.app.state.db
+    return db.query_metrics(type_=type, repo=repo, since=since)
 
 
 @router.get("/search")

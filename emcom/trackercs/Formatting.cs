@@ -109,7 +109,7 @@ public static class Fmt
     public static string FormatRepoMetrics(RepoMetrics r)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"=== GITHUB METRICS ({r.Period}) ===");
+        sb.AppendLine($"=== GITHUB ACTIVITY ({r.Period}) ===");
         if (r.PrVelocity is { MergedCount: > 0 })
         {
             sb.AppendLine();
@@ -155,7 +155,7 @@ public static class Fmt
     public static string FormatReport(Report r)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"=== TEAM METRICS ({r.Period}" + (r.Repo != null ? $", {r.Repo}" : "") + ") ===");
+        sb.AppendLine($"=== ISSUE WORKFLOW ({r.Period}" + (r.Repo != null ? $", {r.Repo}" : "") + ") ===");
         sb.AppendLine();
         sb.AppendLine("OVERVIEW");
         sb.AppendLine($"  {"Created",-10}  {"Closed",-10}  Open");
