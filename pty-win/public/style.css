@@ -1975,8 +1975,8 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 
 /* ===== Tracker Panel ===== */
 .tracker-view {
-  padding: 20px 24px;
-  overflow-y: auto;
+  padding: 8px 8px;
+  overflow: auto;
   height: 100%;
   font-family: 'IBM Plex Mono', var(--font-mono);
 }
@@ -2026,10 +2026,37 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 .tracker-item.sev-high { border-left-color: #e5c07b; }
 .tracker-item.sev-critical { border-left-color: #f14c4c; }
 .tracker-decision .tracker-item { border-left-color: #d4882a; }
+.tracker-thead,
 .tracker-item-row {
-  display: flex;
+  display: grid;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 0 8px;
+  min-width: 500px;
+}
+.tracker-thead {
+  font-size: 10px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #333;
+  user-select: none;
+  position: sticky;
+  top: 0;
+  background: var(--emcom-bg, #1a1a1a);
+  z-index: 1;
+}
+.tracker-th {
+  position: relative;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.tracker-th:hover { color: #aaa; }
+.tracker-th.sort-active { color: #d4882a; }
+.tracker-item-row {
   cursor: pointer;
   font-size: 12px;
 }
@@ -2046,6 +2073,12 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   white-space: nowrap;
 }
 .tracker-assignee { color: #d670d6; font-size: 10px; }
+.tracker-age, .tracker-status-age, .tracker-updated, .tracker-activity { color: #777; font-size: 10px; white-space: nowrap; }
+.tracker-col-resize {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 4px;
+  cursor: col-resize; background: transparent;
+}
+.tracker-col-resize:hover, .tracker-col-resize.dragging { background: #d4882a; }
 .tracker-severity {
   font-size: 9px;
   padding: 1px 5px;

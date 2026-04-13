@@ -3202,6 +3202,7 @@ function buildTrackerItem(item) {
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
       <span class="tracker-status-age ${statusStale}">${fmtAge(item.updated_at)}</span>
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
+      <span class="tracker-activity">${item.last_activity ? fmtAge(item.last_activity) : "-"}</span>
     </div>
     <div class="tracker-item-detail">
       ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>` : ""}
@@ -3248,22 +3249,25 @@ function patchTrackerItem(el, item) {
   if (statusAgeEl) { statusAgeEl.textContent = fmtAge(item.updated_at); statusAgeEl.className = `tracker-status-age ${staleClass(item.updated_at)}`; }
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
+  const actEl = el.querySelector(".tracker-activity");
+  if (actEl) actEl.textContent = item.last_activity ? fmtAge(item.last_activity) : "-";
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
   el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
 }
 
-const TRACKER_DEFAULT_COLS = [110, 0, 90, 70, 60, 60, 60]; // 0 = flex
+const TRACKER_DEFAULT_COLS = [80, 0, 65, 50, 45, 50, 55, 50]; // 0 = flex
 
 function initTrackerColumnResize(container) {
   const thead = container.querySelector(".tracker-thead");
   if (!thead) return;
   const ths = [...thead.querySelectorAll(".tracker-th")];
 
-  // Load saved widths
+  // Load saved widths (reset if column count changed)
   let colWidths;
   try {
     const saved = localStorage.getItem("pty-win-tracker-col-widths");
-    colWidths = saved ? JSON.parse(saved) : [...TRACKER_DEFAULT_COLS];
+    const parsed = saved ? JSON.parse(saved) : null;
+    colWidths = (parsed && parsed.length === TRACKER_DEFAULT_COLS.length) ? parsed : [...TRACKER_DEFAULT_COLS];
   } catch { colWidths = [...TRACKER_DEFAULT_COLS]; }
 
   function applyWidths() {
@@ -3402,6 +3406,7 @@ function renderTracker() {
         <div class="tracker-th" data-sort="age">Age <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="updated">In Status <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="last_activity">Activity <span class="sort-arrow"></span></div>
       </div>
       <div class="tracker-body"></div>`;
     area.appendChild(container);
