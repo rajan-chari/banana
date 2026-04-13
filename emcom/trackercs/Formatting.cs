@@ -19,15 +19,31 @@ public static class Fmt
     {
         if (items.Count == 0) return "No items.";
         var sb = new StringBuilder();
-        sb.AppendLine($"{"ID",-10}  {"Repo",-12}  {"#",-5}  {"Title",-28}  {"Status",-16}  {"Sev",-6}  {"Assigned",-10}  {"Updated",-14}");
-        sb.AppendLine(new string('-', 10 + 2 + 12 + 2 + 5 + 2 + 28 + 2 + 16 + 2 + 6 + 2 + 10 + 2 + 14));
+        sb.AppendLine($"{"ID",-10}  {"Repo",-12}  {"#",-5}  {"Title",-25}  {"Status",-16}  {"Sev",-4}  {"Assigned",-10}  {"Age",-6}  Last Activity");
+        sb.AppendLine(new string('-', 10 + 2 + 12 + 2 + 5 + 2 + 25 + 2 + 16 + 2 + 4 + 2 + 10 + 2 + 6 + 2 + 13));
         foreach (var item in items)
         {
             var num = item.Number is > 0 ? item.Number.Value.ToString() : "";
             var assigned = item.AssignedTo ?? "";
-            sb.AppendLine($"{ShortId(item.Id),-10}  {Trunc(item.Repo, 12),-12}  {num,-5}  {Trunc(item.Title, 28),-28}  {item.Status,-16}  {item.Severity[..3],-6}  {Trunc(assigned, 10),-10}  {ShortDate(item.UpdatedAt),-14}");
+            var origin = item.DateFound ?? item.CreatedAt;
+            var age = RelTime(origin);
+            var lastAct = RelTime(item.UpdatedAt);
+            sb.AppendLine($"{ShortId(item.Id),-10}  {Trunc(item.Repo, 12),-12}  {num,-5}  {Trunc(item.Title, 25),-25}  {item.Status,-16}  {item.Severity[..3],-4}  {Trunc(assigned, 10),-10}  {age,-6}  {lastAct}");
         }
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>Format ISO timestamp as relative time (2h, 3d, 1w).</summary>
+    private static string RelTime(string? iso)
+    {
+        if (string.IsNullOrEmpty(iso)) return "—";
+        if (!DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            return "—";
+        var span = DateTime.UtcNow - dt.ToUniversalTime();
+        if (span.TotalHours < 1) return $"{(int)span.TotalMinutes}m";
+        if (span.TotalDays < 1) return $"{(int)span.TotalHours}h";
+        if (span.TotalDays < 7) return $"{(int)span.TotalDays}d";
+        return $"{(int)(span.TotalDays / 7)}w";
     }
 
     public static string FormatItem(WorkItem item)
