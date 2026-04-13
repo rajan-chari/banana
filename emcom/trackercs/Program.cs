@@ -126,6 +126,7 @@ public static class Program
                     else if (rest[i] == "--decision" && i + 1 < rest.Count) req.Decision = rest[++i];
                     else if (rest[i] == "--decision-rationale" && i + 1 < rest.Count) req.DecisionRationale = rest[++i];
                     else if (rest[i] == "--date-found" && i + 1 < rest.Count) req.DateFound = rest[++i];
+                    else if (rest[i] == "--last-github-activity" && i + 1 < rest.Count) req.LastGithubActivity = rest[++i];
                     else if (rest[i] == "--title" && i + 1 < rest.Count) req.Title = rest[++i];
                     else if (rest[i] == "--severity" && i + 1 < rest.Count) req.Severity = rest[++i];
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)
