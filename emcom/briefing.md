@@ -1,10 +1,10 @@
 # Briefing
 
-Last updated: 2026-04-10 checkpoint
+Last updated: 2026-04-13 checkpoint
 
 ## Current Focus
 
-Binary reversion root cause found: binaries were git-tracked in fellow_scholars repo — git pull kept reverting them. Blake untracking + gitignoring. Built deploy.ps1 script for safe deployments (version check, backup, verify). Also fixed another tracker report zeros bug (CLI/server version mismatch). Saved independent verification rule and root cause to Claude-KB. No outstanding work.
+Shipped: (1) --force register bug fix — reuses identity.json name instead of random pool name (`465056e`), (2) Last Activity column in tracker list — shows relative Age + Last Activity times (`c1d3bc9`), (3) 401 auth fix for /health and tracker GET endpoints (`4d46c94`). All CLIs deployed. Server source has all fixes but emcom-server.exe still needs rebuild. No outstanding work.
 
 ## Don't Forget
 
