@@ -4,7 +4,7 @@ Last updated: 2026-04-13 checkpoint
 
 ## Current Focus
 
-Shipped `last_github_activity` field (`e13c375`) — Last Activity column now shows real GitHub timestamps instead of tracker-internal updates. Scout confirmed will populate during scans. Also shipped: --force register fix (`465056e`), Age+LastActivity columns (`c1d3bc9`), 401 auth fix (`4d46c94`). All CLIs deployed. emcom-server.exe needs rebuild (has accumulated: auth fix, force fix, last_github_activity, metrics reader, report split). No outstanding work.
+Productive session. Shipped: last_github_activity field + scout integration, --force register fix, 401 auth fix, unknown flag error detection, full --help system for tracker CLI, emcom-server rebuilt with all fixes. All binaries current. No outstanding work.
 
 ## Don't Forget
 
