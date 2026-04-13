@@ -25,8 +25,10 @@ from emcom_server.db import Database
 from emcom_server.routers import identity, names, email, threads, tags, search, attachments, tracker
 
 # Endpoints that skip auth
-NO_AUTH_PATHS = {"/health", "/who", "/names", "/admin/purge", "/tracker/ws"}
+NO_AUTH_PATHS = {"/health", "/api/health", "/who", "/names", "/admin/purge", "/tracker/ws"}
 NO_AUTH_PREFIXES = ("/docs", "/openapi", "/redoc", "/register")
+# Tracker GET endpoints are public (read-only, used by pty-win panel)
+NO_AUTH_GET_PREFIXES = ("/tracker",)
 
 
 @asynccontextmanager
@@ -62,6 +64,8 @@ def create_app() -> FastAPI:
             needs_auth = False
         elif request.method == "POST" and path == "/register":
             needs_auth = False
+        elif request.method == "GET" and any(path.startswith(p) for p in NO_AUTH_GET_PREFIXES):
+            needs_auth = False
 
         if needs_auth:
             name = request.headers.get("X-Emcom-Name")
@@ -82,6 +86,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     @app.get("/health")
+    @app.get("/api/health")
     def health():
         return {"status": "ok"}
 
