@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS work_items (
     decision TEXT,
     decision_rationale TEXT,
     date_found TEXT,
+    last_github_activity TEXT,
     labels TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
@@ -134,7 +135,7 @@ VALID_LINK_TYPES = {"related", "blocks", "blocked-by", "duplicate"}
 TRACKED_FIELDS = {
     "title", "type", "severity", "status", "assigned_to", "blocker",
     "blocked_since", "findings", "decision", "decision_rationale",
-    "date_found", "labels", "notes", "number",
+    "date_found", "last_github_activity", "labels", "notes", "number",
 }
 
 
@@ -202,10 +203,13 @@ class Database:
         if "location" not in cols:
             conn.execute("ALTER TABLE identities ADD COLUMN location TEXT NOT NULL DEFAULT ''")
             conn.commit()
-        # Migration: add date_found column to work_items if missing
+        # Migration: add date_found + last_github_activity columns to work_items if missing
         wi_cols = [r[1] for r in conn.execute("PRAGMA table_info(work_items)").fetchall()]
         if wi_cols and "date_found" not in wi_cols:
             conn.execute("ALTER TABLE work_items ADD COLUMN date_found TEXT")
+            conn.commit()
+        if wi_cols and "last_github_activity" not in wi_cols:
+            conn.execute("ALTER TABLE work_items ADD COLUMN last_github_activity TEXT")
             conn.commit()
         # Seed name pool if empty
         count = conn.execute("SELECT COUNT(*) FROM name_pool").fetchone()[0]

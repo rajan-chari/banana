@@ -27,7 +27,7 @@ public static class Fmt
             var assigned = item.AssignedTo ?? "";
             var origin = item.DateFound ?? item.CreatedAt;
             var age = RelTime(origin);
-            var lastAct = RelTime(item.UpdatedAt);
+            var lastAct = RelTime(item.LastGithubActivity ?? item.UpdatedAt);
             sb.AppendLine($"{ShortId(item.Id),-10}  {Trunc(item.Repo, 12),-12}  {num,-5}  {Trunc(item.Title, 25),-25}  {item.Status,-16}  {item.Severity[..3],-4}  {Trunc(assigned, 10),-10}  {age,-6}  {lastAct}");
         }
         return sb.ToString().TrimEnd();
@@ -66,6 +66,8 @@ public static class Fmt
             sb.AppendLine($"Labels:     {string.Join(", ", item.Labels)}");
         if (!string.IsNullOrEmpty(item.DateFound))
             sb.AppendLine($"Found:      {ShortDate(item.DateFound)}");
+        if (!string.IsNullOrEmpty(item.LastGithubActivity))
+            sb.AppendLine($"GH Active:  {ShortDate(item.LastGithubActivity)} ({RelTime(item.LastGithubActivity)} ago)");
         if (!string.IsNullOrEmpty(item.Blocker))
         {
             sb.AppendLine($"Blocker:    {item.Blocker}");
