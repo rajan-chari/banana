@@ -195,6 +195,10 @@ public sealed class EmcomClient
         if (_identity != null && !force)
             throw new EmcomException($"Already registered as '{_identity.Name}'. Unregister first or use --force.");
 
+        // When force-registering without --name, reuse name from existing identity.json
+        if (name == null && force && _identity != null)
+            name = _identity.Name;
+
         // Compute location from last 3 CWD path segments (match Python)
         var parts = Directory.GetCurrentDirectory().Replace('\\', '/').Split('/');
         var location = string.Join("/", parts.Length >= 3 ? parts[^3..] : parts);

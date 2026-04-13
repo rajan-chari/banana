@@ -132,6 +132,10 @@ class EmcomClient:
         if self._identity and not force:
             raise EmcomError(f"Already registered as '{self._identity.name}'. Unregister first or use force=True.")
 
+        # When force-registering without a name, reuse name from existing identity.json
+        if not name and force and self._identity:
+            name = self._identity.name
+
         parts = PurePosixPath(Path.cwd().as_posix()).parts
         location = "/".join(parts[-3:]) if len(parts) >= 3 else "/".join(parts)
 
