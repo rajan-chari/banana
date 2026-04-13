@@ -1,17 +1,20 @@
 # Briefing
-Last updated: 2026-04-10 12:13
+Last updated: 2026-04-13 16:33
 
 ## Current Focus
-Idle. New team rule persisted (independent verification for community-facing content → Claude-KB.md + CLAUDE.md). Xterm fixes and deploy packaging all committed/pushed, awaiting server restart by Rajan.
+Fixed tracker panel column alignment + Activity column. All committed and pushed. Waiting on frost for last_activity data field.
 
 ## Don't Forget
 - Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, injection timestamps, cost history sampling, node-pty swap, shell cross-platform fix, scroll/focus fix (hooks→broadcastStatus)
-- Browser refresh needed for frontend: tracker panel tab, dashboard redesign, drag-drop, pane borders, agents tab
+- Browser refresh needed for frontend: tracker panel alignment fix, Activity column, dashboard redesign, drag-drop, pane borders, agents tab
 - Duplication: src/tiling.ts, src/pane-groups.ts, src/session-state.ts are extracted copies of app.js/session.ts — don't let them drift
 - Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests
 - tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-13 16:33 — Fix: tracker panel column alignment + Activity column
+Header and data rows had display:flex vs gridTemplateColumns mismatch — columns never aligned. Fixed both to use CSS Grid with shared template + min-width:500px for horizontal scroll in narrow panel. Sticky header. Added 8th column (Activity) for last_activity field (waiting on frost). Commit 6fe1ced.
+
 ### 2026-04-09 09:44 — Fix: scroll jump + focus loss in xterm (high-impact)
 Hook callbacks (Stop/Notify/PromptSubmit) were calling broadcastSessionList() which triggered full DOM rebuild (renderActiveWorkspace → innerHTML="") on every hook event. Switched to broadcastStatus() (server) and skip renderActiveWorkspace when session set unchanged (frontend). Focus restore now catches focus-lost-to-body. Commit aa8c1ad.
 

@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-09 10:10
+Last updated: 2026-04-13 16:33
 
 ## In Motion
 
@@ -20,6 +20,7 @@ Last updated: 2026-04-09 10:10
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-13 | Tracker panel alignment + Activity column | flex→grid fix, sticky header, Activity column for last_activity |
 | 2026-04-09 | Scroll jump + focus loss fix | Hooks→broadcastStatus, skip DOM rebuild on status-only, focus restore |
 | 2026-04-08 | Shell button cross-platform fix | pwsh→bash on Linux/Mac, /api/config exposes platform |
 | 2026-04-07 | One-click deploy packaging | node-pty prebuilt, onnxruntime optional, CI workflow |
