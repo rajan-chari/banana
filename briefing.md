@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-10 14:13
+Last updated: 2026-04-13 15:20
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,6 +13,7 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
+- 2026-04-13 15:20 — E2E v0.0.3 clean test on dev-linux VM passed. All services start, health check 200, pty-win serves UI. Found register --force issue, fixed (1b5cd0f). Binary overwrite root cause confirmed by Rajan: skills junction + git-tracked binaries; blake untracking.
 - 2026-04-10 14:13 — Independent verification rule finalized and broadcast to 18 agents. Added to team-manual.md (d83df24). All community-facing content (GitHub comments, PRs, docs) must be verified by a different agent before posting. Persisted in Claude-KB.md.
 - 2026-04-09 22:04 — pty-win instance identification shipped (3 commits: d0fa117, 0043d6c, 97eef89). `--name` flag sets tab title + accent color + subtle background tint from name hash. Live name change via `POST /api/name` + clickable badge in sidebar header.
 - 2026-04-08 07:07 — pwsh 7 now required for setup.ps1 (PS 5.1 incompatible). Version check + install instructions added (9524064). README updated. Moss fixed pty-win shell button (6f92b40): server normalizes pwsh→bash on Linux, new /api/config endpoint.
