@@ -7,7 +7,7 @@ Last updated: 2026-03-30
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win: force-not-busy context menu | Not started | frost | Rajan wants right-click "force not busy" on session entries. Check if commit `8f0340c` already covers this. |
-| emcom-server.exe rebuild | Pending | frost | Source has 401 fix + force register fix + all recent features. Needs PyInstaller rebuild + deploy. |
+| emcom-server.exe rebuild | Pending | frost | Source has: auth fix, force fix, last_github_activity, metrics reader, report split, append-notes. Needs PyInstaller rebuild + deploy. |
 
 ## Watching
 
@@ -43,6 +43,7 @@ Last updated: 2026-03-30
 | 2026-04-12 | Fix 401 on health + tracker GET | /api/health alias, tracker GET endpoints public for pty-win panel. Commit `4d46c94`. |
 | 2026-04-13 | Fix --force register ignoring identity name | Force-register reuses identity.json name. Commit `465056e`. |
 | 2026-04-13 | Last Activity column | Age + Last Activity relative times in tracker list. Commit `c1d3bc9`. |
+| 2026-04-13 | last_github_activity field | Real GitHub timestamps for Last Activity. Scout updating during scans. Commit `e13c375`. |
 |------|------|---------|
 | 2026-03-25 | Adopt briefing.md spec | Created briefing.md, updated CLAUDE.md startup + session-end, commit `4cdeb73` |
 | 2026-03-24 | Layered auto-save in CLAUDE.md | Added Layer 1 (milestone) + Layer 2 (periodic) strategy, commit `493024d` |
