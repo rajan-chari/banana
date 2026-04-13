@@ -96,6 +96,8 @@ public static class Program
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)
                         labels.AddRange(rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     else if (rest[i] == "--notes" && i + 1 < rest.Count) notes = rest[++i];
+                    else if (rest[i].StartsWith('-'))
+                    { Console.Error.WriteLine($"Error: unknown flag '{rest[i]}'"); return 1; }
                 }
                 if (repo == null) { Console.Error.WriteLine("Error: --repo required"); return 1; }
                 if (title == null) { Console.Error.WriteLine("Error: --title required"); return 1; }
@@ -134,6 +136,8 @@ public static class Program
                     else if (rest[i] == "--notes" && i + 1 < rest.Count) req.Notes = rest[++i];
                     else if (rest[i] == "--append-notes" && i + 1 < rest.Count) req.AppendNotes = rest[++i];
                     else if (rest[i] == "--comment" && i + 1 < rest.Count) req.Comment = rest[++i];
+                    else if (rest[i].StartsWith('-'))
+                    { Console.Error.WriteLine($"Error: unknown flag '{rest[i]}'"); return 1; }
                 }
                 var item = c.Update(itemRef, req);
                 Console.WriteLine($"Updated [{Fmt.ShortId(item.Id)}] {item.ExternalId} → {item.Status}");
