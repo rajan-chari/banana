@@ -22,7 +22,7 @@ public static class Program
                 remaining.Add(args[i]);
         }
 
-        if (remaining.Count == 0)
+        if (remaining.Count == 0 || remaining[0] is "--help" or "-h")
         {
             PrintUsage();
             return 0;
@@ -46,25 +46,140 @@ public static class Program
         Console.WriteLine("Usage: tracker <command> [options]");
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  create    Create a work item");
-        Console.WriteLine("  update    Update a work item");
-        Console.WriteLine("  comment   Add a comment");
-        Console.WriteLine("  link      Link two work items");
-        Console.WriteLine("  list      List work items (with filters)");
-        Console.WriteLine("  view      View a work item with history");
-        Console.WriteLine("  queue     Show agent's work queue");
-        Console.WriteLine("  stats     Show summary statistics");
-        Console.WriteLine("  decisions Show items with decisions");
-        Console.WriteLine("  stale     Show stale items");
-        Console.WriteLine("  blocked   Show blocked items");
-        Console.WriteLine("  search    Search work items");
-        Console.WriteLine("  history   Show item history");
+        Console.WriteLine("  create     Create a work item");
+        Console.WriteLine("  update     Update a work item");
+        Console.WriteLine("  comment    Add a comment");
+        Console.WriteLine("  link       Link two work items");
+        Console.WriteLine("  list       List work items (with filters)");
+        Console.WriteLine("  view       View a work item with history");
+        Console.WriteLine("  queue      Show agent's work queue");
+        Console.WriteLine("  stats      Show summary statistics");
+        Console.WriteLine("  report     Agent workflow report");
+        Console.WriteLine("  github     GitHub activity report");
+        Console.WriteLine("  decisions  Show items with decisions");
+        Console.WriteLine("  stale      Show stale items");
+        Console.WriteLine("  blocked    Show blocked items");
+        Console.WriteLine("  search     Search work items");
+        Console.WriteLine("  history    Show item history");
+        Console.WriteLine("  version    Show version info");
+        Console.WriteLine();
+        Console.WriteLine("Run 'tracker <command> --help' for command-specific options.");
+    }
+
+    private static void PrintCommandHelp(string cmd)
+    {
+        switch (cmd)
+        {
+            case "create":
+                Console.WriteLine("Usage: tracker create --repo <repo> --title <title> [options]");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --repo <name>           Repository (required)");
+                Console.WriteLine("  --title <text>          Title (required)");
+                Console.WriteLine("  --number <n>            GitHub issue/PR number");
+                Console.WriteLine("  --issue <n>             Alias for --number");
+                Console.WriteLine("  --type <type>           issue, pr, investigation, decision (default: issue)");
+                Console.WriteLine("  --severity <sev>        low, normal, high, critical (default: normal)");
+                Console.WriteLine("  --status <status>       Initial status (default: new)");
+                Console.WriteLine("  --assigned <agent>      Assign to agent");
+                Console.WriteLine("  --date-found <iso>      When issue was originally filed");
+                Console.WriteLine("  --labels <a,b,c>        Comma-separated labels");
+                Console.WriteLine("  --notes <text>          Initial notes");
+                break;
+            case "update":
+                Console.WriteLine("Usage: tracker update <id-or-ref> [options]");
+                Console.WriteLine();
+                Console.WriteLine("Lookup: UUID prefix, repo#number, or bare number");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --status <status>                 new, triaged, investigating, findings-reported,");
+                Console.WriteLine("                                    decision-pending, pr-up, testing, ready-to-merge,");
+                Console.WriteLine("                                    merged, deferred, closed");
+                Console.WriteLine("  --assigned <agent>                Assign to agent");
+                Console.WriteLine("  --blocker <text>                  Who/what is blocking");
+                Console.WriteLine("  --findings <text>                 Investigation findings");
+                Console.WriteLine("  --decision <text>                 Decision made");
+                Console.WriteLine("  --decision-rationale <text>       Why this decision");
+                Console.WriteLine("  --date-found <iso>                When issue was originally filed");
+                Console.WriteLine("  --last-github-activity <iso>      Latest GitHub activity timestamp");
+                Console.WriteLine("  --title <text>                    Update title");
+                Console.WriteLine("  --severity <sev>                  low, normal, high, critical");
+                Console.WriteLine("  --labels <a,b,c>                  Replace labels");
+                Console.WriteLine("  --notes <text>                    Replace notes");
+                Console.WriteLine("  --append-notes <text>             Append timestamped note");
+                Console.WriteLine("  --pr <n>                          Set PR number");
+                Console.WriteLine("  --comment <text>                  Comment on the change");
+                break;
+            case "list":
+                Console.WriteLine("Usage: tracker list [options]");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --status <status>       Filter by status (or 'open' for all non-closed)");
+                Console.WriteLine("  --repo <name>           Filter by repository");
+                Console.WriteLine("  --assigned <agent>      Filter by assignee");
+                Console.WriteLine("  --severity <sev>        Filter by severity");
+                Console.WriteLine("  --label <label>         Filter by label");
+                Console.WriteLine("  --since <iso>           Updated since date");
+                Console.WriteLine("  --blocked               Show only blocked items");
+                Console.WriteLine("  --needs-decision        Alias for --status decision-pending");
+                break;
+            case "report":
+                Console.WriteLine("Usage: tracker report [people|sla] [options]");
+                Console.WriteLine();
+                Console.WriteLine("  tracker report                    Agent workflow summary");
+                Console.WriteLine("  tracker report people             Per-person activity");
+                Console.WriteLine("  tracker report sla                SLA for open items");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --period <Nd>           Time period, e.g. 7d, 30d (default: 30d)");
+                Console.WriteLine("  --repo <name>           Filter by repository");
+                break;
+            case "github":
+                Console.WriteLine("Usage: tracker github [options]");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --period <Nd>           Time period, e.g. 7d, 30d (default: 30d)");
+                Console.WriteLine("  --repo <name>           Filter by repository");
+                break;
+            case "comment":
+                Console.WriteLine("Usage: tracker comment <id-or-ref> <text>");
+                break;
+            case "link":
+                Console.WriteLine("Usage: tracker link <id1> <id2> [--type related|blocks|blocked-by|duplicate]");
+                break;
+            case "view":
+                Console.WriteLine("Usage: tracker view <id-or-ref>");
+                break;
+            case "queue":
+                Console.WriteLine("Usage: tracker queue [agent-name]  (defaults to self)");
+                break;
+            case "stale":
+                Console.WriteLine("Usage: tracker stale [--hours <N>]  (default: 24)");
+                break;
+            case "search":
+                Console.WriteLine("Usage: tracker search <query>");
+                break;
+            case "history":
+                Console.WriteLine("Usage: tracker history <id-or-ref>");
+                break;
+            default:
+                PrintUsage();
+                break;
+        }
     }
 
     private static int Dispatch(List<string> args, string server, string identity)
     {
         var cmd = args[0];
         var rest = args.Skip(1).ToList();
+
+        // Per-command help
+        if (rest.Contains("--help") || rest.Contains("-h"))
+        {
+            PrintCommandHelp(cmd);
+            return 0;
+        }
+
         var c = MakeClient(server, identity);
         if (cmd != "version")
             c.EnsureServer();
