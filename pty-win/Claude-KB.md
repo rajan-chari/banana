@@ -123,6 +123,9 @@ Claude Code's statusLine.command is global (or per-CWD). If user runs multiple p
 ### 2026-04-07: Playwright MCP testing — use port 3650+, never 3600
 Playwright MCP is available for UI testing. Always start a test pty-win instance on port 3650 or higher. NEVER test against production on port 3600 — it has live agent sessions. Start with: `node dist/index.js --port 3650`. Then use Playwright MCP tools to navigate, snapshot, interact, and verify DOM state.
 
+### 2026-04-13: Playwright verification must show real data, not just structure
+When using Playwright to verify UI changes that display data, the test instance must have a working backend with real data. Verifying that a column header appears is not confirmation — the cells must show actual values. The tracker field name bug (last_activity vs last_github_activity) was missed because the Playwright test on port 3701 had no emcom backend, so only "CONNECTION FAILED" was shown instead of actual tracker items.
+
 ### 2026-04-13: Tracker panel — display:flex vs gridTemplateColumns mismatch
 The tracker-thead and tracker-item-row CSS had `display: flex` but `initTrackerColumnResize()` was setting `gridTemplateColumns` on them. Grid-template properties are ignored on flex containers, so headers and data rows used completely different layout algorithms. Fix: change both to `display: grid`. Also: localStorage-saved column widths from a previous column count must be invalidated — check `parsed.length === TRACKER_DEFAULT_COLS.length` before using saved values.
 
