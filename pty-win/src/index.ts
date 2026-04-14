@@ -12,6 +12,7 @@ Usage: pty-win [options]
 
 Options:
   --port <number>          HTTP server port (default: ${DEFAULTS.port})
+  --host <address>         Bind address (default: ${DEFAULTS.host}, use 0.0.0.0 for Docker)
   --name <string>          Instance name (shown in browser tab + accent color)
   --root <path>            Add a folder root to the sidebar (repeatable)
   --emcom <url>            Emcom server URL (default: ${DEFAULTS.emcomServer})
@@ -27,6 +28,7 @@ Examples:
 }
 
 let port = DEFAULTS.port;
+let host = DEFAULTS.host;
 let name = "";
 let emcomServer = DEFAULTS.emcomServer;
 let mlModelPath = "";
@@ -35,6 +37,8 @@ const rootDirs: string[] = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port" && args[i + 1]) {
     port = parseInt(args[++i], 10);
+  } else if (args[i] === "--host" && args[i + 1]) {
+    host = args[++i];
   } else if (args[i] === "--name" && args[i + 1]) {
     name = args[++i];
   } else if (args[i] === "--emcom" && args[i + 1]) {
@@ -46,4 +50,4 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-startServer({ port, name, emcomServer, rootDirs, mlModelPath });
+startServer({ port, host, name, emcomServer, rootDirs, mlModelPath });

@@ -20,6 +20,7 @@ export interface SessionConfig {
 
 export interface ServerConfig {
   port: number;
+  host: string;
   name: string;
   emcomServer: string;
   rootDirs: string[];
@@ -28,6 +29,7 @@ export interface ServerConfig {
 
 export const DEFAULTS = {
   port: 3600,
+  host: "127.0.0.1",
   emcomServer: "http://127.0.0.1:8800",
   pollIntervalMs: 1000,
   quietThresholdMs: 1000,

@@ -602,9 +602,9 @@ public class Win32Focus {
 
   // --- Start ---
 
-  httpServer.listen(config.port, "127.0.0.1", () => {
-    log(`[server] pty-win listening on http://127.0.0.1:${config.port}`);
-    console.log(`pty-win: http://127.0.0.1:${config.port}`);
+  httpServer.listen(config.port, config.host, () => {
+    log(`[server] pty-win listening on http://${config.host}:${config.port}`);
+    console.log(`pty-win: http://${config.host}:${config.port}`);
   });
 
   // 30s stats logger
