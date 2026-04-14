@@ -68,6 +68,9 @@ Don't require digits after `(`.
 ### 2026-04-04: signalIdle (hook path) does not consume needsStartupKick
 Only the heuristic path in `startHeuristic()` checks and clears `needsStartupKick`. The hook-based `signalIdle()` → `setIdle()` path does not. This means if the first idle detection comes via hook rather than heuristic, the startup kick will fire on the next heuristic-detected idle. This is current behavior, not a bug — but important to know for any refactor of the idle detection paths.
 
+### 2026-04-14: @homebridge/node-pty-prebuilt-multiarch replaces node-pty
+Drop-in replacement with prebuilt binaries — no native build tools needed. Import path changes from `node-pty` to `@homebridge/node-pty-prebuilt-multiarch`. One API difference: `write()` only accepts `string` (not `Buffer`), so convert with `buffer.toString("binary")`. Version 0.13.x (not 1.x like upstream node-pty). Same package pty-win uses.
+
 ### 2026-04-04: Work tracker CLI is available
 `tracker` command is in PATH. Key commands: `tracker create`, `tracker update`, `tracker list`, `tracker view`, `tracker stats`. Use for tracking work items across sessions.
 
@@ -82,3 +85,12 @@ All community-facing content (GitHub comments, PRs, docs, samples) must be indep
 - **Scope**: GitHub/public only. Internal emcom/tracker/briefing excluded.
 
 Source: team-manual.md (d83df24)
+
+### 2026-04-14: External quality bar — smooth startups and verified facts
+Two principles for all external-facing work:
+1. **Startup journeys must be super smooth** — npm packages, setup scripts, Docker images. Test end-to-end on clean machines. First impressions matter; people drop out quickly if setup fails.
+2. **External comments/PRs must have very high fact confirmation** — verify claims against current code before posting. Don't post based on stale analysis.
+
+For pty-cld: before shipping, test clean-machine install + startup as a first-time user. Every step must just work.
+
+Source: Rajan directive (2026-04-14)

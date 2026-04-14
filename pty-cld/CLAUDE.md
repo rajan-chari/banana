@@ -19,7 +19,6 @@ Before responding to the user's first message:
 - **Setup hook** — `pty-cld setup`
 - **Run CLI** — `cd /project/with/identity.json && pty-cld`
 - **Run with args** — `pty-cld --resume <session-id>`
-- **Run web UI** — `pty-cld --serve`
 - **Watch build** — `npm run dev`
 - **Tail logs** — `tail -f pty-cld.log`
 
@@ -33,9 +32,7 @@ Each Claude spawned by pty-cld gets `--append-system-prompt` telling it not to u
 
 ### Status
 
-- **Working**: CLI mode, emcom polling, idle hook injection, multi-instance, system prompt suppression, `pty-cld setup`
-- **Untested**: Web UI (`--serve` mode with xterm.js) — code written but never run
-- **Not implemented**: `ws-bridge.ts` (WebSocket bridge for browser ↔ PTY)
+- **Working**: CLI mode, emcom polling, idle hook injection, screen-aware idle detection, checkpoint timers, dynamic emcom attach, multi-instance, system prompt suppression, `pty-cld setup`
 
 ## Guardrails
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { InputInjector } from "./input-injector.js";
 import type { ScreenDetector, PromptType } from "./screen-detector.js";
-import type * as pty from "node-pty";
+import type * as pty from "@homebridge/node-pty-prebuilt-multiarch";
 
 // --- Mocks ---
 

@@ -1,4 +1,4 @@
-import * as pty from "node-pty";
+import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
 import { EventEmitter } from "events";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
@@ -162,7 +162,7 @@ export class ClaudeSession extends EventEmitter {
   }
 
   write(data: string | Buffer): void {
-    this.ptyProcess.write(data);
+    this.ptyProcess.write(typeof data === "string" ? data : data.toString("binary"));
   }
 
   resize(cols: number, rows: number): void {

@@ -1,4 +1,4 @@
-import type * as pty from "node-pty";
+import type * as pty from "@homebridge/node-pty-prebuilt-multiarch";
 import type { ScreenDetector } from "./screen-detector.js";
 import { log } from "../log.js";
 

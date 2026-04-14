@@ -11,10 +11,9 @@ import { log } from "./log.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function parseArgs(argv: string[]): { serve: boolean; setup: boolean; claudeArgs: string[]; overrides: CliOverrides } {
+function parseArgs(argv: string[]): { setup: boolean; claudeArgs: string[]; overrides: CliOverrides } {
   const overrides: CliOverrides = {};
   const claudeArgs: string[] = [];
-  let serve = false;
   let setup = false;
 
   let i = 0;
@@ -25,9 +24,7 @@ function parseArgs(argv: string[]): { serve: boolean; setup: boolean; claudeArgs
 
   while (i < argv.length) {
     const arg = argv[i];
-    if (arg === "--serve") {
-      serve = true;
-    } else if (arg === "--poll-interval" && i + 1 < argv.length) {
+    if (arg === "--poll-interval" && i + 1 < argv.length) {
       const val = Number(argv[++i]);
       if (Number.isNaN(val)) { console.error(`Invalid --poll-interval: ${argv[i]}`); process.exit(1); }
       overrides.pollIntervalMs = val;
@@ -45,7 +42,7 @@ function parseArgs(argv: string[]): { serve: boolean; setup: boolean; claudeArgs
     i++;
   }
 
-  return { serve, setup, claudeArgs, overrides };
+  return { setup, claudeArgs, overrides };
 }
 
 /** Bind control API, trying successive ports. Returns { server, port }. */
@@ -194,14 +191,11 @@ async function runCli(claudeArgs: string[], overrides: CliOverrides): Promise<vo
 }
 
 async function main(): Promise<void> {
-  const { serve, setup, claudeArgs, overrides } = parseArgs(process.argv.slice(2));
+  const { setup, claudeArgs, overrides } = parseArgs(process.argv.slice(2));
 
   if (setup) {
     const { runSetup } = await import("./setup.js");
     runSetup(claudeArgs);
-  } else if (serve) {
-    const { startServer } = await import("./server.js");
-    await startServer();
   } else {
     await runCli(claudeArgs, overrides);
   }
