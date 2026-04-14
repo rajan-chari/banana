@@ -3200,8 +3200,8 @@ function buildTrackerItem(item) {
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
-      <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
       <span class="tracker-activity">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
+      <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
       ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>` : ""}
@@ -3252,7 +3252,7 @@ function patchTrackerItem(el, item) {
   el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
 }
 
-const TRACKER_DEFAULT_COLS = [85, 0, 55, 40, 35, 50, 40]; // 0 = flex
+const TRACKER_DEFAULT_COLS = [85, 0, 55, 40, 35, 40, 50]; // 0 = flex
 
 function initTrackerColumnResize(container) {
   const thead = container.querySelector(".tracker-thead");
@@ -3400,9 +3400,9 @@ function renderTracker() {
         <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="severity">Sev <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="age" style="text-align:right;justify-content:flex-end">Age <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="age" style="text-align:center;justify-content:center">Age <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="last_github_activity" style="text-align:center;justify-content:center">Active <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="last_github_activity">Active <span class="sort-arrow"></span></div>
       </div>
       <div class="tracker-body"></div>`;
     area.appendChild(container);

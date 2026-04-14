@@ -135,7 +135,7 @@
 /* --- Table Header (sortable) --- */
 .tracker-thead {
   display: grid;
-  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px 40px;
+  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 40px 50px;
   padding: 4px 8px;
   background: #18181c;
   border-bottom: 1px solid #2a2a2e;
@@ -251,7 +251,7 @@
 
 .tracker-item-row {
   display: grid;
-  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px 40px;
+  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 40px 50px;
   padding: 2px 8px;
   cursor: pointer;
   align-items: center;
@@ -288,7 +288,7 @@
 
 .tracker-assignee {
   font-size: 9px;
-  color: #a080c0;
+  color: #c0a0e0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -296,7 +296,7 @@
 
 .tracker-age {
   font-size: 10px;
-  text-align: right;
+  text-align: center;
   font-weight: 500;
 }
 
@@ -304,19 +304,19 @@
 .tracker-age.stale-yellow { color: #e8b830; }
 .tracker-age.stale-red { color: #f14c4c; font-weight: 700; }
 
+.tracker-activity {
+  font-size: 10px;
+  color: #aaa;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .tracker-updated {
   font-size: 9px;
-  color: #777;
+  color: #aaa;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.tracker-activity {
-  font-size: 9px;
-  color: #666;
-  white-space: nowrap;
-  text-align: right;
 }
 
 /* Stale item row highlight */
