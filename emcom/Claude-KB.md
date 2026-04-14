@@ -67,6 +67,9 @@ Adding a `logging.Filter` to `uvicorn.access` before `uvicorn.run()` doesn't wor
 - Lookups: `teams.py#344`, `344` (if unambiguous), or UUID prefix all work.
 Rule: when shipping features to emcom-server, update relevant tracker items. When blocked, set --blocker.
 
+### 2026-04-14: PRINCIPLE — External quality bar
+Two rules for all external-facing work: (1) Startup journeys must be super smooth — npm packages, setup scripts, binaries must work on first run across all target platforms. Test end-to-end on clean machines. First impressions matter; people drop out if setup fails. (2) External comments/PRs must have very high fact confirmation — verify claims against current code before posting on GitHub. Don't post based on stale analysis. For emcom/tracker: any binary shipping in fellow-agents must work on first run. The AppLocker issue was a good example of catching this in testing.
+
 ### 2026-04-10: RULE — Independent verification for community-facing content
 All community-facing content (GitHub comments, PRs, docs, samples) must be independently verified before posting. Author prepares, a different agent tests/reviews. No self-verification. Two tiers: Code (PRs, samples) must compile+run and be tested by a different agent. Non-code (comments, recommendations) must be fact-checked by a different agent. Exception: low-risk responses (ack issues, asking for repro) are exempt. Scope: GitHub/public only — internal emcom/tracker/briefing excluded. Reference: team-manual.md commit `d83df24`.
 
