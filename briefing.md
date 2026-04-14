@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-13 19:51
+Last updated: 2026-04-14 03:51
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,7 +13,9 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
-- 2026-04-13 16:00 — Docker E2E test added (f0c5980): Dockerfile.test + test-e2e.sh (7 checks) + GHA workflow (e2e-test.yml, runs on release + manual). Untested locally (no Docker) — first CI run will validate. Rajan requested this to replace VM-based testing.
+- 2026-04-14 03:51 — fellow-agents npm package complete (4 commits: 9f1cbf6, 4e03a67, eda9878, dcd8e19). `npm install -g fellow-agents && fellow-agents start`. TypeScript CLI with zero runtime deps, first-run binary download, PATH trick, PID management. 3 bugs fixed (ESM require, port, health check). npm-publish job in release.yml. README updated. AppLocker fix (--runtime-tmpdir). Needs NPM_TOKEN secret to publish. v0.0.4 release green.
+- 2026-04-14 01:51 — Tracker panel polish (3 commits: 11768e5, 14e69ab, 904f0a1). Removed "In Status" column. Panel width 300→380px. Age+Active center-aligned and adjacent. Brighter font colors. Tested with Playwright. Needs server restart.
+- 2026-04-13 16:00 — Docker E2E test added (f0c5980): Dockerfile.test + test-e2e.sh (7 checks) + GHA workflow (e2e-test.yml, runs on release + manual).
 - 2026-04-13 15:20 — E2E v0.0.3 clean test on dev-linux VM passed. All services start, health check 200, pty-win serves UI. Found register --force issue, fixed (1b5cd0f). dev-linux deallocated.
 - 2026-04-10 14:13 — Independent verification rule finalized and broadcast to 18 agents. Added to team-manual.md (d83df24). All community-facing content (GitHub comments, PRs, docs) must be verified by a different agent before posting. Persisted in Claude-KB.md.
 - 2026-04-09 22:04 — pty-win instance identification shipped (3 commits: d0fa117, 0043d6c, 97eef89). `--name` flag sets tab title + accent color + subtle background tint from name hash. Live name change via `POST /api/name` + clickable badge in sidebar header.

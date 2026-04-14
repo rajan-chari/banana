@@ -15,7 +15,9 @@ Last updated: 2026-03-31
 | fellow-agents E2E test (Linux) | Done | milo | setup.sh works. 8 findings logged in briefing. Key bug: pty-win shell button hardcodes pwsh (needs moss fix). |
 | fellow-agents E2E test (Windows) | Done | milo | setup.ps1 works with pwsh 7. PS 5.1 can't parse nested hashtables or JSON here-strings. pty-win serves UI. npm link launch broken — manual node start works. |
 | pty-win: Linux shell support | Done | moss | 6f92b40 — server normalizes pwsh→bash on Linux. /api/config returns platform+defaultShell. |
-| pty-win: instance identification | Done | milo | d0fa117+0043d6c+97eef89 — --name flag, tab title, accent color, bg tint, live POST /api/name, clickable badge. Rajan restarting to pick up. |
+| pty-win: instance identification | Done | milo | d0fa117+0043d6c+97eef89 — --name flag, tab title, accent color, bg tint, live POST /api/name, clickable badge. |
+| pty-win: tracker panel polish | Done | milo | 11768e5+14e69ab+904f0a1 — removed In Status col, panel 380px, Age+Active centered+adjacent, brighter colors. Needs restart. |
+| fellow-agents npm package | Done | milo | 9f1cbf6+4e03a67+eda9878+dcd8e19 — CLI, first-run download, npm-publish job, README. Needs NPM_TOKEN secret to publish. |
 | Azure tenant migration | Done | milo | Old BAMI1 (9a9b49fd) → new teamssdk (3f3d1cea). azure-env.json/md updated. bolt, sage, blake notified. |
 | Phase 8: Polish & Hardening | Not started | milo | Error handling, logging, docs, testing |
 
