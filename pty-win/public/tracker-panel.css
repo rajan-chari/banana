@@ -135,7 +135,7 @@
 /* --- Table Header (sortable) --- */
 .tracker-thead {
   display: grid;
-  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px;
+  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px 40px;
   padding: 4px 8px;
   background: #18181c;
   border-bottom: 1px solid #2a2a2e;
@@ -251,7 +251,7 @@
 
 .tracker-item-row {
   display: grid;
-  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px;
+  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px 40px;
   padding: 2px 8px;
   cursor: pointer;
   align-items: center;
