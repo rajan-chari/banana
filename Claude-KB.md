@@ -59,6 +59,8 @@ python query_db.py "SELECT ..."     # inspect SQLite
 - **2026-04-14:** PyInstaller `--runtime-tmpdir` needed for enterprise Windows — AppLocker blocks %TEMP% extraction. Use `--runtime-tmpdir ~/.emcom/runtime` in CI builds. Frost's fix from 04/06, now in release.yml.
 - **2026-04-14:** CSS grid `1fr` tracks have `min-width: auto` by default — they expand to content size even when the container is narrower. Use `minmax(0, 1fr)` to allow the track to shrink to zero. Also need `min-width: 0` on grid children with `text-overflow: ellipsis`.
 
+- **2026-04-14:** TEAM PRINCIPLE — External quality bar: (1) Startup journeys (npm packages, setup scripts, Docker) must be tested end-to-end on clean machines before publishing. First impressions matter — one bad experience loses people permanently. (2) External comments/PRs must have very high fact confirmation against current code, not stale analysis. For fellow-agents: test `npm install -g` from the registry on a clean machine before any publish, not just local tarball.
+
 - **2026-04-10:** TEAM RULE — All community-facing content (GitHub comments, PRs, docs, samples) must be independently verified before posting. Code: compile + test by different agent. Non-code: fact-checked by different agent. Exception: low-risk responses (ack, repro requests). Scope: public only, internal excluded. See team-manual.md § Independent Verification.
 
 ## Decisions
