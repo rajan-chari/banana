@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-13 16:33
+Last updated: 2026-04-13 23:51
 
 ## In Motion
 
@@ -20,6 +20,8 @@ Last updated: 2026-04-13 16:33
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-13 | --host flag for Docker | Default 127.0.0.1, --host 0.0.0.0 for containers |
+| 2026-04-13 | Tracker Activity field name fix | last_activity → last_github_activity |
 | 2026-04-13 | Tracker panel alignment + Activity column | flex→grid fix, sticky header, Activity column for last_activity |
 | 2026-04-09 | Scroll jump + focus loss fix | Hooks→broadcastStatus, skip DOM rebuild on status-only, focus restore |
 | 2026-04-08 | Shell button cross-platform fix | pwsh→bash on Linux/Mac, /api/config exposes platform |

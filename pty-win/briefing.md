@@ -1,17 +1,23 @@
 # Briefing
-Last updated: 2026-04-13 16:33
+Last updated: 2026-04-13 23:51
 
 ## Current Focus
-Fixed tracker panel column alignment + Activity column. All committed and pushed. Waiting on frost for last_activity data field.
+Active session. Recent work: tracker panel fixes (alignment + Activity column + field name fix), --host flag for Docker, KB rules persisted.
 
 ## Don't Forget
-- Server restart needed for ALL accumulated TS changes: Claude Code hooks, hook JSON fix, tracker proxy, cost in checkpoints, last-active column, shutdown 4min, injection timestamps, cost history sampling, node-pty swap, shell cross-platform fix, scroll/focus fix (hooks→broadcastStatus)
-- Browser refresh needed for frontend: tracker panel alignment fix, Activity column, dashboard redesign, drag-drop, pane borders, agents tab
+- Server restart needed for ALL accumulated TS changes: hooks, tracker proxy, cost, shutdown, node-pty swap, shell cross-platform, scroll/focus fix, --host flag
+- Browser refresh needed for frontend: tracker panel fixes, Activity column, dashboard redesign, drag-drop, pane borders, agents tab
 - Duplication: src/tiling.ts, src/pane-groups.ts, src/session-state.ts are extracted copies of app.js/session.ts — don't let them drift
 - Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests
 - tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-13 22:02 — Add --host flag for Docker support
+Default 127.0.0.1 doesn't work in Docker (port forwarding can't reach localhost inside container). Added --host flag (default 127.0.0.1, use 0.0.0.0 for Docker). Hook endpoints always use 127.0.0.1 (local-only). Commit 795c889.
+
+### 2026-04-13 20:00 — Fix: tracker Activity column field name
+UI read item.last_activity but frost's server field is last_github_activity. Fixed in build/patch/sort. Commit 7becc92.
+
 ### 2026-04-13 16:33 — Fix: tracker panel column alignment + Activity column
 Header and data rows had display:flex vs gridTemplateColumns mismatch — columns never aligned. Fixed both to use CSS Grid with shared template + min-width:500px for horizontal scroll in narrow panel. Sticky header. Added 8th column (Activity) for last_activity field (waiting on frost). Commit 6fe1ced.
 
