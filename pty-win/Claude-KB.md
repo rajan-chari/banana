@@ -123,6 +123,9 @@ Claude Code's statusLine.command is global (or per-CWD). If user runs multiple p
 ### 2026-04-07: Playwright MCP testing — use port 3650+, never 3600
 Playwright MCP is available for UI testing. Always start a test pty-win instance on port 3650 or higher. NEVER test against production on port 3600 — it has live agent sessions. Start with: `node dist/index.js --port 3650`. Then use Playwright MCP tools to navigate, snapshot, interact, and verify DOM state.
 
+### 2026-04-14: External quality bar — smooth startups + high fact confirmation
+Two principles for all external-facing work: (1) Startup journeys must be super smooth — npm packages, setup scripts, Docker images must work end-to-end on clean machines. First impressions matter; people drop out quickly if setup fails. (2) External comments/PRs must have very high fact confirmation — verify claims against current code before posting on GitHub. Don't post based on stale analysis. Reason: adoption depends on trust; one bad experience loses people permanently.
+
 ### 2026-04-13: Playwright verification must show real data, not just structure
 When using Playwright to verify UI changes that display data, the test instance must have a working backend with real data. Verifying that a column header appears is not confirmation — the cells must show actual values. The tracker field name bug (last_activity vs last_github_activity) was missed because the Playwright test on port 3701 had no emcom backend, so only "CONNECTION FAILED" was shown instead of actual tracker items.
 
