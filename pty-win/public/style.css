@@ -162,7 +162,7 @@ html, body {
 /* === Emcom feed panel (right side) — neo-terminal theme === */
 
 #feed-panel {
-  width: 300px;
+  width: 380px;
   min-width: 150px;
   display: flex;
   flex-direction: column;

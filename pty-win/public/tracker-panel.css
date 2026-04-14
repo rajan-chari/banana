@@ -6,6 +6,7 @@
   color: #ccc;
   padding: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   height: 100%;
   background: #111114;
   scrollbar-width: thin;
@@ -23,7 +24,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 8px 8px;
   background: linear-gradient(180deg, #1a1a1e 0%, #141417 100%);
   border-bottom: 1px solid #2a2a2e;
   backdrop-filter: blur(8px);
@@ -63,8 +64,9 @@
 /* --- Filter Bar --- */
 .tracker-filters {
   display: flex;
-  gap: 6px;
-  padding: 5px 16px;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px 8px;
   background: #141417;
   border-bottom: 1px solid #2a2a2e;
 }
@@ -133,19 +135,21 @@
 /* --- Table Header (sortable) --- */
 .tracker-thead {
   display: grid;
-  grid-template-columns: 110px 1fr 90px 70px 60px 60px 60px;
-  padding: 4px 16px;
+  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px;
+  padding: 4px 8px;
   background: #18181c;
   border-bottom: 1px solid #2a2a2e;
   position: sticky;
   top: 41px;
   z-index: 9;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tracker-th {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   color: #888;
   cursor: pointer;
@@ -154,8 +158,10 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   transition: color 0.15s;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .tracker-th:hover { color: #999; }
@@ -245,12 +251,14 @@
 
 .tracker-item-row {
   display: grid;
-  grid-template-columns: 110px 1fr 90px 70px 60px 60px 60px;
-  padding: 2px 16px;
+  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 50px;
+  padding: 2px 8px;
   cursor: pointer;
   align-items: center;
   min-height: 20px;
   border-bottom: 1px solid #1a1a1e;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tracker-item.expanded .tracker-item-row {
@@ -259,27 +267,31 @@
 
 /* --- Item Fields --- */
 .tracker-ref {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: #4a9eff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .tracker-item-title {
-  font-size: 11px;
+  font-size: 10px;
   color: #ccc;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 8px;
+  padding-right: 4px;
+  min-width: 0;
 }
 
 .tracker-assignee {
-  font-size: 10px;
+  font-size: 9px;
   color: #a080c0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tracker-age {
@@ -292,14 +304,20 @@
 .tracker-age.stale-yellow { color: #e8b830; }
 .tracker-age.stale-red { color: #f14c4c; font-weight: 700; }
 
-.tracker-status-age {
-  font-size: 10px;
-  text-align: right;
+.tracker-updated {
+  font-size: 9px;
+  color: #777;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tracker-status-age.stale-green { color: #23d18b66; }
-.tracker-status-age.stale-yellow { color: #e8b83088; }
-.tracker-status-age.stale-red { color: #f14c4c; }
+.tracker-activity {
+  font-size: 9px;
+  color: #666;
+  white-space: nowrap;
+  text-align: right;
+}
 
 /* Stale item row highlight */
 .tracker-item.stale-row {

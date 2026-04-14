@@ -3200,9 +3200,7 @@ function buildTrackerItem(item) {
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
-      <span class="tracker-status-age ${statusStale}">${fmtAge(item.updated_at)}</span>
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
-      <span class="tracker-activity">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
     </div>
     <div class="tracker-item-detail">
       ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>` : ""}
@@ -3245,17 +3243,13 @@ function patchTrackerItem(el, item) {
   const ageDate = item.date_found || item.created_at;
   const ageEl = el.querySelector(".tracker-age");
   if (ageEl) { ageEl.textContent = fmtAge(ageDate); ageEl.className = `tracker-age ${staleClass(ageDate)}`; }
-  const statusAgeEl = el.querySelector(".tracker-status-age");
-  if (statusAgeEl) { statusAgeEl.textContent = fmtAge(item.updated_at); statusAgeEl.className = `tracker-status-age ${staleClass(item.updated_at)}`; }
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
-  const actEl = el.querySelector(".tracker-activity");
-  if (actEl) actEl.textContent = item.last_github_activity ? fmtAge(item.last_github_activity) : "-";
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
   el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
 }
 
-const TRACKER_DEFAULT_COLS = [80, 0, 65, 50, 45, 50, 55, 50]; // 0 = flex
+const TRACKER_DEFAULT_COLS = [85, 0, 55, 40, 35, 50]; // 0 = flex
 
 function initTrackerColumnResize(container) {
   const thead = container.querySelector(".tracker-thead");
@@ -3271,7 +3265,7 @@ function initTrackerColumnResize(container) {
   } catch { colWidths = [...TRACKER_DEFAULT_COLS]; }
 
   function applyWidths() {
-    const tpl = colWidths.map(w => w === 0 ? "1fr" : `${w}px`).join(" ");
+    const tpl = colWidths.map(w => w === 0 ? "minmax(0,1fr)" : `${w}px`).join(" ");
     thead.style.gridTemplateColumns = tpl;
     container.querySelectorAll(".tracker-item-row").forEach(r => r.style.gridTemplateColumns = tpl);
   }
@@ -3403,10 +3397,8 @@ function renderTracker() {
         <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="severity">Sev <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="age">Age <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="updated">In Status <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="age" style="text-align:right;justify-content:flex-end">Age <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="last_github_activity">Activity <span class="sort-arrow"></span></div>
       </div>
       <div class="tracker-body"></div>`;
     area.appendChild(container);
