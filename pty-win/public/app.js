@@ -3202,7 +3202,7 @@ function buildTrackerItem(item) {
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
       <span class="tracker-status-age ${statusStale}">${fmtAge(item.updated_at)}</span>
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
-      <span class="tracker-activity">${item.last_activity ? fmtAge(item.last_activity) : "-"}</span>
+      <span class="tracker-activity">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
     </div>
     <div class="tracker-item-detail">
       ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>` : ""}
@@ -3250,7 +3250,7 @@ function patchTrackerItem(el, item) {
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
   const actEl = el.querySelector(".tracker-activity");
-  if (actEl) actEl.textContent = item.last_activity ? fmtAge(item.last_activity) : "-";
+  if (actEl) actEl.textContent = item.last_github_activity ? fmtAge(item.last_github_activity) : "-";
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
   el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
 }
@@ -3406,7 +3406,7 @@ function renderTracker() {
         <div class="tracker-th" data-sort="age">Age <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="updated">In Status <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="last_activity">Activity <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="last_github_activity">Activity <span class="sort-arrow"></span></div>
       </div>
       <div class="tracker-body"></div>`;
     area.appendChild(container);
