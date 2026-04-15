@@ -102,6 +102,8 @@ public static class Program
                 Console.WriteLine("  --decision-rationale <text>       Why this decision");
                 Console.WriteLine("  --date-found <iso>                When issue was originally filed");
                 Console.WriteLine("  --last-github-activity <iso>      Latest GitHub activity timestamp");
+                Console.WriteLine("  --github-author <user>            GitHub username who opened");
+                Console.WriteLine("  --github-last-commenter <user>    Last commenter/reviewer");
                 Console.WriteLine("  --title <text>                    Update title");
                 Console.WriteLine("  --severity <sev>                  low, normal, high, critical");
                 Console.WriteLine("  --labels <a,b,c>                  Replace labels");
@@ -244,6 +246,8 @@ public static class Program
                     else if (rest[i] == "--decision-rationale" && i + 1 < rest.Count) req.DecisionRationale = rest[++i];
                     else if (rest[i] == "--date-found" && i + 1 < rest.Count) req.DateFound = rest[++i];
                     else if (rest[i] == "--last-github-activity" && i + 1 < rest.Count) req.LastGithubActivity = rest[++i];
+                    else if (rest[i] == "--github-author" && i + 1 < rest.Count) req.GithubAuthor = rest[++i];
+                    else if (rest[i] == "--github-last-commenter" && i + 1 < rest.Count) req.GithubLastCommenter = rest[++i];
                     else if (rest[i] == "--title" && i + 1 < rest.Count) req.Title = rest[++i];
                     else if (rest[i] == "--severity" && i + 1 < rest.Count) req.Severity = rest[++i];
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)

@@ -85,6 +85,8 @@ class UpdateWorkItemRequest(BaseModel):
     blocker: str | None = None
     date_found: str | None = None
     last_github_activity: str | None = None
+    github_author: str | None = None
+    github_last_commenter: str | None = None
     append_notes: str | None = None
     findings: str | None = None
     decision: str | None = None

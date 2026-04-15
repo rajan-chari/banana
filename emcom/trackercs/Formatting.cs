@@ -66,8 +66,12 @@ public static class Fmt
             sb.AppendLine($"Labels:     {string.Join(", ", item.Labels)}");
         if (!string.IsNullOrEmpty(item.DateFound))
             sb.AppendLine($"Found:      {ShortDate(item.DateFound)}");
+        if (!string.IsNullOrEmpty(item.GithubAuthor))
+            sb.AppendLine($"GH Author:  {item.GithubAuthor}");
         if (!string.IsNullOrEmpty(item.LastGithubActivity))
             sb.AppendLine($"GH Active:  {ShortDate(item.LastGithubActivity)} ({RelTime(item.LastGithubActivity)} ago)");
+        if (!string.IsNullOrEmpty(item.GithubLastCommenter))
+            sb.AppendLine($"GH Last:    {item.GithubLastCommenter}");
         if (!string.IsNullOrEmpty(item.Blocker))
         {
             sb.AppendLine($"Blocker:    {item.Blocker}");

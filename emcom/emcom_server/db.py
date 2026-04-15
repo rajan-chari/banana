@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS work_items (
     decision_rationale TEXT,
     date_found TEXT,
     last_github_activity TEXT,
+    github_author TEXT,
+    github_last_commenter TEXT,
     labels TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
@@ -135,7 +137,8 @@ VALID_LINK_TYPES = {"related", "blocks", "blocked-by", "duplicate"}
 TRACKED_FIELDS = {
     "title", "type", "severity", "status", "assigned_to", "blocker",
     "blocked_since", "findings", "decision", "decision_rationale",
-    "date_found", "last_github_activity", "labels", "notes", "number",
+    "date_found", "last_github_activity", "github_author", "github_last_commenter",
+    "labels", "notes", "number",
 }
 
 
@@ -210,6 +213,10 @@ class Database:
             conn.commit()
         if wi_cols and "last_github_activity" not in wi_cols:
             conn.execute("ALTER TABLE work_items ADD COLUMN last_github_activity TEXT")
+            conn.commit()
+        if wi_cols and "github_author" not in wi_cols:
+            conn.execute("ALTER TABLE work_items ADD COLUMN github_author TEXT")
+            conn.execute("ALTER TABLE work_items ADD COLUMN github_last_commenter TEXT")
             conn.commit()
         # Seed name pool if empty
         count = conn.execute("SELECT COUNT(*) FROM name_pool").fetchone()[0]

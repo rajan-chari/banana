@@ -20,6 +20,8 @@ public sealed class WorkItem
     [JsonPropertyName("decision_rationale")] public string? DecisionRationale { get; set; }
     [JsonPropertyName("date_found")] public string? DateFound { get; set; }
     [JsonPropertyName("last_github_activity")] public string? LastGithubActivity { get; set; }
+    [JsonPropertyName("github_author")] public string? GithubAuthor { get; set; }
+    [JsonPropertyName("github_last_commenter")] public string? GithubLastCommenter { get; set; }
     [JsonPropertyName("labels")] public List<string> Labels { get; set; } = [];
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
     [JsonPropertyName("created_at")] public string CreatedAt { get; set; } = "";
@@ -83,6 +85,8 @@ public sealed class UpdateWorkItemRequest
     [JsonPropertyName("blocker")] public string? Blocker { get; set; }
     [JsonPropertyName("date_found")] public string? DateFound { get; set; }
     [JsonPropertyName("last_github_activity")] public string? LastGithubActivity { get; set; }
+    [JsonPropertyName("github_author")] public string? GithubAuthor { get; set; }
+    [JsonPropertyName("github_last_commenter")] public string? GithubLastCommenter { get; set; }
     [JsonPropertyName("append_notes")] public string? AppendNotes { get; set; }
     [JsonPropertyName("findings")] public string? Findings { get; set; }
     [JsonPropertyName("decision")] public string? Decision { get; set; }
