@@ -2369,7 +2369,9 @@ function ensureTerminal(sessionName) {
   term.loadAddon(fitAddon);
   term.loadAddon(new window.WebLinksAddon.WebLinksAddon());
 
+  let _pasteGuard = false;
   term.onData((data) => {
+    if (_pasteGuard) return; // skip — already sent by Ctrl+V handler
     state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
   });
 
@@ -2401,8 +2403,15 @@ function ensureTerminal(sessionName) {
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
         navigatePanes(e.key); return false;
       }
-      // Ctrl+V: let xterm.js handle paste natively (onData fires once)
-      // Previous custom handler caused double-paste in AI sessions
+      if (e.key === "v") {
+        _pasteGuard = true;
+        navigator.clipboard.readText().then((text) => {
+          if (text) state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
+        }).catch(() => {}).finally(() => {
+          setTimeout(() => { _pasteGuard = false; }, 50);
+        });
+        return false;
+      }
     }
     return true;
   });
