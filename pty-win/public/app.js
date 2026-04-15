@@ -3180,27 +3180,35 @@ function sortTrackerItems(items) {
   return sorted;
 }
 
+let _trackerRowNum = 0;
+function resetTrackerRowNum() { _trackerRowNum = 0; }
+
 function buildTrackerItem(item) {
   const el = document.createElement("div");
   el.className = `tracker-item`;
   el.dataset.id = item.id;
   el.style.contain = "content";
 
-  const sevClass = item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "sev-normal";
+  const sevClass = item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : item.severity === "low" ? "sev-low" : "sev-normal";
   const ageDate = item.date_found || item.created_at;
   const ageStale = staleClass(ageDate);
-  const statusStale = staleClass(item.updated_at);
+  const activeStale = item.last_github_activity ? staleClass(item.last_github_activity) : "";
   if (ageStale === "stale-red") el.classList.add("stale-row");
   if (["closed", "merged", "deferred"].includes(item.status)) el.classList.add("tracker-item-done");
 
+  const refHtml = item.number
+    ? `<span class="tracker-ref-repo">${item.repo}</span><span class="tracker-ref-num">#${item.number}</span>`
+    : `<span class="tracker-ref-repo">${item.repo}</span>`;
+
   el.innerHTML = `
     <div class="tracker-item-row">
-      <span class="tracker-ref">${item.number ? `${item.repo}#${item.number}` : item.repo}</span>
+      <span class="tracker-row-num">${++_trackerRowNum}</span>
+      <span class="tracker-ref">${refHtml}</span>
       <span class="tracker-item-title">${item.title}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${item.status}">${item.status}</span>` : ""}</span>
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
-      <span class="tracker-activity">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
+      <span class="tracker-activity ${activeStale}">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
@@ -3247,12 +3255,15 @@ function patchTrackerItem(el, item) {
   const updEl = el.querySelector(".tracker-updated");
   if (updEl) updEl.textContent = fmtDate(item.updated_at);
   const actEl = el.querySelector(".tracker-activity");
-  if (actEl) actEl.textContent = item.last_github_activity ? fmtAge(item.last_github_activity) : "-";
+  if (actEl) {
+    actEl.textContent = item.last_github_activity ? fmtAge(item.last_github_activity) : "-";
+    actEl.className = `tracker-activity ${item.last_github_activity ? staleClass(item.last_github_activity) : ""}`;
+  }
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
   el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
 }
 
-const TRACKER_DEFAULT_COLS = [85, 0, 55, 40, 35, 40, 50]; // 0 = flex
+const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 40, 35, 40, 50]; // 0 = flex; first col is row #
 
 function initTrackerColumnResize(container) {
   const thead = container.querySelector(".tracker-thead");
@@ -3396,6 +3407,7 @@ function renderTracker() {
         <select class="tracker-filter" id="tracker-filter-assignee"><option value="">all assignees</option></select>
       </div>
       <div class="tracker-thead">
+        <div class="tracker-th tracker-th-num">#</div>
         <div class="tracker-th" data-sort="ref">Ref <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
@@ -3516,6 +3528,7 @@ function renderTracker() {
 function renderTrackerBody(container, items) {
   const body = container.querySelector(".tracker-body");
   if (!body) return;
+  resetTrackerRowNum();
 
   // Always remove stale empty state before rendering
   const existingEmpty = body.querySelector(".tracker-empty");

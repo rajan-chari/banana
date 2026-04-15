@@ -135,7 +135,7 @@
 /* --- Table Header (sortable) --- */
 .tracker-thead {
   display: grid;
-  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 40px 50px;
+  grid-template-columns: 22px 85px minmax(0,1fr) 55px 40px 35px 40px 50px;
   padding: 4px 8px;
   background: #18181c;
   border-bottom: 1px solid #2a2a2e;
@@ -251,7 +251,7 @@
 
 .tracker-item-row {
   display: grid;
-  grid-template-columns: 85px minmax(0,1fr) 55px 40px 35px 40px 50px;
+  grid-template-columns: 22px 85px minmax(0,1fr) 55px 40px 35px 40px 50px;
   padding: 2px 8px;
   cursor: pointer;
   align-items: center;
@@ -265,15 +265,38 @@
   border-bottom-color: #2a2a2e;
 }
 
+/* --- Row Number --- */
+.tracker-th-num {
+  cursor: default;
+  color: #555;
+  text-align: center;
+  justify-content: center;
+}
+
+.tracker-row-num {
+  font-size: 9px;
+  color: #444;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- Item Fields --- */
 .tracker-ref {
   font-size: 10px;
   font-weight: 500;
-  color: #4a9eff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+.tracker-ref-repo {
+  color: #6a8fbb;
+}
+
+.tracker-ref-num {
+  color: #8ac4ff;
+  font-weight: 600;
 }
 
 .tracker-item-title {
@@ -309,7 +332,12 @@
   color: #aaa;
   white-space: nowrap;
   text-align: center;
+  font-weight: 500;
 }
+
+.tracker-activity.stale-green { color: #23d18b; }
+.tracker-activity.stale-yellow { color: #e8b830; }
+.tracker-activity.stale-red { color: #f14c4c; }
 
 .tracker-updated {
   font-size: 9px;
@@ -343,6 +371,12 @@
 .tracker-severity.sev-normal {
   color: #666;
   background: transparent;
+}
+
+.tracker-severity.sev-low {
+  color: #555;
+  background: transparent;
+  font-size: 7px;
 }
 
 .tracker-severity.sev-high {
