@@ -636,7 +636,7 @@ public class Win32Focus {
     const d = new Date();
     const ts = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
     const submit = process.platform === "win32" ? "\r" : "\n";
-    return `[${ts} pty-win:shutdown:urgent:urgent]${submit}Server shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.${submit}`;
+    return `[${ts} pty-win:shutdown:urgent:urgent] Server shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.${submit}`;
   }
   const SHUTDOWN_TIMEOUT_MS = 240_000;
 

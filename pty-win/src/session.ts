@@ -87,13 +87,13 @@ export interface SessionInfo {
 const SUBMIT = process.platform === "win32" ? "\r" : "\n";
 
 function INJECTION_PROMPT() {
-  return `[${fmtNow()} pty-win:emcom:normal:normal]${SUBMIT}Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).${SUBMIT}`;
+  return `[${fmtNow()} pty-win:emcom:normal:normal] Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).${SUBMIT}`;
 }
 function STARTUP_KICK() {
-  return `[${fmtNow()} pty-win:startup-kick:routine:brief]${SUBMIT}hi${SUBMIT}`;
+  return `[${fmtNow()} pty-win:startup-kick:routine:brief] hi${SUBMIT}`;
 }
 function RESUME_KICK() {
-  return `[${fmtNow()} pty-win:session-resumed:normal:brief]${SUBMIT}Session resumed. Restart any loops or crons that were running before shutdown.${SUBMIT}`;
+  return `[${fmtNow()} pty-win:session-resumed:normal:brief] Session resumed. Restart any loops or crons that were running before shutdown.${SUBMIT}`;
 }
 const STARTUP_GRACE_MS = 10_000;
 
@@ -129,11 +129,11 @@ function fmtNow(): string {
 }
 
 function makeCheckpointLightPrompt(nextTime: string): string {
-  return `[${fmtNow()} pty-win:checkpoint-light:routine:brief:skip-if-busy]${SUBMIT}Checkpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
+  return `[${fmtNow()} pty-win:checkpoint-light:routine:brief:skip-if-busy] Checkpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
 }
 
 function makeCheckpointFullPrompt(nextTime: string): string {
-  return `[${fmtNow()} pty-win:checkpoint-full:normal:normal]${SUBMIT}Full checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
+  return `[${fmtNow()} pty-win:checkpoint-full:normal:normal] Full checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
 }
 
 export class PtySession extends EventEmitter {
