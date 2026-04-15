@@ -309,6 +309,13 @@
   min-width: 0;
 }
 
+.tracker-author-tag {
+  font-size: 8px;
+  color: #666;
+  margin-left: 6px;
+  font-style: italic;
+}
+
 .tracker-assignee {
   font-size: 9px;
   color: #c0a0e0;

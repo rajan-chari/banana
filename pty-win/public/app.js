@@ -3205,7 +3205,7 @@ function buildTrackerItem(item) {
     <div class="tracker-item-row">
       <span class="tracker-row-num">${++_trackerRowNum}</span>
       <span class="tracker-ref">${refHtml}</span>
-      <span class="tracker-item-title">${item.title}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${item.status}">${item.status}</span>` : ""}</span>
+      <span class="tracker-item-title">${item.title}${item.github_author ? `<span class="tracker-author-tag">by ${item.github_author}</span>` : ""}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${item.status}">${item.status}</span>` : ""}</span>
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
@@ -3221,7 +3221,8 @@ function buildTrackerItem(item) {
       ${item.notes ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Notes</div><div class="tracker-detail-value">${item.notes}</div></div>` : ""}
       ${item.labels?.length ? `<div class="tracker-detail-section">${item.labels.map(l => `<span class="tracker-label">${l}</span>`).join(" ")}</div>` : ""}
       <div class="tracker-detail-meta">
-        <span>Created by ${item.created_by || "?"}</span>
+        <span>Opened by <strong>${item.github_author || item.created_by || "?"}</strong></span>
+        ${item.github_last_commenter ? `<span>Last reply: <strong>${item.github_last_commenter}</strong></span>` : ""}
         <span>${new Date(item.created_at).toLocaleString()}</span>
         <span>Updated ${new Date(item.updated_at).toLocaleString()}</span>
         <span>Status: ${item.status}</span>
