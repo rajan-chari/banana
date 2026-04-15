@@ -1,9 +1,12 @@
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import type { Express, Request, Response } from "express";
 import type { ServerConfig } from "./config.js";
-import { PtySession, INJECTION_PROMPT, STARTUP_KICK, RESUME_KICK, makeCheckpointLightPrompt, makeCheckpointFullPrompt } from "./session.js";
+import { PtySession, SUBMIT, INJECTION_PROMPT, STARTUP_KICK, RESUME_KICK, makeCheckpointLightPrompt, makeCheckpointFullPrompt } from "./session.js";
 import { setDebugLog, getDebugLogState, addDebugLogListener } from "./log.js";
 
-const SUBMIT = process.platform === "win32" ? "\r" : "\n";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export function registerDebugRoutes(
   app: Express,
@@ -146,11 +149,24 @@ export function registerDebugRoutes(
       case "startup":
       case "resume":
         // These just write the kick directly
-        session.write(type === "resume" ? RESUME_KICK() : STARTUP_KICK());
+        session.submitWrite(type === "resume" ? RESUME_KICK() : STARTUP_KICK());
         return res.json({ ok: true, type });
       default:
         return res.status(400).json({ error: `unknown type: ${type}` });
     }
+  });
+
+  // Test: write text then \r separately with a delay
+  app.post("/api/debug/sessions/:name/split-write", (req, res) => {
+    const session = getSession(req, res);
+    if (!session) return;
+    const { text, delayMs = 50 } = req.body || {};
+    if (!text) return res.status(400).json({ error: "text required" });
+    // Write text without submit
+    session.write(text);
+    // Send submit after delay
+    setTimeout(() => session.write(SUBMIT), delayMs);
+    res.json({ ok: true, textLen: text.length, delayMs });
   });
 
   app.post("/api/debug/log", (req, res) => {
@@ -179,6 +195,6 @@ export function registerDebugRoutes(
   // --- Serve debug page ---
 
   app.get("/debug", (_req, res) => {
-    res.sendFile("debug.html", { root: "public" });
+    res.sendFile("debug.html", { root: join(__dirname, "..", "public") });
   });
 }

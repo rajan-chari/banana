@@ -84,16 +84,17 @@ export interface SessionInfo {
   lastActiveMs: number;
 }
 
-const SUBMIT = process.platform === "win32" ? "\r" : "\n";
+export const SUBMIT = process.platform === "win32" ? "\r" : "\n";
+const SUBMIT_DELAY_MS = 50;
 
 export function INJECTION_PROMPT() {
-  return `[${fmtNow()} pty-win:emcom:normal:normal] Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).${SUBMIT}`;
+  return `[${fmtNow()} pty-win:emcom:normal:normal] Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).`;
 }
 export function STARTUP_KICK() {
-  return `[${fmtNow()} pty-win:startup-kick:routine:brief] hi${SUBMIT}`;
+  return `[${fmtNow()} pty-win:startup-kick:routine:brief] hi`;
 }
 export function RESUME_KICK() {
-  return `[${fmtNow()} pty-win:session-resumed:normal:brief] Session resumed. Restart any loops or crons that were running before shutdown.${SUBMIT}`;
+  return `[${fmtNow()} pty-win:session-resumed:normal:brief] Session resumed. Restart any loops or crons that were running before shutdown.`;
 }
 const STARTUP_GRACE_MS = 10_000;
 
@@ -129,11 +130,11 @@ function fmtNow(): string {
 }
 
 export function makeCheckpointLightPrompt(nextTime: string): string {
-  return `[${fmtNow()} pty-win:checkpoint-light:routine:brief:skip-if-busy] Checkpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
+  return `[${fmtNow()} pty-win:checkpoint-light:routine:brief:skip-if-busy] Checkpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.`;
 }
 
 export function makeCheckpointFullPrompt(nextTime: string): string {
-  return `[${fmtNow()} pty-win:checkpoint-full:normal:normal] Full checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
+  return `[${fmtNow()} pty-win:checkpoint-full:normal:normal] Full checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.`;
 }
 
 export class PtySession extends EventEmitter {
@@ -289,6 +290,22 @@ export class PtySession extends EventEmitter {
     this.ptyProcess.write(typeof data === "string" ? data : data.toString());
   }
 
+  /** Write text then send SUBMIT after a delay.
+   *  Claude Code swallows \r when it arrives in the same write as long
+   *  text that wraps the terminal. Splitting text from submit fixes it.
+   *  Uses setImmediate to escape setInterval context — PTY writes from
+   *  within timer callbacks don't reliably reach Claude Code's input. */
+  submitWrite(text: string): void {
+    setImmediate(() => {
+      clog(`submitWrite(${this.name}): writing ${text.length} chars`);
+      this.ptyProcess.write(text);
+      setTimeout(() => {
+        clog(`submitWrite(${this.name}): sending SUBMIT (${SUBMIT_DELAY_MS}ms later)`);
+        this.ptyProcess.write(SUBMIT);
+      }, SUBMIT_DELAY_MS);
+    });
+  }
+
   resize(cols: number, rows: number): void {
     this.ptyProcess.resize(cols, rows);
     this.screenDetector.resize(cols, rows);
@@ -332,26 +349,16 @@ export class PtySession extends EventEmitter {
     this.unreadCount = 0;
   }
 
-  /** Hook: Claude finished a turn → idle */
+  /** Hook: Claude finished a turn → idle.
+   *  Don't inject from here — the Stop hook fires before Claude Code's
+   *  input prompt is fully interactive (writes get swallowed). The
+   *  heuristic/screen detection confirms the prompt is visible first,
+   *  then handles startup kicks, emcom, and checkpoints. */
   hookStop(): void {
     if (this.status === "dead") return;
     clog(`hook:stop → ${this.name} (was ${this.status})`);
     this.lastHookStopTime = Date.now();
-    if (this.needsStartupKick) {
-      this.needsStartupKick = false;
-      const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
-      const type = this.isResumedSession ? "resume-kick" : "startup-kick";
-      log(`[${this.name}] Hook-triggered ${this.isResumedSession ? "resume" : "startup"} kick`);
-      this.recordInjection(type, kick);
-      this.ptyProcess.write(kick);
-      this.setStatus("busy");
-      return;
-    }
     this.setStatus("idle");
-    if (this.pendingMessages) this.inject();
-    else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
-      this.scheduleCheckpointInjection(this.pendingCheckpoint);
-    }
   }
 
   /** Hook: user/injection sent input → busy */
@@ -375,7 +382,7 @@ export class PtySession extends EventEmitter {
       clog(`hook:notify(idle) → ${this.name} — confirmed idle`);
       // Redundant with hookStop but confirms idle state
       if (this.status !== "idle") this.setStatus("idle");
-      if (this.pendingMessages) this.inject();
+      // Don't inject here — let the heuristic/screen detection handle it
     }
   }
 
@@ -464,7 +471,7 @@ export class PtySession extends EventEmitter {
   debugForceInject(): void {
     const prompt = INJECTION_PROMPT();
     this.recordInjection("emcom", prompt);
-    this.ptyProcess.write(prompt);
+    this.submitWrite(prompt);
     this.setStatus("busy");
   }
 
@@ -640,7 +647,7 @@ export class PtySession extends EventEmitter {
             log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
             this.recordInjection(kickType, kick);
             this.recordDetectionTick(quietMs, promptType, null, kickType, "input prompt detected, startup kick pending");
-            this.ptyProcess.write(kick);
+            this.submitWrite(kick);
             this.setStatus("busy");
             return;
           }
@@ -697,7 +704,7 @@ export class PtySession extends EventEmitter {
     const prompt = INJECTION_PROMPT();
     clog(`emcom check → ${label}`);
     this.recordInjection("emcom", prompt);
-    this.ptyProcess.write(prompt);
+    this.submitWrite(prompt);
     this.setStatus("busy");
 
     // Cooldown: don't go idle again for a while
@@ -787,13 +794,13 @@ export class PtySession extends EventEmitter {
     const nextTime = fmtNextTime(intervalMs);
     let prompt = type === "full" ? makeCheckpointFullPrompt(nextTime) : makeCheckpointLightPrompt(nextTime);
     if (this.costUsd > 0) {
-      prompt = prompt.replace(/[\r\n]$/, ` Session cost: $${this.costUsd.toFixed(2)}.${SUBMIT}`);
+      prompt += ` Session cost: $${this.costUsd.toFixed(2)}.`;
     }
     this.pendingCheckpoint = null;
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
     this.recordInjection(`checkpoint-${type}`, prompt);
-    this.ptyProcess.write(prompt);
+    this.submitWrite(prompt);
     this.setStatus("busy");
 
     this.stopHeuristic();

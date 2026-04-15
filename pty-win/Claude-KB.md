@@ -147,5 +147,11 @@ The prebuilt node-pty replacement is `@homebridge/node-pty-prebuilt-multiarch` (
 ### 2026-04-07: Making onnxruntime-node optional via dynamic import in worker
 Move to `optionalDependencies` in package.json. In the worker thread (ml-worker.ts), use `await import("onnxruntime-node")` wrapped in try/catch. If import fails, register a message handler that returns `{ error: "not installed" }` so the main thread's ML pipeline degrades gracefully (returns null, heuristic + hooks remain primary idle detection).
 
+### 2026-04-15: Bump package.json version on every rebuild
+During debug/iteration cycles, bump the patch version in `package.json` before each `npm run build`. The `/api/config` endpoint returns `build.version` + `build.commit` + `build.startedAt`, so the user can instantly verify the running server matches the latest code. Stale builds waste debugging time — a version mismatch is the first thing to check when a fix "doesn't work."
+
+### 2026-04-15: PTY injection — split text from SUBMIT, submitWrite before setStatus
+Claude Code swallows `\r` (Enter) when it arrives in the same `ptyProcess.write()` call as long text that wraps the terminal. Fix: `submitWrite()` writes text first, then sends `\r` after 50ms via setTimeout. Additionally, always call `submitWrite()` BEFORE `setStatus("busy")` — the status-change event triggers WebSocket broadcasts that can interfere with the pending PTY write. The debug inject endpoint worked because it had this order; the heuristic path failed because it called setStatus first.
+
 ### 2026-03-22: Dynamic emcom attach — watch for identity.json
 If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.

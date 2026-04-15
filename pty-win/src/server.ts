@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { join, dirname, resolve, basename } from "path";
 import { fileURLToPath } from "url";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { execFile, spawn } from "child_process";
+import { execFile, execFileSync, spawn } from "child_process";
 import { PtySession } from "./session.js";
 import { EmcomClient } from "./emcom/client.js";
 import { listDir, readIdentity, createDir } from "./folders.js";
@@ -15,6 +15,11 @@ import { saveMlSample } from "./ml-dataset.js";
 import { registerDebugRoutes } from "./debug-routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
+let gitCommit = "unknown";
+try { gitCommit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: __dirname, encoding: "utf-8" }).trim(); } catch { /* not in git */ }
+const buildInfo = { version: pkg.version as string, commit: gitCommit, startedAt: new Date().toISOString() };
 
 const sessions = new Map<string, PtySession>();
 const sessionRepoRoots = new Map<string, string>(); // session name → normalized repo root
@@ -154,7 +159,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
   // Config: return root dirs for initial favorites
   app.get("/api/config", (_req, res) => {
-    res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name });
+    res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name, build: buildInfo });
   });
 
   app.post("/api/name", express.json(), (req, res) => {
@@ -643,8 +648,7 @@ public class Win32Focus {
   function shutdownPrompt(): string {
     const d = new Date();
     const ts = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
-    const submit = process.platform === "win32" ? "\r" : "\n";
-    return `[${ts} pty-win:shutdown:urgent:urgent] Server shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.${submit}`;
+    return `[${ts} pty-win:shutdown:urgent:urgent] Server shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.`;
   }
   const SHUTDOWN_TIMEOUT_MS = 240_000;
 
@@ -683,7 +687,7 @@ public class Win32Focus {
               const label = identity ? `${name} (@${identity})` : name;
               clog(`${label}: saving...${delay > 0 ? ` (delayed ${delay / 1000}s)` : ""}`);
               session.forceIdle();
-              session.write(shutdownPrompt());
+              session.submitWrite(shutdownPrompt());
               resolve();
             }, delay);
           }));
