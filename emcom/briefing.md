@@ -1,17 +1,19 @@
 # Briefing
 
-Last updated: 2026-04-13 checkpoint
+Last updated: 2026-04-15 shutdown
 
 ## Current Focus
 
-Productive session. Shipped: last_github_activity field + scout integration, --force register fix, 401 auth fix, unknown flag error detection, full --help system for tracker CLI, emcom-server rebuilt with all fixes. All binaries current. No outstanding work.
+Idle. All binaries current. emcom-server.exe rebuilt from latest source and deployed. No outstanding work.
 
 ## Don't Forget
 
-- **Deploy emcom-server.exe on next restart** — new binary staged at `emcom/dist/emcom-server.exe`. Includes: WebSocket endpoint (`/tracker/ws`), date_found field, case-insensitive identity lookup. Copy to `~/.claude/skills/emcom/bin/` when server stops.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-15 — Rebuilt + deployed emcom-server.exe
+Rajan requested server stop/restart. Discovered staged binary (from Apr 13) was missing commit `dd6cb08` (github_author + github_last_commenter tracker fields). Rebuilt via PyInstaller from current source, deployed to `~/.claude/skills/emcom/bin/`, verified all 4 new fields (github_author, github_last_commenter, last_github_activity, date_found) present in API response. Server left stopped at Rajan's request. Don't-forget item for staged deploy removed — it's done.
 
 ### 2026-04-10 — Split report/github commands — never mix data
 Rajan flagged that 51 tracker items vs 104 GitHub PRs in one report was misleading — they're different data answering different questions. Split into: `tracker report` (agent workflow from work_items only) and `tracker github` (GitHub activity from metrics table only). Removed merged report view. Separate endpoints: GET /tracker/report, GET /tracker/github. Commit `541dfe1`.
