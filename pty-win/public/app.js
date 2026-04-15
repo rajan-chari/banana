@@ -2401,16 +2401,8 @@ function ensureTerminal(sessionName) {
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
         navigatePanes(e.key); return false;
       }
-      if (e.key === "v") {
-        const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
-        const sessionInfo = state.sessions.get(sessionName);
-        if (sessionInfo && AI_CMDS.includes(sessionInfo.command)) {
-          navigator.clipboard.readText().then((text) => {
-            if (text) state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
-          }).catch(() => {});
-          return false;
-        }
-      }
+      // Ctrl+V: let xterm.js handle paste natively (onData fires once)
+      // Previous custom handler caused double-paste in AI sessions
     }
     return true;
   });
