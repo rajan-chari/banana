@@ -84,14 +84,16 @@ export interface SessionInfo {
   lastActiveMs: number;
 }
 
+const SUBMIT = process.platform === "win32" ? "\r" : "\n";
+
 function INJECTION_PROMPT() {
-  return `[${fmtNow()} pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).\r`;
+  return `[${fmtNow()} pty-win:emcom:normal:normal]\nCheck emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).${SUBMIT}`;
 }
 function STARTUP_KICK() {
-  return `[${fmtNow()} pty-win:startup-kick:routine:brief]\nhi\r`;
+  return `[${fmtNow()} pty-win:startup-kick:routine:brief]\nhi${SUBMIT}`;
 }
 function RESUME_KICK() {
-  return `[${fmtNow()} pty-win:session-resumed:normal:brief]\nSession resumed. Restart any loops or crons that were running before shutdown.\r`;
+  return `[${fmtNow()} pty-win:session-resumed:normal:brief]\nSession resumed. Restart any loops or crons that were running before shutdown.${SUBMIT}`;
 }
 const STARTUP_GRACE_MS = 10_000;
 
