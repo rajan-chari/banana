@@ -94,6 +94,10 @@ export class ScreenDetector {
     return lines;
   }
 
+  getCursorY(): number {
+    return this.terminal.buffer.active.cursorY;
+  }
+
   dispose(): void {
     this.terminal.dispose();
   }

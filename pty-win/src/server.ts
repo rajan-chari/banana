@@ -12,6 +12,7 @@ import { DEFAULTS } from "./config.js";
 import type { SessionConfig, ServerConfig } from "./config.js";
 import { log, clog } from "./log.js";
 import { saveMlSample } from "./ml-dataset.js";
+import { registerDebugRoutes } from "./debug-routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -598,6 +599,13 @@ public class Win32Focus {
     for (const ws of wsClients) {
       if (ws.readyState === WebSocket.OPEN) ws.send(msg);
     }
+  }
+
+  // --- Debug routes (conditional) ---
+
+  if (config.debug) {
+    registerDebugRoutes(app, sessions, sessionRepoRoots, config, costHistory, () => wsClients.size);
+    clog("Debug mode enabled — /api/debug/* routes active, /debug dashboard available");
   }
 
   // --- Start ---

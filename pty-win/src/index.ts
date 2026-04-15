@@ -17,6 +17,7 @@ Options:
   --root <path>            Add a folder root to the sidebar (repeatable)
   --emcom <url>            Emcom server URL (default: ${DEFAULTS.emcomServer})
   --ml-model-path <path>   Path to ONNX classifier model (default: auto-detect)
+  --debug                  Enable /api/debug/* endpoints and /debug dashboard
   -h, --help               Show this help message
 
 Examples:
@@ -30,6 +31,7 @@ Examples:
 let port = DEFAULTS.port;
 let host = DEFAULTS.host;
 let name = "";
+let debug = false;
 let emcomServer = DEFAULTS.emcomServer;
 let mlModelPath = "";
 const rootDirs: string[] = [];
@@ -47,7 +49,9 @@ for (let i = 0; i < args.length; i++) {
     rootDirs.push(args[++i]);
   } else if (args[i] === "--ml-model-path" && args[i + 1]) {
     mlModelPath = args[++i];
+  } else if (args[i] === "--debug") {
+    debug = true;
   }
 }
 
-startServer({ port, host, name, emcomServer, rootDirs, mlModelPath });
+startServer({ port, host, name, debug, emcomServer, rootDirs, mlModelPath });

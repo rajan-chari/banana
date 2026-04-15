@@ -86,13 +86,13 @@ export interface SessionInfo {
 
 const SUBMIT = process.platform === "win32" ? "\r" : "\n";
 
-function INJECTION_PROMPT() {
+export function INJECTION_PROMPT() {
   return `[${fmtNow()} pty-win:emcom:normal:normal] Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).${SUBMIT}`;
 }
-function STARTUP_KICK() {
+export function STARTUP_KICK() {
   return `[${fmtNow()} pty-win:startup-kick:routine:brief] hi${SUBMIT}`;
 }
-function RESUME_KICK() {
+export function RESUME_KICK() {
   return `[${fmtNow()} pty-win:session-resumed:normal:brief] Session resumed. Restart any loops or crons that were running before shutdown.${SUBMIT}`;
 }
 const STARTUP_GRACE_MS = 10_000;
@@ -128,11 +128,11 @@ function fmtNow(): string {
   return `${y}-${mo}-${da} ${h}:${mi}`;
 }
 
-function makeCheckpointLightPrompt(nextTime: string): string {
+export function makeCheckpointLightPrompt(nextTime: string): string {
   return `[${fmtNow()} pty-win:checkpoint-light:routine:brief:skip-if-busy] Checkpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
 }
 
-function makeCheckpointFullPrompt(nextTime: string): string {
+export function makeCheckpointFullPrompt(nextTime: string): string {
   return `[${fmtNow()} pty-win:checkpoint-full:normal:normal] Full checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.${SUBMIT}`;
 }
 
@@ -161,6 +161,11 @@ export class PtySession extends EventEmitter {
   private lastSavedAt = 0;
   private mlQueryInFlight = false;
   private dataEvents: DataEvent[] = [];
+  private injectionHistory: Array<{ time: number; type: string; prompt: string; statusBefore: string }> = [];
+  private detectionHistory: Array<{ time: number; quietMs: number; promptType: string; mlResult: string | null; statusBefore: string; statusAfter: string; action: string; reason: string }> = [];
+  private lastHookStopTime = 0;
+  private lastHookNotifyType = "";
+  private lastHookPromptSubmitTime = 0;
   costUsd = 0;
   readonly name: string;
   readonly command: string;
@@ -331,10 +336,13 @@ export class PtySession extends EventEmitter {
   hookStop(): void {
     if (this.status === "dead") return;
     clog(`hook:stop → ${this.name} (was ${this.status})`);
+    this.lastHookStopTime = Date.now();
     if (this.needsStartupKick) {
       this.needsStartupKick = false;
       const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
+      const type = this.isResumedSession ? "resume-kick" : "startup-kick";
       log(`[${this.name}] Hook-triggered ${this.isResumedSession ? "resume" : "startup"} kick`);
+      this.recordInjection(type, kick);
       this.ptyProcess.write(kick);
       this.setStatus("busy");
       return;
@@ -349,6 +357,7 @@ export class PtySession extends EventEmitter {
   /** Hook: user/injection sent input → busy */
   hookPromptSubmit(): void {
     if (this.status === "dead") return;
+    this.lastHookPromptSubmitTime = Date.now();
     clog(`hook:prompt-submit → ${this.name} (was ${this.status})`);
     this.setStatus("busy");
   }
@@ -356,6 +365,7 @@ export class PtySession extends EventEmitter {
   /** Hook: notification (idle_prompt or permission_prompt) */
   hookNotify(type: string): void {
     if (this.status === "dead") return;
+    this.lastHookNotifyType = type;
     if (type === "permission_prompt") {
       clog(`hook:notify(permission) → ${this.name}`);
       // Don't change status — permission prompts are transient
@@ -384,6 +394,87 @@ export class PtySession extends EventEmitter {
 
   getContentLines(n: number): string[] {
     return this.screenDetector.getContentLines(n);
+  }
+
+  // --- Debug instrumentation ---
+
+  private recordInjection(type: string, prompt: string): void {
+    this.injectionHistory.push({ time: Date.now(), type, prompt, statusBefore: this.status });
+    if (this.injectionHistory.length > 50) this.injectionHistory.shift();
+  }
+
+  private recordDetectionTick(quietMs: number, promptType: string, mlResult: string | null, action: string, reason: string): void {
+    const statusBefore = this.status;
+    this.detectionHistory.push({ time: Date.now(), quietMs, promptType, mlResult, statusBefore, statusAfter: this.status, action, reason });
+    if (this.detectionHistory.length > 100) this.detectionHistory.shift();
+  }
+
+  getDebugState(): Record<string, unknown> {
+    const now = Date.now();
+    return {
+      name: this.name, command: this.command, workingDir: this.workingDir,
+      pid: this.ptyProcess?.pid,
+      status: this.status,
+      busyStartTime: this.busyStartTime,
+      busyElapsedMs: this.busyStartTime > 0 && this.status === "busy" ? now - this.busyStartTime : 0,
+      busyTimeoutSaved: this.busyTimeoutSaved,
+      needsStartupKick: this.needsStartupKick,
+      isResumedSession: this.isResumedSession,
+      dirtyOnExit: this.dirtyOnExit,
+      pendingMessages: this.pendingMessages,
+      unreadCount: this.unreadCount,
+      pollerActive: this.poller !== null,
+      pendingCheckpoint: this.pendingCheckpoint,
+      checkpointInFlight: this.checkpointInFlight,
+      lastCheckpointTime: this.lastCheckpointTime,
+      lastCheckpointAgoMs: this.lastCheckpointTime > 0 ? now - this.lastCheckpointTime : null,
+      checkpointLightTimerActive: this.checkpointLightTimer !== null,
+      checkpointFullTimerActive: this.checkpointFullTimer !== null,
+      heuristicTimerActive: this.heuristicTimer !== null,
+      lastOutputTime: this.lastOutputTime,
+      quietMs: now - this.lastOutputTime,
+      mlQueryInFlight: this.mlQueryInFlight,
+      lastSavedLabel: this.lastSavedLabel,
+      lastSavedAt: this.lastSavedAt,
+      costUsd: this.costUsd,
+      injectionHistory: this.injectionHistory,
+      detectionHistory: this.detectionHistory,
+    };
+  }
+
+  getDetectionState(): Record<string, unknown> {
+    const now = Date.now();
+    const quietMs = now - this.lastOutputTime;
+    const promptType = this.screenDetector.detectPromptType();
+    const contentLines = this.screenDetector.getContentLines(8);
+    return {
+      session: this.name, status: this.status,
+      quiet: { lastOutputTime: this.lastOutputTime, quietMs, thresholdMs: this.config.quietThresholdMs, isQuiet: quietMs >= this.config.quietThresholdMs },
+      screen: { promptType, cursorY: this.screenDetector.getCursorY(), contentLines },
+      heuristic: { timerActive: this.heuristicTimer !== null, tickIntervalMs: 1000 },
+      ml: { queryInFlight: this.mlQueryInFlight, modelPath: this.config.mlModelPath || null, lastSavedLabel: this.lastSavedLabel, lastSavedAt: this.lastSavedAt },
+      busyTimeout: { startTime: this.busyStartTime, elapsedMs: this.busyStartTime > 0 ? now - this.busyStartTime : 0, thresholdMs: this.config.busyTimeoutMs, timeoutSampleSaved: this.busyTimeoutSaved },
+      hooks: { lastStopTime: this.lastHookStopTime || null, lastNotifyType: this.lastHookNotifyType || null, lastPromptSubmitTime: this.lastHookPromptSubmitTime || null },
+    };
+  }
+
+  getDetectionHistory() { return this.detectionHistory; }
+  getInjectionHistory() { return this.injectionHistory; }
+
+  debugForceInject(): void {
+    const prompt = INJECTION_PROMPT();
+    this.recordInjection("emcom", prompt);
+    this.ptyProcess.write(prompt);
+    this.setStatus("busy");
+  }
+
+  debugTriggerCheckpoint(type: "light" | "full"): { injected: boolean; reason?: string } {
+    this.pendingCheckpoint = type;
+    if (this.status === "idle") {
+      this.injectCheckpoint();
+      return { injected: true };
+    }
+    return { injected: false, reason: `session is ${this.status}, queued as pending` };
   }
 
   getStats(): SessionStats {
@@ -545,11 +636,15 @@ export class PtySession extends EventEmitter {
           if (this.needsStartupKick) {
             this.needsStartupKick = false;
             const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
+            const kickType = this.isResumedSession ? "resume-kick" : "startup-kick";
             log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
+            this.recordInjection(kickType, kick);
+            this.recordDetectionTick(quietMs, promptType, null, kickType, "input prompt detected, startup kick pending");
             this.ptyProcess.write(kick);
             this.setStatus("busy");
             return;
           }
+          this.recordDetectionTick(quietMs, promptType, null, "idle", "input prompt detected");
           this.setStatus("idle");
           // Priority: emcom messages first, then checkpoint
           if (this.pendingMessages) this.inject();
@@ -559,11 +654,13 @@ export class PtySession extends EventEmitter {
         } else if (promptType === "unknown" && !this.mlQueryInFlight && this.config.mlModelPath) {
           // Regex inconclusive — ask local ONNX model
           this.mlQueryInFlight = true;
+          this.recordDetectionTick(quietMs, promptType, null, "ml-query", "regex inconclusive, dispatched ML");
           const lines = this.screenDetector.getContentLines(20);
           runLocalMLInference(this.config.mlModelPath, lines).then((result) => {
             this.mlQueryInFlight = false;
             if (result && result.label === "not_busy" && result.confidence > 0.75 && this.status === "busy") {
               log(`[${this.name}] ML inference: not_busy (conf=${result.confidence.toFixed(2)}) → idle`);
+              this.recordDetectionTick(quietMs, "ml-result", result.label, "idle", `ML: not_busy conf=${result.confidence.toFixed(2)}`);
               this.setStatus("idle");
               if (this.pendingMessages) this.inject();
               else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
@@ -571,6 +668,10 @@ export class PtySession extends EventEmitter {
               }
             }
           });
+        } else if (promptType === "busy") {
+          this.recordDetectionTick(quietMs, promptType, null, "none", "busy animation detected");
+        } else {
+          this.recordDetectionTick(quietMs, promptType, null, "none", `promptType=${promptType}, waiting`);
         }
       } else {
         // For generic sessions, just check quiet threshold (longer: 3s)
@@ -593,8 +694,10 @@ export class PtySession extends EventEmitter {
     this.unreadCount = 0;
     const identity = this.config.emcomIdentity;
     const label = identity ? `${this.name} (@${identity})` : this.name;
+    const prompt = INJECTION_PROMPT();
     clog(`emcom check → ${label}`);
-    this.ptyProcess.write(INJECTION_PROMPT());
+    this.recordInjection("emcom", prompt);
+    this.ptyProcess.write(prompt);
     this.setStatus("busy");
 
     // Cooldown: don't go idle again for a while
@@ -689,6 +792,7 @@ export class PtySession extends EventEmitter {
     this.pendingCheckpoint = null;
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
+    this.recordInjection(`checkpoint-${type}`, prompt);
     this.ptyProcess.write(prompt);
     this.setStatus("busy");
 

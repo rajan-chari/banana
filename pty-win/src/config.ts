@@ -22,6 +22,7 @@ export interface ServerConfig {
   port: number;
   host: string;
   name: string;
+  debug: boolean;
   emcomServer: string;
   rootDirs: string[];
   mlModelPath: string;
