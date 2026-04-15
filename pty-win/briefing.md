@@ -1,17 +1,23 @@
 # Briefing
-Last updated: 2026-04-13 23:51
+Last updated: 2026-04-15 11:34
 
 ## Current Focus
-Active session. Recent work: tracker panel fixes (alignment + Activity column + field name fix), --host flag for Docker, KB rules persisted.
+Shipped --debug flag (1b86dd0): REST API + /debug HTML dashboard. Also fixed injection newline bug (587be80) — single-line prompts with platform-aware SUBMIT.
 
 ## Don't Forget
-- Server restart needed for ALL accumulated TS changes: hooks, tracker proxy, cost, shutdown, node-pty swap, shell cross-platform, scroll/focus fix, --host flag
+- Server restart needed for ALL accumulated TS changes: hooks, tracker proxy, cost, shutdown, node-pty swap, shell cross-platform, scroll/focus fix, --host flag, injection fix, --debug flag
 - Browser refresh needed for frontend: tracker panel fixes, Activity column, dashboard redesign, drag-drop, pane borders, agents tab
 - Duplication: src/tiling.ts, src/pane-groups.ts, src/session-state.ts are extracted copies of app.js/session.ts — don't let them drift
 - Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests
 - tracker CLI is live (in PATH) — use for work items going forward
 
 ## Recent
+### 2026-04-15 10:41 — --debug flag: REST API + debug dashboard
+New feature: `--debug` unlocks /api/debug/* endpoints and /debug HTML page. Exposes: session state dumps, busy detection pipeline (quiet timer, prompt type, regex, ML, hooks), detection history ring buffer (last 100 ticks with action/reason), injection history (last 50 with exact bytes), screen dumps, prompt template preview, force-inject, dynamic log control (normal/verbose/trace), SSE log stream. 627 lines across 8 files. Commit 1b86dd0.
+
+### 2026-04-15 09:50 — Fix: injection newline bug (single-line prompts)
+All injection prompts had line breaks between tag and body. On Windows `\n` (LF) moves cursor without submitting, causing split prompts. Previous fix (9631593) used SUBMIT between tag/body which sent TWO separate prompts. Final fix: tag and body on ONE line separated by space, single SUBMIT at end. Applied to all injection points. Commit 587be80.
+
 ### 2026-04-13 22:02 — Add --host flag for Docker support
 Default 127.0.0.1 doesn't work in Docker (port forwarding can't reach localhost inside container). Added --host flag (default 127.0.0.1, use 0.0.0.0 for Docker). Hook endpoints always use 127.0.0.1 (local-only). Commit 795c889.
 

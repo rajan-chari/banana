@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-13 23:51
+Last updated: 2026-04-15 11:34
 
 ## In Motion
 
@@ -20,6 +20,8 @@ Last updated: 2026-04-13 23:51
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-15 | --debug flag: REST API + dashboard | Session state, detection pipeline, ring buffers, screen dumps, force-inject, log control |
+| 2026-04-15 | Injection newline fix | Single-line prompts, platform-aware SUBMIT |
 | 2026-04-13 | --host flag for Docker | Default 127.0.0.1, --host 0.0.0.0 for containers |
 | 2026-04-13 | Tracker Activity field name fix | last_activity → last_github_activity |
 | 2026-04-13 | Tracker panel alignment + Activity column | flex→grid fix, sticky header, Activity column for last_activity |
