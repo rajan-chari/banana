@@ -357,6 +357,10 @@
   border-bottom-color: rgba(241, 76, 76, 0.1);
 }
 
+.tracker-item.stale-row:hover {
+  background: rgba(241, 130, 130, 0.22);
+}
+
 /* --- Severity Badges --- */
 .tracker-severity {
   display: inline-block;
