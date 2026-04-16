@@ -1,4 +1,4 @@
-import { appendFileSync } from "fs";
+import { createWriteStream, type WriteStream } from "fs";
 import { join } from "path";
 
 const logPath = join(process.cwd(), "pty-win.log");
@@ -10,15 +10,40 @@ let debugLogPath = "";
 let debugLogLevel: LogLevel = "normal";
 const debugLogListeners: Array<(line: string) => void> = [];
 
+// Buffered async log writer — replaces appendFileSync
+let logStream: WriteStream | null = null;
+function getLogStream(): WriteStream {
+  if (!logStream) {
+    logStream = createWriteStream(logPath, { flags: "a" });
+    logStream.on("error", () => {}); // swallow write errors
+  }
+  return logStream;
+}
+
+// Buffered console output — batches writes to stdout
+let consoleBuf = "";
+let consoleTimer: ReturnType<typeof setTimeout> | null = null;
+const CONSOLE_FLUSH_MS = 50;
+
+function flushConsole(): void {
+  consoleTimer = null;
+  if (consoleBuf) {
+    process.stdout.write(consoleBuf);
+    consoleBuf = "";
+  }
+}
+
 export function log(msg: string): void {
   const ts = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
-  appendFileSync(logPath, `[${ts}] ${msg}\n`);
+  getLogStream().write(`[${ts}] ${msg}\n`);
 }
 
 export function clog(msg: string): void {
   const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
   const line = `[pty-win ${ts}] ${msg}`;
-  console.log(line);
+  // Buffered console write — batches to 50ms
+  consoleBuf += line + "\n";
+  if (!consoleTimer) consoleTimer = setTimeout(flushConsole, CONSOLE_FLUSH_MS);
   log(msg);
   emitDebugLog(line);
 }
@@ -29,7 +54,7 @@ export function dlog(level: LogLevel, msg: string): void {
   const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
   const line = `[${level} ${ts}] ${msg}`;
   if (debugLogEnabled && debugLogPath) {
-    try { appendFileSync(debugLogPath, line + "\n"); } catch {}
+    getLogStream().write(`[debug] ${line}\n`);
   }
   emitDebugLog(line);
 }

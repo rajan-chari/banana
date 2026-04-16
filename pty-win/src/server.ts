@@ -5,7 +5,8 @@ import { join, dirname, resolve, basename } from "path";
 import { fileURLToPath } from "url";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { execFile, execFileSync, spawn } from "child_process";
-import { PtySession } from "./session.js";
+import { MessageChannel } from "worker_threads";
+import { PtySession, SUBMIT, SUBMIT_DELAY_MS } from "./session.js";
 import { EmcomClient } from "./emcom/client.js";
 import { listDir, readIdentity, createDir } from "./folders.js";
 import { DEFAULTS } from "./config.js";
@@ -24,6 +25,24 @@ const buildInfo = { version: pkg.version as string, commit: gitCommit, startedAt
 const sessions = new Map<string, PtySession>();
 const sessionRepoRoots = new Map<string, string>(); // session name → normalized repo root
 const savedCosts = new Map<string, number>(); // session name → last known costUsd
+
+// MessageChannel for reliable PTY injection.
+// PTY writes from setInterval (heuristic tick) are unreliable — the I/O phase
+// context of MessagePort.on('message') makes writes reliable (same as HTTP handlers).
+const { port1: injectionReceiver, port2: injectionSender } = new MessageChannel();
+
+/** Write text to a session's PTY, then send SUBMIT after a delay.
+ *  Shared by both the MessageChannel handler and the HTTP inject endpoint. */
+function injectWrite(session: PtySession, text: string): void {
+  session.write(text);
+  setTimeout(() => session.write(SUBMIT), SUBMIT_DELAY_MS);
+}
+
+injectionReceiver.on("message", ({ name, text }: { name: string; text: string }) => {
+  const session = sessions.get(name);
+  if (!session) { clog(`injection relay: session "${name}" not found`); return; }
+  injectWrite(session, text);
+});
 
 const CHECKPOINT_STAGGER_MS = 10_000; // 10s between sessions on same repo
 
@@ -224,6 +243,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
       mlDataDir: join(__dirname, "..", "ml-dataset"),
       mlCollectionMaxSamples: DEFAULTS.mlCollectionMaxSamples,
       mlModelPath: config.mlModelPath || join(__dirname, "..", "..", "pty-learner", "ml", "classifier.onnx"),
+      injectionPort: injectionSender,
     };
 
     const session = new PtySession(sessionConfig);
@@ -355,6 +375,17 @@ public class Win32Focus {
     const { text } = req.body;
     if (typeof text !== "string") return res.status(400).json({ error: "text required" });
     session.write(text);
+    res.json({ ok: true });
+  });
+
+  // Always-available injection endpoint — writes text + SUBMIT to a session's PTY.
+  // Used externally by curl/scripts and internally via MessageChannel relay.
+  app.post("/api/sessions/:name/inject", (req, res) => {
+    const session = sessions.get(req.params.name);
+    if (!session) return res.status(404).json({ error: "not found" });
+    const { text } = req.body;
+    if (typeof text !== "string") return res.status(400).json({ error: "text required" });
+    injectWrite(session, text);
     res.json({ ok: true });
   });
 
@@ -687,7 +718,7 @@ public class Win32Focus {
               const label = identity ? `${name} (@${identity})` : name;
               clog(`${label}: saving...${delay > 0 ? ` (delayed ${delay / 1000}s)` : ""}`);
               session.forceIdle();
-              session.submitWrite(shutdownPrompt());
+              session.relayWrite(shutdownPrompt());
               resolve();
             }, delay);
           }));

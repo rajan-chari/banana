@@ -149,7 +149,7 @@ export function registerDebugRoutes(
       case "startup":
       case "resume":
         // These just write the kick directly
-        session.submitWrite(type === "resume" ? RESUME_KICK() : STARTUP_KICK());
+        session.relayWrite(type === "resume" ? RESUME_KICK() : STARTUP_KICK());
         return res.json({ ok: true, type });
       default:
         return res.status(400).json({ error: `unknown type: ${type}` });

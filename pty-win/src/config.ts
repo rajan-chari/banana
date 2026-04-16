@@ -1,3 +1,5 @@
+import type { MessagePort } from "worker_threads";
+
 export interface SessionConfig {
   name: string;
   command: string;
@@ -16,6 +18,7 @@ export interface SessionConfig {
   mlDataDir: string;
   mlCollectionMaxSamples: number;
   mlModelPath: string;
+  injectionPort: MessagePort;
 }
 
 export interface ServerConfig {

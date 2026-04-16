@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-15 03:01
+Last updated: 2026-04-15 13:50
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,6 +13,7 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - Layered auto-save: commit after completing each tracker item
 
 ## Recent
+- 2026-04-15 13:50 — **ACTIVE BUG: pty-win injection not submitting.** Injected prompts appear in Claude Code's input area but don't get processed until user manually hits Enter. Rajan confirmed issue started after the Linux newline fix chain (dbfeaeb→9631593→587be80). Current code sends `\r` (SUBMIT) at end of single-line prompts — `\r` should be Enter on Windows but isn't triggering submission. dist/ is up to date. Next step: Rajan starting pty-win with `--debug` flag to test different line endings live (\r, \n, \r\n) via the debug dashboard REST API.
 - 2026-04-15 03:01 — pty-win bug fixes: Linux injection submit (\r→\n, dbfeaeb), double-paste fix (paste guard, f3b9519), tracker hover stronger + stale-row hover (54656d5, 6a454b0), tracker row numbers + ref split + active color-coding (e1aa02e, 0655203). fellow-agents: chmod +x on Linux binaries (982c258), v0.0.4 release green (ubuntu-22.04 pin). npm shims for all binaries (fadc2a0). CLI UX polish (4616a7b). pine coordinating pty-cld integration.
 - 2026-04-14 15:01 — fellow-agents npm package: shims, CLI UX, pty-cld coordination, external quality bar principle.
 - 2026-04-14 03:51 — fellow-agents npm package initial implementation (9f1cbf6). 3 bugs fixed (4e03a67). AppLocker fix (eda9878). npm-publish job + README (dcd8e19). v0.0.4 release green.

@@ -85,7 +85,7 @@ export interface SessionInfo {
 }
 
 export const SUBMIT = process.platform === "win32" ? "\r" : "\n";
-const SUBMIT_DELAY_MS = 50;
+export const SUBMIT_DELAY_MS = 200;
 
 export function INJECTION_PROMPT() {
   return `[${fmtNow()} pty-win:emcom:normal:normal] Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).`;
@@ -290,20 +290,14 @@ export class PtySession extends EventEmitter {
     this.ptyProcess.write(typeof data === "string" ? data : data.toString());
   }
 
-  /** Write text then send SUBMIT after a delay.
-   *  Claude Code swallows \r when it arrives in the same write as long
-   *  text that wraps the terminal. Splitting text from submit fixes it.
-   *  Uses setImmediate to escape setInterval context — PTY writes from
-   *  within timer callbacks don't reliably reach Claude Code's input. */
-  submitWrite(text: string): void {
-    setImmediate(() => {
-      clog(`submitWrite(${this.name}): writing ${text.length} chars`);
-      this.ptyProcess.write(text);
-      setTimeout(() => {
-        clog(`submitWrite(${this.name}): sending SUBMIT (${SUBMIT_DELAY_MS}ms later)`);
-        this.ptyProcess.write(SUBMIT);
-      }, SUBMIT_DELAY_MS);
-    });
+  /** Relay a prompt injection via MessageChannel.
+   *  PTY writes from setInterval callbacks (heuristic tick) are unreliable —
+   *  Claude Code swallows \r for long text. MessagePort.on('message') runs in
+   *  the I/O phase of the event loop (same as HTTP handlers), making writes
+   *  reliable. The actual write (text + delayed SUBMIT) is handled by the
+   *  injectWrite() function in server.ts, triggered by the port message. */
+  relayWrite(text: string): void {
+    this.config.injectionPort.postMessage({ name: this.name, text });
   }
 
   resize(cols: number, rows: number): void {
@@ -471,7 +465,7 @@ export class PtySession extends EventEmitter {
   debugForceInject(): void {
     const prompt = INJECTION_PROMPT();
     this.recordInjection("emcom", prompt);
-    this.submitWrite(prompt);
+    this.relayWrite(prompt);
     this.setStatus("busy");
   }
 
@@ -647,7 +641,7 @@ export class PtySession extends EventEmitter {
             log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
             this.recordInjection(kickType, kick);
             this.recordDetectionTick(quietMs, promptType, null, kickType, "input prompt detected, startup kick pending");
-            this.submitWrite(kick);
+            this.relayWrite(kick);
             this.setStatus("busy");
             return;
           }
@@ -704,7 +698,7 @@ export class PtySession extends EventEmitter {
     const prompt = INJECTION_PROMPT();
     clog(`emcom check → ${label}`);
     this.recordInjection("emcom", prompt);
-    this.submitWrite(prompt);
+    this.relayWrite(prompt);
     this.setStatus("busy");
 
     // Cooldown: don't go idle again for a while
@@ -800,7 +794,7 @@ export class PtySession extends EventEmitter {
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
     this.recordInjection(`checkpoint-${type}`, prompt);
-    this.submitWrite(prompt);
+    this.relayWrite(prompt);
     this.setStatus("busy");
 
     this.stopHeuristic();
