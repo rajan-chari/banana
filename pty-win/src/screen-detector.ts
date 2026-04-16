@@ -15,6 +15,7 @@ export class ScreenDetector {
   private sessionName: string;
   private lastDiagTime = 0;
   private lastOutputTime = Date.now();
+  private pendingData = "";  // buffered data, parsed on demand
 
   constructor(cols: number, rows: number, sessionName: string) {
     this.sessionName = sessionName;
@@ -26,12 +27,22 @@ export class ScreenDetector {
     });
   }
 
+  /** Buffer data for deferred parsing. Cheap — just string concat. */
   write(data: string): void {
     this.lastOutputTime = Date.now();
-    this.terminal.write(data);
+    this.pendingData += data;
+  }
+
+  /** Flush buffered data to xterm-headless. Called before any read. */
+  private flush(): void {
+    if (this.pendingData) {
+      this.terminal.write(this.pendingData);
+      this.pendingData = "";
+    }
   }
 
   resize(cols: number, rows: number): void {
+    this.flush();
     this.terminal.resize(cols, rows);
   }
 
@@ -42,6 +53,7 @@ export class ScreenDetector {
 
   /** Claude-specific: detect what kind of prompt is showing */
   detectPromptType(): PromptType {
+    this.flush();
     const buf = this.terminal.buffer.active;
     const contentLines = this.getContentLines(8);
 
@@ -67,6 +79,7 @@ export class ScreenDetector {
   }
 
   getContentLines(n: number): string[] {
+    this.flush();
     const buf = this.terminal.buffer.active;
     const lines: string[] = [];
 
@@ -83,6 +96,7 @@ export class ScreenDetector {
 
   /** Get last N lines for dashboard preview */
   snapshot(n: number = 8): string[] {
+    this.flush();
     const buf = this.terminal.buffer.active;
     const lines: string[] = [];
     for (let y = this.terminal.rows - 1; y >= 0 && lines.length < n; y--) {
@@ -95,6 +109,7 @@ export class ScreenDetector {
   }
 
   getCursorY(): number {
+    this.flush();
     return this.terminal.buffer.active.cursorY;
   }
 
