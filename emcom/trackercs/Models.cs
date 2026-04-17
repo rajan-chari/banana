@@ -22,6 +22,8 @@ public sealed class WorkItem
     [JsonPropertyName("last_github_activity")] public string? LastGithubActivity { get; set; }
     [JsonPropertyName("github_author")] public string? GithubAuthor { get; set; }
     [JsonPropertyName("github_last_commenter")] public string? GithubLastCommenter { get; set; }
+    [JsonPropertyName("opened_by")] public string? OpenedBy { get; set; }
+    [JsonPropertyName("responders")] public List<string> Responders { get; set; } = [];
     [JsonPropertyName("labels")] public List<string> Labels { get; set; } = [];
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
     [JsonPropertyName("created_at")] public string CreatedAt { get; set; } = "";
@@ -70,6 +72,8 @@ public sealed class CreateWorkItemRequest
     [JsonPropertyName("status")] public string Status { get; set; } = "new";
     [JsonPropertyName("assigned_to")] public string? AssignedTo { get; set; }
     [JsonPropertyName("date_found")] public string? DateFound { get; set; }
+    [JsonPropertyName("opened_by")] public string? OpenedBy { get; set; }
+    [JsonPropertyName("responders")] public List<string> Responders { get; set; } = [];
     [JsonPropertyName("labels")] public List<string> Labels { get; set; } = [];
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
 }
@@ -87,6 +91,9 @@ public sealed class UpdateWorkItemRequest
     [JsonPropertyName("last_github_activity")] public string? LastGithubActivity { get; set; }
     [JsonPropertyName("github_author")] public string? GithubAuthor { get; set; }
     [JsonPropertyName("github_last_commenter")] public string? GithubLastCommenter { get; set; }
+    [JsonPropertyName("opened_by")] public string? OpenedBy { get; set; }
+    [JsonPropertyName("responders")] public List<string>? Responders { get; set; }
+    [JsonPropertyName("add_responder")] public string? AddResponder { get; set; }
     [JsonPropertyName("append_notes")] public string? AppendNotes { get; set; }
     [JsonPropertyName("findings")] public string? Findings { get; set; }
     [JsonPropertyName("decision")] public string? Decision { get; set; }

@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS work_items (
     last_github_activity TEXT,
     github_author TEXT,
     github_last_commenter TEXT,
+    opened_by TEXT,
+    responders TEXT NOT NULL DEFAULT '[]',
     labels TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
@@ -138,7 +140,7 @@ TRACKED_FIELDS = {
     "title", "type", "severity", "status", "assigned_to", "blocker",
     "blocked_since", "findings", "decision", "decision_rationale",
     "date_found", "last_github_activity", "github_author", "github_last_commenter",
-    "labels", "notes", "number",
+    "opened_by", "responders", "labels", "notes", "number",
 }
 
 
@@ -217,6 +219,10 @@ class Database:
         if wi_cols and "github_author" not in wi_cols:
             conn.execute("ALTER TABLE work_items ADD COLUMN github_author TEXT")
             conn.execute("ALTER TABLE work_items ADD COLUMN github_last_commenter TEXT")
+            conn.commit()
+        if wi_cols and "opened_by" not in wi_cols:
+            conn.execute("ALTER TABLE work_items ADD COLUMN opened_by TEXT")
+            conn.execute("ALTER TABLE work_items ADD COLUMN responders TEXT NOT NULL DEFAULT '[]'")
             conn.commit()
         # Seed name pool if empty
         count = conn.execute("SELECT COUNT(*) FROM name_pool").fetchone()[0]
@@ -617,6 +623,7 @@ class Database:
     def _parse_work_item(self, row: sqlite3.Row) -> dict:
         d = dict(row)
         d["labels"] = json.loads(d.get("labels") or "[]")
+        d["responders"] = json.loads(d.get("responders") or "[]")
         return d
 
     def _record_history(self, conn: sqlite3.Connection, work_item_id: str,
@@ -662,7 +669,9 @@ class Database:
                          number: int | None = None, type_: str = "issue",
                          severity: str = "normal", status: str = "new",
                          assigned_to: str | None = None, labels: list[str] | None = None,
-                         notes: str = "", date_found: str | None = None) -> dict:
+                         notes: str = "", date_found: str | None = None,
+                         opened_by: str | None = None,
+                         responders: list[str] | None = None) -> dict:
         conn = self._connect()
         now = _now()
         item_id = str(uuid.uuid4())
@@ -677,10 +686,12 @@ class Database:
 
         conn.execute(
             "INSERT INTO work_items (id, repo, number, title, type, severity, status, "
-            "assigned_to, created_by, date_found, labels, notes, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "assigned_to, created_by, date_found, opened_by, responders, labels, notes, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (item_id, repo, number, title, type_, severity, status,
-             assigned_to, created_by, date_found, json.dumps(labels or []), notes, now, now),
+             assigned_to, created_by, date_found, opened_by,
+             json.dumps(responders or []), json.dumps(labels or []), notes, now, now),
         )
         self._record_history(conn, item_id, "status", None, status, created_by, "Created")
         if assigned_to:
@@ -700,6 +711,18 @@ class Database:
         sets = ["updated_at=?"]
         params: list = [now]
 
+        # Handle add_responder specially — append to responders list without duplicates
+        add_responder = updates.pop("add_responder", None)
+        if add_responder:
+            old_responders = json.loads(old.get("responders") or "[]")
+            if add_responder not in old_responders:
+                new_responders = old_responders + [add_responder]
+                new_val = json.dumps(new_responders)
+                sets.append("responders=?")
+                params.append(new_val)
+                self._record_history(conn, item_id, "responders",
+                                     json.dumps(old_responders), new_val, changed_by, comment)
+
         # Handle append_notes specially — append with timestamp prefix
         append_notes = updates.pop("append_notes", None)
         if append_notes:
@@ -715,7 +738,7 @@ class Database:
             if field not in TRACKED_FIELDS:
                 continue
             old_val = old.get(field)
-            if field == "labels":
+            if field in ("labels", "responders"):
                 new_val = json.dumps(new_val if isinstance(new_val, list) else [])
                 old_str = old_val  # already JSON string
             else:

@@ -60,6 +60,10 @@ public static class Fmt
         if (item.AssignedTo != null)
             sb.AppendLine($"Assigned:   {item.AssignedTo}");
         sb.AppendLine($"Created by: {item.CreatedBy}");
+        if (!string.IsNullOrEmpty(item.OpenedBy))
+            sb.AppendLine($"Opened by:  {item.OpenedBy}");
+        if (item.Responders.Count > 0)
+            sb.AppendLine($"Responders: {string.Join(", ", item.Responders)}");
         sb.AppendLine($"Created:    {ShortDate(item.CreatedAt)}");
         sb.AppendLine($"Updated:    {ShortDate(item.UpdatedAt)}");
         if (item.Labels.Count > 0)

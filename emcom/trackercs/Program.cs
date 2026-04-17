@@ -83,6 +83,8 @@ public static class Program
                 Console.WriteLine("  --status <status>       Initial status (default: new)");
                 Console.WriteLine("  --assigned <agent>      Assign to agent");
                 Console.WriteLine("  --date-found <iso>      When issue was originally filed");
+                Console.WriteLine("  --opened-by <name>      Who originally reported the issue");
+                Console.WriteLine("  --responders <a,b,c>    Comma-separated responders");
                 Console.WriteLine("  --labels <a,b,c>        Comma-separated labels");
                 Console.WriteLine("  --notes <text>          Initial notes");
                 break;
@@ -104,6 +106,9 @@ public static class Program
                 Console.WriteLine("  --last-github-activity <iso>      Latest GitHub activity timestamp");
                 Console.WriteLine("  --github-author <user>            GitHub username who opened");
                 Console.WriteLine("  --github-last-commenter <user>    Last commenter/reviewer");
+                Console.WriteLine("  --opened-by <name>                Who originally reported the issue");
+                Console.WriteLine("  --responders <a,b,c>              Replace responders list");
+                Console.WriteLine("  --add-responder <name>            Add a responder (no duplicates)");
                 Console.WriteLine("  --title <text>                    Update title");
                 Console.WriteLine("  --severity <sev>                  low, normal, high, critical");
                 Console.WriteLine("  --labels <a,b,c>                  Replace labels");
@@ -197,8 +202,10 @@ public static class Program
             {
                 string? repo = null, title = null, type = null, severity = null;
                 string? assigned = null, notes = null, status = null, dateFound = null;
+                string? openedBy = null;
                 int? number = null;
                 List<string> labels = [];
+                List<string> responders = [];
                 for (int i = 0; i < rest.Count; i++)
                 {
                     if (rest[i] == "--repo" && i + 1 < rest.Count) repo = rest[++i];
@@ -210,6 +217,9 @@ public static class Program
                     else if (rest[i] == "--status" && i + 1 < rest.Count) status = rest[++i];
                     else if (rest[i] == "--assigned" && i + 1 < rest.Count) assigned = rest[++i];
                     else if (rest[i] == "--date-found" && i + 1 < rest.Count) dateFound = rest[++i];
+                    else if (rest[i] == "--opened-by" && i + 1 < rest.Count) openedBy = rest[++i];
+                    else if (rest[i] == "--responders" && i + 1 < rest.Count)
+                        responders.AddRange(rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)
                         labels.AddRange(rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     else if (rest[i] == "--notes" && i + 1 < rest.Count) notes = rest[++i];
@@ -224,6 +234,8 @@ public static class Program
                 if (status != null) req.Status = status;
                 req.AssignedTo = assigned;
                 req.DateFound = dateFound;
+                req.OpenedBy = openedBy;
+                if (responders.Count > 0) req.Responders = responders;
                 if (labels.Count > 0) req.Labels = labels;
                 if (notes != null) req.Notes = notes;
                 var item = c.Create(req);
@@ -248,6 +260,10 @@ public static class Program
                     else if (rest[i] == "--last-github-activity" && i + 1 < rest.Count) req.LastGithubActivity = rest[++i];
                     else if (rest[i] == "--github-author" && i + 1 < rest.Count) req.GithubAuthor = rest[++i];
                     else if (rest[i] == "--github-last-commenter" && i + 1 < rest.Count) req.GithubLastCommenter = rest[++i];
+                    else if (rest[i] == "--opened-by" && i + 1 < rest.Count) req.OpenedBy = rest[++i];
+                    else if (rest[i] == "--responders" && i + 1 < rest.Count)
+                        req.Responders = [..rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+                    else if (rest[i] == "--add-responder" && i + 1 < rest.Count) req.AddResponder = rest[++i];
                     else if (rest[i] == "--title" && i + 1 < rest.Count) req.Title = rest[++i];
                     else if (rest[i] == "--severity" && i + 1 < rest.Count) req.Severity = rest[++i];
                     else if (rest[i] == "--labels" && i + 1 < rest.Count)

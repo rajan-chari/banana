@@ -218,3 +218,24 @@ Added `location` field (last 3 CWD segments) to identity registration so `emcom 
 **Fixes pushed to fellow-agents:** 0420a53, ed5ed9c, d8731d4, fc06605, efe730b (5 commits).
 
 Both VMs deallocated. Auto-shutdown configured at midnight ET.
+
+### 2026-04-16 22:45 — Tracker feature: opened_by + responders fields
+
+Added two new fields to work items per Rajan's request:
+- **opened_by** (TEXT, nullable): who originally reported the issue (distinct from created_by and github_author)
+- **responders** (TEXT, JSON array): list of agents who have engaged with the item
+
+Changes across 3 layers:
+- **Python server** (db.py): schema + migration + TRACKED_FIELDS + create/update. Responders parsed like labels (JSON). `add_responder` in update appends without duplicates.
+- **Python router** (tracker.py): CreateWorkItemRequest + UpdateWorkItemRequest models + passthrough.
+- **C# CLI** (Models.cs, Program.cs, Formatting.cs): WorkItem + request DTOs + `--opened-by`, `--responders`, `--add-responder` flags + view display.
+
+Tests: 100 passed (21 CLI integration errors = no server running, pre-existing). C# build: 0 warnings, 0 errors.
+
+### 2026-04-17 08:30 — fellow-agents: clear stale workspace config on fresh install
+
+Added step 4/7 to both setup.ps1 and setup.sh per Rajan's request:
+1. Removes old `.claude/` dirs from workspace templates (regenerated in step 6)
+2. Rewrites `identity.json` server URL to match `--EmcomPort` parameter
+
+Fixes: identity.json had hardcoded `:8800` — custom port users would register against wrong server. Steps renumbered 4→7 (was 4→6).

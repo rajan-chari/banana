@@ -71,6 +71,8 @@ class CreateWorkItemRequest(BaseModel):
     status: str = "new"
     assigned_to: str | None = None
     date_found: str | None = None
+    opened_by: str | None = None
+    responders: list[str] = []
     labels: list[str] = []
     notes: str = ""
 
@@ -87,6 +89,9 @@ class UpdateWorkItemRequest(BaseModel):
     last_github_activity: str | None = None
     github_author: str | None = None
     github_last_commenter: str | None = None
+    opened_by: str | None = None
+    responders: list[str] | None = None
+    add_responder: str | None = None
     append_notes: str | None = None
     findings: str | None = None
     decision: str | None = None
@@ -122,6 +127,7 @@ def create_work_item(req: CreateWorkItemRequest, request: Request):
         number=req.number, type_=req.type, severity=req.severity,
         status=req.status, assigned_to=req.assigned_to,
         labels=req.labels, notes=req.notes, date_found=req.date_found,
+        opened_by=req.opened_by, responders=req.responders,
     )
     _broadcast("create", item)
     return item
