@@ -1,8 +1,11 @@
 # Briefing
-Last updated: 2026-04-15 11:34
+Last updated: 2026-04-16 22:38
 
 ## Current Focus
-Shipped --debug flag (1b86dd0): REST API + /debug HTML dashboard. Also fixed injection newline bug (587be80) — single-line prompts with platform-aware SUBMIT.
+Idle session — no code changes. Pending: tracker feature (opened-by + responders columns) waiting on frost's backend changes before UI work can start. Last code shipped was --debug flag (1b86dd0) + injection newline fix (587be80).
+
+## Pending Feature: Tracker opened-by + responders
+Rajan broadcast to moss/milo/frost on 2026-04-16. frost asked clarification questions (field shape, validation). moss (me) will add columns to pty-win tracker panel once frost lands the backend fields. No body text in Rajan's messages — waiting for his reply to frost's questions.
 
 ## Don't Forget
 - Server restart needed for ALL accumulated TS changes: hooks, tracker proxy, cost, shutdown, node-pty swap, shell cross-platform, scroll/focus fix, --host flag, injection fix, --debug flag
