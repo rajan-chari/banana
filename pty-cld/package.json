@@ -1,6 +1,6 @@
 {
   "name": "pty-cld",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "PTY wrapper for Claude Code with emcom message notifications",
   "type": "module",
   "main": "dist/index.js",

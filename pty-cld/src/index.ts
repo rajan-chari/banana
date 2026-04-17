@@ -126,13 +126,25 @@ async function runCli(claudeArgs: string[], overrides: CliOverrides): Promise<vo
     }
   };
 
-  // Pipe PTY output to stdout
+  // Pipe PTY output to stdout — batched at 16ms (max 60/sec)
+  const BATCH_MS = 16;
+  let stdoutBuf = "";
+  let stdoutFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  const flushStdout = () => {
+    stdoutFlushTimer = null;
+    if (stdoutBuf) {
+      process.stdout.write(stdoutBuf);
+      stdoutBuf = "";
+    }
+  };
   session.on("data", (data: string) => {
-    process.stdout.write(data);
+    stdoutBuf += data;
+    if (!stdoutFlushTimer) stdoutFlushTimer = setTimeout(flushStdout, BATCH_MS);
   });
 
   session.on("exit", (code: number | undefined) => {
     log(`[pty-cld] Claude exited (code ${code ?? "unknown"})`);
+    if (stdoutFlushTimer) { clearTimeout(stdoutFlushTimer); flushStdout(); }
     process.stdin.setRawMode?.(false);
     controlServer.close();
     process.exit(code ?? 0);
@@ -181,6 +193,7 @@ async function runCli(claudeArgs: string[], overrides: CliOverrides): Promise<vo
 
   // Graceful shutdown
   const cleanup = () => {
+    if (stdoutFlushTimer) { clearTimeout(stdoutFlushTimer); flushStdout(); }
     process.stdin.setRawMode?.(false);
     session.kill();
     controlServer.close();

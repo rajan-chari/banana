@@ -24,6 +24,7 @@ export class ScreenDetector {
   private terminal: InstanceType<typeof Terminal>;
   private sessionName: string;
   private lastDiagTime = 0;
+  private pendingData = "";  // buffered data, parsed on demand
 
   constructor(cols: number, rows: number, sessionName: string) {
     this.sessionName = sessionName;
@@ -35,13 +36,22 @@ export class ScreenDetector {
     });
   }
 
-  /** Feed raw PTY output into the headless terminal */
+  /** Buffer data for deferred parsing. Cheap — just string concat. */
   write(data: string): void {
-    this.terminal.write(data);
+    this.pendingData += data;
+  }
+
+  /** Flush buffered data to xterm-headless. Called before any read. */
+  private flush(): void {
+    if (this.pendingData) {
+      this.terminal.write(this.pendingData);
+      this.pendingData = "";
+    }
   }
 
   /** Resize the headless terminal (must stay in sync with node-pty) */
   resize(cols: number, rows: number): void {
+    this.flush();
     this.terminal.resize(cols, rows);
   }
 
@@ -50,6 +60,7 @@ export class ScreenDetector {
    * Called when output has been quiet — checks if injection is safe.
    */
   detectPromptType(): PromptType {
+    this.flush();
     const buf = this.terminal.buffer.active;
     const contentLines = this.getContentLines(8);
 
@@ -94,6 +105,7 @@ export class ScreenDetector {
    * scanning bottom-up and skipping the status bar.
    */
   private getContentLines(n: number): string[] {
+    this.flush();
     const buf = this.terminal.buffer.active;
     const lines: string[] = [];
 
@@ -110,6 +122,7 @@ export class ScreenDetector {
 
   /** Full text snapshot of visible viewport (for debugging) */
   snapshot(): string {
+    this.flush();
     const buf = this.terminal.buffer.active;
     const lines: string[] = [];
     for (let y = 0; y < this.terminal.rows; y++) {
