@@ -90,3 +90,6 @@ Killing and restarting emcom-server on port 8800 during tracker development caus
 
 ### 2026-03-25: Use `git commit -F -` with heredoc instead of `$(cat <<'EOF')`
 `git commit -m "$(cat <<'EOF'...EOF)"` triggers a permission prompt every time due to the `$()` command substitution. Use `git commit -F - <<'EOF'` instead — `-F -` reads the message from stdin, heredoc provides it, no subshell needed. No more permission interruptions.
+
+### 2026-04-17: CLI flag aliases prevent silent data loss
+Rajan used `--message` instead of `--body` when sending emcom messages. The CLI silently ignored the unknown flag, read empty stdin (in non-redirected context, errored — but in redirected/piped contexts, sent empty body). Users and LLM agents naturally guess plausible flag names. Lesson: for critical data-carrying flags, add common aliases (--message/--msg/--text for --body). Also consider erroring on unrecognized flags rather than silently ignoring them — the `--help` system (commit `7f5ed7b`) already exists but unknown flags in send/reply still pass silently.
