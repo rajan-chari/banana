@@ -1,16 +1,20 @@
 # Briefing
 
-Last updated: 2026-04-15 shutdown
+Last updated: 2026-04-16 checkpoint
 
 ## Current Focus
 
-Idle. All binaries current. emcom-server.exe rebuilt from latest source and deployed. No outstanding work.
+Waiting on Rajan. He sent a feature request ("tracker feature: opened-by + responders fields") but both messages had empty bodies. Replied asking for clarification on field semantics, validation, and CLI flags. No implementation started yet.
 
 ## Don't Forget
 
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
+- Rajan's tracker feature request (thread `dad8cf58`) — awaiting substantive reply with field specs
 
 ## Recent
+
+### 2026-04-16 — Session start + Rajan feature request (pending clarification)
+Cleared 5 stale test/ping messages from Rajan (16+ hrs old, no bodies). Then received new message: "tracker feature: opened-by + responders fields" — subject-only, empty body. Reply also empty body. Sent clarification reply asking: (1) opened-by = GitHub issue opener? (2) responders = commenters/reviewers? (3) free-text or validated? (4) CLI flags? Waiting for response.
 
 ### 2026-04-15 — Rebuilt + deployed emcom-server.exe
 Rajan requested server stop/restart. Discovered staged binary (from Apr 13) was missing commit `dd6cb08` (github_author + github_last_commenter tracker fields). Rebuilt via PyInstaller from current source, deployed to `~/.claude/skills/emcom/bin/`, verified all 4 new fields (github_author, github_last_commenter, last_github_activity, date_found) present in API response. Server left stopped at Rajan's request. Don't-forget item for staged deploy removed — it's done.
