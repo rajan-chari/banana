@@ -1,17 +1,21 @@
 # Briefing
 
-Last updated: 2026-04-16 checkpoint
+Last updated: 2026-04-17 checkpoint
 
 ## Current Focus
 
-Waiting on Rajan. He sent a feature request ("tracker feature: opened-by + responders fields") but both messages had empty bodies. Replied asking for clarification on field semantics, validation, and CLI flags. No implementation started yet.
+Waiting on Rajan for two items: (1) tracker feature request "opened-by + responders fields" — asked for field specs, no substantive reply yet. (2) Empty body bug investigation — server-side is clean, issue is on the sender side. Replied with full analysis asking which tool/interface drops the body. No code changes this session.
 
 ## Don't Forget
 
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 - Rajan's tracker feature request (thread `dad8cf58`) — awaiting substantive reply with field specs
+- Empty body bug (thread `09b1feba`) — awaiting Rajan's reply on which sending tool he uses
 
 ## Recent
+
+### 2026-04-17 — Investigated empty body bug
+Rajan reported "bug: emcom messages arriving with empty body". Investigated: bodies are empty IN the DB (never arrive at server). Server send/store logic verified correct via test messages. Pattern: messages with bodies are long deliberate ones; empty-body messages are quick sends. Some arrive as duplicates within milliseconds (broadcast tool). Two messages sent 50ms apart — one with body (273 chars), one without — rules out version/timing issue. Conclusion: sender-side tool isn't including --body. Replied with full analysis, asked which tool he uses. Also answered "where is emcom-server DB?" question (→ `~/.emcom/emcom.db`, configurable via EMCOM_DATA_DIR).
 
 ### 2026-04-16 — Session start + Rajan feature request (pending clarification)
 Cleared 5 stale test/ping messages from Rajan (16+ hrs old, no bodies). Then received new message: "tracker feature: opened-by + responders fields" — subject-only, empty body. Reply also empty body. Sent clarification reply asking: (1) opened-by = GitHub issue opener? (2) responders = commenters/reviewers? (3) free-text or validated? (4) CLI flags? Waiting for response.
