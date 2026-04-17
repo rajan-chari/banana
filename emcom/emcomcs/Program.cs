@@ -159,13 +159,13 @@ public static class Program
                         while (++i < rest.Count && !rest[i].StartsWith('-'))
                             cc.AddRange(rest[i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     if (i < rest.Count && (rest[i] == "--subject" || rest[i] == "-s") && i + 1 < rest.Count) subject = rest[++i];
-                    if (i < rest.Count && (rest[i] == "--body" || rest[i] == "-b") && i + 1 < rest.Count) body = rest[++i];
+                    if (i < rest.Count && (rest[i] == "--body" || rest[i] == "-b" || rest[i] == "--message" || rest[i] == "-m") && i + 1 < rest.Count) body = rest[++i];
                 }
                 if (to.Count == 0) { Console.Error.WriteLine("Error: --to/-t required"); return 1; }
                 if (subject == null) { Console.Error.WriteLine("Error: --subject/-s required"); return 1; }
                 // If no --body, read from stdin (supports piped input)
                 body ??= Console.IsInputRedirected ? Console.In.ReadToEnd().TrimEnd() : null;
-                if (body == null) { Console.Error.WriteLine("Error: --body/-b required (or pipe via stdin)"); return 1; }
+                if (body == null) { Console.Error.WriteLine("Error: --body/-b/--message required (or pipe via stdin)"); return 1; }
                 var email = c.Send(to, subject, body, cc);
                 Console.WriteLine($"Sent [{Fmt.ShortId(email.Id)}] to {string.Join(", ", email.To)}");
                 break;
@@ -176,8 +176,8 @@ public static class Program
                 string emailId = rest[0]; string? body = null;
                 bool handled = rest.Contains("--handled") || rest.Contains("-h");
                 for (int i = 1; i < rest.Count; i++)
-                    if ((rest[i] == "--body" || rest[i] == "-b") && i + 1 < rest.Count) body = rest[++i];
-                if (body == null) { Console.Error.WriteLine("Error: --body/-b required"); return 1; }
+                    if ((rest[i] == "--body" || rest[i] == "-b" || rest[i] == "--message" || rest[i] == "-m") && i + 1 < rest.Count) body = rest[++i];
+                if (body == null) { Console.Error.WriteLine("Error: --body/-b/--message required"); return 1; }
                 var email = c.Reply(emailId, body);
                 Console.WriteLine($"Replied [{Fmt.ShortId(email.Id)}] in thread {Fmt.ShortId(email.ThreadId)}");
                 if (handled)
@@ -244,7 +244,7 @@ public static class Program
                     else if (rest[i] == "--to" && i + 1 < rest.Count) to = rest[++i];
                     else if (rest[i] == "--subject" && i + 1 < rest.Count) subject = rest[++i];
                     else if (rest[i] == "--tag" && i + 1 < rest.Count) tag = rest[++i];
-                    else if (rest[i] == "--body" && i + 1 < rest.Count) body = rest[++i];
+                    else if ((rest[i] == "--body" || rest[i] == "--message") && i + 1 < rest.Count) body = rest[++i];
                 }
                 Console.WriteLine(Fmt.FormatInbox(c.Search(from, to, subject, tag, body)));
                 break;
@@ -460,7 +460,7 @@ public static class Program
                             else if (tokens[i] == "--to" && i + 1 < tokens.Count) to = tokens[++i];
                             else if (tokens[i] == "--subject" && i + 1 < tokens.Count) subject = tokens[++i];
                             else if (tokens[i] == "--tag" && i + 1 < tokens.Count) tag = tokens[++i];
-                            else if (tokens[i] == "--body" && i + 1 < tokens.Count) body = tokens[++i];
+                            else if ((tokens[i] == "--body" || tokens[i] == "--message") && i + 1 < tokens.Count) body = tokens[++i];
                         }
                         var emails = cl.Search(from, to, subject, tag, body);
                         lastItems = emails.Select(e => ("email", e.Id)).ToList();
