@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-16 22:38
+Last updated: 2026-04-18 12:02
 
 ## Current Focus
 Idle session — no code changes. Pending: tracker feature (opened-by + responders columns) waiting on frost's backend changes before UI work can start. Last code shipped was --debug flag (1b86dd0) + injection newline fix (587be80).
