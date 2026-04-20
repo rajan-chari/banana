@@ -1,6 +1,6 @@
 # pty-win Work Tracker
 
-Last updated: 2026-04-15 11:34
+Last updated: 2026-04-20 16:02
 
 ## In Motion
 
@@ -20,6 +20,7 @@ Last updated: 2026-04-15 11:34
 
 | Date | Item | Outcome |
 |------|------|---------|
+| 2026-04-20 | Tracker: opened-by + responders columns | Frontend-only: 2 new sortable columns, CSS, patch fn, detail meta. frost did backend. |
 | 2026-04-15 | --debug flag: REST API + dashboard | Session state, detection pipeline, ring buffers, screen dumps, force-inject, log control |
 | 2026-04-15 | Injection newline fix | Single-line prompts, platform-aware SUBMIT |
 | 2026-04-13 | --host flag for Docker | Default 127.0.0.1, --host 0.0.0.0 for containers |

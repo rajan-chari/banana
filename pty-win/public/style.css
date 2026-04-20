@@ -2073,6 +2073,8 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   white-space: nowrap;
 }
 .tracker-assignee { color: #d670d6; font-size: 10px; }
+.tracker-opened-by { color: #6ab0ff; font-size: 10px; }
+.tracker-responders { color: #8a8; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tracker-age, .tracker-status-age, .tracker-updated, .tracker-activity { color: #777; font-size: 10px; white-space: nowrap; }
 .tracker-col-resize {
   position: absolute; right: 0; top: 0; bottom: 0; width: 4px;

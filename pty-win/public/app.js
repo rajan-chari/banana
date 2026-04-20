@@ -3172,6 +3172,8 @@ function sortTrackerItems(items) {
       case "ref": return dir * (`${a.repo}#${a.number}`).localeCompare(`${b.repo}#${b.number}`);
       case "title": return dir * (a.title || "").localeCompare(b.title || "");
       case "assignee": return dir * (a.assigned_to || "").localeCompare(b.assigned_to || "");
+      case "opened_by": return dir * (a.opened_by || "").localeCompare(b.opened_by || "");
+      case "responders": return dir * ((a.responders || []).join(",")).localeCompare((b.responders || []).join(","));
       case "severity": return dir * (sevOrder(a.severity) - sevOrder(b.severity));
       case "age": return dir * (new Date(a.created_at) - new Date(b.created_at));
       case "updated": return dir * (new Date(a.updated_at) - new Date(b.updated_at));
@@ -3207,6 +3209,8 @@ function buildTrackerItem(item) {
       <span class="tracker-ref">${refHtml}</span>
       <span class="tracker-item-title">${item.title}${item.github_author ? `<span class="tracker-author-tag">by ${item.github_author}</span>` : ""}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${item.status}">${item.status}</span>` : ""}</span>
       <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
+      <span class="tracker-opened-by">${item.opened_by || ""}</span>
+      <span class="tracker-responders">${Array.isArray(item.responders) && item.responders.length ? item.responders.join(", ") : ""}</span>
       <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
       <span class="tracker-activity ${activeStale}">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
@@ -3221,7 +3225,7 @@ function buildTrackerItem(item) {
       ${item.notes ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Notes</div><div class="tracker-detail-value">${item.notes}</div></div>` : ""}
       ${item.labels?.length ? `<div class="tracker-detail-section">${item.labels.map(l => `<span class="tracker-label">${l}</span>`).join(" ")}</div>` : ""}
       <div class="tracker-detail-meta">
-        <span>Opened by <strong>${item.github_author || item.created_by || "?"}</strong></span>
+        <span>Opened by <strong>${item.opened_by || item.github_author || item.created_by || "?"}</strong></span>
         ${item.github_last_commenter ? `<span>Last reply: <strong>${item.github_last_commenter}</strong></span>` : ""}
         <span>${new Date(item.created_at).toLocaleString()}</span>
         <span>Updated ${new Date(item.updated_at).toLocaleString()}</span>
@@ -3246,6 +3250,10 @@ function patchTrackerItem(el, item) {
   const assigneeEl = el.querySelector(".tracker-assignee");
   const assigneeText = item.assigned_to ? "@" + item.assigned_to : "";
   if (assigneeEl && assigneeEl.textContent !== assigneeText) assigneeEl.textContent = assigneeText;
+  const openedByEl = el.querySelector(".tracker-opened-by");
+  if (openedByEl) openedByEl.textContent = item.opened_by || "";
+  const respondersEl = el.querySelector(".tracker-responders");
+  if (respondersEl) respondersEl.textContent = Array.isArray(item.responders) && item.responders.length ? item.responders.join(", ") : "";
   const sevEl = el.querySelector(".tracker-severity");
   if (sevEl && sevEl.textContent !== (item.severity || "normal")) {
     sevEl.textContent = item.severity || "normal";
@@ -3265,7 +3273,7 @@ function patchTrackerItem(el, item) {
   el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
 }
 
-const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 40, 35, 40, 50]; // 0 = flex; first col is row #
+const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = flex; first col is row #
 
 function initTrackerColumnResize(container) {
   const thead = container.querySelector(".tracker-thead");
@@ -3413,6 +3421,8 @@ function renderTracker() {
         <div class="tracker-th" data-sort="ref">Ref <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="opened_by">Opened By <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="responders">Responders <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="severity">Sev <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="age" style="text-align:center;justify-content:center">Age <span class="sort-arrow"></span></div>
         <div class="tracker-th" data-sort="last_github_activity" style="text-align:center;justify-content:center">Active <span class="sort-arrow"></span></div>

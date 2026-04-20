@@ -7,7 +7,7 @@ Last updated: 2026-04-18
 | Item | Status | Owner | Notes/Links |
 |------|--------|-------|-------------|
 | pty-win: force-not-busy context menu | Not started | frost | Rajan wants right-click "force not busy" on session entries. Check if commit `8f0340c` already covers this. |
-| tracker: opened-by + responders fields | Waiting on spec | frost | Rajan requested (thread `dad8cf58`). Asked for field specs — no substantive reply yet. |
+| — | — | — | No active items. |
 
 ## Watching
 
@@ -18,6 +18,7 @@ Last updated: 2026-04-18
 ## Completed
 
 | Date | Item | Outcome |
+| 2026-04-20 | Deploy opened-by + responders | Rebuilt emcom-server.exe + tracker.exe, restarted server. Fields live in API. Moss added panel columns same day. |
 | 2026-04-17 | Fix empty body bug | Root cause: `--message` flag silently ignored. Added `--message`/`-m` as alias for `--body`/`-b` in send/reply/search. AOT binary deployed. Commit `7652069`. |
 | 2026-04-02 | emcom CLI batch 1: 5 UX improvements | inbox --full, read-all, tag batch, reply --handled, check. Commit `4b7b8e7` |
 | 2026-04-02 | emcom CLI batch 2: 5 more improvements | status cmd, inbox filters, CC comma fix, stdin body, case-insensitive names (server-side). Commit `6f1e449` |

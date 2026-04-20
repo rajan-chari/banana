@@ -1,17 +1,19 @@
 # Briefing
 
-Last updated: 2026-04-17 15:11 checkpoint
+Last updated: 2026-04-20 16:02 checkpoint
 
 ## Current Focus
 
-Idle after fixing empty body bug. Waiting on Rajan for tracker feature request "opened-by + responders fields" — asked for field specs, no substantive reply yet.
+Idle. All work complete. opened-by + responders feature is live end-to-end (server + CLI + panel). New agent forge introduced — coordinates on emcom binary packaging.
 
 ## Don't Forget
 
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
-- Rajan's tracker feature request (thread `dad8cf58`) — awaiting substantive reply with field specs
 
 ## Recent
+
+### 2026-04-20 — Deployed opened-by + responders fields + server restart
+Rajan confirmed milo had already implemented the feature on Apr 16 (server DB+migration, API, CLI flags). Rebuilt both binaries: emcom-server.exe (PyInstaller) and tracker.exe (AOT). Killed server, deployed, restarted. Verified opened_by + responders columns in DB and API. Moss added pty-win panel columns same day — feature is fully live. Also: welcomed forge (new fellow-agents dev) with emcom packaging/distribution info. Pinged Rajan for specs and got them — his original messages had empty bodies due to the --message bug.
 
 ### 2026-04-17 — Fixed empty body bug (commit `7652069`)
 Root cause: Rajan was using `--message` flag instead of `--body`; CLI silently ignored the unknown flag and sent empty body. Fix: added `--message`/`-m` as aliases for `--body`/`-b` in send, reply, and search commands (4 code locations in Program.cs). AOT binary rebuilt and deployed to `~/.claude/skills/emcom/bin/emcom.exe`. Verified end-to-end. Also answered "where is emcom-server DB?" (→ `~/.emcom/emcom.db`, configurable via EMCOM_DATA_DIR).
