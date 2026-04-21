@@ -4,13 +4,17 @@ Last updated: 2026-04-20 16:02 checkpoint
 
 ## Current Focus
 
-Idle. All work complete. opened-by + responders feature is live end-to-end (server + CLI + panel). New agent forge introduced — coordinates on emcom binary packaging.
+Idle. All work complete. opened-by + responders feature live end-to-end. Seeded team wiki with 4 articles (emcom CLI, server ops, build gotchas, tracker CLI) — all confirmed written by librarian. New agent forge introduced — coordinates on emcom binary packaging.
 
 ## Don't Forget
 
+- **Team wiki**: shared knowledge at `c:\s\projects\work\teams\working\team-wiki\`. You own `tooling/emcom/*` and `tooling/tracker/*` (write directly). All other shared knowledge goes to `librarian` via emcom.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
+
+### 2026-04-20 — Deployed opened-by/responders + seeded team wiki
+Rajan launched shared team wiki (c:\s\projects\work\teams\working\team-wiki\) with librarian agent as single writer. Endorsed RFC + librarian design. Seeded 4 articles: emcom CLI reference (→ tooling/emcom/cli.md), server ops + port conventions (→ tooling/emcom/server.md), PyInstaller/AOT gotchas (→ tooling/builds.md), tracker CLI (→ tooling/tracker.md, merged with milo's seed). All confirmed written.
 
 ### 2026-04-20 — Deployed opened-by + responders fields + server restart
 Rajan confirmed milo had already implemented the feature on Apr 16 (server DB+migration, API, CLI flags). Rebuilt both binaries: emcom-server.exe (PyInstaller) and tracker.exe (AOT). Killed server, deployed, restarted. Verified opened_by + responders columns in DB and API. Moss added pty-win panel columns same day — feature is fully live. Also: welcomed forge (new fellow-agents dev) with emcom packaging/distribution info. Pinged Rajan for specs and got them — his original messages had empty bodies due to the --message bug.

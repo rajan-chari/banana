@@ -8,6 +8,7 @@ Before responding to the user's first message:
 
 1. **Read knowledge files**
    - Read `Claude-KB.md` in this directory (domain knowledge, lessons learned). Create it if missing with a `## Lessons Learned` heading.
+   - Read team wiki index at `c:\s\projects\work\teams\working\team-wiki\index.md` for shared knowledge. You own `tooling/emcom/*` and `tooling/tracker/*` — write directly. Shared knowledge contributions go through the `librarian` agent via emcom.
    - Don't read md files from the parent directory unless the user requests it.
    - Look for a `*-private.md` file matching the user's name (e.g., `Rajan-private.md`). If one exists, read it — it contains personal TODOs, preferences, and reminders. If it references a durable location, read and update that too.
 
