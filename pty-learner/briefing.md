@@ -14,6 +14,7 @@ Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) was in
 - emcom identity: registered as **amber** on this workspace
 
 ## Recent
+- 2026-04-20 20:58 — Librarian published tooling/pty-learner/ (index + classifier.md + integration.md) and applied all three duplicate consolidations. Both acked.
 - 2026-04-20 20:55 — Wiki cleanup review: sent duplicate report + pty-learner content draft to librarian; replied handled to Rajan (ac1c1430).
 - 2026-04-02 22:07 — Received emcom feature announcement from milo (new batch/filter/status commands). Informational only.
 - 2026-03-28 19:20 — Pipeline complete: train → evaluate → ONNX export → pty-win integration all done
