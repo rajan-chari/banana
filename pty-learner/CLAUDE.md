@@ -9,7 +9,8 @@ Before responding to the user's first message:
 1. Read `Claude-KB.md` (domain knowledge, lessons learned).
 2. Read `briefing.md` (current focus, recent decisions, next up). Prune entries older than 7 days on startup.
 3. Read `tracker.md` for current work items and status.
-4. Greet the user covering:
+4. Read team-wiki index: `../../team-wiki/index.md` — shared team knowledge. Follow into `tooling/pty-learner/` (owned by amber) and any section relevant to the current task. Librarian is the sole writer; contribute via emcom to `librarian`.
+5. Greet the user covering:
    - **What's here** — project summary, current model status
    - **Open items** — active tasks, blockers
    - **Quick actions** — common commands
