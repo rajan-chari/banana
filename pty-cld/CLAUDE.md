@@ -6,10 +6,11 @@ Before responding to the user's first message:
 
 1. Read `README.md` for project overview, architecture, and setup.
 2. Read `Claude-KB.md` for lessons learned and domain knowledge.
-3. Read `session-context.md` if it exists — ephemeral state from the previous session.
-4. Look for a `*-private.md` file matching the user's name (e.g., `Rajan-private.md`). If found, read it for personal TODOs and preferences.
-5. Don't read md files from the parent directory unless the user requests it.
-6. Greet the user covering:
+3. Read the team-wiki pages you own: `C:\s\projects\work\teams\working\team-wiki\tooling\pty-cld\index.md` (then follow links to architecture.md, idle-detection.md, state-machine.md). These contain shared knowledge about pty-cld's design — keep them current via emcom to the `librarian` agent.
+4. Read `session-context.md` if it exists — ephemeral state from the previous session.
+5. Look for a `*-private.md` file matching the user's name (e.g., `Rajan-private.md`). If found, read it for personal TODOs and preferences.
+6. Don't read md files from the parent directory unless the user requests it.
+7. Greet the user covering:
    - Open TODOs or reminders from private notes
    - Quick-start commands (see below)
 

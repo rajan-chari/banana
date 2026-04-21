@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-18 12:01
+Last updated: 2026-04-20 22:02
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,6 +13,10 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - emcom send uses `--body` not `--message` — `--message` silently drops content. frost added alias (7652069).
 
 ## Recent
+- 2026-04-20 20:23 — **Wiki cleanup complete.** Verified 3 wiki articles (setup, releases, tracker) are accurate. Removed 2 duplicate entries from Claude-KB.md (tracker CLI ref + reminder convention). CLAUDE.md updated externally to read wiki on startup. Claude-KB.md now has migration note. Team-onboarding rules updated with wiki contribution guidelines (librarian for shared, private-librarian for sensitive).
+- 2026-04-20 19:02 — **Team wiki live.** Rajan shipped shared knowledge wiki at `c:\s\projects\work\teams\working\team-wiki\`. Single-writer model: librarian agent receives contributions via emcom, eliminates merge conflicts. Seeded 3 articles: fellow-agents setup (7-step flow), release workflow (GHA tag-triggered), tracker CLI (commands + new fields). All confirmed by librarian.
+- 2026-04-20 18:11 — **Wiki RFC feedback.** Rajan proposed shared wiki replacing per-agent Claude-KB.md. Provided feedback on merge conflicts, staleness, discovery. Rajan's addendum: librarian agent as single writer — solves all contention concerns.
+- 2026-04-20 15:17 — **forge onboarded.** New agent owning fellow-agents workspace. Sent comprehensive handoff: E2E status, areas to pick up (NPM_TOKEN, release tags, PS 5.1 compat), codebase conventions.
 - 2026-04-17 15:19 — **pty-cld v0.2.1 integration Q&A with pine.** Pine asked about fellow-agents integration for pty-cld perf optimizations (706ffd6). Explained: GHA release workflow builds from banana/main, Rajan pushes release tag to trigger. No action needed from pine.
 - 2026-04-17 15:14 — **pty-cld v0.2.1 perf optimizations (pine, 706ffd6).** 3 changes ported from pty-win: output batching 16ms, deferred xterm parsing (~10% CPU), async logging. 84/84 tests pass. Needs Rajan to push fellow-agents release tag to deploy.
 - 2026-04-17 12:45 — **emcom --body vs --message PSA.** `--message` silently drops body content. frost adding alias (7652069).
