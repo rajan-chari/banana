@@ -1,14 +1,14 @@
 # Briefing
 
-Last updated: 2026-04-20 16:02 checkpoint
+Last updated: 2026-04-20 22:02 checkpoint
 
 ## Current Focus
 
-Idle. All work complete. opened-by + responders feature live end-to-end. Seeded team wiki with 4 articles (emcom CLI, server ops, build gotchas, tracker CLI) — all confirmed written by librarian. New agent forge introduced — coordinates on emcom binary packaging.
+Idle. All work complete. Productive session: deployed opened-by/responders, seeded wiki, cleaned up Claude-KB, persisted wiki in CLAUDE.md.
 
 ## Don't Forget
 
-- **Team wiki**: shared knowledge at `c:\s\projects\work\teams\working\team-wiki\`. You own `tooling/emcom/*` and `tooling/tracker/*` (write directly). All other shared knowledge goes to `librarian` via emcom.
+- **Team wiki**: shared knowledge at `c:\s\projects\work\teams\working\team-wiki\`. You own `tooling/emcom/*` and `tooling/tracker/*` (write directly). All other shared knowledge → `librarian` via emcom. Sensitive content → `private-librarian`.
 - Check if pty-win force-idle context menu (commit `8f0340c`) covers Rajan's "force not busy" request — if yes, mark done in tracker
 
 ## Recent
