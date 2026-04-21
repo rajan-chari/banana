@@ -1,8 +1,8 @@
 # Briefing
-Last updated: 2026-04-20 22:48
+Last updated: 2026-04-21 03:16
 
 ## Current Focus
-Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) was integrated into pty-win by moss (commit d7de3df). Team wiki went live 2026-04-20; pty-learner content contributed to librarian for publication under tooling/pty-learner/.
+Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) is live in pty-win (moss, d7de3df). Team wiki went live 2026-04-20 with tooling/pty-learner/ published by librarian. CLAUDE.md now reads team-wiki index on every startup so shared-knowledge awareness survives restarts. No open work; waiting for dataset growth or production feedback before retrain.
 
 ## Don't Forget
 - Use `git commit -F - <<'EOF'` heredoc pattern (not `$()` substitution)
@@ -12,6 +12,7 @@ Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) was in
 - ONNX output_probability is dict-keyed: result['output_probability'].data[0]['busy']
 - ort TypeScript defs don't cover seq(map) — cast as `unknown as Record<string,number>`
 - emcom identity: registered as **amber** on this workspace
+- Team wiki at `../../team-wiki/` — librarian is the ONLY writer to shared pages; contribute via emcom to `librarian` (or `private-librarian` for sensitive)
 
 ## Recent
 - 2026-04-20 21:08 — CLAUDE.md startup step 4 added: reads ../../team-wiki/index.md every session so wiki awareness survives restarts; librarian-only-writer rule noted (df2a70f).
