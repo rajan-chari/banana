@@ -2,6 +2,8 @@
 
 Domain knowledge and lessons learned for pty-win.
 
+Shared knowledge (xterm.js quirks, node-pty Windows, CSS layout traps, emcom integration, Claude Code hooks) has been migrated to team-wiki at `c:\s\projects\work\teams\working\team-wiki\tooling\`. Only workspace-specific lessons remain here.
+
 ## Team Rules
 
 ### Independent Verification for Community-Facing Content
@@ -15,15 +17,6 @@ Source: team-manual.md commit d83df24.
 
 ## Lessons Learned
 
-### 2026-03-22: xterm.js open() can only be called once
-xterm.js `term.open(element)` binds the terminal to a DOM element permanently. On workspace re-renders, create a persistent wrapper div on first open, then move it to the new container with `appendChild()`. Never call `open()` twice.
-
-### 2026-03-22: body needs width: 100% for flexbox layout
-Without `width: 100%` on `html, body`, the flexbox body shrink-wraps to content width instead of filling the viewport. This caused terminals to appear as narrow columns (~35% width). The fix is a single CSS line.
-
-### 2026-03-22: fitAddon.fit() must sync resize to server
-`term.onResize` doesn't always fire when `fit()` changes dimensions (e.g., if the terminal was already at those dims from a previous open). Always explicitly send a resize WebSocket message after every `fit()` call via a `fitAndSync()` helper.
-
 ### 2026-03-22: Dead sessions must be cleaned up on server
 When a session dies (Claude exits), the server keeps it as "dead". If the user tries to reopen the same folder, the server returns 409 (name conflict). Fix: `autoRemoveDeadSession()` must DELETE from server, and `openFolder()` must clean up dead sessions before creating new ones.
 
@@ -35,9 +28,6 @@ If a session dies between page loads (server restarted), the workspace layout ma
 
 ### 2026-03-22: Double-click rename needs delayed single-click
 Tab single-click switches workspace (calls `renderTabs()` which destroys DOM). Double-click to rename can't fire because the DOM element is gone after the first click. Fix: delay single-click by 250ms, cancel it if double-click fires within that window.
-
-### 2026-03-22: Initial PTY dimensions should match browser
-Server spawns PTY at 120x40 by default. Browser terminal may be 200x45. The mismatch causes Claude to render at 120 cols, leaving empty space. Fix: pass `cols`/`rows` in `POST /api/sessions` estimated from the workspace area dimensions.
 
 ### 2026-03-22: pty-win is npm-linked globally
 `npm link` was run in the project directory, creating global shims in `AppData/Roaming/npm/`. The `pty-win` command is available from any directory. Since it's a symlink, `npm run build` updates it automatically — no re-linking needed. To run: `pty-win`, `pty-win --port 3602 --root "C:\some\project"`.
@@ -66,29 +56,11 @@ The sidebar now has two panels with matching `.panel-header` design: SESSIONS (a
 ### 2026-03-24: Folder indicators must use .indicator-slot wrapper
 Folder tree indicators were added directly to the row with `margin-left: 4px` each, while sessions panel used a `.indicator-slot` flex wrapper with `gap: 4px` and `margin-left: 0` on children. This caused subtle spacing differences. Fix: wrap folder indicators in the same `.indicator-slot` div. General rule: when two panels show the same elements, use identical DOM structure and CSS classes.
 
-### 2026-03-24: CSS scoped to .session-row won't apply to shared components
-When `appendRowActions()` was extracted as a shared helper for both panels, `.session-row .cmd-tag` styles (font-size, padding) didn't apply to folder rows. Folder tags inherited 13px from parent instead of the intended 9px. Fix: unscope shared CSS selectors (`.cmd-tag`, `.cmd-tag.alive`, `.cmd-tag.absent`, `.cmd-tag.code`) so they apply globally. Only scope styles that genuinely differ between contexts (e.g., `.session-row .cmd-tag.absent` if folders needed different absent styling — but they don't anymore).
-
-### 2026-03-24: Shell sessions must not get emcom pollers
-Both Claude and PowerShell sessions for the same folder were getting emcom pollers (both auto-detected `identity.json`). When pwsh went idle, emcom prompts were injected into PowerShell. Fix: skip identity detection for `command === "pwsh"` in `POST /api/sessions`.
-
-### 2026-03-24: spawn detached:true breaks Ctrl+C on Windows
-`spawn("code", [path], { detached: true, ... })` creates a new process group that interferes with console signal handling. The pty-win server couldn't be stopped with Ctrl+C. Fix: remove `detached: true`, use only `windowsHide: true` + `child.unref()`. Also made shutdown more aggressive: `ws.terminate()` instead of `ws.close()`, 2s force exit timeout.
-
-### 2026-03-23: VS Code launch on Windows — use spawn with windowsHide
-`execFile("cmd.exe", ["/c", "start", "", "code", path])` opens a visible cmd.exe window. Fix: use `spawn("code", [path], { shell: true, stdio: "ignore", windowsHide: true })` and call `child.unref()`. Do NOT use `detached: true` (see lesson above).
-
 ### 2026-03-23: WebSocket close listeners must be consolidated
 `attachSessionToWs()` adds a `close` listener per session per WS client. With 11+ sessions this triggers `MaxListenersExceededWarning`. Fix: use a `wsSessionCleanups` Map to batch all cleanup functions per WS into a single `close` listener.
 
 ### 2026-03-23: Move pane between workspaces via right-click
 Pane topbar has a `contextmenu` handler that builds a dynamic menu listing all other workspaces + "New workspace". `movePaneToWorkspace(groupName, fromWs, toWs)` removes from source layout via `removeSessionFromLayout()`, adds to target via `getLeafList()` + `buildBalancedTree()`, then updates tab names and saves.
-
-### 2026-03-23: Unread count must have a single source of truth
-`unreadCount` was double-counted: server-side `onNewMessages` incremented it, then `onUnreadCount` (from poller) also set it. Frontend `notification` handler also incremented on top of `status` handler. Fix: poller's `onUnreadCount` callback is the sole authority — it reports the actual emcom server count each poll. `onNewMessages` no longer touches `unreadCount`. Frontend `notification` handler no longer increments — just triggers re-render. Also: emcom-server `add_tags("handled")` must remove `unread` tag (commit c72d0ca in emcom repo).
-
-### 2026-03-24: Multi-word commands must be split for Windows PTY spawn
-`config.command` like `"agency cc"` was passed as a single string in `["/c", config.command, ...args]`. node-pty quotes it, making cmd.exe look for a program literally named `"agency cc"`. Fix: `config.command.split(/\s+/)` before building the args array so `"agency cc"` becomes `["agency", "cc"]`.
 
 ### 2026-03-24: Async folder-info fetch must patch DOM — applies to ALL panels
 The root folder async fetch bug (fetch stores to cache but never updates rendered DOM) also affected the sessions panel. Any panel that renders indicators from `state.folderInfoCache` and fetches async must patch the DOM in the `.then()` callback. This is now done in three places: root labels, session rows, and (already correct) child folder nodes which get data from the tree API response.
@@ -96,65 +68,23 @@ The root folder async fetch bug (fetch stores to cache but never updates rendere
 ### 2026-03-23: Root folder-info fetch must update DOM in-place
 Root folders get their indicator data (CLAUDE.md, identity.json) via async `/api/folder-info` fetch, unlike child folders which get it from the `/api/folders` tree response. The fetch stored to `state.folderInfoCache` but never updated the DOM, so root indicators were always hidden. Fix: in the fetch `.then()` callback, query the label's `.indicator-slot` and `.identity-tag` elements and toggle classes/text directly. Don't re-render the whole tree — just patch the specific elements.
 
-### 2026-03-27: CSS display:none on menu items causes click target shifting
-Hiding context menu items with `display:none` collapses them, causing items below to shift up and occupy their click positions. A user clicking item A can unknowingly click item B (which shifted up). Fix: use a `.ctx-disabled` class with `opacity: 0.35; pointer-events: none` instead — items stay in the DOM at their position, just visually greyed out.
-
-### 2026-03-27: CSS selectors scoped to specific parent classes miss new parent classes
-When adding a new container (e.g., `.quick-access-row`) that reuses shared components, check all CSS selectors that target those components. Selectors like `.session-row .identity-tag, .tree-node .identity-tag` won't apply to `.quick-access-row .identity-tag` — you must explicitly add the new parent to each rule.
-
-### 2026-03-27: gap: vs margin-left: on flex rows causes column misalignment
-Using `gap: 6px` on one row type and `margin-left: 2px` on another causes pill columns to be spaced differently. When two row types (e.g., quick-access-row and session-row) need aligned columns, they must use identical spacing mechanisms. Also: pill elements without `min-width` render at variable widths based on text content (`>_` vs `</>`), breaking column alignment. Fix: add `min-width` + `inline-flex` centering to all fixed-column elements.
-
 ### 2026-03-27: JS template literals don't need \\ before $ (unless followed by {)
 In JS template literals, `$hwnd` is the literal string `$hwnd` — template interpolation only triggers on `${...}`. Using `\\$hwnd` produces `\$hwnd` which broke a PowerShell script embedded in a template literal. Only escape `$` when it precedes `{` for interpolation. This caused the VS Code launch button to be completely broken.
-
-### 2026-03-30: emcom REST API endpoint is /email/all, not /email?limit=N
-When implementing the emcom feed panel, the correct endpoint for all messages is `GET /email/all` (no query params). `/email?limit=N` doesn't exist. Routers mount without prefix in emcom_server/main.py. Auth via `X-Emcom-Name` header — same as all other endpoints. Source of truth: `emcom_server/routers/email.py`.
-
-### 2026-03-30: emcom-tui is Textual (Python), not web-reusable
-frost's emcom-tui is built with Textual — a Python terminal UI framework. Can't be adapted for browser/web contexts. The REST API (port 8800) is the correct integration point for web UIs.
 
 ### 2026-03-29: onnxruntime-node seq(map) output requires double cast
 When an ONNX model outputs `seq(map(string, float))` (e.g. sklearn pipeline probability maps), the TypeScript type for `tensor.data[0]` is `string | number | bigint` — it doesn't know about map types. Cast with `as unknown as Record<string, number>` to access keyed probabilities. This is a known gap in the ort type definitions, not a runtime issue.
 
-### 2026-04-01: Status bar hook approach doesn't work with multiple pty-win instances
-Claude Code's statusLine.command is global (or per-CWD). If user runs multiple pty-win instances on different ports, the POST targets a single hardcoded port. Regex scraping from the PTY data stream is simpler and works correctly per-instance. The hook idea is sound for single-instance but was reverted.
-
-### 2026-04-07: Playwright MCP testing — use port 3650+, never 3600
-Playwright MCP is available for UI testing. Always start a test pty-win instance on port 3650 or higher. NEVER test against production on port 3600 — it has live agent sessions. Start with: `node dist/index.js --port 3650`. Then use Playwright MCP tools to navigate, snapshot, interact, and verify DOM state.
-
-### 2026-04-14: External quality bar — smooth startups + high fact confirmation
-Two principles for all external-facing work: (1) Startup journeys must be super smooth — npm packages, setup scripts, Docker images must work end-to-end on clean machines. First impressions matter; people drop out quickly if setup fails. (2) External comments/PRs must have very high fact confirmation — verify claims against current code before posting on GitHub. Don't post based on stale analysis. Reason: adoption depends on trust; one bad experience loses people permanently.
-
-### 2026-04-13: Playwright verification must show real data, not just structure
-When using Playwright to verify UI changes that display data, the test instance must have a working backend with real data. Verifying that a column header appears is not confirmation — the cells must show actual values. The tracker field name bug (last_activity vs last_github_activity) was missed because the Playwright test on port 3701 had no emcom backend, so only "CONNECTION FAILED" was shown instead of actual tracker items.
-
-### 2026-04-13: Tracker panel — display:flex vs gridTemplateColumns mismatch
-The tracker-thead and tracker-item-row CSS had `display: flex` but `initTrackerColumnResize()` was setting `gridTemplateColumns` on them. Grid-template properties are ignored on flex containers, so headers and data rows used completely different layout algorithms. Fix: change both to `display: grid`. Also: localStorage-saved column widths from a previous column count must be invalidated — check `parsed.length === TRACKER_DEFAULT_COLS.length` before using saved values.
-
-### 2026-04-04: Work tracker CLI
-`tracker` command is in PATH. Create items with `tracker create --repo X --number N --title 'desc' --severity normal|high|critical --assigned NAME`. Update with `tracker update repo#N --status STATUS --comment 'reason'`. States: new → triaged → investigating → findings-reported → decision-pending → pr-up → testing → ready-to-merge → merged/deferred/closed. Set `--blocker 'who/what'` when blocked. Tracker panel visible in pty-win Dashboard tab.
-
-### 2026-04-04: Claude Code HTTP hooks must return Zod-valid JSON
-Hook responses are validated against `hookJSONOutputSchema`. Valid fields: `continue`, `suppressOutput`, `stopReason`, `decision`, `reason`, `hookSpecificOutput`. Custom fields like `{status:"ok"}` fail validation. Return `{}` (empty object) for hooks that just need to acknowledge. Also: `res.sendStatus(200)` returns plain text "OK" which also fails — must be JSON. UserPromptSubmit hooks are blocking (up to timeout), so return fast.
+### 2026-04-07: Making onnxruntime-node optional via dynamic import in worker
+Move to `optionalDependencies` in package.json. In the worker thread (ml-worker.ts), use `await import("onnxruntime-node")` wrapped in try/catch. If import fails, register a message handler that returns `{ error: "not installed" }` so the main thread's ML pipeline degrades gracefully (returns null, heuristic + hooks remain primary idle detection).
 
 ### 2026-04-01: Cost regex must match both duration formats
 Status line outputs `$9.97 2m34s` (minutes+seconds) and `$0.50 553ms` (milliseconds). Regex `/\$(\d+\.\d+)\s+\d+m\d*s/` handles both. The `\d*` after `m` optionally matches the seconds digits.
 
-### 2026-04-07: @homebridge/node-pty-prebuilt-multiarch — scoped package + type difference
-The prebuilt node-pty replacement is `@homebridge/node-pty-prebuilt-multiarch` (scoped!), not `node-pty-prebuilt-multiarch`. Its `write()` method accepts only `string`, not `string | Buffer` like the original node-pty. Fix: coerce with `typeof data === "string" ? data : data.toString()`. API is otherwise identical.
-
-### 2026-04-07: Making onnxruntime-node optional via dynamic import in worker
-Move to `optionalDependencies` in package.json. In the worker thread (ml-worker.ts), use `await import("onnxruntime-node")` wrapped in try/catch. If import fails, register a message handler that returns `{ error: "not installed" }` so the main thread's ML pipeline degrades gracefully (returns null, heuristic + hooks remain primary idle detection).
+### 2026-04-04: Work tracker CLI
+`tracker` command is in PATH. Create items with `tracker create --repo X --number N --title 'desc' --severity normal|high|critical --assigned NAME`. Update with `tracker update repo#N --status STATUS --comment 'reason'`. States: new → triaged → investigating → findings-reported → decision-pending → pr-up → testing → ready-to-merge → merged/deferred/closed. Set `--blocker 'who/what'` when blocked. Tracker panel visible in pty-win Dashboard tab.
 
 ### 2026-04-15: Bump package.json version on every rebuild
 During debug/iteration cycles, bump the patch version in `package.json` before each `npm run build`. The `/api/config` endpoint returns `build.version` + `build.commit` + `build.startedAt`, so the user can instantly verify the running server matches the latest code. Stale builds waste debugging time — a version mismatch is the first thing to check when a fix "doesn't work."
 
-### 2026-04-15: PTY injection — split text from SUBMIT, submitWrite before setStatus
-Claude Code swallows `\r` (Enter) when it arrives in the same `ptyProcess.write()` call as long text that wraps the terminal. Fix: `submitWrite()` writes text first, then sends `\r` after 50ms via setTimeout. Additionally, always call `submitWrite()` BEFORE `setStatus("busy")` — the status-change event triggers WebSocket broadcasts that can interfere with the pending PTY write. The debug inject endpoint worked because it had this order; the heuristic path failed because it called setStatus first.
-
-### 2026-04-17: emcom send uses --body, not --message
-`emcom send --message "text"` silently drops the body. Always use `--body "text"`. frost is adding `--message` as an alias but it's not live yet.
-
-### 2026-03-22: Dynamic emcom attach — watch for identity.json
-If a Claude session starts before `emcom register` runs, there's no `identity.json` yet so no emcom poller is created. Fix: `PtySession.watchForIdentity()` polls every 5s for `identity.json` to appear, then calls `attachEmcom()` to create and start the poller dynamically. One limitation: `--append-system-prompt` (EMCOM_PREAMBLE) can't be injected retroactively — it's baked into Claude's launch args. Sessions that gain emcom mid-flight won't have the anti-double-polling instruction.
+### 2026-04-13: Playwright verification must show real data, not just structure
+When using Playwright to verify UI changes that display data, the test instance must have a working backend with real data. Verifying that a column header appears is not confirmation — the cells must show actual values. The tracker field name bug (last_activity vs last_github_activity) was missed because the Playwright test on port 3701 had no emcom backend, so only "CONNECTION FAILED" was shown instead of actual tracker items.

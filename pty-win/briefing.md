@@ -1,12 +1,19 @@
 # Briefing
-Last updated: 2026-04-20 16:02
+Last updated: 2026-04-20 22:02
 
 ## Current Focus
-Shipped tracker opened-by + responders columns (frontend-only). frost deployed backend fields, moss added UI columns. Feature is live end-to-end — browser refresh to see it.
+Shipped tracker opened-by + responders columns (frontend-only, committed in 6633ebd). Seeded team-wiki with 25 lessons across 5 categories — all confirmed placed by librarian. New team-wiki at c:\s\projects\work\teams\working\team-wiki (read index.md to navigate). Shared knowledge goes to librarian via emcom; per-agent status/ and per-workspace tooling/pty-win/ are direct-write.
+
+## Team Wiki
+- **Location**: `c:\s\projects\work\teams\working\team-wiki\` — read `index.md` to navigate
+- **Shared knowledge**: send to `librarian` via emcom (e.g. `emcom send --to librarian --subject 'topic' --body 'content'`)
+- **Sensitive knowledge**: send to `private-librarian` via emcom
+- **Direct-write sections**: `status/moss.md` (your status) and `tooling/pty-win/*` (your workspace knowledge)
+- **Local Claude-KB.md**: workspace-specific lessons only; shared stuff lives in team-wiki
 
 ## Don't Forget
 - Server restart needed for ALL accumulated TS changes: hooks, tracker proxy, cost, shutdown, node-pty swap, shell cross-platform, scroll/focus fix, --host flag, injection fix, --debug flag
-- Browser refresh needed for frontend: tracker panel fixes, Activity column, dashboard redesign, drag-drop, pane borders, agents tab
+- Browser refresh needed for frontend: tracker panel fixes, Activity column, dashboard redesign, drag-drop, pane borders, agents tab, opened-by + responders columns
 - Duplication: src/tiling.ts, src/pane-groups.ts, src/session-state.ts are extracted copies of app.js/session.ts — don't let them drift
 - Research files in research/ folder: WS testing, vanilla JS testing, node-pty mocking, fast-check property tests
 - tracker CLI is live (in PATH) — use for work items going forward
