@@ -1,5 +1,5 @@
 # Tracker
-Last updated: 2026-03-28 19:20
+Last updated: 2026-04-20 20:55
 
 ## In Motion
 | Item | Status | Owner | Notes/Links |
@@ -9,6 +9,7 @@ Last updated: 2026-03-28 19:20
 | Item | Waiting On | Details | Links |
 |------|------------|---------|-------|
 | pty-win live with ONNX | moss/Rajan | Needs server restart to go live | commit d7de3df |
+| Wiki publish: pty-learner section + duplicate fixes | librarian | Drafts sent 2026-04-20 | emcom 6b310fa1, 68983e31 |
 
 ## Completed
 | Date | Item | Outcome |
