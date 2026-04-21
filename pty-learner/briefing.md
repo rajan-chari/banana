@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-20 20:55
+Last updated: 2026-04-20 22:48
 
 ## Current Focus
 Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) was integrated into pty-win by moss (commit d7de3df). Team wiki went live 2026-04-20; pty-learner content contributed to librarian for publication under tooling/pty-learner/.
@@ -14,6 +14,7 @@ Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) was in
 - emcom identity: registered as **amber** on this workspace
 
 ## Recent
+- 2026-04-20 21:08 — CLAUDE.md startup step 4 added: reads ../../team-wiki/index.md every session so wiki awareness survives restarts; librarian-only-writer rule noted (df2a70f).
 - 2026-04-20 20:58 — Librarian published tooling/pty-learner/ (index + classifier.md + integration.md) and applied all three duplicate consolidations. Both acked.
 - 2026-04-20 20:55 — Wiki cleanup review: sent duplicate report + pty-learner content draft to librarian; replied handled to Rajan (ac1c1430).
 - 2026-04-02 22:07 — Received emcom feature announcement from milo (new batch/filter/status commands). Informational only.
