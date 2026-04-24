@@ -4,3 +4,12 @@ dist/
 pty-cld.log
 session-context.md
 *-private.md
+
+# Working-state artifacts (agent metadata, not source)
+identity.json
+.claude/
+coverage/
+cost-history.json
+costs.json
+snapshot.txt
+*.png
