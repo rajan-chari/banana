@@ -1,8 +1,11 @@
 # Briefing
-Last updated: 2026-04-20 22:02
+Last updated: 2026-04-24 01:23
 
 ## Current Focus
-Shipped tracker opened-by + responders columns (frontend-only, committed in 6633ebd). Seeded team-wiki with 25 lessons across 5 categories — all confirmed placed by librarian. New team-wiki at c:\s\projects\work\teams\working\team-wiki (read index.md to navigate). Shared knowledge goes to librarian via emcom; per-agent status/ and per-workspace tooling/pty-win/ are direct-write.
+Idle. Waiting for Phase 2 of the working-state migration (Rajan, 2026-04-24). Phase 1 canaries: spark.net, spark-ts, librarian, amber, pine, scout. When pinged: create working-state/moss/, move briefing.md + research/ + Claude-KB.md tactical entries to field-notes.md, delete tracker.md (tracker CLI is SoT), update CLAUDE.md startup paths. My 4th-bucket feedback (workspace-internal architecture → optional decisions.md) was accepted. banana is shared/pushed so migration applies.
+
+## Last Shipped
+Tracker opened-by + responders columns (6633ebd). team-wiki seeded with 25 lessons (5 categories). Claude-KB.md pruned to workspace-specific lessons (fdbb0a5).
 
 ## Team Wiki
 - **Location**: `c:\s\projects\work\teams\working\team-wiki\` — read `index.md` to navigate
