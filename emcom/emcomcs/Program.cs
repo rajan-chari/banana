@@ -251,6 +251,15 @@ public static class Program
             }
             case "purge":
             {
+                bool confirmed = rest.Contains("--confirm-system-wide");
+                if (!confirmed)
+                {
+                    Console.Error.WriteLine("DANGER: 'emcom purge' wipes ALL emails, tags, and identities SYSTEM-WIDE for every agent.");
+                    Console.Error.WriteLine("This is not a per-user operation. A prior incident wiped 3495 emails and kicked 20+ agents offline.");
+                    Console.Error.WriteLine("To proceed, you must pass --confirm-system-wide explicitly:");
+                    Console.Error.WriteLine("  emcom purge --confirm-system-wide");
+                    return 1;
+                }
                 var result = c.Purge();
                 var p = result.Purged;
                 Console.WriteLine($"Purged: {p.Emails} emails, {p.Tags} tags, {p.Identities} identities");

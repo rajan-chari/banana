@@ -347,7 +347,7 @@ public sealed class EmcomClient
 
     public PurgeResult Purge()
     {
-        var resp = Post("/admin/purge");
+        var resp = Post("/admin/purge?confirm=system-wide");
         return Read(resp, EmcomJsonContext.Default.PurgeResult);
     }
 }

@@ -45,5 +45,8 @@ Reminders use the tracker with a `reminder` label: `tracker create --repo remind
 ### 2026-03-25: Use `git commit -F -` with heredoc instead of `$(cat <<'EOF')`
 `git commit -m "$(cat <<'EOF'...EOF)"` triggers a permission prompt every time due to the `$()` command substitution. Use `git commit -F - <<'EOF'` instead — `-F -` reads the message from stdin, heredoc provides it, no subshell needed. No more permission interruptions.
 
+### 2026-04-24: Never run destructive curl tests on the production server
+While shipping a guardrail for emcom purge, I ran a curl POST to /admin/purge on the running (old-code) server to verify the guardrail, forgetting that the guardrail was in source but not yet deployed. Wiped the live DB. Rule: ANY test of a destructive endpoint must target a dev instance (port 8801+) OR happen after the fix is deployed and verified via status check. Don't test the thing you're fixing against the thing you haven't fixed yet.
+
 ### 2026-04-17: CLI flag aliases prevent silent data loss
 Rajan used `--message` instead of `--body` when sending emcom messages. The CLI silently ignored the unknown flag, read empty stdin (in non-redirected context, errored — but in redirected/piped contexts, sent empty body). Users and LLM agents naturally guess plausible flag names. Lesson: for critical data-carrying flags, add common aliases (--message/--msg/--text for --body). Also consider erroring on unrecognized flags rather than silently ignoring them — the `--help` system (commit `7f5ed7b`) already exists but unknown flags in send/reply still pass silently.

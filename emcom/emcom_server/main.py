@@ -25,7 +25,7 @@ from emcom_server.db import Database
 from emcom_server.routers import identity, names, email, threads, tags, search, attachments, tracker
 
 # Endpoints that skip auth
-NO_AUTH_PATHS = {"/health", "/api/health", "/who", "/names", "/admin/purge", "/tracker/ws"}
+NO_AUTH_PATHS = {"/health", "/api/health", "/who", "/names", "/tracker/ws"}
 NO_AUTH_PREFIXES = ("/docs", "/openapi", "/redoc", "/register")
 # Tracker GET endpoints are public (read-only, used by pty-win panel)
 NO_AUTH_GET_PREFIXES = ("/tracker",)
@@ -91,7 +91,13 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.post("/admin/purge")
-    def purge():
+    def purge(confirm: str | None = None):
+        if confirm != "system-wide":
+            return Response(
+                content='{"detail":"System-wide purge requires ?confirm=system-wide. This wipes ALL emails, tags, and identities across all agents."}',
+                status_code=400,
+                media_type="application/json",
+            )
         counts = app.state.db.purge()
         return {"purged": counts}
 
