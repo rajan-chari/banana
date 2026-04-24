@@ -44,15 +44,29 @@ class TestCreate:
         assert data["status"] == "new"
         assert data["created_by"] == "scout"
 
-    def test_create_dedup(self, client):
+    def test_create_dedup_identical(self, client):
+        """Creating the same item twice with no new fields should silently return existing."""
+        r1 = client.post("/tracker", json={
+            "repo": "teams.py", "title": "JWKS caching", "number": 344,
+        }, headers=H_SCOUT)
+        r2 = client.post("/tracker", json={
+            "repo": "teams.py", "title": "JWKS caching", "number": 344,
+        }, headers=H_SPARK)
+        assert r2.status_code == 200
+        assert r2.json()["id"] == r1.json()["id"]
+
+    def test_create_dedup_conflict(self, client):
+        """Creating with a different title on existing item should 409 so caller can retry via update."""
         client.post("/tracker", json={
             "repo": "teams.py", "title": "JWKS caching", "number": 344,
         }, headers=H_SCOUT)
         r2 = client.post("/tracker", json={
             "repo": "teams.py", "title": "Different title", "number": 344,
         }, headers=H_SPARK)
-        assert r2.status_code == 200
-        assert r2.json()["title"] == "JWKS caching"  # returns existing
+        assert r2.status_code == 409
+        detail = r2.json()["detail"]
+        assert "title" in detail
+        assert "already exists" in detail
 
     def test_create_with_fields(self, client):
         r = client.post("/tracker", json={

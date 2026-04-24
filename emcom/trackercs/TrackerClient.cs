@@ -199,9 +199,10 @@ public sealed class TrackerClient
         return Read(Get("/tracker/blocked"), TrackerJsonContext.Default.ListWorkItem);
     }
 
-    public List<WorkItem> Queue(string agent)
+    public List<WorkItem> Queue(string agent, bool includeClosed = false)
     {
-        return Read(Get($"/tracker/queue/{Uri.EscapeDataString(agent)}"), TrackerJsonContext.Default.ListWorkItem);
+        var suffix = includeClosed ? "?include_closed=true" : "";
+        return Read(Get($"/tracker/queue/{Uri.EscapeDataString(agent)}{suffix}"), TrackerJsonContext.Default.ListWorkItem);
     }
 
     public WorkItemStats Stats()

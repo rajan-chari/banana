@@ -158,7 +158,8 @@ public static class Program
                 Console.WriteLine("Usage: tracker view <id-or-ref>");
                 break;
             case "queue":
-                Console.WriteLine("Usage: tracker queue [agent-name]  (defaults to self)");
+                Console.WriteLine("Usage: tracker queue [agent-name] [--include-closed]  (defaults to self)");
+                Console.WriteLine("  --include-closed    Include merged/deferred/closed items (default: open only)");
                 break;
             case "stale":
                 Console.WriteLine("Usage: tracker stale [--hours <N>]  (default: 24)");
@@ -321,9 +322,10 @@ public static class Program
             }
             case "queue":
             {
+                bool includeClosed = rest.Remove("--include-closed");
                 var agent = rest.Count > 0 ? rest[0] : c.Name ?? "";
                 if (string.IsNullOrEmpty(agent)) { Console.Error.WriteLine("Error: agent name required (or register first)"); return 1; }
-                Console.WriteLine(Fmt.FormatList(c.Queue(agent)));
+                Console.WriteLine(Fmt.FormatList(c.Queue(agent, includeClosed)));
                 break;
             }
             case "report":

@@ -174,6 +174,14 @@ def _attach_tags(conn: sqlite3.Connection, emails: list[dict], owner: str) -> li
     return emails
 
 
+class DedupConflict(Exception):
+    """Raised when tracker create would silently drop fields for an existing item."""
+    def __init__(self, existing_id: str, conflicts: list[str]):
+        self.existing_id = existing_id
+        self.conflicts = conflicts
+        super().__init__(f"Item exists; would drop fields: {conflicts}")
+
+
 class Database:
     def __init__(self, db_path: str | Path):
         self.db_path = str(db_path)
@@ -682,6 +690,22 @@ class Database:
                 "SELECT * FROM work_items WHERE repo=? AND number=?", (repo, number)
             ).fetchone()
             if existing:
+                # Detect fields that would be silently dropped if we return the existing item.
+                conflicts = []
+                if notes and existing["notes"] != notes:
+                    conflicts.append("notes")
+                if title and existing["title"] != title:
+                    conflicts.append("title")
+                if assigned_to and existing["assigned_to"] != assigned_to:
+                    conflicts.append("assigned_to")
+                if severity != "normal" and existing["severity"] != severity:
+                    conflicts.append("severity")
+                if opened_by and existing["opened_by"] != opened_by:
+                    conflicts.append("opened_by")
+                if responders and json.loads(existing["responders"] or "[]") != responders:
+                    conflicts.append("responders")
+                if conflicts:
+                    raise DedupConflict(existing["id"], conflicts)
                 return self._parse_work_item(existing)
 
         conn.execute(
@@ -871,17 +895,25 @@ class Database:
         ).fetchall()
         return [self._parse_work_item(r) for r in rows]
 
-    def agent_queue(self, agent: str) -> list[dict]:
-        """Items assigned to agent that are open and not blocked."""
+    def agent_queue(self, agent: str, include_closed: bool = False) -> list[dict]:
+        """Items assigned to agent. Default: open and not blocked. With include_closed=True: all items regardless of status or blocker."""
         conn = self._connect()
-        placeholders = ",".join("?" * len(OPEN_STATUSES))
-        rows = conn.execute(
-            f"SELECT * FROM work_items WHERE assigned_to=? AND status IN ({placeholders}) "
-            "AND (blocker IS NULL OR blocker = '') ORDER BY "
-            "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, "
-            "updated_at",
-            [agent] + sorted(OPEN_STATUSES),
-        ).fetchall()
+        if include_closed:
+            rows = conn.execute(
+                "SELECT * FROM work_items WHERE assigned_to=? ORDER BY "
+                "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, "
+                "updated_at DESC",
+                (agent,),
+            ).fetchall()
+        else:
+            placeholders = ",".join("?" * len(OPEN_STATUSES))
+            rows = conn.execute(
+                f"SELECT * FROM work_items WHERE assigned_to=? AND status IN ({placeholders}) "
+                "AND (blocker IS NULL OR blocker = '') ORDER BY "
+                "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, "
+                "updated_at",
+                [agent] + sorted(OPEN_STATUSES),
+            ).fetchall()
         return [self._parse_work_item(r) for r in rows]
 
     def work_item_stats(self) -> dict:

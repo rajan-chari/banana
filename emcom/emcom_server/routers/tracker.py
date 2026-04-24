@@ -8,7 +8,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from emcom_server.db import VALID_STATUSES, VALID_TYPES, VALID_SEVERITIES, VALID_LINK_TYPES
+from emcom_server.db import VALID_STATUSES, VALID_TYPES, VALID_SEVERITIES, VALID_LINK_TYPES, DedupConflict
 
 router = APIRouter(prefix="/tracker", tags=["tracker"])
 
@@ -122,13 +122,18 @@ def create_work_item(req: CreateWorkItemRequest, request: Request):
         raise HTTPException(400, f"Invalid severity '{req.severity}'. Valid: {sorted(VALID_SEVERITIES)}")
     if req.status not in VALID_STATUSES:
         raise HTTPException(400, f"Invalid status '{req.status}'. Valid: {sorted(VALID_STATUSES)}")
-    item = db.create_work_item(
-        repo=req.repo, title=req.title, created_by=caller,
-        number=req.number, type_=req.type, severity=req.severity,
-        status=req.status, assigned_to=req.assigned_to,
-        labels=req.labels, notes=req.notes, date_found=req.date_found,
-        opened_by=req.opened_by, responders=req.responders,
-    )
+    try:
+        item = db.create_work_item(
+            repo=req.repo, title=req.title, created_by=caller,
+            number=req.number, type_=req.type, severity=req.severity,
+            status=req.status, assigned_to=req.assigned_to,
+            labels=req.labels, notes=req.notes, date_found=req.date_found,
+            opened_by=req.opened_by, responders=req.responders,
+        )
+    except DedupConflict as e:
+        raise HTTPException(409, f"Item {req.repo}#{req.number} already exists (id={e.existing_id}). "
+                                  f"These fields would be silently dropped: {e.conflicts}. "
+                                  f"Use 'tracker update {req.repo}#{req.number}' with --append-notes or the appropriate flags instead.")
     _broadcast("create", item)
     return item
 
@@ -241,9 +246,9 @@ def search_work_items(request: Request, q: str = ""):
 
 
 @router.get("/queue/{agent}")
-def agent_queue(agent: str, request: Request):
+def agent_queue(agent: str, request: Request, include_closed: bool = False):
     db = request.app.state.db
-    return db.agent_queue(agent)
+    return db.agent_queue(agent, include_closed=include_closed)
 
 
 @router.get("/{item_ref}")
