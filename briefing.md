@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-20 22:02
+Last updated: 2026-04-24 01:23
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
@@ -13,6 +13,8 @@ pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegat
 - emcom send uses `--body` not `--message` — `--message` silently drops content. frost added alias (7652069).
 
 ## Recent
+- 2026-04-24 00:41 — **working-state migration plan v2 locked.** Rajan synthesized 22 RFC replies. All wikis + working-state become private repos (artifacts exported on demand). Phase 1 canaries: spark.net, spark-ts, librarian, amber, pine, scout. I'm Phase 2 — waiting for ping. Layout: briefing.md + briefing-archive.md + notes.md + field-notes.md + optional decisions.md + research/. Soft guidance: keep host-repo commit messages procedural, session narratives in working-state commits. My migration items when called: banana/emcom/briefing.md + Claude-KB.md + research/.
+- 2026-04-23 23:18 — **RFC: working-state repo.** Rajan proposing new sibling repo `working-state/` (not shared) for per-agent briefing/notes/research, trimming fellow-scholars to team contract only. Tracker CLI becomes sole source of truth (drop tracker.md mirrors). Claude-KB splits into wiki/field-notes/decisions. Answered all 6 questions: split makes sense, 'field-notes' name lands, explicit path mount (symlinks fragile on Windows), can drop tracker.md today, flagged settings.local.json as additional capability leak. Awaiting Rajan's synthesis.
 - 2026-04-20 20:23 — **Wiki cleanup complete.** Verified 3 wiki articles (setup, releases, tracker) are accurate. Removed 2 duplicate entries from Claude-KB.md (tracker CLI ref + reminder convention). CLAUDE.md updated externally to read wiki on startup. Claude-KB.md now has migration note. Team-onboarding rules updated with wiki contribution guidelines (librarian for shared, private-librarian for sensitive).
 - 2026-04-20 19:02 — **Team wiki live.** Rajan shipped shared knowledge wiki at `c:\s\projects\work\teams\working\team-wiki\`. Single-writer model: librarian agent receives contributions via emcom, eliminates merge conflicts. Seeded 3 articles: fellow-agents setup (7-step flow), release workflow (GHA tag-triggered), tracker CLI (commands + new fields). All confirmed by librarian.
 - 2026-04-20 18:11 — **Wiki RFC feedback.** Rajan proposed shared wiki replacing per-agent Claude-KB.md. Provided feedback on merge conflicts, staleness, discovery. Rajan's addendum: librarian agent as single writer — solves all contention concerns.
