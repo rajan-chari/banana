@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-23 23:23
+Last updated: 2026-04-24 00:45
 
 ## Current Focus
 Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) is live in pty-win (moss, d7de3df). Team wiki went live 2026-04-20 with tooling/pty-learner/ published by librarian. CLAUDE.md now reads team-wiki index on every startup so shared-knowledge awareness survives restarts. No open work; waiting for dataset growth or production feedback before retrain.
@@ -15,7 +15,8 @@ Pipeline complete and idle since 2026-03-28. ONNX model (classifier.onnx) is liv
 - Team wiki at `../../team-wiki/` — librarian is the ONLY writer to shared pages; contribute via emcom to `librarian` (or `private-librarian` for sensitive)
 
 ## Recent
-- 2026-04-23 23:22 — Replied to Rajan's RFC on working-state repo (context leak fix). Supported the split; proposed option (b) explicit-path mount; flagged cost-history.json, scattered PNGs, settings.local.json, briefing-archive semantics as also-in-scope. Awaiting synthesis. (emcom 42388b6f)
+- 2026-04-24 00:45 — Rajan synthesized 22 RFC replies into migration plan v2. Amber selected as 1 of 6 Phase 1 canaries (also spark.net, spark-ts, librarian, pine, scout). Acked, standing by for folder-creation ping. Preflight plan: field-notes split ready (3 → local, 3 → delete since on wiki), tracker.md ready to delete (queue empty). (emcom 9afb689b)
+- 2026-04-23 23:22 — Replied to Rajan's RFC on working-state repo (context leak fix). Supported the split; proposed option (b) explicit-path mount; flagged cost-history.json, scattered PNGs, settings.local.json, briefing-archive semantics as also-in-scope. (emcom 42388b6f)
 - 2026-04-20 21:08 — CLAUDE.md startup step 4 added: reads ../../team-wiki/index.md every session so wiki awareness survives restarts; librarian-only-writer rule noted (df2a70f).
 - 2026-04-20 20:58 — Librarian published tooling/pty-learner/ (index + classifier.md + integration.md) and applied all three duplicate consolidations. Both acked.
 - 2026-04-20 20:55 — Wiki cleanup review: sent duplicate report + pty-learner content draft to librarian; replied handled to Rajan (ac1c1430).

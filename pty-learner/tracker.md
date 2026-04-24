@@ -9,7 +9,7 @@ Last updated: 2026-04-20 20:55
 | Item | Waiting On | Details | Links |
 |------|------------|---------|-------|
 | pty-win live with ONNX | moss/Rajan | Needs server restart to go live | commit d7de3df |
-| working-state repo RFC | Rajan | Sent feedback on split + field-notes + mount mechanism; awaiting synthesis | emcom 42388b6f |
+| working-state migration (Phase 1 canary) | Rajan/coordinator | Plan v2 locked; awaiting folder-creation ping then execute 5-step migration | emcom 9afb689b |
 
 ## Completed
 | Date | Item | Outcome |
