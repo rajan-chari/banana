@@ -1,5 +1,5 @@
 # Briefing
-Last updated: 2026-04-24 01:23
+Last updated: 2026-04-24 09:23
 
 ## Current Focus
 pty-win/emcom UI coordinator (assigned by Rajan 2026-03-31). Owns spec→delegate→test→report loop with moss. Rajan handles strategic work; milo handles tactical pty-win/emcom iteration.
