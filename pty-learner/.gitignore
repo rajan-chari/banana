@@ -11,3 +11,20 @@ reviews.json
 corrections.json
 *-private.md
 session-context.md
+
+# working-state migration (2026-04-24) — keep host repo free of leaky artifacts
+*.png
+*.log
+.playwright-mcp/
+coverage/
+cost-history.json
+costs.json
+settings.local.json
+.claude/settings.local.json
+identity.json
+briefing.md
+briefing-archive.md
+tracker.md
+Claude-KB.md
+field-notes.md
+notes.md
