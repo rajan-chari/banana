@@ -6,16 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before responding to the user's first message:
 
-1. **Read knowledge files**
-   - Read `Claude-KB.md` in this directory (domain knowledge, lessons learned). Create it if missing with a `## Lessons Learned` heading.
-   - Read team wiki index at `c:\s\projects\work\teams\working\team-wiki\index.md` for shared knowledge. You own `tooling/emcom/*` and `tooling/tracker/*` — write directly. Shared knowledge contributions go through the `librarian` agent via emcom.
-   - Don't read md files from the parent directory unless the user requests it.
-   - Look for a `*-private.md` file matching the user's name (e.g., `Rajan-private.md`). If one exists, read it — it contains personal TODOs, preferences, and reminders. If it references a durable location, read and update that too.
+1. **Read working state from `working-state/frost/`** (sibling repo, not in this repo):
+   - `c:\s\projects\work\teams\working\working-state\frost\briefing.md` — rolling narrative (current focus, don't-forget, recent, next up)
+   - `c:\s\projects\work\teams\working\working-state\frost\field-notes.md` — tactical gotchas
+   - `c:\s\projects\work\teams\working\working-state\frost\notes.md` — preferences + activity log
 
-2. **Read session context**
-   - Read `briefing.md` — committed to git, updated incrementally during sessions. Contains current focus, don't-forget items, recent timestamped entries, and next-up priorities. Prune entries older than 7 days or beyond ~20 entries on startup (append pruned entries to `briefing-archive.md`).
-   - Read `tracker.md` — persistent work tracker with active items, status, and details. Update it as work progresses.
-   - Surface relevant items in the greeting.
+2. **In-flight work**: run `tracker queue frost` (CLI is sole source of truth — no local tracker.md).
+
+3. **Shared knowledge**: read team wiki index at `c:\s\projects\work\teams\working\team-wiki\index.md`. You own `tooling/emcom/*` and `tooling/tracker/*` — write directly. Other shared contributions go through `librarian` via emcom; sensitive content via `private-librarian`.
+
+4. **Don't read md files from the parent directory unless the user requests it.** Look for `Rajan-private.md` matching the user's name; if it exists, read it (personal TODOs/reminders).
 
 3. **Greet the user** — Surface any open TODOs/reminders from private notes, then offer common scenarios:
    - **Start the server** — `source .venv/Scripts/activate && emcom-server`
@@ -120,48 +120,19 @@ PyInstaller spec `emcom-tui.spec` exists for building the TUI as a standalone ex
 Sessions can die without warning. Saves must happen DURING the session, not at the end.
 
 ### Layer 1: Milestone saves
-After completing any In Motion item in `tracker.md`, immediately:
-- Update `tracker.md` (move item to Completed, update timestamp)
-- Commit and push
+After completing significant work, update relevant tracker items via `tracker update <ref>`, commit and push host repo + working-state changes.
 
 ### Layer 2: Periodic checkpoints
-- **Every 30 min** — lightweight: update `tracker.md` + commit/push
-- **Every 2 hrs** — full ceremony: `/rc-save`, `/rc-session-save`, `/rc-greet-save`
-
-### Session End Routine
-If you know a session is ending, run these skills in order:
-
-1. `/rc-save` — Commit/push repos, capture learnings in Claude-KB.md
-2. Update `briefing.md` — ensure Current Focus and Next Up reflect end-of-session state, commit
-3. `/rc-greet-save` — Tune the startup greeting if this session revealed gaps
+- **Light** — update `working-state/frost/briefing.md` + commit/push working-state
+- **Full** — `/rc-save` ceremony: capture learnings to `working-state/frost/field-notes.md`, push both repos
 
 ## Lessons Learned
 
-This workspace is a **learning system**. Claude-KB.md contains a `## Lessons Learned` section that persists knowledge across sessions.
-
-### When to add an entry
-
-Proactively add a lesson whenever you encounter:
-
-- **Unexpected behavior** — an API, tool, or workflow didn't work as expected and you found the cause
-- **Workarounds** — a problem required a non-obvious solution that future sessions should know about
-- **User preferences** — the user corrects your approach or states a preference
-- **Process discoveries** — you learn how something actually works vs. how it's documented
-- **Pitfalls** — something that wasted time and could be avoided next time
-
-### How to add an entry
-
-Append to the `## Lessons Learned` section in `Claude-KB.md` using this format:
+Tactical operational lessons live in `working-state/frost/field-notes.md`. Format:
 
 ```markdown
 ### YYYY-MM-DD: Short descriptive title
 Description of what happened and what to do differently. Keep it concise and actionable.
 ```
 
-### Guidelines
-
-- Write for your future self — assume no prior context from this session
-- Be specific: include tool names, flag names, error messages, or exact steps
-- Don't duplicate existing entries — read the section first
-- One entry per distinct lesson; don't bundle unrelated things
-- Ask the user before adding if you're unsure whether something qualifies
+Add an entry whenever you encounter unexpected behavior, workarounds, user preferences, process discoveries, or pitfalls. Cross-cutting team knowledge → send to `librarian` via emcom for team-wiki. Sensitive content → `private-librarian`.
