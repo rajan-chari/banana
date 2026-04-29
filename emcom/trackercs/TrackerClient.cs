@@ -58,6 +58,10 @@ public sealed class TrackerClient
         throw resp.StatusCode switch
         {
             HttpStatusCode.NotFound => new TrackerNotFoundException(detail),
+            // 400/409 are validation/conflict errors — the detail message is already user-facing,
+            // don't prefix with "HTTP 400:" which reads like a network error.
+            HttpStatusCode.BadRequest => new TrackerException(detail),
+            HttpStatusCode.Conflict => new TrackerException(detail),
             _ => new TrackerException($"HTTP {(int)resp.StatusCode}: {detail}")
         };
     }

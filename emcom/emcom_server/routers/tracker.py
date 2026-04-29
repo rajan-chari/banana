@@ -117,11 +117,11 @@ def create_work_item(req: CreateWorkItemRequest, request: Request):
     caller = _get_caller(request)
     db = request.app.state.db
     if req.type not in VALID_TYPES:
-        raise HTTPException(400, f"Invalid type '{req.type}'. Valid: {sorted(VALID_TYPES)}")
+        raise HTTPException(400, f"Invalid type '{req.type}'.\nValid types: {', '.join(sorted(VALID_TYPES))}")
     if req.severity not in VALID_SEVERITIES:
-        raise HTTPException(400, f"Invalid severity '{req.severity}'. Valid: {sorted(VALID_SEVERITIES)}")
+        raise HTTPException(400, f"Invalid severity '{req.severity}'.\nValid severities: {', '.join(sorted(VALID_SEVERITIES))}")
     if req.status not in VALID_STATUSES:
-        raise HTTPException(400, f"Invalid status '{req.status}'. Valid: {sorted(VALID_STATUSES)}")
+        raise HTTPException(400, f"Invalid status '{req.status}'.\nValid statuses: {', '.join(sorted(VALID_STATUSES))}")
     try:
         item = db.create_work_item(
             repo=req.repo, title=req.title, created_by=caller,
@@ -271,11 +271,11 @@ def update_work_item(item_ref: str, req: UpdateWorkItemRequest, request: Request
     if not item_id:
         raise HTTPException(404, f"Work item '{item_ref}' not found")
     if req.status and req.status not in VALID_STATUSES:
-        raise HTTPException(400, f"Invalid status '{req.status}'. Valid: {sorted(VALID_STATUSES)}")
+        raise HTTPException(400, f"Invalid status '{req.status}'.\nValid statuses: {', '.join(sorted(VALID_STATUSES))}")
     if req.type and req.type not in VALID_TYPES:
-        raise HTTPException(400, f"Invalid type '{req.type}'. Valid: {sorted(VALID_TYPES)}")
+        raise HTTPException(400, f"Invalid type '{req.type}'.\nValid types: {', '.join(sorted(VALID_TYPES))}")
     if req.severity and req.severity not in VALID_SEVERITIES:
-        raise HTTPException(400, f"Invalid severity '{req.severity}'. Valid: {sorted(VALID_SEVERITIES)}")
+        raise HTTPException(400, f"Invalid severity '{req.severity}'.\nValid severities: {', '.join(sorted(VALID_SEVERITIES))}")
 
     updates = {k: v for k, v in req.model_dump().items() if v is not None and k != "comment"}
     try:
