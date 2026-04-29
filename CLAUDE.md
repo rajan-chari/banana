@@ -6,8 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before responding to the user's first message:
 
-1. Read `briefing.md`, `Claude-KB.md`, recent `LOG.md` entries, `progress.md`, and `tracker.md`.
-2. Greet the user covering three things:
+1. Read working state from `working-state/milo/` (sibling repo, not in this repo):
+   - `c:\s\projects\work\teams\working\working-state\milo\briefing.md` — rolling narrative
+   - `c:\s\projects\work\teams\working\working-state\milo\field-notes.md` — tactical gotchas
+   - `c:\s\projects\work\teams\working\working-state\milo\notes.md` — preferences + activity log
+2. Run `tracker queue milo` for in-flight work (CLI is sole source of truth).
+3. Read team wiki index at `c:\s\projects\work\teams\working\team-wiki\index.md` for shared knowledge. Shared contributions go through `librarian` via emcom; sensitive content via `private-librarian`.
+4. Read `progress.md` (LLM Assistant project plan — host-repo state).
+5. Greet the user covering three things:
    - **What's here** — project summary table with columns: Project, Path, Components (list packages/subpackages, not status/phase)
    - **How to use it** — key commands to run things, what's working end-to-end
    - **What to improve** — open tasks, known issues, suggested next steps
@@ -18,9 +24,11 @@ Before responding to the user's first message:
 
 Do these **as they happen** — there is no end-of-session hook, so never defer to "later."
 
-- **Errors, workarounds, gotchas** → update `Claude-KB.md` immediately.
+- **Errors, workarounds, gotchas** → append to `working-state/milo/field-notes.md` immediately.
+- **Stable cross-cutting knowledge** → send to `librarian` via emcom for team-wiki.
+- **Sensitive content** (credentials, named accounts, 1:1 notes) → `private-librarian` via emcom.
 - **Instructions wrong or drifted** → fix `CLAUDE.md` or `progress.md` now.
-- **Every significant action** → append to `LOG.md` (`### YYYY-MM-DD HH:MM — <summary>`).
+- **Significant actions** → append to `working-state/milo/notes.md` activity log.
 
 ---
 
@@ -53,7 +61,7 @@ Three independent projects. `emailag/` intentionally duplicates `python/agcom*` 
 
 ```
 banana/
-├── CLAUDE.md, Claude-KB.md, LOG.md, progress.md, specs.md
+├── CLAUDE.md, progress.md, specs.md
 ├── python/             # LLM Assistant
 │   ├── agcom/          # Agent communication library
 │   ├── agcom_api/      # REST API server (FastAPI)

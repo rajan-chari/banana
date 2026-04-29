@@ -150,3 +150,23 @@ python/data/scripts/20260222_213225_task_hello.py
 python/data/scripts/20260222_213427_task_hello.py
 python/data/scripts/20260222_214106_task_hello.py
 python/screenshots/screenshot_20260130_171846.png
+
+# Working state — agent-private files (now in working-state/<agent>/)
+briefing*.md
+field-notes.md
+Claude-KB.md
+tracker.md
+LOG.md
+notes.md
+*-private.md
+session-context.md
+session.md
+
+# Local artifacts (not committed)
+*.png
+.playwright-mcp/
+coverage/
+cost-history.json
+costs.json
+settings.local.json
+.obsidian/
