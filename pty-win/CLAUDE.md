@@ -6,15 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before responding to the user's first message:
 
-1. Read `Claude-KB.md` in this directory (domain knowledge, lessons learned).
-2. Read `briefing.md` (rolling narrative — current focus, recent decisions, next up). Prune stale entries on startup.
-3. Read `tracker.md` for current work items, status, and what's next. Update it as work progresses.
+1. Read `c:\s\projects\work\teams\working\working-state\moss\briefing.md` (rolling narrative — current focus, recent decisions, next up). Prune stale entries on startup.
+2. Run `tracker queue moss` for in-flight work items (CLI is sole source of truth — no tracker.md mirror).
+3. Read `c:\s\projects\work\teams\working\working-state\moss\field-notes.md` (tactical gotchas) and `decisions.md` (workspace-internal architecture).
 4. Read team-wiki index at `c:\s\projects\work\teams\working\team-wiki\index.md` — shared knowledge base. Navigate subtrees as needed (especially `tooling/pty-win/`).
 5. Look for a `*-private.md` file matching the user's name (e.g., `Rajan-private.md`). If one exists, read it for personal TODOs, preferences, and reminders. If it references a durable location, read that too.
 6. Don't read md files from the parent directory unless the user requests it.
-6. Greet the user covering:
+7. Greet the user covering:
    - **What's running** — any active sessions or recent changes
-   - **Open items** — TODOs from private notes, briefing, or KB
+   - **Open items** — TODOs from private notes, briefing, or tracker queue
    - **Quick actions** — common scenarios listed below
 
 ### Common Scenarios
@@ -83,7 +83,7 @@ Lazy-loaded tree via `GET /api/folders?path=...`. Checks each directory for `CLA
 
 ## Team Rules
 
-- **Independent verification**: All community-facing content (GitHub comments, PRs, docs, samples) must be verified by a different agent before posting. See `Claude-KB.md > Team Rules` for details.
+- **Independent verification**: All community-facing content (GitHub comments, PRs, docs, samples) must be verified by a different agent before posting. See `team-wiki/process/` for details.
 
 ## Gotchas
 
@@ -97,34 +97,27 @@ Lazy-loaded tree via `GET /api/folders?path=...`. Checks each directory for `CLA
 
 ## Lessons Learned
 
-This workspace is a **learning system**. Claude-KB.md contains a `## Lessons Learned` section that persists knowledge across sessions.
+Knowledge is split across three locations per the working-state migration:
 
-### When to add an entry
+- **Tactical gotchas, env quirks, workarounds** → `working-state/moss/field-notes.md`
+- **Workspace-internal architecture** (how pty-win works, decisions specific to this codebase) → `working-state/moss/decisions.md`
+- **Stable cross-cutting knowledge** (general truths that help other agents) → team-wiki via librarian (emcom send --to librarian)
+- **Sensitive content** (credentials, named-account quirks, HR/promo) → private-wiki via private-librarian
 
-Proactively add a lesson whenever you encounter:
+Graduation rule: first land in field-notes; graduate to wiki on the second hit (another agent references it, or you cite it from a second PR).
 
-- **Unexpected behavior** — an API, tool, or workflow didn't work as expected and you found the cause
-- **Workarounds** — a problem required a non-obvious solution that future sessions should know about
-- **User preferences** — the user corrects your approach or states a preference
-- **Process discoveries** — you learn how something actually works vs. how it's documented
-- **Pitfalls** — something that wasted time and could be avoided next time
-
-### How to add an entry
-
-Append to the `## Lessons Learned` section in `Claude-KB.md` using this format:
+When you encounter unexpected behavior, workarounds, user preferences, or pitfalls — write the entry to the right destination immediately. Format:
 
 ```markdown
 ### YYYY-MM-DD: Short descriptive title
-Description of what happened and what to do differently. Keep it concise and actionable.
+What happened and what to do differently. Keep it concise and actionable.
 ```
 
-### Guidelines
-
-- Write for your future self — assume no prior context from this session
-- Be specific: include tool names, flag names, error messages, or exact steps
-- Don't duplicate existing entries — read the section first
-- One entry per distinct lesson; don't bundle unrelated things
-- Ask the user before adding if you're unsure whether something qualifies
+Guidelines:
+- Write for your future self — assume no prior context
+- Be specific: include tool names, flag names, error messages, exact steps
+- Don't duplicate — read the existing file first
+- One entry per distinct lesson
 
 ## Git Commit Style
 

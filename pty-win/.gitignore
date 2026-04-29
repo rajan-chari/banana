@@ -1,6 +1,14 @@
 node_modules/
 dist/
 *.log
+*.png
 session-context.md
 *-private.md
 ml-dataset/
+.playwright-mcp/
+coverage/
+cost-history.json
+costs.json
+settings.local.json
+.obsidian/
+snapshot.txt
