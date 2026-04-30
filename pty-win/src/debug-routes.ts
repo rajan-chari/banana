@@ -93,6 +93,13 @@ export function registerDebugRoutes(
     res.json({ session: req.params.name, count: history.length, injections: history });
   });
 
+  app.get("/api/debug/sessions/:name/llm-history", (req, res) => {
+    const session = getSession(req, res);
+    if (!session) return;
+    const history = session.getLlmHistory();
+    res.json({ session: req.params.name, count: history.length, history });
+  });
+
   app.get("/api/debug/sessions/:name/prompts", (req, res) => {
     const session = getSession(req, res);
     if (!session) return;

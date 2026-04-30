@@ -8,6 +8,7 @@ import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
+import { checkReadiness } from "./llm-detector.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
@@ -121,6 +122,11 @@ export class PtySession extends EventEmitter {
   private lastHookStopTime = 0;
   private lastHookNotifyType = "";
   private lastHookPromptSubmitTime = 0;
+  // LLM escalation state
+  private unknownStreakCount = 0;
+  private lastLlmCheckTime = 0;
+  private llmCheckInFlight = false;
+  private llmHistory: Array<{ time: number; trigger: string; ready: boolean | null; why: string; latencyMs: number }> = [];
   costUsd = 0;
   readonly name: string;
   readonly command: string;
@@ -556,6 +562,10 @@ export class PtySession extends EventEmitter {
         }
 
         const promptType = this.screenDetector.detectPromptType();
+        // Track unknown streak for LLM escalation
+        if (promptType === "unknown") this.unknownStreakCount++;
+        else this.unknownStreakCount = 0;
+
         if (promptType === "input") {
           if (this.needsStartupKick) {
             this.needsStartupKick = false;
@@ -586,6 +596,9 @@ export class PtySession extends EventEmitter {
         } else {
           this.recordDetectionTick(quietMs, promptType, null, "none", `promptType=${promptType}, waiting`);
         }
+
+        // LLM escalation — fires when cheap heuristic is stuck
+        this.maybeEscalateToLlm(quietMs, promptType);
       } else {
         // For generic sessions, just check quiet threshold (longer: 3s)
         if (quietMs >= 3000) {
@@ -594,6 +607,89 @@ export class PtySession extends EventEmitter {
       }
     }, QUIET_CHECK_INTERVAL_MS);
   }
+
+  // --- LLM escalation ---
+
+  // Tunables for triggers
+  private static readonly STUCK_BUSY_MS = 15_000;
+  private static readonly STUCK_BUSY_MAX_BPS = 500;
+  private static readonly UNKNOWN_STREAK_THRESHOLD = 5;
+  private static readonly LLM_THROTTLE_MS = 30_000;
+  private static readonly RECENT_BYTE_WINDOW_MS = 5_000;
+
+  /** Fires checkReadiness() when cheap heuristic looks stuck. Throttled + non-blocking. */
+  private maybeEscalateToLlm(quietMs: number, promptType: string): void {
+    if (this.llmCheckInFlight) return;
+    const now = Date.now();
+    if (now - this.lastLlmCheckTime < PtySession.LLM_THROTTLE_MS) return;
+
+    // Compute recent byte rate from the last RECENT_BYTE_WINDOW_MS window
+    const cutoff = now - PtySession.RECENT_BYTE_WINDOW_MS;
+    const recent = this.dataEvents.filter((e) => e.t >= cutoff);
+    const recentBytes = recent.reduce((s, e) => s + e.bytes, 0);
+    const bytesPerSec = Math.round(recentBytes / (PtySession.RECENT_BYTE_WINDOW_MS / 1000));
+
+    // Trigger A: stuck-busy — busy for STUCK_BUSY_MS+ with low byte rate
+    const busyMs = this.busyStartTime > 0 ? now - this.busyStartTime : 0;
+    const stuckBusy = busyMs > PtySession.STUCK_BUSY_MS && bytesPerSec < PtySession.STUCK_BUSY_MAX_BPS;
+    // Trigger B: unknown promptType repeated
+    const unknownStreak = this.unknownStreakCount >= PtySession.UNKNOWN_STREAK_THRESHOLD;
+
+    if (!stuckBusy && !unknownStreak) return;
+    const trigger = stuckBusy ? `stuck-busy(${Math.round(busyMs / 1000)}s,${bytesPerSec}B/s)` : `unknown-streak(${this.unknownStreakCount})`;
+
+    // Only worth checking if there's something pending to inject
+    const wantsInject = this.pendingMessages || this.pendingCheckpoint;
+    if (!wantsInject) {
+      // Still log so we know the trigger fired, but don't burn an LLM call
+      clog(`[${this.name}] [llm-detector] ${trigger} fired but nothing pending — skipping`);
+      this.lastLlmCheckTime = now;
+      return;
+    }
+
+    this.llmCheckInFlight = true;
+    this.lastLlmCheckTime = now;
+    const screenLines = this.screenDetector.getContentLines(30);
+    const lastInject = this.injectionHistory[this.injectionHistory.length - 1];
+    const lastInjectAgoMs = lastInject ? now - lastInject.time : undefined;
+
+    clog(`[${this.name}] [llm-detector] ${trigger} → asking gpt-5-nano (quietMs=${quietMs}, promptType=${promptType})`);
+
+    void checkReadiness({
+      screenLines,
+      lastInjectText: lastInject?.prompt,
+      lastInjectAgoMs,
+    }).then((verdict) => {
+      this.llmCheckInFlight = false;
+      this.llmHistory.push({
+        time: Date.now(),
+        trigger,
+        ready: verdict?.ready ?? null,
+        why: verdict?.why ?? "(no verdict — fell through)",
+        latencyMs: verdict?.latencyMs ?? 0,
+      });
+      if (this.llmHistory.length > 50) this.llmHistory.shift();
+
+      if (!verdict) return; // fall through to current behavior on null
+      const tokensInfo = verdict.inputTokens != null ? ` tokens=${verdict.inputTokens}/${verdict.outputTokens}` : "";
+      clog(`[${this.name}] [llm-detector] verdict=${verdict.ready ? "READY" : "not-ready"} latency=${verdict.latencyMs}ms${tokensInfo} | why="${verdict.why}"`);
+      if (!verdict.ready) return;
+
+      // Only act if still busy — don't override a state that already changed
+      if (this.status !== "busy") return;
+      this.recordDetectionTick(quietMs, promptType, "llm-ready", "idle", `LLM (${trigger}): ${verdict.why}`);
+      this.setStatus("idle");
+      if (this.pendingMessages) this.inject();
+      else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
+        this.scheduleCheckpointInjection(this.pendingCheckpoint);
+      }
+    }).catch((err) => {
+      this.llmCheckInFlight = false;
+      clog(`[${this.name}] [llm-detector] unexpected error: ${(err as Error).message}`);
+    });
+  }
+
+  getLlmHistory() { return this.llmHistory; }
 
   private stopHeuristic(): void {
     if (this.heuristicTimer) {
