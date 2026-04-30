@@ -1,7 +1,11 @@
 import { createWriteStream, type WriteStream } from "fs";
 import { join } from "path";
 
-const logPath = join(process.cwd(), "pty-win.log");
+// Include PID so multiple pty-win instances sharing a cwd (e.g. 3600 + 3601
+// both started from the repo root) don't interleave writes to the same file.
+// The interleave produced visibly corrupted log lines with mixed prefixes,
+// e.g. "[banana] [l05] [stats] ..." from two writers racing on one fd.
+const logPath = join(process.cwd(), `pty-win.${process.pid}.log`);
 
 export type LogLevel = "normal" | "verbose" | "trace";
 

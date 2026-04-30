@@ -640,6 +640,9 @@ export class PtySession extends EventEmitter {
 
     if (!stuckBusy && !unknownStreak) return;
     const trigger = stuckBusy ? `stuck-busy(${Math.round(busyMs / 1000)}s,${bytesPerSec}B/s)` : `unknown-streak(${this.unknownStreakCount})`;
+    // Reset streak after we've decided to act on it — otherwise the counter
+    // grows unbounded while promptType stays 'unknown'.
+    if (unknownStreak) this.unknownStreakCount = 0;
 
     // Only worth checking if there's something pending to inject
     const wantsInject = this.pendingMessages || this.pendingCheckpoint;
