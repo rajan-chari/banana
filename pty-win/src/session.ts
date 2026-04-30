@@ -9,6 +9,7 @@ import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
 import { checkReadiness } from "./llm-detector.js";
+import { appendCorrection, recentForFewShot } from "./llm-corrections.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
@@ -655,11 +656,12 @@ export class PtySession extends EventEmitter {
 
     clog(`[${this.name}] [llm-detector] ${trigger} → asking gpt-5-nano (quietMs=${quietMs}, promptType=${promptType})`);
 
-    void checkReadiness({
+    void recentForFewShot(3).then((corrections) => checkReadiness({
       screenLines,
       lastInjectText: lastInject?.prompt,
       lastInjectAgoMs,
-    }).then((verdict) => {
+      corrections,
+    })).then((verdict) => {
       this.llmCheckInFlight = false;
       this.llmHistory.push({
         time: Date.now(),
@@ -679,10 +681,15 @@ export class PtySession extends EventEmitter {
       if (this.status !== "busy") return;
       this.recordDetectionTick(quietMs, promptType, "llm-ready", "idle", `LLM (${trigger}): ${verdict.why}`);
       this.setStatus("idle");
+      // Snapshot for post-inject verification — if the inject is lost, this
+      // becomes a "false-ready" correction example.
+      const verifySnapshot = { screen: screenLines.join("\n"), why: verdict.why };
+      const willInject = this.pendingMessages || (this.pendingCheckpoint && !this.checkpointStartDelay);
       if (this.pendingMessages) this.inject();
       else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
         this.scheduleCheckpointInjection(this.pendingCheckpoint);
       }
+      if (willInject) this.verifyInjectAfter(verifySnapshot, "llm-driven");
     }).catch((err) => {
       this.llmCheckInFlight = false;
       clog(`[${this.name}] [llm-detector] unexpected error: ${(err as Error).message}`);
@@ -690,6 +697,33 @@ export class PtySession extends EventEmitter {
   }
 
   getLlmHistory() { return this.llmHistory; }
+
+  /** Watch for hook:prompt-submit within VERIFY_WINDOW_MS of an LLM-driven inject.
+   *  If absent, the inject likely never submitted — record as a false-ready correction. */
+  private verifyInjectAfter(
+    snapshot: { screen: string; why: string },
+    source: "llm-driven" | "heuristic",
+  ): void {
+    const VERIFY_WINDOW_MS = 5_000;
+    const injectAt = Date.now();
+    setTimeout(() => {
+      const submitted = this.lastHookPromptSubmitTime > injectAt;
+      if (submitted) {
+        clog(`[${this.name}] [verify] inject submitted (source=${source})`);
+        return;
+      }
+      // No submit within window — record correction
+      clog(`[${this.name}] [verify] inject NOT submitted within ${VERIFY_WINDOW_MS}ms (source=${source})`);
+      void appendCorrection({
+        time: new Date().toISOString(),
+        session: this.name,
+        screen: snapshot.screen,
+        llmSaid: source === "llm-driven" ? true : null,
+        llmWhy: snapshot.why,
+        actualOutcome: "no_submit_within_5s",
+      });
+    }, VERIFY_WINDOW_MS).unref?.();
+  }
 
   private stopHeuristic(): void {
     if (this.heuristicTimer) {
