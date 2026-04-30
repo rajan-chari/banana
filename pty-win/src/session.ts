@@ -575,8 +575,10 @@ export class PtySession extends EventEmitter {
             log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
             this.recordInjection(kickType, kick);
             this.recordDetectionTick(quietMs, promptType, null, kickType, "input prompt detected, startup kick pending");
+            const kickScreen = this.screenDetector.getContentLines(30).join("\n");
             this.relayWrite(kick, kickType);
             this.setStatus("busy");
+            this.verifyInjectAfter({ screen: kickScreen, why: kickType }, kickType);
             // Cooldown: pause heuristic so we don't fire a follow-on inject (e.g. emcom-auto)
             // while Claude is still rendering the kick's response. Mirrors inject() pattern.
             this.stopHeuristic();
@@ -698,11 +700,12 @@ export class PtySession extends EventEmitter {
 
   getLlmHistory() { return this.llmHistory; }
 
-  /** Watch for hook:prompt-submit within VERIFY_WINDOW_MS of an LLM-driven inject.
-   *  If absent, the inject likely never submitted — record as a false-ready correction. */
+  /** Watch for hook:prompt-submit within VERIFY_WINDOW_MS of any inject.
+   *  If absent, the inject likely never submitted — record as a correction
+   *  for offline analysis and (in step B) trigger LLM-gated recovery. */
   private verifyInjectAfter(
     snapshot: { screen: string; why: string },
-    source: "llm-driven" | "heuristic",
+    source: string,
   ): void {
     const VERIFY_WINDOW_MS = 5_000;
     const injectAt = Date.now();
@@ -718,6 +721,9 @@ export class PtySession extends EventEmitter {
         time: new Date().toISOString(),
         session: this.name,
         screen: snapshot.screen,
+        // llmSaid: only true when an LLM verdict drove the inject. Heuristic
+        // / kick / checkpoint paths get null (correction record still useful
+        // for analysis, just not fed back as LLM few-shot).
         llmSaid: source === "llm-driven" ? true : null,
         llmWhy: snapshot.why,
         actualOutcome: "no_submit_within_5s",
@@ -740,8 +746,10 @@ export class PtySession extends EventEmitter {
     const prompt = INJECTION_PROMPT();
     clog(`emcom check → ${label}`);
     this.recordInjection("emcom", prompt);
+    const screenAtInject = this.screenDetector.getContentLines(30).join("\n");
     this.relayWrite(prompt, "emcom-auto");
     this.setStatus("busy");
+    this.verifyInjectAfter({ screen: screenAtInject, why: "heuristic emcom-auto" }, "emcom-auto");
 
     // Cooldown: don't go idle again for a while
     this.stopHeuristic();
@@ -836,8 +844,10 @@ export class PtySession extends EventEmitter {
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
     this.recordInjection(`checkpoint-${type}`, prompt);
+    const cpScreen = this.screenDetector.getContentLines(30).join("\n");
     this.relayWrite(prompt, `checkpoint-${type}`);
     this.setStatus("busy");
+    this.verifyInjectAfter({ screen: cpScreen, why: `checkpoint-${type}` }, `checkpoint-${type}`);
 
     this.stopHeuristic();
     setTimeout(() => {
