@@ -666,6 +666,26 @@ public class Win32Focus {
     if (costHistory.length > COST_HISTORY_MAX) costHistory.splice(0, costHistory.length - COST_HISTORY_MAX);
   }, 60_000);
 
+  // Event-loop lag detector — measures setInterval drift. If > 200ms, the loop
+  // was blocked. Logs once per spike, with a cooldown to avoid log floods if
+  // the loop is degraded for an extended period.
+  {
+    const TICK_MS = 100;
+    const SPIKE_MS = 200;
+    let last = Date.now();
+    let cooldownUntil = 0;
+    setInterval(() => {
+      const now = Date.now();
+      const drift = now - last - TICK_MS;
+      last = now;
+      if (drift > SPIKE_MS && now > cooldownUntil) {
+        const heap = process.memoryUsage().heapUsed >> 20; // MB
+        clog(`[loop-lag] event loop blocked ${drift}ms (heap=${heap}MB, sessions=${sessions.size})`);
+        cooldownUntil = now + 5_000; // suppress further spikes for 5s
+      }
+    }, TICK_MS);
+  }
+
   // Graceful shutdown with save injection
   const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
   function shutdownPrompt(): string {
