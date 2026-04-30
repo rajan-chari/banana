@@ -154,8 +154,12 @@ export async function checkReadiness(input: LlmCheckInput): Promise<LlmVerdict |
       model: MODEL,
       messages: buildMessages(input),
       response_format: { type: "json_object" as const },
-      // gpt-5-nano: keep generation short
-      max_completion_tokens: 200,
+      // gpt-5-nano has internal reasoning that consumes tokens. "minimal" effort
+      // is the right setting for short binary classification — verdict is just
+      // {ready, why}, no real reasoning needed beyond reading the screen.
+      reasoning_effort: "minimal" as const,
+      // Keep enough headroom for both reasoning trace + JSON output.
+      max_completion_tokens: 1000,
     };
     const resp = await fetch(OPENAI_URL, {
       method: "POST",

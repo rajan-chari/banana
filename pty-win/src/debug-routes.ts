@@ -4,6 +4,8 @@ import type { Express, Request, Response } from "express";
 import type { ServerConfig } from "./config.js";
 import { PtySession, SUBMIT, INJECTION_PROMPT, STARTUP_KICK, RESUME_KICK, makeCheckpointLightPrompt, makeCheckpointFullPrompt } from "./session.js";
 import { setDebugLog, getDebugLogState, addDebugLogListener } from "./log.js";
+import { checkReadiness } from "./llm-detector.js";
+import { recentForFewShot } from "./llm-corrections.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -161,6 +163,17 @@ export function registerDebugRoutes(
       default:
         return res.status(400).json({ error: `unknown type: ${type}` });
     }
+  });
+
+  // Manually trigger an LLM readiness check on the current screen.
+  // Same code path as a heuristic-driven escalation, but on demand.
+  app.post("/api/debug/sessions/:name/llm-check", async (req, res) => {
+    const session = getSession(req, res);
+    if (!session) return;
+    const lines = session.getContentLines(30);
+    const corrections = await recentForFewShot(3);
+    const verdict = await checkReadiness({ screenLines: lines, corrections });
+    res.json({ session: req.params.name, verdict, screenLineCount: lines.length, correctionsCount: corrections.length });
   });
 
   // Test: write text then \r separately with a delay
