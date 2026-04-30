@@ -8,49 +8,6 @@ import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
-import { saveMlSample } from "./ml-dataset.js";
-import { Worker } from "worker_threads";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-let mlWorker: Worker | null = null;
-let mlWorkerReady = false;
-let mlReqId = 0;
-const mlPending = new Map<number, (r: { label: string; confidence: number } | null) => void>();
-
-function getMLWorker(): Worker | null {
-  if (mlWorker) return mlWorker;
-  try {
-    mlWorker = new Worker(join(__dirname, "ml-worker.js"));
-    mlWorker.on("message", ({ id, label, confidence, error }) => {
-      const resolve = mlPending.get(id);
-      mlPending.delete(id);
-      if (resolve) resolve(error || !label ? null : { label, confidence });
-    });
-    mlWorker.on("error", () => { mlWorker = null; mlWorkerReady = false; });
-    mlWorker.on("exit", () => { mlWorker = null; mlWorkerReady = false; });
-    mlWorkerReady = true;
-    return mlWorker;
-  } catch {
-    return null;
-  }
-}
-
-async function runLocalMLInference(
-  modelPath: string,
-  lines: string[]
-): Promise<{ label: string; confidence: number } | null> {
-  const worker = getMLWorker();
-  if (!worker) return null;
-  return new Promise((resolve) => {
-    const id = ++mlReqId;
-    mlPending.set(id, resolve);
-    worker.postMessage({ id, modelPath, lines });
-  });
-}
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
@@ -158,9 +115,6 @@ export class PtySession extends EventEmitter {
   private dirtyOnExit = false;
   private busyStartTime = 0;
   private busyTimeoutSaved = false;
-  private lastSavedLabel: string | null = null;
-  private lastSavedAt = 0;
-  private mlQueryInFlight = false;
   private dataEvents: DataEvent[] = [];
   private injectionHistory: Array<{ time: number; type: string; prompt: string; statusBefore: string }> = [];
   private detectionHistory: Array<{ time: number; quietMs: number; promptType: string; mlResult: string | null; statusBefore: string; statusAfter: string; action: string; reason: string }> = [];
@@ -296,8 +250,8 @@ export class PtySession extends EventEmitter {
    *  the I/O phase of the event loop (same as HTTP handlers), making writes
    *  reliable. The actual write (text + delayed SUBMIT) is handled by the
    *  injectWrite() function in server.ts, triggered by the port message. */
-  relayWrite(text: string): void {
-    this.config.injectionPort.postMessage({ name: this.name, text });
+  relayWrite(text: string, source: string = "unknown"): void {
+    this.config.injectionPort.postMessage({ name: this.name, text, source });
   }
 
   resize(cols: number, rows: number): void {
@@ -434,9 +388,6 @@ export class PtySession extends EventEmitter {
       heuristicTimerActive: this.heuristicTimer !== null,
       lastOutputTime: this.lastOutputTime,
       quietMs: now - this.lastOutputTime,
-      mlQueryInFlight: this.mlQueryInFlight,
-      lastSavedLabel: this.lastSavedLabel,
-      lastSavedAt: this.lastSavedAt,
       costUsd: this.costUsd,
       injectionHistory: this.injectionHistory,
       detectionHistory: this.detectionHistory,
@@ -453,7 +404,6 @@ export class PtySession extends EventEmitter {
       quiet: { lastOutputTime: this.lastOutputTime, quietMs, thresholdMs: this.config.quietThresholdMs, isQuiet: quietMs >= this.config.quietThresholdMs },
       screen: { promptType, cursorY: this.screenDetector.getCursorY(), contentLines },
       heuristic: { timerActive: this.heuristicTimer !== null, tickIntervalMs: 1000 },
-      ml: { queryInFlight: this.mlQueryInFlight, modelPath: this.config.mlModelPath || null, lastSavedLabel: this.lastSavedLabel, lastSavedAt: this.lastSavedAt },
       busyTimeout: { startTime: this.busyStartTime, elapsedMs: this.busyStartTime > 0 ? now - this.busyStartTime : 0, thresholdMs: this.config.busyTimeoutMs, timeoutSampleSaved: this.busyTimeoutSaved },
       hooks: { lastStopTime: this.lastHookStopTime || null, lastNotifyType: this.lastHookNotifyType || null, lastPromptSubmitTime: this.lastHookPromptSubmitTime || null },
     };
@@ -465,7 +415,7 @@ export class PtySession extends EventEmitter {
   debugForceInject(): void {
     const prompt = INJECTION_PROMPT();
     this.recordInjection("emcom", prompt);
-    this.relayWrite(prompt);
+    this.relayWrite(prompt, "debug-force");
     this.setStatus("busy");
   }
 
@@ -599,40 +549,13 @@ export class PtySession extends EventEmitter {
       const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
       const isAI = AI_CMDS.includes(this.config.command);
       if (isAI) {
-        // Busy timeout: save a sample once if busy too long
+        // Track if busy too long — useful as a stuck-busy signal for future LLM escalation.
         const busyTimeoutMs = this.config.busyTimeoutMs;
         if (!this.busyTimeoutSaved && this.busyStartTime > 0 && Date.now() - this.busyStartTime > busyTimeoutMs) {
           this.busyTimeoutSaved = true;
-          saveMlSample(
-            this.config.mlDataDir,
-            this.screenDetector.getContentLines(20),
-            "busy",
-            "uncertain",
-            "timeout_flag",
-            this.name
-          );
         }
 
         const promptType = this.screenDetector.detectPromptType();
-        if (promptType === "input" || promptType === "busy") {
-          const label = promptType === "input" ? "not_busy" : "busy";
-          const now = Date.now();
-          const isTransition = label !== this.lastSavedLabel;
-          const isPeriodicDue = now - this.lastSavedAt >= 60_000;
-          if (isTransition || isPeriodicDue) {
-            this.lastSavedLabel = label;
-            this.lastSavedAt = now;
-            saveMlSample(
-              this.config.mlDataDir,
-              this.screenDetector.getContentLines(20),
-              label,
-              "auto",
-              "auto_detect",
-              this.name,
-              this.config.mlCollectionMaxSamples
-            );
-          }
-        }
         if (promptType === "input") {
           if (this.needsStartupKick) {
             this.needsStartupKick = false;
@@ -641,8 +564,14 @@ export class PtySession extends EventEmitter {
             log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
             this.recordInjection(kickType, kick);
             this.recordDetectionTick(quietMs, promptType, null, kickType, "input prompt detected, startup kick pending");
-            this.relayWrite(kick);
+            this.relayWrite(kick, kickType);
             this.setStatus("busy");
+            // Cooldown: pause heuristic so we don't fire a follow-on inject (e.g. emcom-auto)
+            // while Claude is still rendering the kick's response. Mirrors inject() pattern.
+            this.stopHeuristic();
+            setTimeout(() => {
+              if (this.status !== "dead") this.startHeuristic();
+            }, this.config.injectionCooldownMs);
             return;
           }
           this.recordDetectionTick(quietMs, promptType, null, "idle", "input prompt detected");
@@ -652,23 +581,6 @@ export class PtySession extends EventEmitter {
           else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
             this.scheduleCheckpointInjection(this.pendingCheckpoint);
           }
-        } else if (promptType === "unknown" && !this.mlQueryInFlight && this.config.mlModelPath) {
-          // Regex inconclusive — ask local ONNX model
-          this.mlQueryInFlight = true;
-          this.recordDetectionTick(quietMs, promptType, null, "ml-query", "regex inconclusive, dispatched ML");
-          const lines = this.screenDetector.getContentLines(20);
-          runLocalMLInference(this.config.mlModelPath, lines).then((result) => {
-            this.mlQueryInFlight = false;
-            if (result && result.label === "not_busy" && result.confidence > 0.75 && this.status === "busy") {
-              log(`[${this.name}] ML inference: not_busy (conf=${result.confidence.toFixed(2)}) → idle`);
-              this.recordDetectionTick(quietMs, "ml-result", result.label, "idle", `ML: not_busy conf=${result.confidence.toFixed(2)}`);
-              this.setStatus("idle");
-              if (this.pendingMessages) this.inject();
-              else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
-                this.scheduleCheckpointInjection(this.pendingCheckpoint);
-              }
-            }
-          });
         } else if (promptType === "busy") {
           this.recordDetectionTick(quietMs, promptType, null, "none", "busy animation detected");
         } else {
@@ -698,7 +610,7 @@ export class PtySession extends EventEmitter {
     const prompt = INJECTION_PROMPT();
     clog(`emcom check → ${label}`);
     this.recordInjection("emcom", prompt);
-    this.relayWrite(prompt);
+    this.relayWrite(prompt, "emcom-auto");
     this.setStatus("busy");
 
     // Cooldown: don't go idle again for a while
@@ -794,7 +706,7 @@ export class PtySession extends EventEmitter {
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
     this.recordInjection(`checkpoint-${type}`, prompt);
-    this.relayWrite(prompt);
+    this.relayWrite(prompt, `checkpoint-${type}`);
     this.setStatus("busy");
 
     this.stopHeuristic();

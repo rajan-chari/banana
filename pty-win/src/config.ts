@@ -14,10 +14,6 @@ export interface SessionConfig {
   injectionCooldownMs: number;
   checkpointOffsetMs: number;
   busyTimeoutMs: number;
-  mlServiceUrl: string;
-  mlDataDir: string;
-  mlCollectionMaxSamples: number;
-  mlModelPath: string;
   injectionPort: MessagePort;
 }
 
@@ -28,7 +24,6 @@ export interface ServerConfig {
   debug: boolean;
   emcomServer: string;
   rootDirs: string[];
-  mlModelPath: string;
 }
 
 export const DEFAULTS = {
@@ -41,6 +36,4 @@ export const DEFAULTS = {
   defaultCommand: process.platform === "win32" ? "cmd.exe" : "/bin/bash",
   defaultShell: process.platform === "win32" ? "pwsh" : "bash",
   busyTimeoutMs: 5 * 60 * 1000,
-  mlServiceUrl: "http://127.0.0.1:8710",
-  mlCollectionMaxSamples: 1000,
 };

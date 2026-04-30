@@ -12,7 +12,6 @@ import { listDir, readIdentity, createDir } from "./folders.js";
 import { DEFAULTS } from "./config.js";
 import type { SessionConfig, ServerConfig } from "./config.js";
 import { log, clog } from "./log.js";
-import { saveMlSample } from "./ml-dataset.js";
 import { registerDebugRoutes } from "./debug-routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -33,15 +32,20 @@ const { port1: injectionReceiver, port2: injectionSender } = new MessageChannel(
 
 /** Write text to a session's PTY, then send SUBMIT after a delay.
  *  Shared by both the MessageChannel handler and the HTTP inject endpoint. */
-function injectWrite(session: PtySession, text: string): void {
+function injectWrite(session: PtySession, text: string, source: string = "unknown"): void {
+  const submitEsc = (SUBMIT as string) === "\r" ? "\\r" : (SUBMIT as string) === "\n" ? "\\n" : `0x${(SUBMIT as string).charCodeAt(0).toString(16)}`;
+  clog(`[inject ${source}] T+0   text(${text.length}b) → ${session.getInfo().name}`);
   session.write(text);
-  setTimeout(() => session.write(SUBMIT), SUBMIT_DELAY_MS);
+  setTimeout(() => {
+    clog(`[inject ${source}] T+${SUBMIT_DELAY_MS}  SUBMIT(${submitEsc}) → ${session.getInfo().name} (status=${session.getStatus()})`);
+    session.write(SUBMIT);
+  }, SUBMIT_DELAY_MS);
 }
 
-injectionReceiver.on("message", ({ name, text }: { name: string; text: string }) => {
+injectionReceiver.on("message", ({ name, text, source }: { name: string; text: string; source?: string }) => {
   const session = sessions.get(name);
   if (!session) { clog(`injection relay: session "${name}" not found`); return; }
-  injectWrite(session, text);
+  injectWrite(session, text, source || "relay");
 });
 
 const CHECKPOINT_STAGGER_MS = 10_000; // 10s between sessions on same repo
@@ -239,10 +243,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
       injectionCooldownMs: DEFAULTS.injectionCooldownMs,
       checkpointOffsetMs,
       busyTimeoutMs: DEFAULTS.busyTimeoutMs,
-      mlServiceUrl: DEFAULTS.mlServiceUrl,
-      mlDataDir: join(__dirname, "..", "ml-dataset"),
-      mlCollectionMaxSamples: DEFAULTS.mlCollectionMaxSamples,
-      mlModelPath: config.mlModelPath || join(__dirname, "..", "..", "pty-learner", "ml", "classifier.onnx"),
       injectionPort: injectionSender,
     };
 
@@ -316,14 +316,6 @@ public class Win32Focus {
   app.post("/api/sessions/:name/force-idle", (req, res) => {
     const session = sessions.get(req.params.name);
     if (!session) return res.status(404).json({ error: "not found" });
-    saveMlSample(
-      join(__dirname, "..", "ml-dataset"),
-      session.getContentLines(20),
-      "not_busy",
-      "strong",
-      "force_idle",
-      req.params.name
-    );
     clog(`force-idle: ${req.params.name}`);
     session.forceIdle();
     broadcastSessionList();
@@ -385,7 +377,7 @@ public class Win32Focus {
     if (!session) return res.status(404).json({ error: "not found" });
     const { text } = req.body;
     if (typeof text !== "string") return res.status(400).json({ error: "text required" });
-    injectWrite(session, text);
+    injectWrite(session, text, "http");
     res.json({ ok: true });
   });
 
