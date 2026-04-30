@@ -4,7 +4,7 @@ import type { Express, Request, Response } from "express";
 import type { ServerConfig } from "./config.js";
 import { PtySession, SUBMIT, INJECTION_PROMPT, STARTUP_KICK, RESUME_KICK, makeCheckpointLightPrompt, makeCheckpointFullPrompt } from "./session.js";
 import { setDebugLog, getDebugLogState, addDebugLogListener } from "./log.js";
-import { checkReadiness } from "./llm-detector.js";
+import { checkReadiness, checkStuckInput } from "./llm-detector.js";
 import { recentForFewShot } from "./llm-corrections.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -174,6 +174,18 @@ export function registerDebugRoutes(
     const corrections = await recentForFewShot(3);
     const verdict = await checkReadiness({ screenLines: lines, corrections });
     res.json({ session: req.params.name, verdict, screenLineCount: lines.length, correctionsCount: corrections.length });
+  });
+
+  // Manually invoke checkStuckInput. Can use current session screen, or pass
+  // crafted screenLines / injectText in the body for testing the prompt.
+  app.post("/api/debug/sessions/:name/stuck-check", async (req, res) => {
+    const session = getSession(req, res);
+    if (!session) return;
+    const screenLines: string[] = req.body?.screenLines ?? session.getContentLines(30);
+    const injectText: string | undefined = req.body?.injectText;
+    if (!injectText) return res.status(400).json({ error: "injectText required (the bytes that were supposedly injected)" });
+    const verdict = await checkStuckInput({ screenLines, injectText });
+    res.json({ session: req.params.name, verdict, screenLineCount: screenLines.length, injectTextLen: injectText.length });
   });
 
   // Test: write text then \r separately with a delay

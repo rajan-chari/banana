@@ -8,7 +8,7 @@ import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
-import { checkReadiness } from "./llm-detector.js";
+import { checkReadiness, checkStuckInput } from "./llm-detector.js";
 import { appendCorrection, recentForFewShot } from "./llm-corrections.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
@@ -578,7 +578,7 @@ export class PtySession extends EventEmitter {
             const kickScreen = this.screenDetector.getContentLines(30).join("\n");
             this.relayWrite(kick, kickType);
             this.setStatus("busy");
-            this.verifyInjectAfter({ screen: kickScreen, why: kickType }, kickType);
+            this.verifyInjectAfter({ screen: kickScreen, why: kickType, injectText: kick }, kickType);
             // Cooldown: pause heuristic so we don't fire a follow-on inject (e.g. emcom-auto)
             // while Claude is still rendering the kick's response. Mirrors inject() pattern.
             this.stopHeuristic();
@@ -683,15 +683,12 @@ export class PtySession extends EventEmitter {
       if (this.status !== "busy") return;
       this.recordDetectionTick(quietMs, promptType, "llm-ready", "idle", `LLM (${trigger}): ${verdict.why}`);
       this.setStatus("idle");
-      // Snapshot for post-inject verification — if the inject is lost, this
-      // becomes a "false-ready" correction example.
-      const verifySnapshot = { screen: screenLines.join("\n"), why: verdict.why };
-      const willInject = this.pendingMessages || (this.pendingCheckpoint && !this.checkpointStartDelay);
-      if (this.pendingMessages) this.inject();
+      // inject() / injectCheckpoint() schedule their own verifier; pass
+      // source="llm-driven" so the correction record carries that signal.
+      if (this.pendingMessages) this.inject("llm-driven");
       else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
         this.scheduleCheckpointInjection(this.pendingCheckpoint);
       }
-      if (willInject) this.verifyInjectAfter(verifySnapshot, "llm-driven");
     }).catch((err) => {
       this.llmCheckInFlight = false;
       clog(`[${this.name}] [llm-detector] unexpected error: ${(err as Error).message}`);
@@ -701,10 +698,11 @@ export class PtySession extends EventEmitter {
   getLlmHistory() { return this.llmHistory; }
 
   /** Watch for hook:prompt-submit within VERIFY_WINDOW_MS of any inject.
-   *  If absent, the inject likely never submitted — record as a correction
-   *  for offline analysis and (in step B) trigger LLM-gated recovery. */
+   *  If absent, the inject likely never submitted. Try LLM-gated recovery:
+   *  ask gpt-5-nano "is the injected text sitting in the input box?" and
+   *  if yes, re-send SUBMIT. Always record a correction for offline review. */
   private verifyInjectAfter(
-    snapshot: { screen: string; why: string },
+    snapshot: { screen: string; why: string; injectText: string },
     source: string,
   ): void {
     const VERIFY_WINDOW_MS = 5_000;
@@ -715,18 +713,49 @@ export class PtySession extends EventEmitter {
         clog(`[${this.name}] [verify] inject submitted (source=${source})`);
         return;
       }
-      // No submit within window — record correction
-      clog(`[${this.name}] [verify] inject NOT submitted within ${VERIFY_WINDOW_MS}ms (source=${source})`);
-      void appendCorrection({
-        time: new Date().toISOString(),
-        session: this.name,
-        screen: snapshot.screen,
-        // llmSaid: only true when an LLM verdict drove the inject. Heuristic
-        // / kick / checkpoint paths get null (correction record still useful
-        // for analysis, just not fed back as LLM few-shot).
-        llmSaid: source === "llm-driven" ? true : null,
-        llmWhy: snapshot.why,
-        actualOutcome: "no_submit_within_5s",
+      clog(`[${this.name}] [verify] inject NOT submitted within ${VERIFY_WINDOW_MS}ms (source=${source}) — checking for stuck input`);
+      // Recovery: ask LLM if the text is sitting in the input box waiting for Enter
+      const currentScreen = this.screenDetector.getContentLines(30);
+      void checkStuckInput({ screenLines: currentScreen, injectText: snapshot.injectText }).then((verdict) => {
+        if (!verdict) {
+          // LLM unavailable / errored — fall through, just record correction with original outcome
+          clog(`[${this.name}] [verify] no LLM verdict — gave_up`);
+          void appendCorrection({
+            time: new Date().toISOString(),
+            session: this.name,
+            screen: snapshot.screen,
+            llmSaid: source === "llm-driven" ? true : null,
+            llmWhy: snapshot.why,
+            actualOutcome: "gave_up",
+          });
+          return;
+        }
+        const tokens = verdict.inputTokens != null ? ` tokens=${verdict.inputTokens}/${verdict.outputTokens}` : "";
+        clog(`[${this.name}] [verify] checkStuckInput stuck=${verdict.stuck} latency=${verdict.latencyMs}ms${tokens} | why="${verdict.why}"`);
+        if (verdict.stuck) {
+          // Re-send SUBMIT only — the text is already in the input box
+          clog(`[${this.name}] [verify] recovering: re-sending SUBMIT`);
+          this.relayWrite(SUBMIT, `recover:${source}`);
+          void appendCorrection({
+            time: new Date().toISOString(),
+            session: this.name,
+            screen: snapshot.screen,
+            llmSaid: source === "llm-driven" ? true : null,
+            llmWhy: snapshot.why,
+            actualOutcome: "recovered_by_resend",
+          });
+        } else {
+          void appendCorrection({
+            time: new Date().toISOString(),
+            session: this.name,
+            screen: snapshot.screen,
+            llmSaid: source === "llm-driven" ? true : null,
+            llmWhy: snapshot.why,
+            actualOutcome: "gave_up",
+          });
+        }
+      }).catch((err) => {
+        clog(`[${this.name}] [verify] unexpected error: ${(err as Error).message}`);
       });
     }, VERIFY_WINDOW_MS).unref?.();
   }
@@ -738,7 +767,7 @@ export class PtySession extends EventEmitter {
     }
   }
 
-  private inject(): void {
+  private inject(source: string = "emcom-auto"): void {
     this.pendingMessages = false;
     this.unreadCount = 0;
     const identity = this.config.emcomIdentity;
@@ -747,9 +776,9 @@ export class PtySession extends EventEmitter {
     clog(`emcom check → ${label}`);
     this.recordInjection("emcom", prompt);
     const screenAtInject = this.screenDetector.getContentLines(30).join("\n");
-    this.relayWrite(prompt, "emcom-auto");
+    this.relayWrite(prompt, source);
     this.setStatus("busy");
-    this.verifyInjectAfter({ screen: screenAtInject, why: "heuristic emcom-auto" }, "emcom-auto");
+    this.verifyInjectAfter({ screen: screenAtInject, why: source, injectText: prompt }, source);
 
     // Cooldown: don't go idle again for a while
     this.stopHeuristic();
@@ -847,7 +876,7 @@ export class PtySession extends EventEmitter {
     const cpScreen = this.screenDetector.getContentLines(30).join("\n");
     this.relayWrite(prompt, `checkpoint-${type}`);
     this.setStatus("busy");
-    this.verifyInjectAfter({ screen: cpScreen, why: `checkpoint-${type}` }, `checkpoint-${type}`);
+    this.verifyInjectAfter({ screen: cpScreen, why: `checkpoint-${type}`, injectText: prompt }, `checkpoint-${type}`);
 
     this.stopHeuristic();
     setTimeout(() => {

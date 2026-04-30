@@ -288,7 +288,7 @@ public class Win32Focus {
 "@
         $hwnd = [Win32Focus]::GetForegroundWindow()
         [Win32Focus]::ShowWindow($hwnd, 6)  # SW_MINIMIZE
-        Start-Process code -ArgumentList '${resolved.replace(/'/g, "''")}'
+        Start-Process code -ArgumentList '${resolved.replace(/'/g, "''")}' -WindowStyle Hidden
       `;
       clog(`vscode: launching via PowerShell (minimize + Start-Process)`);
       const ps = spawn("powershell", ["-NoProfile", "-Command", psScript],

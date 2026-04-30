@@ -14,7 +14,7 @@ interface CorrectionRecord {
   screen: string;
   llmSaid: boolean | null;
   llmWhy: string;
-  actualOutcome: "no_submit_within_5s" | "user_intervened" | "submitted_ok";
+  actualOutcome: "no_submit_within_5s" | "user_intervened" | "submitted_ok" | "recovered_by_resend" | "gave_up";
 }
 
 let cache: CorrectionRecord[] | null = null;
