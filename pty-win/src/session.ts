@@ -199,6 +199,7 @@ export class PtySession extends EventEmitter {
     const costRegexLive = /\$(\d+\.\d+)\s+\d+m\d*s/;      // live status bar ($9.97 2m34s or $0.50 553ms)
     const costRegexExit = /Total cost:\s+\$(\d+\.\d+)/;  // exit summary
 
+    const isClaudeCmd = this.config.command === "claude";
     this.ptyProcess.onData((data) => {
       const now = Date.now();
       this.lastOutputTime = now;
@@ -211,7 +212,18 @@ export class PtySession extends EventEmitter {
       const costMatch = costRegexExit.exec(data) || costRegexLive.exec(data);
       if (costMatch) this.costUsd = parseFloat(costMatch[1]);
       this.emit("data", data);
-      if (this.status === "idle" || this.status === "starting") {
+      // Status transitions on PTY data:
+      //   - For Claude sessions: don't flip to busy on bytes. Hooks own the
+      //     status. Trailing bytes after hook:stop (cursor redraw, prompt
+      //     re-render) would otherwise wrongly flip us to busy and we'd wait
+      //     ~60s for hook:notify(idle) to come back. The "starting" → "busy"
+      //     transition is fine because no hook has fired yet on a fresh
+      //     Claude.
+      //   - For generic shells (bash/cmd/pwsh): no hooks fire. Keep the old
+      //     behavior — output means busy, quiet for 3s means idle.
+      if (this.status === "starting") {
+        this.setStatus("busy");
+      } else if (!isClaudeCmd && this.status === "idle") {
         this.setStatus("busy");
       }
     });
