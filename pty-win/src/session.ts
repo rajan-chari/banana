@@ -8,7 +8,7 @@ import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
-import { checkReadiness, checkStuckInput } from "./llm-detector.js";
+import { checkReadiness } from "./llm-detector.js";
 import { appendCorrection, recentForFewShot } from "./llm-corrections.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
@@ -701,44 +701,25 @@ export class PtySession extends EventEmitter {
   getLlmHistory() { return this.llmHistory; }
 
   /** Watch for hook:prompt-submit within VERIFY_WINDOW_MS of any inject.
-   *  If absent, the inject likely never submitted. Try LLM-gated recovery:
-   *  ask gpt-5-nano "is the injected text sitting in the input box?" and
-   *  if yes, re-send SUBMIT. Always record a correction for offline review. */
+   *  If absent, the inject didn't submit. Recovery is unconditional: re-send
+   *  SUBMIT once and watch again. The hook is ground truth — no need for an
+   *  LLM check on screen content (Claude Code's grey placeholder text fooled
+   *  earlier checkStuckInput attempts into saying not-stuck on real stuck
+   *  cases). Empty Enter on already-empty input is harmless. */
   private verifyInjectAfter(
     snapshot: { screen: string; why: string; injectText: string },
     source: string,
+    attempt: number = 0,
   ): void {
     const VERIFY_WINDOW_MS = 5_000;
+    const MAX_RETRIES = 2;
     const injectAt = Date.now();
     setTimeout(() => {
       const submitted = this.lastHookPromptSubmitTime > injectAt;
       if (submitted) {
-        clog(`[${this.name}] [verify] inject submitted (source=${source})`);
-        return;
-      }
-      clog(`[${this.name}] [verify] inject NOT submitted within ${VERIFY_WINDOW_MS}ms (source=${source}) — checking for stuck input`);
-      // Recovery: ask LLM if the text is sitting in the input box waiting for Enter
-      const currentScreen = this.screenDetector.getContentLines(30);
-      void checkStuckInput({ screenLines: currentScreen, injectText: snapshot.injectText }).then((verdict) => {
-        if (!verdict) {
-          // LLM unavailable / errored — fall through, just record correction with original outcome
-          clog(`[${this.name}] [verify] no LLM verdict — gave_up`);
-          void appendCorrection({
-            time: new Date().toISOString(),
-            session: this.name,
-            screen: snapshot.screen,
-            llmSaid: source === "llm-driven" ? true : null,
-            llmWhy: snapshot.why,
-            actualOutcome: "gave_up",
-          });
-          return;
-        }
-        const tokens = verdict.inputTokens != null ? ` tokens=${verdict.inputTokens}/${verdict.outputTokens}` : "";
-        clog(`[${this.name}] [verify] checkStuckInput stuck=${verdict.stuck} latency=${verdict.latencyMs}ms${tokens} | why="${verdict.why}"`);
-        if (verdict.stuck) {
-          // Re-send SUBMIT only — the text is already in the input box
-          clog(`[${this.name}] [verify] recovering: re-sending SUBMIT`);
-          this.relayWrite(SUBMIT, `recover:${source}`);
+        const recoveredTag = attempt > 0 ? ` [recovered after ${attempt} retry]` : "";
+        clog(`[${this.name}] [verify] inject submitted (source=${source})${recoveredTag}`);
+        if (attempt > 0) {
           void appendCorrection({
             time: new Date().toISOString(),
             session: this.name,
@@ -747,19 +728,26 @@ export class PtySession extends EventEmitter {
             llmWhy: snapshot.why,
             actualOutcome: "recovered_by_resend",
           });
-        } else {
-          void appendCorrection({
-            time: new Date().toISOString(),
-            session: this.name,
-            screen: snapshot.screen,
-            llmSaid: source === "llm-driven" ? true : null,
-            llmWhy: snapshot.why,
-            actualOutcome: "gave_up",
-          });
         }
-      }).catch((err) => {
-        clog(`[${this.name}] [verify] unexpected error: ${(err as Error).message}`);
-      });
+        return;
+      }
+      if (attempt < MAX_RETRIES) {
+        clog(`[${this.name}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) — re-sending SUBMIT (retry ${attempt + 1}/${MAX_RETRIES})`);
+        this.relayWrite(SUBMIT, `recover:${source}`);
+        // Re-arm: watch for the hook after the retry. The new injectAt window
+        // means a retry that succeeds is correctly attributed to the recovery.
+        this.verifyInjectAfter(snapshot, source, attempt + 1);
+      } else {
+        clog(`[${this.name}] [verify] gave up after ${MAX_RETRIES} retries (source=${source})`);
+        void appendCorrection({
+          time: new Date().toISOString(),
+          session: this.name,
+          screen: snapshot.screen,
+          llmSaid: source === "llm-driven" ? true : null,
+          llmWhy: snapshot.why,
+          actualOutcome: "gave_up",
+        });
+      }
     }, VERIFY_WINDOW_MS).unref?.();
   }
 
