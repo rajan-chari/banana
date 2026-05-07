@@ -118,6 +118,14 @@ export class PtySession extends EventEmitter {
   private busyStartTime = 0;
   private busyTimeoutSaved = false;
   private dataEvents: DataEvent[] = [];
+  // Raw PTY byte buffer (capped, replaces server-side xterm-headless rendering).
+  // Accumulates the most recent ~RAW_BUF_MAX_BYTES of PTY output as-is, ANSI
+  // escapes included. Read by /snapshot endpoint and (optionally) by anything
+  // that wants a short post-hoc view. Browsers receive the full stream over WS
+  // and render it via xterm.js client-side; this buffer is purely for
+  // server-side inspection/debugging.
+  private rawBuffer = "";
+  private static readonly RAW_BUF_MAX_BYTES = 32 * 1024;
   private injectionHistory: Array<{ time: number; type: string; prompt: string; statusBefore: string }> = [];
   private detectionHistory: Array<{ time: number; quietMs: number; promptType: string; mlResult: string | null; statusBefore: string; statusAfter: string; action: string; reason: string }> = [];
   private lastHookStopTime = 0;
@@ -204,6 +212,12 @@ export class PtySession extends EventEmitter {
       this.lastOutputTime = now;
       this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
       this.screenDetector.write(data);
+      // Append to capped raw buffer (cheap; replaces xterm-headless for
+      // post-hoc inspection without ANSI parsing on the hot path).
+      this.rawBuffer += data;
+      if (this.rawBuffer.length > PtySession.RAW_BUF_MAX_BYTES) {
+        this.rawBuffer = this.rawBuffer.slice(-PtySession.RAW_BUF_MAX_BYTES);
+      }
       const costMatch = costRegexExit.exec(data) || costRegexLive.exec(data);
       if (costMatch) this.costUsd = parseFloat(costMatch[1]);
       this.emit("data", data);
@@ -356,6 +370,13 @@ export class PtySession extends EventEmitter {
 
   getContentLines(n: number): string[] {
     return this.screenDetector.getContentLines(n);
+  }
+
+  /** Last N bytes of raw PTY output (ANSI codes intact, no rendering).
+   *  Cheaper than getContentLines — no xterm-headless parsing. */
+  getRawTail(maxBytes: number = PtySession.RAW_BUF_MAX_BYTES): string {
+    if (this.rawBuffer.length <= maxBytes) return this.rawBuffer;
+    return this.rawBuffer.slice(-maxBytes);
   }
 
   // --- Debug instrumentation ---
