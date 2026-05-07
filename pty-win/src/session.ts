@@ -328,6 +328,7 @@ export class PtySession extends EventEmitter {
     clog(`hook:stop → ${this.name} (was ${this.status})`);
     this.lastHookStopTime = Date.now();
     this.setStatus("idle");
+    this.maybeFireOnIdle("hook:stop");
   }
 
   /** Hook: user/injection sent input → busy */
@@ -349,9 +350,42 @@ export class PtySession extends EventEmitter {
     }
     if (type === "idle_prompt") {
       clog(`hook:notify(idle) → ${this.name} — confirmed idle`);
-      // Redundant with hookStop but confirms idle state
       if (this.status !== "idle") this.setStatus("idle");
-      // Don't inject here — let the heuristic/screen detection handle it
+      // Confirmed idle — also a good moment to fire pending injects (esp. for
+      // startup kicks where no prior hook:stop has fired).
+      this.maybeFireOnIdle("hook:notify(idle)");
+    }
+  }
+
+  /** Called when a hook signals idle. Fires the highest-priority pending
+   *  inject: startup-kick, then emcom, then checkpoint. Mirrors what the
+   *  heuristic used to do when it detected an "input" prompt via screen. */
+  private maybeFireOnIdle(reason: string): void {
+    if (this.status !== "idle") return;
+    if (this.needsStartupKick) {
+      this.needsStartupKick = false;
+      const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
+      const kickType = this.isResumedSession ? "resume-kick" : "startup-kick";
+      log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (trigger: ${reason})`);
+      this.recordInjection(kickType, kick);
+      const kickRaw = this.getRawTail(8 * 1024);
+      this.relayWrite(kick, kickType);
+      this.setStatus("busy");
+      this.verifyInjectAfter({ screen: kickRaw, why: kickType, injectText: kick }, kickType);
+      // Cooldown: pause heuristic so we don't fire a follow-on inject (e.g.
+      // emcom-auto) while Claude is still rendering the kick's response.
+      this.stopHeuristic();
+      setTimeout(() => {
+        if (this.status !== "dead") this.startHeuristic();
+      }, this.config.injectionCooldownMs);
+      return;
+    }
+    if (this.pendingMessages) {
+      this.inject();
+      return;
+    }
+    if (this.pendingCheckpoint && !this.checkpointStartDelay) {
+      this.scheduleCheckpointInjection(this.pendingCheckpoint);
     }
   }
 
