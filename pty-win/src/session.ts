@@ -3,7 +3,6 @@ import { execFile } from "child_process";
 import { EventEmitter } from "events";
 import { EmcomClient } from "./emcom/client.js";
 import { EmcomPoller } from "./emcom/poller.js";
-import { ScreenDetector } from "./screen-detector.js";
 import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
@@ -99,7 +98,6 @@ export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;
   private poller: EmcomPoller | null = null;
   private identityWatcher: ReturnType<typeof setInterval> | null = null;
-  private screenDetector: ScreenDetector;
   private heuristicTimer: ReturnType<typeof setInterval> | null = null;
   private checkpointStartDelay: ReturnType<typeof setTimeout> | null = null;
   private checkpointLightTimer: ReturnType<typeof setInterval> | null = null;
@@ -175,9 +173,6 @@ export class PtySession extends EventEmitter {
 
     clog(`process started: ${this.name} (pid ${this.ptyProcess.pid}, cmd: ${config.command}, cwd: ${config.workingDir})`);
 
-    // Screen detector
-    this.screenDetector = new ScreenDetector(cols, rows, config.name);
-
     // Emcom integration (optional)
     if (config.emcomIdentity && config.emcomServer) {
       const client = new EmcomClient(config.emcomServer, config.emcomIdentity);
@@ -208,9 +203,7 @@ export class PtySession extends EventEmitter {
       const now = Date.now();
       this.lastOutputTime = now;
       this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
-      this.screenDetector.write(data);
-      // Append to capped raw buffer (cheap; replaces xterm-headless for
-      // post-hoc inspection without ANSI parsing on the hot path).
+      // Append to capped raw buffer (replaces server-side xterm-headless).
       this.rawBuffer += data;
       if (this.rawBuffer.length > PtySession.RAW_BUF_MAX_BYTES) {
         this.rawBuffer = this.rawBuffer.slice(-PtySession.RAW_BUF_MAX_BYTES);
@@ -255,7 +248,6 @@ export class PtySession extends EventEmitter {
     this.stopIdentityWatcher();
     this.stopHeuristic();
     this.stopCheckpointTimers();
-    this.screenDetector.dispose();
   }
 
   write(data: string | Buffer): void {
@@ -274,7 +266,6 @@ export class PtySession extends EventEmitter {
 
   resize(cols: number, rows: number): void {
     this.ptyProcess.resize(cols, rows);
-    this.screenDetector.resize(cols, rows);
   }
 
   kill(): void {
@@ -307,8 +298,9 @@ export class PtySession extends EventEmitter {
     };
   }
 
+  /** Last N lines of raw PTY output (ANSI codes intact, no rendering). */
   getSnapshot(n: number = 8): string[] {
-    return this.screenDetector.snapshot(n);
+    return this.rawBuffer.split("\n").slice(-n);
   }
 
   clearUnread(): void {
@@ -399,12 +391,12 @@ export class PtySession extends EventEmitter {
     if (this.status === "idle") this.inject();
   }
 
+  /** Last N lines (split by \n) of raw PTY output. ANSI codes intact. */
   getContentLines(n: number): string[] {
-    return this.screenDetector.getContentLines(n);
+    return this.rawBuffer.split("\n").slice(-n);
   }
 
-  /** Last N bytes of raw PTY output (ANSI codes intact, no rendering).
-   *  Cheaper than getContentLines — no xterm-headless parsing. */
+  /** Last N bytes of raw PTY output (ANSI codes intact, no rendering). */
   getRawTail(maxBytes: number = PtySession.RAW_BUF_MAX_BYTES): string {
     if (this.rawBuffer.length <= maxBytes) return this.rawBuffer;
     return this.rawBuffer.slice(-maxBytes);
@@ -456,12 +448,11 @@ export class PtySession extends EventEmitter {
   getDetectionState(): Record<string, unknown> {
     const now = Date.now();
     const quietMs = now - this.lastOutputTime;
-    const promptType = this.screenDetector.detectPromptType();
-    const contentLines = this.screenDetector.getContentLines(8);
     return {
       session: this.name, status: this.status,
       quiet: { lastOutputTime: this.lastOutputTime, quietMs, thresholdMs: this.config.quietThresholdMs, isQuiet: quietMs >= this.config.quietThresholdMs },
-      screen: { promptType, cursorY: this.screenDetector.getCursorY(), contentLines },
+      // No more screen detection — hook-driven idle detection. The raw byte
+      // tail is available via /api/sessions/:name/snapshot?raw=1 if needed.
       heuristic: { timerActive: this.heuristicTimer !== null, tickIntervalMs: 1000 },
       busyTimeout: { startTime: this.busyStartTime, elapsedMs: this.busyStartTime > 0 ? now - this.busyStartTime : 0, thresholdMs: this.config.busyTimeoutMs, timeoutSampleSaved: this.busyTimeoutSaved },
       hooks: { lastStopTime: this.lastHookStopTime || null, lastNotifyType: this.lastHookNotifyType || null, lastPromptSubmitTime: this.lastHookPromptSubmitTime || null },
@@ -510,17 +501,6 @@ export class PtySession extends EventEmitter {
       busy: bucket(this.dataEvents.filter((e) => e.isBusy)),
       notBusy: bucket(this.dataEvents.filter((e) => !e.isBusy)),
     };
-  }
-
-  applyMLInference(label: string, confidence: number): void {
-    if (this.status !== "busy") return;
-    if (label === "not_busy" && confidence > 0.75) {
-      const crossCheck = this.screenDetector.detectPromptType();
-      if (crossCheck === "input" || crossCheck === "unknown") {
-        log(`[${this.name}] ML inference: not_busy (conf=${confidence.toFixed(2)}) confirmed by screen → going idle`);
-        this.setStatus("idle");
-      }
-    }
   }
 
   /**

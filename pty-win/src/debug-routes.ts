@@ -70,7 +70,6 @@ export function registerDebugRoutes(
     res.json({
       session: req.params.name,
       contentLines,
-      screen: detection.screen,
       quiet: detection.quiet,
     });
   });
