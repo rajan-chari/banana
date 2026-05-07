@@ -8,8 +8,7 @@ import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
-import { checkReadiness } from "./llm-detector.js";
-import { appendCorrection, recentForFewShot } from "./llm-corrections.js";
+import { appendCorrection } from "./llm-corrections.js";
 
 export type SessionStatus = "starting" | "busy" | "idle" | "dead";
 
@@ -131,10 +130,8 @@ export class PtySession extends EventEmitter {
   private lastHookStopTime = 0;
   private lastHookNotifyType = "";
   private lastHookPromptSubmitTime = 0;
-  // LLM escalation state
-  private unknownStreakCount = 0;
-  private lastLlmCheckTime = 0;
-  private llmCheckInFlight = false;
+  // Retained for debug-endpoint compatibility; no longer written to since
+  // hook-driven idle detection replaced the LLM escalation path.
   private llmHistory: Array<{ time: number; trigger: string; ready: boolean | null; why: string; latencyMs: number }> = [];
   costUsd = 0;
   readonly name: string;
@@ -601,157 +598,40 @@ export class PtySession extends EventEmitter {
 
   private startHeuristic(): void {
     if (this.heuristicTimer) return;
+    // Hooks now drive idle detection for AI sessions (see hookStop /
+    // hookNotify(idle) → maybeFireOnIdle). The heuristic is now a thin
+    // safety net:
+    //   - generic (non-AI) sessions: idle after 3s of quiet (hooks don't fire)
+    //   - AI sessions where startup-kick has been pending past STARTUP_GRACE_MS
+    //     and quiet for a long time → fire the kick (hooks won't fire on a
+    //     fresh Claude that hasn't received any input yet)
+    const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
+    const isAI = AI_CMDS.includes(this.config.command);
+    const STARTUP_FALLBACK_QUIET_MS = 5_000;
+
     this.heuristicTimer = setInterval(() => {
-      if (this.status !== "busy") return;
-
+      if (this.status === "dead") return;
       const quietMs = Date.now() - this.lastOutputTime;
-      if (quietMs < this.config.quietThresholdMs) return;
 
-      // For AI sessions, use screen-aware detection
-      const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
-      const isAI = AI_CMDS.includes(this.config.command);
       if (isAI) {
-        // Track if busy too long — useful as a stuck-busy signal for future LLM escalation.
-        const busyTimeoutMs = this.config.busyTimeoutMs;
-        if (!this.busyTimeoutSaved && this.busyStartTime > 0 && Date.now() - this.busyStartTime > busyTimeoutMs) {
-          this.busyTimeoutSaved = true;
+        // Only role: nudge a startup kick if hooks haven't fired yet on a
+        // fresh Claude session. Once kicked, hookStop / hookNotify(idle)
+        // own the rest.
+        if (this.needsStartupKick && quietMs >= STARTUP_FALLBACK_QUIET_MS) {
+          // Treat as idle; maybeFireOnIdle handles the rest.
+          if (this.status === "busy") this.setStatus("idle");
+          this.maybeFireOnIdle(`heuristic-startup(quiet ${quietMs}ms)`);
         }
-
-        const promptType = this.screenDetector.detectPromptType();
-        // Track unknown streak for LLM escalation
-        if (promptType === "unknown") this.unknownStreakCount++;
-        else this.unknownStreakCount = 0;
-
-        if (promptType === "input") {
-          if (this.needsStartupKick) {
-            this.needsStartupKick = false;
-            const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
-            const kickType = this.isResumedSession ? "resume-kick" : "startup-kick";
-            log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (quiet ${quietMs}ms)`);
-            this.recordInjection(kickType, kick);
-            this.recordDetectionTick(quietMs, promptType, null, kickType, "input prompt detected, startup kick pending");
-            const kickScreen = this.screenDetector.getContentLines(30).join("\n");
-            this.relayWrite(kick, kickType);
-            this.setStatus("busy");
-            this.verifyInjectAfter({ screen: kickScreen, why: kickType, injectText: kick }, kickType);
-            // Cooldown: pause heuristic so we don't fire a follow-on inject (e.g. emcom-auto)
-            // while Claude is still rendering the kick's response. Mirrors inject() pattern.
-            this.stopHeuristic();
-            setTimeout(() => {
-              if (this.status !== "dead") this.startHeuristic();
-            }, this.config.injectionCooldownMs);
-            return;
-          }
-          this.recordDetectionTick(quietMs, promptType, null, "idle", "input prompt detected");
-          this.setStatus("idle");
-          // Priority: emcom messages first, then checkpoint
-          if (this.pendingMessages) this.inject();
-          else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
-            this.scheduleCheckpointInjection(this.pendingCheckpoint);
-          }
-        } else if (promptType === "busy") {
-          this.recordDetectionTick(quietMs, promptType, null, "none", "busy animation detected");
-        } else {
-          this.recordDetectionTick(quietMs, promptType, null, "none", `promptType=${promptType}, waiting`);
-        }
-
-        // LLM escalation — fires when cheap heuristic is stuck
-        this.maybeEscalateToLlm(quietMs, promptType);
-      } else {
-        // For generic sessions, just check quiet threshold (longer: 3s)
-        if (quietMs >= 3000) {
-          this.setStatus("idle");
-        }
+        return;
+      }
+      // Generic sessions: simple quiet threshold (no hooks available).
+      if (this.status === "busy" && quietMs >= 3_000) {
+        this.setStatus("idle");
       }
     }, QUIET_CHECK_INTERVAL_MS);
   }
 
   // --- LLM escalation ---
-
-  // Tunables for triggers
-  private static readonly STUCK_BUSY_MS = 15_000;
-  private static readonly STUCK_BUSY_MAX_BPS = 500;
-  private static readonly UNKNOWN_STREAK_THRESHOLD = 5;
-  private static readonly LLM_THROTTLE_MS = 30_000;
-  private static readonly RECENT_BYTE_WINDOW_MS = 5_000;
-
-  /** Fires checkReadiness() when cheap heuristic looks stuck. Throttled + non-blocking. */
-  private maybeEscalateToLlm(quietMs: number, promptType: string): void {
-    if (this.llmCheckInFlight) return;
-    const now = Date.now();
-    if (now - this.lastLlmCheckTime < PtySession.LLM_THROTTLE_MS) return;
-
-    // Compute recent byte rate from the last RECENT_BYTE_WINDOW_MS window
-    const cutoff = now - PtySession.RECENT_BYTE_WINDOW_MS;
-    const recent = this.dataEvents.filter((e) => e.t >= cutoff);
-    const recentBytes = recent.reduce((s, e) => s + e.bytes, 0);
-    const bytesPerSec = Math.round(recentBytes / (PtySession.RECENT_BYTE_WINDOW_MS / 1000));
-
-    // Trigger A: stuck-busy — busy for STUCK_BUSY_MS+ with low byte rate
-    const busyMs = this.busyStartTime > 0 ? now - this.busyStartTime : 0;
-    const stuckBusy = busyMs > PtySession.STUCK_BUSY_MS && bytesPerSec < PtySession.STUCK_BUSY_MAX_BPS;
-    // Trigger B: unknown promptType repeated
-    const unknownStreak = this.unknownStreakCount >= PtySession.UNKNOWN_STREAK_THRESHOLD;
-
-    if (!stuckBusy && !unknownStreak) return;
-    const trigger = stuckBusy ? `stuck-busy(${Math.round(busyMs / 1000)}s,${bytesPerSec}B/s)` : `unknown-streak(${this.unknownStreakCount})`;
-    // Reset streak after we've decided to act on it — otherwise the counter
-    // grows unbounded while promptType stays 'unknown'.
-    if (unknownStreak) this.unknownStreakCount = 0;
-
-    // Only worth checking if there's something pending to inject
-    const wantsInject = this.pendingMessages || this.pendingCheckpoint;
-    if (!wantsInject) {
-      // Still log so we know the trigger fired, but don't burn an LLM call
-      clog(`[${this.name}] [llm-detector] ${trigger} fired but nothing pending — skipping`);
-      this.lastLlmCheckTime = now;
-      return;
-    }
-
-    this.llmCheckInFlight = true;
-    this.lastLlmCheckTime = now;
-    const screenLines = this.screenDetector.getContentLines(30);
-    const lastInject = this.injectionHistory[this.injectionHistory.length - 1];
-    const lastInjectAgoMs = lastInject ? now - lastInject.time : undefined;
-
-    clog(`[${this.name}] [llm-detector] ${trigger} → asking gpt-5-nano (quietMs=${quietMs}, promptType=${promptType})`);
-
-    void recentForFewShot(3).then((corrections) => checkReadiness({
-      screenLines,
-      lastInjectText: lastInject?.prompt,
-      lastInjectAgoMs,
-      corrections,
-    })).then((verdict) => {
-      this.llmCheckInFlight = false;
-      this.llmHistory.push({
-        time: Date.now(),
-        trigger,
-        ready: verdict?.ready ?? null,
-        why: verdict?.why ?? "(no verdict — fell through)",
-        latencyMs: verdict?.latencyMs ?? 0,
-      });
-      if (this.llmHistory.length > 50) this.llmHistory.shift();
-
-      if (!verdict) return; // fall through to current behavior on null
-      const tokensInfo = verdict.inputTokens != null ? ` tokens=${verdict.inputTokens}/${verdict.outputTokens}` : "";
-      clog(`[${this.name}] [llm-detector] verdict=${verdict.ready ? "READY" : "not-ready"} latency=${verdict.latencyMs}ms${tokensInfo} | why="${verdict.why}"`);
-      if (!verdict.ready) return;
-
-      // Only act if still busy — don't override a state that already changed
-      if (this.status !== "busy") return;
-      this.recordDetectionTick(quietMs, promptType, "llm-ready", "idle", `LLM (${trigger}): ${verdict.why}`);
-      this.setStatus("idle");
-      // inject() / injectCheckpoint() schedule their own verifier; pass
-      // source="llm-driven" so the correction record carries that signal.
-      if (this.pendingMessages) this.inject("llm-driven");
-      else if (this.pendingCheckpoint && !this.checkpointStartDelay) {
-        this.scheduleCheckpointInjection(this.pendingCheckpoint);
-      }
-    }).catch((err) => {
-      this.llmCheckInFlight = false;
-      clog(`[${this.name}] [llm-detector] unexpected error: ${(err as Error).message}`);
-    });
-  }
 
   getLlmHistory() { return this.llmHistory; }
 
@@ -821,7 +701,7 @@ export class PtySession extends EventEmitter {
     const prompt = INJECTION_PROMPT();
     clog(`emcom check → ${label}`);
     this.recordInjection("emcom", prompt);
-    const screenAtInject = this.screenDetector.getContentLines(30).join("\n");
+    const screenAtInject = this.getRawTail(8 * 1024);
     this.relayWrite(prompt, source);
     this.setStatus("busy");
     this.verifyInjectAfter({ screen: screenAtInject, why: source, injectText: prompt }, source);
@@ -919,7 +799,7 @@ export class PtySession extends EventEmitter {
     this.checkpointInFlight = true;
     clog(`injecting ${type} checkpoint → ${this.name}`);
     this.recordInjection(`checkpoint-${type}`, prompt);
-    const cpScreen = this.screenDetector.getContentLines(30).join("\n");
+    const cpScreen = this.getRawTail(8 * 1024);
     this.relayWrite(prompt, `checkpoint-${type}`);
     this.setStatus("busy");
     this.verifyInjectAfter({ screen: cpScreen, why: `checkpoint-${type}`, injectText: prompt }, `checkpoint-${type}`);
