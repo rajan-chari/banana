@@ -1,11 +1,45 @@
-import { createWriteStream, type WriteStream } from "fs";
+import { createWriteStream, existsSync, type WriteStream } from "fs";
 import { join } from "path";
 
-// Include PID so multiple pty-win instances sharing a cwd (e.g. 3600 + 3601
-// both started from the repo root) don't interleave writes to the same file.
-// The interleave produced visibly corrupted log lines with mixed prefixes,
-// e.g. "[banana] [l05] [stats] ..." from two writers racing on one fd.
-const logPath = join(process.cwd(), `pty-win.${process.pid}.log`);
+// Log file path is keyed off port (set by server.ts at startup) so multiple
+// pty-win instances on different ports don't interleave writes — and the
+// filename is stable across restarts of the same port (PID changed every
+// time, which made tailing across restarts annoying).
+//
+// If the file already exists at startup, append a numeric suffix and
+// increment until we find a free name. This preserves prior logs from
+// previous runs of the same port for forensic review.
+//
+// Falls back to a PID-based name if setLogPort() hasn't been called by
+// the time the first write happens (shouldn't happen in normal flow).
+let resolvedLogPath: string | null = null;
+
+function pickLogPath(port: number): string {
+  const base = `pty-win.${port}`;
+  let candidate = join(process.cwd(), `${base}.log`);
+  let n = 1;
+  while (existsSync(candidate)) {
+    candidate = join(process.cwd(), `${base}.${n}.log`);
+    n++;
+  }
+  return candidate;
+}
+
+export function setLogPort(port: number): void {
+  if (resolvedLogPath) return; // already set; first call wins
+  resolvedLogPath = pickLogPath(port);
+}
+
+function getLogPath(): string {
+  if (!resolvedLogPath) {
+    resolvedLogPath = join(process.cwd(), `pty-win.${process.pid}.log`);
+  }
+  return resolvedLogPath;
+}
+
+export function getLogPathInfo(): string {
+  return getLogPath();
+}
 
 export type LogLevel = "normal" | "verbose" | "trace";
 
@@ -18,7 +52,7 @@ const debugLogListeners: Array<(line: string) => void> = [];
 let logStream: WriteStream | null = null;
 function getLogStream(): WriteStream {
   if (!logStream) {
-    logStream = createWriteStream(logPath, { flags: "a" });
+    logStream = createWriteStream(getLogPath(), { flags: "a" });
     logStream.on("error", () => {}); // swallow write errors
   }
   return logStream;

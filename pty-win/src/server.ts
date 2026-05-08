@@ -11,7 +11,7 @@ import { EmcomClient } from "./emcom/client.js";
 import { listDir, readIdentity, createDir } from "./folders.js";
 import { DEFAULTS } from "./config.js";
 import type { SessionConfig, ServerConfig } from "./config.js";
-import { log, clog } from "./log.js";
+import { log, clog, setLogPort, getLogPathInfo } from "./log.js";
 import { registerDebugRoutes } from "./debug-routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -97,6 +97,11 @@ function writeSessionHooks(workingDir: string, port: number): void {
 }
 
 export async function startServer(config: ServerConfig): Promise<void> {
+  // Resolve the log file path based on the listening port. Must come before
+  // the first clog() so the logger picks up the port-keyed filename.
+  setLogPort(config.port);
+  clog(`log file: ${getLogPathInfo()}`);
+
   // Load saved costs from previous run
   const costsPath = join(__dirname, "..", "costs.json");
   try {
