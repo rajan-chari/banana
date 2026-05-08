@@ -590,29 +590,44 @@ export class PtySession extends EventEmitter {
 
   private startHeuristic(): void {
     if (this.heuristicTimer) return;
-    // Hooks now drive idle detection for AI sessions (see hookStop /
-    // hookNotify(idle) → maybeFireOnIdle). The heuristic is now a thin
-    // safety net:
-    //   - generic (non-AI) sessions: idle after 3s of quiet (hooks don't fire)
-    //   - AI sessions where startup-kick has been pending past STARTUP_GRACE_MS
-    //     and quiet for a long time → fire the kick (hooks won't fire on a
-    //     fresh Claude that hasn't received any input yet)
+    // Hooks drive idle detection once Claude is up — but on first start
+    // hooks haven't fired yet (nothing's been submitted), so the kick path
+    // needs a different signal. We use a cheap byte-level pattern match on
+    // the raw buffer: when Claude renders its prompt, the `❯` glyph appears
+    // in the output. That + a brief quiet period = Claude is past the
+    // boot/welcome screen and ready to accept input.
+    //
+    // This is a one-shot startup signal; once the kick fires, hooks own
+    // the rest of the session's status.
     const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
     const isAI = AI_CMDS.includes(this.config.command);
-    const STARTUP_FALLBACK_QUIET_MS = 5_000;
+    const STARTUP_PROMPT_QUIET_MS = 1_000;
+    const STARTUP_FALLBACK_QUIET_MS = 30_000;
+    // The Claude Code prompt glyph. Searching the raw byte buffer for this
+    // is far cheaper than running an xterm-headless cell renderer, and it's
+    // unaffected by the grey-placeholder rendering issue (it just confirms
+    // Claude has drawn a prompt at some point).
+    const PROMPT_GLYPH = "❯"; // ❯
 
     this.heuristicTimer = setInterval(() => {
       if (this.status === "dead") return;
       const quietMs = Date.now() - this.lastOutputTime;
 
       if (isAI) {
-        // Only role: nudge a startup kick if hooks haven't fired yet on a
-        // fresh Claude session. Once kicked, hookStop / hookNotify(idle)
-        // own the rest.
-        if (this.needsStartupKick && quietMs >= STARTUP_FALLBACK_QUIET_MS) {
-          // Treat as idle; maybeFireOnIdle handles the rest.
+        if (!this.needsStartupKick) return; // hooks own everything else
+        // Primary: prompt glyph visible AND brief quiet → Claude is ready.
+        const promptVisible = this.rawBuffer.includes(PROMPT_GLYPH);
+        if (promptVisible && quietMs >= STARTUP_PROMPT_QUIET_MS) {
           if (this.status === "busy") this.setStatus("idle");
-          this.maybeFireOnIdle(`heuristic-startup(quiet ${quietMs}ms)`);
+          this.maybeFireOnIdle(`startup-kick(prompt-visible, quiet ${quietMs}ms)`);
+          return;
+        }
+        // Fallback: very long quiet (≥30s) without ever seeing the glyph
+        // shouldn't happen on a healthy Claude, but if it does, kick anyway
+        // to avoid wedging the session forever.
+        if (quietMs >= STARTUP_FALLBACK_QUIET_MS) {
+          if (this.status === "busy") this.setStatus("idle");
+          this.maybeFireOnIdle(`startup-kick(fallback, quiet ${quietMs}ms, no glyph seen)`);
         }
         return;
       }
