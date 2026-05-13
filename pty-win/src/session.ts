@@ -641,7 +641,7 @@ export class PtySession extends EventEmitter {
     //
     // This is a one-shot startup signal; once the kick fires, hooks own
     // the rest of the session's status.
-    const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot"];
+    const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
     const isAI = AI_CMDS.includes(this.config.command);
     const STARTUP_PROMPT_QUIET_MS = 1_000;
     const STARTUP_FALLBACK_QUIET_MS = 30_000;
@@ -774,7 +774,7 @@ export class PtySession extends EventEmitter {
   // --- Layer 2: Periodic checkpoint injection ---
 
   private startCheckpointTimers(): void {
-    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
+    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
     if (!AI_COMMANDS.includes(this.config.command)) return;
 
     const offset = this.config.checkpointOffsetMs || 0;
