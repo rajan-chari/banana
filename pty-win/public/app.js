@@ -667,8 +667,9 @@ function renderQuickAccess() {
     const qaStatus = claudeStatusSession?.status === "busy" || pwshStatusSession?.status === "busy"
       ? "busy" : claudeStatusSession?.status === "starting" || pwshStatusSession?.status === "starting"
       ? "starting" : claudeStatusSession || pwshStatusSession ? "idle" : "dead";
+    const qaPerm = claudeStatusSession?.pendingPermission || pwshStatusSession?.pendingPermission;
     const dot = document.createElement("span");
-    dot.className = `status-dot ${qaStatus}`;
+    dot.className = `status-dot ${qaPerm ? "permission" : qaStatus}`;
     row.appendChild(dot);
 
     // Name — click to focus/open
@@ -774,12 +775,13 @@ function renderSessionsPanel() {
     row.className = `session-row ${g.group === state.focusedPane ? "active" : ""}`;
     row.dataset.group = g.group;
 
-    // Status dot — worst-of status across group
+    // Status dot — worst-of status across group; pendingPermission overrides
     const bestStatus = g.claudeAlive && g.claudeInfo.status === "busy" || g.pwshAlive && g.pwshInfo.status === "busy"
       ? "busy" : g.claudeAlive && g.claudeInfo.status === "starting" || g.pwshAlive && g.pwshInfo.status === "starting"
       ? "starting" : "idle";
+    const groupPerm = (g.claudeAlive && g.claudeInfo.pendingPermission) || (g.pwshAlive && g.pwshInfo.pendingPermission);
     const dot = document.createElement("span");
-    dot.className = `status-dot ${bestStatus}`;
+    dot.className = `status-dot ${groupPerm ? "permission" : bestStatus}`;
     row.appendChild(dot);
 
     // Name
@@ -2280,9 +2282,11 @@ function createPane(groupName) {
   statusbar.className = "pane-statusbar";
   const status = info?.status || "starting";
   const unread = info?.unreadCount || 0;
+  const dotClass = info?.pendingPermission ? "permission" : status;
+  const label = info?.pendingPermission ? "permission" : status;
   statusbar.innerHTML = `
-    <span class="status-dot ${status}"></span>
-    <span class="pane-status-label">${status}</span>
+    <span class="status-dot ${dotClass}"></span>
+    <span class="pane-status-label">${label}</span>
     <span class="pane-unread ${unread > 0 ? "show" : ""}">${unread}</span>
   `;
   pane.appendChild(statusbar);
