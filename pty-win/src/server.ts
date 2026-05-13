@@ -509,7 +509,11 @@ public class Win32Focus {
 
         switch (msg.type) {
           case "input":
+            session?.markUserInput(msg.payload);
             session?.write(msg.payload);
+            break;
+          case "clear-input-dirty":
+            session?.clearInputDirty();
             break;
           case "resize":
             session?.resize(msg.payload.cols, msg.payload.rows);

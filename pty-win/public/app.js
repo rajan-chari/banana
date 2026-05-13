@@ -2382,6 +2382,10 @@ function ensureTerminal(sessionName) {
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== "keydown") return true;
     if (e.ctrlKey && e.shiftKey) {
+      if (e.key === " ") {
+        state.ws?.send(JSON.stringify({ type: "clear-input-dirty", session: sessionName }));
+        return false;
+      }
       switch (e.key) {
         case "D": case "d": switchToDashboard(); return false;
         case "H": case "h": return false;

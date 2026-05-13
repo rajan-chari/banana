@@ -128,6 +128,7 @@ export class PtySession extends EventEmitter {
   private lastHookStopTime = 0;
   private lastHookNotifyType = "";
   private lastHookPromptSubmitTime = 0;
+  private inputBoxDirty = false;
   // Retained for debug-endpoint compatibility; no longer written to since
   // hook-driven idle detection replaced the LLM escalation path.
   private llmHistory: Array<{ time: number; trigger: string; ready: boolean | null; why: string; latencyMs: number }> = [];
@@ -143,7 +144,7 @@ export class PtySession extends EventEmitter {
     this.workingDir = config.workingDir;
 
     // Spawn process in PTY
-    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot"];
+    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
     const CLAUDE_COMMANDS = ["claude", "agency cc", "agency cp"]; // support --append-system-prompt
     const isClaude = AI_COMMANDS.includes(config.command);
     const supportsPreamble = CLAUDE_COMMANDS.includes(config.command);
@@ -262,8 +263,8 @@ export class PtySession extends EventEmitter {
     this.stopCheckpointTimers();
   }
 
-  write(data: string | Buffer): void {
-    this.ptyProcess.write(typeof data === "string" ? data : data.toString());
+  write(data: string): void {
+    this.ptyProcess.write(data);
   }
 
   /** Relay a prompt injection via MessageChannel.
@@ -336,8 +337,45 @@ export class PtySession extends EventEmitter {
   hookPromptSubmit(): void {
     if (this.status === "dead") return;
     this.lastHookPromptSubmitTime = Date.now();
+    this.inputBoxDirty = false;
+    if (this.needsStartupKick) {
+      this.needsStartupKick = false;
+      clog(`hook:prompt-submit → ${this.name} — startup kick cancelled (user already active)`);
+    }
     clog(`hook:prompt-submit → ${this.name} (was ${this.status})`);
     this.setStatus("busy");
+  }
+
+  /** Called when the user types into the terminal — marks input box as dirty.
+   *  Cleared by hookPromptSubmit. Gates maybeFireOnIdle to avoid injecting
+   *  while the user has unsent text in the input box. */
+  markUserInput(data: string): void {
+    // Ignore terminal control responses (focus events ESC[I/O, mouse reports,
+    // etc.) — these come through onData automatically, not from user typing.
+    // Only printable ASCII marks the input box dirty.
+    // Escape sequences (focus events ESC[I/O, arrow keys, mouse reports, etc.)
+    // start with \x1b and must not mark the box dirty even if they contain
+    // printable bytes like '[' or 'O'. Only bare printable text counts.
+    if (!data.startsWith("\x1b") && /[\x20-\x7e]/.test(data)) {
+      this.inputBoxDirty = true;
+    } else if (data.startsWith("\x1b")) {
+      const known: Record<string, string> = {
+        "\x1b[I": "focus-in", "\x1b[O": "focus-out",
+        "\x1b[A": "arrow-up", "\x1b[B": "arrow-down",
+        "\x1b[C": "arrow-right", "\x1b[D": "arrow-left",
+      };
+      const hex = Buffer.from(data).toString("hex");
+      const label = known[data] ?? hex;
+      clog(`[${this.name}] input: ignored escape (${label} ${hex})`);
+    }
+  }
+
+  clearInputDirty(): void {
+    if (this.inputBoxDirty) {
+      this.inputBoxDirty = false;
+      clog(`[${this.name}] input box cleared by user`);
+      this.maybeFireOnIdle("user-cleared-input");
+    }
   }
 
   /** Hook: notification (idle_prompt or permission_prompt) */
@@ -363,6 +401,10 @@ export class PtySession extends EventEmitter {
    *  heuristic used to do when it detected an "input" prompt via screen. */
   private maybeFireOnIdle(reason: string): void {
     if (this.status !== "idle") return;
+    if (this.inputBoxDirty) {
+      clog(`[${this.name}] maybeFireOnIdle skipped — input box dirty (trigger: ${reason})`);
+      return;
+    }
     if (this.needsStartupKick) {
       this.needsStartupKick = false;
       const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
@@ -615,12 +657,17 @@ export class PtySession extends EventEmitter {
 
       if (isAI) {
         if (!this.needsStartupKick) return; // hooks own everything else
+        if (this.inputBoxDirty) return;
         // Primary: prompt glyph visible AND brief quiet → Claude is ready.
         const promptVisible = this.rawBuffer.includes(PROMPT_GLYPH);
         if (promptVisible && quietMs >= STARTUP_PROMPT_QUIET_MS) {
           if (this.status === "busy") this.setStatus("idle");
           this.maybeFireOnIdle(`startup-kick(prompt-visible, quiet ${quietMs}ms)`);
           return;
+        }
+        // Periodic diagnostic: log once per minute while waiting.
+        if (quietMs > 0 && Math.floor(quietMs / 60_000) > Math.floor((quietMs - 1000) / 60_000)) {
+          clog(`[${this.name}] waiting for startup kick: glyph=${promptVisible}, quiet=${quietMs}ms, bufLen=${this.rawBuffer.length}`);
         }
         // Fallback: very long quiet (≥30s) without ever seeing the glyph
         // shouldn't happen on a healthy Claude, but if it does, kick anyway
@@ -701,6 +748,10 @@ export class PtySession extends EventEmitter {
   }
 
   private inject(source: string = "emcom-auto"): void {
+    if (this.inputBoxDirty) {
+      clog(`[${this.name}] inject skipped — input box dirty (source: ${source})`);
+      return;
+    }
     this.pendingMessages = false;
     this.unreadCount = 0;
     const identity = this.config.emcomIdentity;
