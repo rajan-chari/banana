@@ -1408,6 +1408,16 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   background: var(--text-dim);
   animation: pulse 0.8s ease-in-out infinite;
 }
+.status-dot.permission {
+  background: #e74c3c;
+  box-shadow: 0 0 6px #e74c3c;
+  animation: pulse 0.7s ease-in-out infinite;
+}
+
+.pane.pending-permission {
+  outline: 1px solid #e74c3c80;
+  outline-offset: -1px;
+}
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }

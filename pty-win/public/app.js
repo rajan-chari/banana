@@ -296,6 +296,7 @@ function connect() {
         if (s) {
           s.status = msg.payload.status;
           s.unreadCount = msg.payload.unreadCount;
+          s.pendingPermission = !!msg.payload.pendingPermission;
           rebuildPaneGroups();
           updatePaneStatus(msg.session);
           refreshTreeRunningState();
@@ -2627,13 +2628,17 @@ function updatePaneStatus(sessionName) {
     const dot = pane.querySelector(".status-dot");
     const label = pane.querySelector(".pane-status-label");
     const unread = pane.querySelector(".pane-unread");
-    if (dot) dot.className = `status-dot ${info.status}`;
-    if (label) label.textContent = info.status;
+    // pendingPermission overrides the status dot — it's the highest-priority
+    // signal since the user needs to act before Claude proceeds.
+    const dotClass = info.pendingPermission ? "permission" : info.status;
+    if (dot) dot.className = `status-dot ${dotClass}`;
+    if (label) label.textContent = info.pendingPermission ? "permission" : info.status;
     if (unread) {
       unread.textContent = String(info.unreadCount);
       unread.classList.toggle("show", info.unreadCount > 0);
     }
     pane.classList.toggle("dead", info.status === "dead");
+    pane.classList.toggle("pending-permission", !!info.pendingPermission);
   });
 }
 
