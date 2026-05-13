@@ -85,7 +85,7 @@ function writeSessionHooks(workingDir: string, port: number): void {
     const base = `http://127.0.0.1:${port}`;
     settings.hooks = {
       Stop: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/stop`, timeout: 2 }] }],
-      Notification: [{ matcher: "idle_prompt|permission_prompt", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeout: 2 }] }],
+      Notification: [{ matcher: ".*", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeout: 2 }] }],
       UserPromptSubmit: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeout: 2 }] }],
     };
     settings.messageIdleNotifThresholdMs = 5000;
@@ -625,6 +625,7 @@ public class Win32Focus {
         unreadCount: info.unreadCount,
         dirtyOnExit: info.dirtyOnExit,
         workingDir: info.workingDir,
+        pendingPermission: info.pendingPermission,
       },
     });
     for (const ws of wsClients) {

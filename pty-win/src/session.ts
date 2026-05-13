@@ -39,6 +39,7 @@ export interface SessionInfo {
   dirtyOnExit: boolean;
   costUsd: number;
   lastActiveMs: number;
+  pendingPermission: boolean;
 }
 
 export const SUBMIT = process.platform === "win32" ? "\r" : "\n";
@@ -129,6 +130,7 @@ export class PtySession extends EventEmitter {
   private lastHookNotifyType = "";
   private lastHookPromptSubmitTime = 0;
   private inputBoxDirty = false;
+  private pendingPermission = false;
   // Retained for debug-endpoint compatibility; no longer written to since
   // hook-driven idle detection replaced the LLM escalation path.
   private llmHistory: Array<{ time: number; trigger: string; ready: boolean | null; why: string; latencyMs: number }> = [];
@@ -308,6 +310,7 @@ export class PtySession extends EventEmitter {
       dirtyOnExit: this.dirtyOnExit,
       costUsd: this.costUsd,
       lastActiveMs: this.lastOutputTime,
+      pendingPermission: this.pendingPermission,
     };
   }
 
@@ -329,6 +332,7 @@ export class PtySession extends EventEmitter {
     if (this.status === "dead") return;
     clog(`hook:stop → ${this.name} (was ${this.status})`);
     this.lastHookStopTime = Date.now();
+    this.clearPendingPermission("hook:stop");
     this.setStatus("idle");
     this.maybeFireOnIdle("hook:stop");
   }
@@ -338,6 +342,7 @@ export class PtySession extends EventEmitter {
     if (this.status === "dead") return;
     this.lastHookPromptSubmitTime = Date.now();
     this.inputBoxDirty = false;
+    this.clearPendingPermission("hook:prompt-submit");
     if (this.needsStartupKick) {
       this.needsStartupKick = false;
       clog(`hook:prompt-submit → ${this.name} — startup kick cancelled (user already active)`);
@@ -378,21 +383,40 @@ export class PtySession extends EventEmitter {
     }
   }
 
-  /** Hook: notification (idle_prompt or permission_prompt) */
+  /** Hook: notification — Claude Code emits these for idle_prompt,
+   *  permission_prompt, and potentially other types over time. Matcher
+   *  is `.*` so all types reach us; handle the known ones, log the rest. */
   hookNotify(type: string): void {
     if (this.status === "dead") return;
     this.lastHookNotifyType = type;
     if (type === "permission_prompt") {
-      clog(`hook:notify(permission) → ${this.name}`);
-      // Don't change status — permission prompts are transient
+      clog(`hook:notify(permission) → ${this.name} — pending permission`);
+      // Don't change status — permission prompts are transient and the
+      // turn isn't actually over. Surface the pending state to the UI
+      // so the user sees a visual cue something is waiting on them.
+      if (!this.pendingPermission) {
+        this.pendingPermission = true;
+        this.emit("status-change");
+      }
       return;
     }
     if (type === "idle_prompt") {
       clog(`hook:notify(idle) → ${this.name} — confirmed idle`);
+      this.clearPendingPermission("hook:notify(idle)");
       if (this.status !== "idle") this.setStatus("idle");
       // Confirmed idle — also a good moment to fire pending injects (esp. for
       // startup kicks where no prior hook:stop has fired).
       this.maybeFireOnIdle("hook:notify(idle)");
+      return;
+    }
+    clog(`hook:notify(${type}) → ${this.name} — unhandled type, ignoring`);
+  }
+
+  private clearPendingPermission(reason: string): void {
+    if (this.pendingPermission) {
+      this.pendingPermission = false;
+      clog(`[${this.name}] pending permission cleared (${reason})`);
+      this.emit("status-change");
     }
   }
 
