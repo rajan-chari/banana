@@ -131,6 +131,7 @@ export class PtySession extends EventEmitter {
   private lastHookPromptSubmitTime = 0;
   private inputBoxDirty = false;
   private pendingPermission = false;
+  private graceEnded = false;
   // Retained for debug-endpoint compatibility; no longer written to since
   // hook-driven idle detection replaced the LLM escalation path.
   private llmHistory: Array<{ time: number; trigger: string; ready: boolean | null; why: string; latencyMs: number }> = [];
@@ -241,9 +242,13 @@ export class PtySession extends EventEmitter {
 
     // Startup grace period — fallback in case SessionStart hook doesn't fire
     // (older Claude Code versions, hook timeout, etc.). hookSessionStart()
-    // can end the grace early; this timer will then no-op.
+    // can end the grace early; this timer will then no-op via graceEnded.
+    // Important: don't check needsStartupKick here — that flag gets cleared
+    // after the kick fires, so the timer would re-set it and trigger a second
+    // kick on the next hook:stop.
     setTimeout(() => {
-      if (this.needsStartupKick || this.status === "dead") return;
+      if (this.graceEnded || this.status === "dead") return;
+      this.graceEnded = true;
       const isResume = config.args.includes("--continue") || config.args.includes("-c");
       if (isClaude) {
         this.needsStartupKick = true;
@@ -335,10 +340,11 @@ export class PtySession extends EventEmitter {
    *  mean Claude is already established and just rewriting its context. */
   hookSessionStart(source: string): void {
     if (this.status === "dead") return;
-    if (this.needsStartupKick) {
+    if (this.graceEnded) {
       clog(`hook:session-start → ${this.name} (source=${source}) — grace already ended, ignoring`);
       return;
     }
+    this.graceEnded = true;
     if (source === "clear" || source === "compact") {
       clog(`hook:session-start → ${this.name} (source=${source}) — no kick needed`);
       return;
