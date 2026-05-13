@@ -387,6 +387,16 @@ export class PtySession extends EventEmitter {
    *  Cleared by hookPromptSubmit. Gates maybeFireOnIdle to avoid injecting
    *  while the user has unsent text in the input box. */
   markUserInput(data: string): void {
+    // pendingPermission alert clears as soon as the user touches the terminal
+    // (digit to pick option, arrow keys, Escape, etc). Claude Code doesn't
+    // fire any hook when the user declines a permission prompt, so input is
+    // our only signal. Focus events don't count — they're auto-emitted on
+    // pane click and would clear the alert before the user has seen it.
+    const isFocusEvent = data === "\x1b[I" || data === "\x1b[O";
+    if (!isFocusEvent) {
+      this.clearPendingPermission("user-input");
+    }
+
     // Ignore terminal control responses (focus events ESC[I/O, mouse reports,
     // etc.) — these come through onData automatically, not from user typing.
     // Only printable ASCII marks the input box dirty.
