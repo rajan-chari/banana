@@ -239,13 +239,16 @@ export class PtySession extends EventEmitter {
       this.checkDirtyState().then(() => this.emit("exit", exitCode));
     });
 
-    // Startup grace period
+    // Startup grace period — fallback in case SessionStart hook doesn't fire
+    // (older Claude Code versions, hook timeout, etc.). hookSessionStart()
+    // can end the grace early; this timer will then no-op.
     setTimeout(() => {
+      if (this.needsStartupKick || this.status === "dead") return;
       const isResume = config.args.includes("--continue") || config.args.includes("-c");
-      if (isClaude && this.status !== "dead") {
+      if (isClaude) {
         this.needsStartupKick = true;
         this.isResumedSession = isResume;
-        log(`[${this.name}] Startup grace ended — will kick when prompt detected (${isResume ? "resume" : "fresh"})`);
+        log(`[${this.name}] Startup grace ended (timer fallback) — will kick when prompt detected (${isResume ? "resume" : "fresh"})`);
       }
       if (this.status === "starting") this.setStatus("busy");
     }, isClaude ? STARTUP_GRACE_MS : 5000);
@@ -321,6 +324,29 @@ export class PtySession extends EventEmitter {
 
   clearUnread(): void {
     this.unreadCount = 0;
+  }
+
+  /** Hook: Claude Code session started (or resumed/cleared/compacted).
+   *  Ends the startup grace period immediately so the heuristic can begin
+   *  watching for the prompt glyph and fire the kick as soon as Claude
+   *  renders its input. Without this hook, we wait 10s blindly before
+   *  even starting to look. `source` is one of: startup, resume, clear,
+   *  compact. Only startup and resume care about the kick — clear/compact
+   *  mean Claude is already established and just rewriting its context. */
+  hookSessionStart(source: string): void {
+    if (this.status === "dead") return;
+    if (this.needsStartupKick) {
+      clog(`hook:session-start → ${this.name} (source=${source}) — grace already ended, ignoring`);
+      return;
+    }
+    if (source === "clear" || source === "compact") {
+      clog(`hook:session-start → ${this.name} (source=${source}) — no kick needed`);
+      return;
+    }
+    clog(`hook:session-start → ${this.name} (source=${source}) — ending grace early`);
+    this.needsStartupKick = true;
+    this.isResumedSession = source === "resume";
+    if (this.status === "starting") this.setStatus("busy");
   }
 
   /** Hook: Claude finished a turn → idle.

@@ -83,7 +83,12 @@ function writeSessionHooks(workingDir: string, port: number): void {
       try { settings = JSON.parse(readFileSync(settingsPath, "utf-8")); } catch { /* ignore */ }
     }
     const base = `http://127.0.0.1:${port}`;
+    // SessionStart only supports `command` and `mcp_tool` transport (no HTTP),
+    // so we spawn curl to forward the hook payload to our HTTP endpoint.
+    // curl.exe is built into Windows 10+. -d @- reads stdin (the hook JSON).
+    const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
     settings.hooks = {
+      SessionStart: [{ matcher: ".*", hooks: [{ type: "command", command: sessionStartCmd, timeout: 5 }] }],
       Stop: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/stop`, timeout: 2 }] }],
       Notification: [{ matcher: ".*", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeout: 2 }] }],
       UserPromptSubmit: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeout: 2 }] }],
@@ -337,6 +342,13 @@ public class Win32Focus {
     }
     return undefined;
   }
+
+  app.post("/api/hook/session-start", (req, res) => {
+    res.json({});
+    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
+    const source = req.body?.source || "startup";
+    if (session) { session.hookSessionStart(source); broadcastStatus(session); }
+  });
 
   app.post("/api/hook/stop", (req, res) => {
     res.json({});
