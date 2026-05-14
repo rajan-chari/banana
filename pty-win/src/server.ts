@@ -131,15 +131,27 @@ function writeCopilotHooks(workingDir: string, port: number): void {
     }
     const base = `http://127.0.0.1:${port}`;
     const isWin = process.platform === "win32";
-    const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
-    const sessionStartEntry: Record<string, unknown> = { matcher: ".*", type: "command", timeoutSec: 5 };
-    if (isWin) sessionStartEntry.powershell = sessionStartCmd;
-    else sessionStartEntry.bash = sessionStartCmd;
+    // Copilot blocks http-type hooks targeting localhost/loopback/private addrs
+    // (verified via "resolves to blocked address 127.0.0.1" error). All four
+    // hooks must be COMMAND-type instead — a subprocess can hit localhost
+    // freely. On Windows, `curl` is a PowerShell alias for Invoke-WebRequest
+    // which mis-parses `-d @-`, so use Invoke-RestMethod natively.
+    const psHook = (endpoint: string) =>
+      `$b=[Console]::In.ReadToEnd();try{Invoke-RestMethod -Uri ${base}/api/hook/${endpoint} -Method POST -ContentType application/json -Body $b -TimeoutSec 4 | Out-Null}catch{}`;
+    const bashHook = (endpoint: string) =>
+      `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/${endpoint}`;
+    const mkEntry = (endpoint: string, matcher?: string): Record<string, unknown> => {
+      const entry: Record<string, unknown> = { type: "command", timeoutSec: 5 };
+      if (matcher) entry.matcher = matcher;
+      if (isWin) entry.powershell = psHook(endpoint);
+      else entry.bash = bashHook(endpoint);
+      return entry;
+    };
     settings.hooks = {
-      SessionStart: [sessionStartEntry],
-      Stop: [{ type: "http", url: `${base}/api/hook/stop`, timeoutSec: 2 }],
-      Notification: [{ matcher: ".*", type: "http", url: `${base}/api/hook/notify`, timeoutSec: 2 }],
-      UserPromptSubmit: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeoutSec: 2 }],
+      SessionStart: [mkEntry("session-start", ".*")],
+      Stop: [mkEntry("stop")],
+      Notification: [mkEntry("notify", ".*")],
+      UserPromptSubmit: [mkEntry("prompt-submit")],
     };
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     clog(`copilot hooks configured for ${workingDir} → port ${port}`);
