@@ -209,7 +209,12 @@ export class PtySession extends EventEmitter {
     const costRegexLive = /\$(\d+\.\d+)\s+\d+m\d*s/;      // live status bar ($9.97 2m34s or $0.50 553ms)
     const costRegexExit = /Total cost:\s+\$(\d+\.\d+)/;  // exit summary
 
-    const isClaudeCmd = this.config.command === "claude";
+    // Commands whose hooks reliably fire (proven via testing): Claude Code
+    // and the agency cc wrapper. Copilot, agency cp, and pi don't fire hooks
+    // — their idle detection has to fall back to the quiet-threshold heuristic.
+    const HOOKS_WORKING_COMMANDS = ["claude", "agency cc"];
+    const hasWorkingHooks = HOOKS_WORKING_COMMANDS.includes(this.config.command);
+    const isClaudeCmd = hasWorkingHooks;
     this.ptyProcess.onData((data) => {
       const now = Date.now();
       this.lastOutputTime = now;
@@ -712,11 +717,17 @@ export class PtySession extends EventEmitter {
     // boot/welcome screen and ready to accept input.
     //
     // This is a one-shot startup signal; once the kick fires, hooks own
-    // the rest of the session's status.
+    // the rest of the session's status — for commands whose hooks fire
+    // (claude, agency cc). For commands whose hooks DON'T fire (copilot,
+    // agency cp, pi), the heuristic also owns ongoing busy→idle transitions
+    // via the quiet-threshold below.
     const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
+    const HOOKS_WORKING_COMMANDS = ["claude", "agency cc"];
     const isAI = AI_CMDS.includes(this.config.command);
+    const hasWorkingHooks = HOOKS_WORKING_COMMANDS.includes(this.config.command);
     const STARTUP_PROMPT_QUIET_MS = 1_000;
     const STARTUP_FALLBACK_QUIET_MS = 30_000;
+    const AI_NO_HOOKS_IDLE_QUIET_MS = 5_000;
     // The Claude Code prompt glyph. Searching the raw byte buffer for this
     // is far cheaper than running an xterm-headless cell renderer, and it's
     // unaffected by the grey-placeholder rendering issue (it just confirms
@@ -728,7 +739,17 @@ export class PtySession extends EventEmitter {
       const quietMs = Date.now() - this.lastOutputTime;
 
       if (isAI) {
-        if (!this.needsStartupKick) return; // hooks own everything else
+        // Post-startup: hook-having sessions let hooks own idle detection.
+        // Non-hook sessions (copilot/agency-cp/pi) fall back to quiet → idle.
+        if (!this.needsStartupKick) {
+          if (hasWorkingHooks) return; // hooks own it
+          if (this.inputBoxDirty) return;
+          if (this.status === "busy" && quietMs >= AI_NO_HOOKS_IDLE_QUIET_MS) {
+            this.setStatus("idle");
+            this.maybeFireOnIdle(`no-hooks-quiet (${quietMs}ms)`);
+          }
+          return;
+        }
         if (this.inputBoxDirty) return;
         // Primary: prompt glyph visible AND brief quiet → Claude is ready.
         const promptVisible = this.rawBuffer.includes(PROMPT_GLYPH);
