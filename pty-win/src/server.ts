@@ -96,8 +96,55 @@ function writeSessionHooks(workingDir: string, port: number): void {
     settings.messageIdleNotifThresholdMs = 5000;
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     clog(`hooks configured for ${workingDir} → port ${port}`);
+    writeCopilotHooks(workingDir, port);
   } catch (e) {
     log(`[server] Failed to write hooks for ${workingDir}: ${e}`);
+  }
+}
+
+/** Write per-workspace Copilot CLI hook config in Copilot's flat schema.
+ *  Mirrors the Claude per-workspace approach so URLs can include this
+ *  pty-win instance's port — keeps multiple pty-win servers isolated.
+ *
+ *  Copilot's schema (reverse-engineered by sam from v1.0.48 app.js):
+ *    - FLAT: each entry has type/matcher/timeoutSec/(powershell|bash|url) at
+ *      the same level. NO inner `hooks:[...]` array — that's a Claude-format
+ *      remnant Copilot's loader passes verbatim into the command runner,
+ *      which then throws "Neither bash nor powershell specified".
+ *    - `timeoutSec`, not `timeout`.
+ *    - Command hooks: `powershell:<script>` or `bash:<script>` as the script-
+ *      holding key (no separate `shell` field).
+ *    - Empty-string matcher fails Zod min(1).optional() validation; omit it.
+ *    - Schema validation failure drops the WHOLE hooks block silently — so
+ *      one bad entry kills HTTP entries too.
+ *
+ *  Verified 2026-05-14: hooks fire end-to-end with this format
+ *  (~/.copilot/hook-test.log captured SessionStart + UserPromptSubmit). */
+function writeCopilotHooks(workingDir: string, port: number): void {
+  try {
+    const ghDir = join(workingDir, ".github", "copilot");
+    if (!existsSync(ghDir)) mkdirSync(ghDir, { recursive: true });
+    const settingsPath = join(ghDir, "settings.local.json");
+    let settings: Record<string, unknown> = {};
+    if (existsSync(settingsPath)) {
+      try { settings = JSON.parse(readFileSync(settingsPath, "utf-8")); } catch { /* ignore */ }
+    }
+    const base = `http://127.0.0.1:${port}`;
+    const isWin = process.platform === "win32";
+    const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
+    const sessionStartEntry: Record<string, unknown> = { matcher: ".*", type: "command", timeoutSec: 5 };
+    if (isWin) sessionStartEntry.powershell = sessionStartCmd;
+    else sessionStartEntry.bash = sessionStartCmd;
+    settings.hooks = {
+      SessionStart: [sessionStartEntry],
+      Stop: [{ type: "http", url: `${base}/api/hook/stop`, timeoutSec: 2 }],
+      Notification: [{ matcher: ".*", type: "http", url: `${base}/api/hook/notify`, timeoutSec: 2 }],
+      UserPromptSubmit: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeoutSec: 2 }],
+    };
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    clog(`copilot hooks configured for ${workingDir} → port ${port}`);
+  } catch (e) {
+    log(`[server] Failed to write copilot hooks for ${workingDir}: ${e}`);
   }
 }
 
