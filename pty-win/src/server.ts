@@ -86,9 +86,14 @@ function writeSessionHooks(workingDir: string, port: number): void {
     // SessionStart only supports `command` and `mcp_tool` transport (no HTTP),
     // so we spawn curl to forward the hook payload to our HTTP endpoint.
     // curl.exe is built into Windows 10+. -d @- reads stdin (the hook JSON).
+    // Copilot CLI also reads this file but requires `shell` to be set on
+    // command-type hooks — Claude Code is happy without it, so adding it is
+    // a no-op for Claude and a fix for Copilot.
     const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
+    const isWin = process.platform === "win32";
+    const shellName = isWin ? "powershell" : "bash";
     settings.hooks = {
-      SessionStart: [{ matcher: ".*", hooks: [{ type: "command", command: sessionStartCmd, timeout: 5 }] }],
+      SessionStart: [{ matcher: ".*", hooks: [{ type: "command", command: sessionStartCmd, shell: shellName, timeout: 5 }] }],
       Stop: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/stop`, timeout: 2 }] }],
       Notification: [{ matcher: ".*", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeout: 2 }] }],
       UserPromptSubmit: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeout: 2 }] }],
