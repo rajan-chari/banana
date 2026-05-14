@@ -148,9 +148,15 @@ export class PtySession extends EventEmitter {
 
     // Spawn process in PTY
     const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
-    const CLAUDE_COMMANDS = ["claude", "agency cc", "agency cp"]; // support --append-system-prompt
+    // CLIs that accept --append-system-prompt for the emcom preamble. Claude
+    // Code has it natively. `agency cc` is a Claude wrapper that passes args
+    // through. `pi` has the same flag. `agency cp` and `copilot` are Copilot
+    // CLI which does NOT support --append-system-prompt (preamble must come
+    // via a different path — likely SessionStart hook returning
+    // additionalContext).
+    const PREAMBLE_FLAG_COMMANDS = ["claude", "agency cc", "pi"];
     const isClaude = AI_COMMANDS.includes(config.command);
-    const supportsPreamble = CLAUDE_COMMANDS.includes(config.command);
+    const supportsPreamble = PREAMBLE_FLAG_COMMANDS.includes(config.command);
     const hasEmcom = !!(config.emcomIdentity && config.emcomServer);
     const preambleArgs = supportsPreamble && hasEmcom
       ? ["--append-system-prompt", EMCOM_PREAMBLE]
