@@ -125,14 +125,23 @@ function writeCopilotHooks(workingDir: string, port: number): void {
     const base = `http://127.0.0.1:${port}`;
     const isWin = process.platform === "win32";
     const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
-    const cmdHook: Record<string, unknown> = { type: "command", timeoutSec: 5 };
-    if (isWin) cmdHook.powershell = sessionStartCmd;
-    else cmdHook.bash = sessionStartCmd;
+    // Copilot's hook schema is FLAT — type/matcher/timeoutSec/(powershell|bash|
+    // url) at the same level on each entry. NO inner `hooks:[...]` array (that's
+    // a Claude-format remnant that Copilot's loader passes verbatim into the
+    // command runner, which then throws "Neither bash nor powershell specified"
+    // because the wrapper doesn't have those keys). Schema validation drops the
+    // whole hooks block on failure — silently kills HTTP entries too.
+    // Empty-string matcher fails Zod min(1).optional() validation; omit instead.
+    // Diagnosis credit: sam (2026-05-14) — reverse-engineered from Copilot's
+    // app.js (function Iar reads t.bash/t.powershell directly off the entry).
+    const sessionStartEntry: Record<string, unknown> = { matcher: ".*", type: "command", timeoutSec: 5 };
+    if (isWin) sessionStartEntry.powershell = sessionStartCmd;
+    else sessionStartEntry.bash = sessionStartCmd;
     settings.hooks = {
-      SessionStart: [{ matcher: ".*", hooks: [cmdHook] }],
-      Stop: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/stop`, timeoutSec: 2 }] }],
-      Notification: [{ matcher: ".*", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeoutSec: 2 }] }],
-      UserPromptSubmit: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeoutSec: 2 }] }],
+      SessionStart: [sessionStartEntry],
+      Stop: [{ type: "http", url: `${base}/api/hook/stop`, timeoutSec: 2 }],
+      Notification: [{ matcher: ".*", type: "http", url: `${base}/api/hook/notify`, timeoutSec: 2 }],
+      UserPromptSubmit: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeoutSec: 2 }],
     };
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     clog(`copilot hooks configured for ${workingDir} → port ${port}`);

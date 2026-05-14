@@ -198,9 +198,16 @@ export class PtySession extends EventEmitter {
 
       this.poller.onUnreadCount((count) => {
         if (count !== this.unreadCount) {
+          const wasZero = this.unreadCount === 0;
           this.unreadCount = count;
           this.pendingMessages = count > 0;
           this.emit("status-change");
+          // Mirror onNewMessages: if count went 0→positive and we're idle,
+          // inject now. Without this, a poll cycle that delivers via
+          // onUnreadCount (but not onNewMessages — depends on timing) leaves
+          // pendingMessages true forever with nothing to retrigger inject.
+          // Caught by moss 2026-05-14 — see field-notes.
+          if (count > 0 && wasZero && this.status === "idle") this.inject();
         }
       });
     }
@@ -679,9 +686,11 @@ export class PtySession extends EventEmitter {
 
     this.poller.onUnreadCount((count) => {
       if (count !== this.unreadCount) {
+        const wasZero = this.unreadCount === 0;
         this.unreadCount = count;
         this.pendingMessages = count > 0;
         this.emit("status-change");
+        if (count > 0 && wasZero && this.status === "idle") this.inject();
       }
     });
 
