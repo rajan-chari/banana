@@ -96,57 +96,8 @@ function writeSessionHooks(workingDir: string, port: number): void {
     settings.messageIdleNotifThresholdMs = 5000;
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     clog(`hooks configured for ${workingDir} → port ${port}`);
-    writeCopilotHooks(workingDir, port);
   } catch (e) {
     log(`[server] Failed to write hooks for ${workingDir}: ${e}`);
-  }
-}
-
-/** Write Copilot CLI hook config in Copilot's own schema.
- *  Differences from Claude's schema (confirmed via Copilot v1.0.48 testing):
- *    - timeoutSec, not timeout
- *    - command hooks use `powershell: "<script>"` or `bash: "<script>"` as the
- *      script-holding key (not `command` + `shell`)
- *    - SessionStart hook is named `SessionStart` (PascalCase alias works)
- *  Copilot reads merge sources in order: .github/copilot/settings.json,
- *  .github/copilot/settings.local.json, .claude/settings.json,
- *  .claude/settings.local.json. We write to .github/copilot/settings.local.json
- *  so Copilot uses our config preferentially; if it tries to merge the Claude
- *  one and fails validation, this file's hooks still load. */
-function writeCopilotHooks(workingDir: string, port: number): void {
-  try {
-    const ghDir = join(workingDir, ".github", "copilot");
-    if (!existsSync(ghDir)) mkdirSync(ghDir, { recursive: true });
-    const settingsPath = join(ghDir, "settings.local.json");
-    let settings: Record<string, unknown> = {};
-    if (existsSync(settingsPath)) {
-      try { settings = JSON.parse(readFileSync(settingsPath, "utf-8")); } catch { /* ignore */ }
-    }
-    const base = `http://127.0.0.1:${port}`;
-    const isWin = process.platform === "win32";
-    const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
-    // Copilot's hook schema is FLAT — type/matcher/timeoutSec/(powershell|bash|
-    // url) at the same level on each entry. NO inner `hooks:[...]` array (that's
-    // a Claude-format remnant that Copilot's loader passes verbatim into the
-    // command runner, which then throws "Neither bash nor powershell specified"
-    // because the wrapper doesn't have those keys). Schema validation drops the
-    // whole hooks block on failure — silently kills HTTP entries too.
-    // Empty-string matcher fails Zod min(1).optional() validation; omit instead.
-    // Diagnosis credit: sam (2026-05-14) — reverse-engineered from Copilot's
-    // app.js (function Iar reads t.bash/t.powershell directly off the entry).
-    const sessionStartEntry: Record<string, unknown> = { matcher: ".*", type: "command", timeoutSec: 5 };
-    if (isWin) sessionStartEntry.powershell = sessionStartCmd;
-    else sessionStartEntry.bash = sessionStartCmd;
-    settings.hooks = {
-      SessionStart: [sessionStartEntry],
-      Stop: [{ type: "http", url: `${base}/api/hook/stop`, timeoutSec: 2 }],
-      Notification: [{ matcher: ".*", type: "http", url: `${base}/api/hook/notify`, timeoutSec: 2 }],
-      UserPromptSubmit: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeoutSec: 2 }],
-    };
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-    clog(`copilot hooks configured for ${workingDir} → port ${port}`);
-  } catch (e) {
-    log(`[server] Failed to write copilot hooks for ${workingDir}: ${e}`);
   }
 }
 
