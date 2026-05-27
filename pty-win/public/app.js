@@ -2445,32 +2445,61 @@ function switchPaneType(groupName, type) {
 
 function showAiTagContextMenu(e, folderPath, folderName) {
   const menu = document.getElementById("pane-context-menu");
-  menu.innerHTML = "";
   menu.classList.remove("hidden");
   menu.style.left = `${e.clientX}px`;
   menu.style.top = `${e.clientY}px`;
 
-  const resumeItem = document.createElement("div");
-  resumeItem.className = "ctx-item";
-  resumeItem.textContent = "\u25b6 Resume session";
-  resumeItem.onclick = () => {
-    menu.classList.add("hidden");
-    openFolder(folderPath, folderName, "claude", false, ["--resume"]);
-  };
-  menu.appendChild(resumeItem);
+  const render = () => {
+    menu.innerHTML = "";
 
-  const sep = document.createElement("div");
-  sep.className = "ctx-sep";
-  menu.appendChild(sep);
+    const resumeItem = document.createElement("div");
+    resumeItem.className = "ctx-item";
+    resumeItem.textContent = "\u25b6 Resume session";
+    resumeItem.onclick = () => {
+      menu.classList.add("hidden");
+      openFolder(folderPath, folderName, "claude", false, ["--resume"]);
+    };
+    menu.appendChild(resumeItem);
 
-  const pickerItem = document.createElement("div");
-  pickerItem.className = "ctx-item";
-  pickerItem.textContent = "\u2699 Choose AI preset\u2026";
-  pickerItem.onclick = () => {
-    menu.classList.add("hidden");
-    showAiPicker(e, folderPath, folderName);
+    const sep1 = document.createElement("div");
+    sep1.className = "ctx-sep";
+    menu.appendChild(sep1);
+
+    for (let i = 0; i < state.aiPresets.length; i++) {
+      const preset = state.aiPresets[i];
+      const isDefault = i === state.aiDefaultIndex;
+      const item = document.createElement("div");
+      item.className = "ctx-item ai-picker-item";
+      item.innerHTML = `<span class="default-star">${isDefault ? "\u2605" : ""}</span> ${preset.name} <span class="ai-icon">${preset.icon}</span>`;
+      item.onclick = () => {
+        menu.classList.add("hidden");
+        openFolder(folderPath, folderName, preset.command);
+      };
+      item.oncontextmenu = (ev) => {
+        ev.preventDefault();
+        setAiDefault(i);
+        render(); // re-render to move the star
+      };
+      item.title = isDefault ? `${preset.name} (default) \u2014 right-click to change` : `Launch ${preset.name} \u2014 right-click to set as default`;
+      menu.appendChild(item);
+    }
+
+    const sep2 = document.createElement("div");
+    sep2.className = "ctx-sep";
+    menu.appendChild(sep2);
+
+    const customItem = document.createElement("div");
+    customItem.className = "ctx-item";
+    customItem.textContent = "Custom command\u2026";
+    customItem.onclick = () => {
+      menu.classList.add("hidden");
+      const cmd = prompt("Command to run:", "claude");
+      if (cmd) openFolder(folderPath, folderName, cmd);
+    };
+    menu.appendChild(customItem);
   };
-  menu.appendChild(pickerItem);
+
+  render();
 
   const close = (ev) => {
     if (!menu.contains(ev.target)) {
