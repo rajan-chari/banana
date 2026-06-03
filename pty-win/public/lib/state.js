@@ -9,11 +9,11 @@
 /** @typedef {{ type: "split", direction: "h"|"v", ratio: number, children: [TileNode, TileNode] }} SplitNode */
 /** @typedef {LeafNode | SplitNode} TileNode */
 /** @typedef {{ id: string, name: string, layout: TileNode | null, lastFocusedPane?: string | null, customName?: boolean }} Workspace */
-/** @typedef {{ name: string, path: string, isDir?: boolean, hasIdentity?: boolean, identityName?: string | null, isClaudeReady?: boolean, [key: string]: any }} FolderEntry */
-/** @typedef {{ name: string, path: string, identityName?: string | null, isClaudeReady?: boolean, isDir?: boolean, [key: string]: any }} VisitedFolder */
+/** @typedef {{ name: string, path: string, isDir?: boolean, hasIdentity?: boolean, identityName?: string | null, isClaudeReady?: boolean }} FolderEntry */
+/** @typedef {{ name: string, path: string, identityName?: string | null, isClaudeReady?: boolean, isDir?: boolean }} VisitedFolder */
 /** @typedef {{ name: string, command: string, icon: string }} AiPreset */
-/** @typedef {{ claude?: string, pwsh?: string, activeType: "claude"|"pwsh", [key: string]: any }} PaneGroup */
-/** @typedef {{ term: any, fitAddon: any, opened: boolean, wrapperEl: HTMLElement, resizeObserver?: ResizeObserver, [key: string]: any }} TerminalEntry */
+/** @typedef {{ claude?: string, pwsh?: string, activeType: "claude"|"pwsh" }} PaneGroup */
+/** @typedef {{ term: any, fitAddon: any, opened: boolean, wrapperEl: HTMLElement, resizeObserver?: ResizeObserver }} TerminalEntry */
 /** @typedef {"starting" | "busy" | "idle" | "dead"} SessionStatus */
 /**
  * Mirrors the server's SessionInfo (src/session.ts). Index signature dropped
@@ -35,7 +35,7 @@
  *   pendingPermission?: boolean
  * }} SessionInfo */
 /** @typedef {{ isClaudeReady: boolean, hasIdentity: boolean, identityName?: string | null }} FolderInfo */
-/** @typedef {{ workingDir?: string, command?: string | null, [key: string]: any }} SessionMeta */
+/** @typedef {{ workingDir?: string, command?: string | null }} SessionMeta */
 
 /**
  * Tracker work item, as returned by /api/emcom-proxy/tracker.
