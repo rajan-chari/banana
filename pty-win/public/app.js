@@ -52,6 +52,12 @@ import {
   filterTrackerItems as _filterTrackerItems,
   sortTrackerItems as _sortTrackerItems,
 } from "./lib/tracker-filters.js";
+import {
+  buildSessionGroups,
+  computeGroupStatus,
+  computeGroupUnread,
+  getActiveSessionName,
+} from "./lib/session-groups.js";
 
 let dragSrcWsId = null;
 let diagPollTimer = null;
@@ -612,16 +618,7 @@ function renderSessionsPanel() {
   if (!list) return;
 
   // Build list of active groups
-  const groups = [];
-  for (const [group, pg] of state.paneGroups) {
-    const claudeInfo = pg.claude ? state.sessions.get(pg.claude) : null;
-    const pwshInfo = pg.pwsh ? state.sessions.get(pg.pwsh) : null;
-    const claudeAlive = claudeInfo && claudeInfo.status !== "dead";
-    const pwshAlive = pwshInfo && pwshInfo.status !== "dead";
-    if (!claudeAlive && !pwshAlive) continue;
-    const workingDir = (claudeInfo || pwshInfo).workingDir;
-    groups.push({ group, pg, claudeInfo, pwshInfo, claudeAlive, pwshAlive, workingDir });
-  }
+  const groups = buildSessionGroups(state.paneGroups, state.sessions);
 
   if (countEl) countEl.textContent = groups.length > 0 ? `(${groups.length})` : "";
 
@@ -640,12 +637,9 @@ function renderSessionsPanel() {
     row.dataset.group = g.group;
 
     // Status dot — worst-of status across group; pendingPermission overrides
-    const bestStatus = g.claudeAlive && g.claudeInfo.status === "busy" || g.pwshAlive && g.pwshInfo.status === "busy"
-      ? "busy" : g.claudeAlive && g.claudeInfo.status === "starting" || g.pwshAlive && g.pwshInfo.status === "starting"
-      ? "starting" : "idle";
-    const groupPerm = (g.claudeAlive && g.claudeInfo.pendingPermission) || (g.pwshAlive && g.pwshInfo.pendingPermission);
+    const dotClass = computeGroupStatus(g.claudeInfo, g.pwshInfo, g.claudeAlive, g.pwshAlive);
     const dot = document.createElement("span");
-    dot.className = `status-dot ${groupPerm ? "permission" : bestStatus}`;
+    dot.className = `status-dot ${dotClass}`;
     row.appendChild(dot);
 
     // Name
@@ -655,8 +649,7 @@ function renderSessionsPanel() {
     row.appendChild(name);
 
     // Shared right-side section
-    const totalUnread = (g.claudeAlive ? g.claudeInfo.unreadCount || 0 : 0)
-      + (g.pwshAlive ? g.pwshInfo.unreadCount || 0 : 0);
+    const totalUnread = computeGroupUnread(g.claudeInfo, g.pwshInfo, g.claudeAlive, g.pwshAlive);
     const cacheKey = normPath(g.workingDir);
     const cached = state.folderInfoCache.get(cacheKey);
     appendRowActions(row, {
@@ -693,8 +686,7 @@ function renderSessionsPanel() {
     }
 
     // Click row → focus active session
-    const activeName = g.pg.activeType === "pwsh" && g.pwshAlive ? g.pg.pwsh
-      : g.claudeAlive ? g.pg.claude : g.pg.pwsh;
+    const activeName = getActiveSessionName(g.pg, g.claudeAlive, g.pwshAlive);
     row.onclick = () => focusExistingSession(activeName);
     row.addEventListener("contextmenu", (e) => showContextMenu(e, g.workingDir));
     // Drag to workspace tab
