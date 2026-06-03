@@ -1730,6 +1730,13 @@ function addSessionToWorkspace(workspaceId, sessionName) {
 /** Build a balanced binary tree from a list of session names */
 // ===== Pane drag-to-reorder =====
 
+/** @type {{
+ *   active: boolean,
+ *   session: string | null,
+ *   ghostEl: HTMLElement | null,
+ *   dropZoneEls: HTMLElement[],
+ *   currentTarget: { session: string, side: string } | null
+ * }} */
 const paneDrag = { active: false, session: null, ghostEl: null, dropZoneEls: [], currentTarget: null };
 
 function showDropZones(excludeSession) {

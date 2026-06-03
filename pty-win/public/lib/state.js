@@ -8,31 +8,57 @@
 /** @typedef {{ type: "leaf", session: string }} LeafNode */
 /** @typedef {{ type: "split", direction: "h"|"v", ratio: number, children: [TileNode, TileNode] }} SplitNode */
 /** @typedef {LeafNode | SplitNode} TileNode */
-/** @typedef {{ id: string, name: string, layout: TileNode | null }} Workspace */
+/** @typedef {{ id: string, name: string, layout: TileNode | null, lastFocusedPane?: string | null, customName?: boolean }} Workspace */
+/** @typedef {{ name: string, path: string, isDir?: boolean, hasIdentity?: boolean, identityName?: string | null, isClaudeReady?: boolean, [key: string]: any }} FolderEntry */
+/** @typedef {{ name: string, path: string, identityName?: string | null, isClaudeReady?: boolean, isDir?: boolean, [key: string]: any }} VisitedFolder */
+/** @typedef {{ name: string, command: string, icon: string }} AiPreset */
+/** @typedef {{ claude?: string, pwsh?: string, activeType: "claude"|"pwsh", [key: string]: any }} PaneGroup */
+/** @typedef {{ term: any, fitAddon: any, opened: boolean, wrapperEl?: HTMLElement, resizeObserver?: ResizeObserver, [key: string]: any }} TerminalEntry */
+/** @typedef {{ name: string, group: string, command: string, status: string, [key: string]: any }} SessionInfo */
+/** @typedef {{ isClaudeReady: boolean, hasIdentity: boolean, identityName?: string | null }} FolderInfo */
+/** @typedef {{ workingDir?: string, command?: string | null, [key: string]: any }} SessionMeta */
+/** @typedef {Record<string, any>} TrackerItem */
 
 export const state = {
+  /** @type {WebSocket | null} */
   ws: null,
-  sessions: new Map(),    // name -> SessionInfo
-  workspaces: [],         // Workspace[]
+  /** @type {Map<string, SessionInfo>} */
+  sessions: new Map(),
+  /** @type {Workspace[]} */
+  workspaces: [],
+  /** @type {string | null} */
   activeWorkspaceId: null,
-  terminals: new Map(),   // sessionName -> { term, fitAddon, opened: boolean }
+  /** @type {Map<string, TerminalEntry>} */
+  terminals: new Map(),
+  /** @type {string | null} */
   focusedPane: null,
   isDashboard: true,
   isDiag: false,
   isTracker: false,
+  /** @type {TrackerItem[]} */
   trackerItems: [],
   trackerDecisionCount: 0,
   sidebarVisible: true,
-  favorites: [],          // string[] — favorite root paths
-  folderCache: new Map(), // path -> FolderEntry[]
-  visitedFolders: [],     // {name, path, identityName?, isClaudeReady}[] for quick-open
+  /** @type {string[]} */
+  favorites: [],          // favorite root paths
+  /** @type {Map<string, FolderEntry[]>} */
+  folderCache: new Map(),
+  /** @type {VisitedFolder[]} */
+  visitedFolders: [],     // for quick-open
+  /** @type {Set<string>} */
   expandedPaths: new Set(),
+  /** @type {string | null} */
   ctxTarget: null,        // path for context menu
-  sessionMeta: new Map(), // name -> { workingDir, command } for recreating after restart
-  paneGroups: new Map(),  // group -> { claude?: name, pwsh?: name, activeType: "claude"|"pwsh" }
-  folderInfoCache: new Map(), // normPath(workingDir) -> { isClaudeReady, hasIdentity, identityName }
-  pinnedFolders: [],          // string[] — paths pinned to Quick Access
+  /** @type {Map<string, SessionMeta>} */
+  sessionMeta: new Map(), // for recreating sessions after restart
+  /** @type {Map<string, PaneGroup>} */
+  paneGroups: new Map(),
+  /** @type {Map<string, FolderInfo>} */
+  folderInfoCache: new Map(),
+  /** @type {string[]} */
+  pinnedFolders: [],          // paths pinned to Quick Access
   nextWorkspaceId: 1,         // monotonic counter used for new-workspace IDs
+  /** @type {AiPreset[]} */
   aiPresets: [
     { name: "Claude", command: "claude", icon: "▶" },
     { name: "Agency CC", command: "agency cc", icon: "A" },

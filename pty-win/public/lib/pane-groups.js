@@ -5,8 +5,8 @@
 // Previously duplicated as src/pane-groups.ts (test-only); consolidated as part
 // of tracker e0ca3757 after happy-dom test runner landed.
 
-/** @typedef {{ name: string, group: string, command: string, status: string, [key: string]: unknown }} SessionInfo */
-/** @typedef {{ claude?: string, pwsh?: string, activeType: "claude" | "pwsh" }} PaneGroup */
+/** @typedef {import('./state.js').SessionInfo} SessionInfo */
+/** @typedef {import('./state.js').PaneGroup} PaneGroup */
 
 /**
  * Rebuild pane groups from a sessions map.
