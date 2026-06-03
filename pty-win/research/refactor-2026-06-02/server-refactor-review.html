@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pty-win server refactor — code review</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --fg: #1d1d1f;
+    --muted: #6b6b73;
+    --rule: #e8e6df;
+    --accent: #b25e1e;
+    --good: #2f7a4d;
+    --warn: #b25e1e;
+    --code-bg: #f1efe9;
+    --code-border: #e0ddd2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b18;
+      --fg: #e9e6dd;
+      --muted: #a09a8a;
+      --rule: #2e2c27;
+      --accent: #d68f4e;
+      --good: #6cc28e;
+      --warn: #d68f4e;
+      --code-bg: #25241f;
+      --code-border: #34322b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 56px 24px 96px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  header { margin-bottom: 40px; }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 44px 0 14px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 24px 0 6px;
+    color: var(--fg);
+  }
+  p { margin: 8px 0 14px; }
+  ul { padding-left: 22px; margin: 6px 0 14px; }
+  li { margin: 6px 0; }
+  code, kbd {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .good { color: var(--good); }
+  .warn { color: var(--warn); }
+  .muted { color: var(--muted); }
+  table.scope {
+    border-collapse: collapse;
+    margin: 0 0 8px;
+    font-size: 14px;
+  }
+  table.scope th, table.scope td {
+    padding: 6px 16px 6px 0;
+    text-align: left;
+  }
+  table.scope th {
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--rule);
+  }
+  table.scope td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+  }
+  .smell {
+    margin: 18px 0;
+    padding-left: 14px;
+    border-left: 2px solid var(--rule);
+  }
+  .smell h3 { margin: 0 0 4px; }
+  .smell-num {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .verdict {
+    margin-top: 36px;
+    padding: 16px 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+  }
+  .verdict p { margin: 6px 0; }
+  footer {
+    margin-top: 56px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--rule);
+    padding-top: 12px;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>pty-win server refactor — code review</h1>
+  <p class="lede">Reviewed by moss. Working-tree state, build clean at v0.1.32.</p>
+</header>
+
+<h2>Scope</h2>
+
+<table class="scope">
+  <thead>
+    <tr><th></th><th>Before</th><th>After</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>server.ts</code></td><td class="num">916</td><td class="num">165</td></tr>
+    <tr><td><code>session.ts</code></td><td class="num">~1300</td><td class="num">726</td></tr>
+    <tr><td>New files</td><td class="num">0</td><td class="num">16</td></tr>
+    <tr><td>Build</td><td class="good">✓</td><td class="good">✓</td></tr>
+  </tbody>
+</table>
+
+<h2>What's good</h2>
+
+<ul>
+  <li><strong><code>server.ts</code> is now an orchestrator</strong> — 165 lines, one job: wire modules together. Big improvement.</li>
+  <li><strong>Route split by domain</strong> (<code>admin</code> / <code>emcom</code> / <code>sessions</code>), with <code>sessions</code> further split by sub-domain (management, IO, hooks, observability). Every file is 40–163 lines, well-scoped.</li>
+  <li><strong><code>ws-runtime.ts</code> cleanly encapsulates</strong> all WebSocket state (<code>wsClients</code>, <code>wsAlive</code>, <code>wsSessionCleanups</code>) behind a returned interface. Shutdown is called from one place. No more raw <code>WebSocket</code> plumbing leaking into route handlers.</li>
+  <li><strong><code>SessionRoutesOptions</code></strong> (<code>types.ts</code>) consolidates the dependency-injection contract for sessions sub-routes. Adding a new route file means adding fields here, which is grep-friendly.</li>
+  <li><strong>Controller pattern is consistent</strong> — <code>SessionCheckpointController</code>, <code>SessionHeuristicController</code>, <code>SessionHookController</code> all follow the same <code>start()</code> / <code>stop()</code> / <code>getState()</code> shape. Easy to model.</li>
+  <li><strong><code>/api/preferences</code> survived intact</strong> in <code>routes/admin.ts:75–100</code>. No behavioral drift on the v0.1.32 work landed just before the refactor.</li>
+</ul>
+
+<h2>Smells worth fixing</h2>
+
+<div class="smell">
+  <h3><span class="smell-num">1.</span> Two files named <code>session-hooks.ts</code></h3>
+  <p><code>src/session-hooks.ts</code> (187 lines, <code>SessionHookController</code>) vs <code>src/server/session-hooks.ts</code> (69 lines, hook-config writer). Different concerns, same name. Rename one — e.g., <code>src/server/session-hooks.ts</code> → <code>client-hook-config.ts</code> since it writes Claude/Copilot's <code>settings.local.json</code>.</p>
+</div>
+
+<div class="smell">
+  <h3><span class="smell-num">2.</span> Dead rest-spread in <code>routes/sessions.ts:8</code></h3>
+  <p><code>{ ...options }: SessionRoutesOptions</code> is a no-op. Just <code>(options: SessionRoutesOptions)</code>. A linter will catch this on the next pass.</p>
+</div>
+
+<div class="smell">
+  <h3><span class="smell-num">3.</span> <code>SessionStatus</code> redeclared in <code>session-checkpoint.ts:3</code></h3>
+  <p>Private local type because the controller can't depend back on <code>session.ts</code>. <code>src/session-state.ts</code> already exists at 184 lines — promote <code>SessionStatus</code> there as the canonical home, import from both.</p>
+</div>
+
+<div class="smell">
+  <h3><span class="smell-num">4.</span> <code>cost-history.ts</code> is 4 lines</h3>
+  <p>Just exports <code>CostSample</code>. If it stays that size, fold into a <code>server/types.ts</code> rather than holding its own file. Low priority.</p>
+</div>
+
+<div class="smell">
+  <h3><span class="smell-num">5.</span> <code>session.ts</code> is still 726 lines / ~30 methods</h3>
+  <p>Most are short pass-throughs to controllers, but <code>getDebugState</code> (440–471) and cost-regex / <code>dataEvents</code> bookkeeping are still in here. Lower priority — orchestrator classes naturally land here — but if you split again, debug introspection as a visitor is the biggest single carve.</p>
+</div>
+
+<div class="smell">
+  <h3><span class="smell-num">6.</span> <code>addSession</code> is a circular concept</h3>
+  <p><code>server.ts</code> defines it, passes it into session-management routes, which call back into <code>server.ts</code>. Works, but a <code>SessionStore</code> class owning the <code>Map</code> + <code>addSession</code> would close the loop. Optional polish.</p>
+</div>
+
+<div class="smell">
+  <h3><span class="smell-num">7.</span> No tests for any of the new modules</h3>
+  <p>~1200 lines moved, regression risk is real. At minimum: a smoke test of <code>createWsRuntime</code> round-trip and route registration for <code>routes/admin</code> (the prefs endpoints are the easiest to test — file-based, deterministic).</p>
+</div>
+
+<div class="smell">
+  <h3><span class="smell-num">8.</span> Git history will lose move provenance</h3>
+  <p>If this lands as one commit, git rename detection is unreliable — the new files have only ~50% extracted content. If you have the energy, two-pass commits (move-then-fix-consumers) preserve <code>git blame</code>. If not, document the refactor commit hash in <code>CLAUDE.md</code>'s gotchas so future blame chases know to walk past it.</p>
+</div>
+
+<div class="verdict">
+  <p><strong>Bottom line:</strong> solid refactor. Build is green, file sizes are sane, naming is mostly clear except for the duplicate <code>session-hooks.ts</code>.</p>
+  <p>Two real concerns worth addressing in a follow-up commit before this lands: <strong>#1 the name collision</strong> and <strong>#7 no tests</strong>. The rest are polish.</p>
+</div>
+
+<footer>
+  Generated 2026-06-02 by moss · pty-win v0.1.32 · branch <code>main</code>, working tree
+</footer>
+
+</main>
+</body>
+</html>

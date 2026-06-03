@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pty-win refactor — ws-runtime tests added</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --fg: #1d1d1f;
+    --muted: #6b6b73;
+    --rule: #e8e6df;
+    --accent: #b25e1e;
+    --good: #2f7a4d;
+    --warn: #b25e1e;
+    --code-bg: #f1efe9;
+    --code-border: #e0ddd2;
+    --check: #2f7a4d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b18;
+      --fg: #e9e6dd;
+      --muted: #a09a8a;
+      --rule: #2e2c27;
+      --accent: #d68f4e;
+      --good: #6cc28e;
+      --warn: #d68f4e;
+      --code-bg: #25241f;
+      --code-border: #34322b;
+      --check: #6cc28e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 56px 24px 96px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  header { margin-bottom: 40px; }
+  .badge {
+    display: inline-block;
+    margin: 0 0 14px;
+    padding: 4px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--code-bg);
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 44px 0 14px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 22px 0 6px;
+  }
+  p { margin: 8px 0 14px; }
+  ul { padding-left: 22px; margin: 6px 0 14px; }
+  li { margin: 6px 0; }
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+  .good { color: var(--good); }
+  .warn { color: var(--warn); }
+  .muted { color: var(--muted); }
+  .results {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 8px 14px;
+    margin: 12px 0;
+    padding: 14px 16px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 6px;
+  }
+  .label {
+    color: var(--muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .value { font-size: 14px; }
+  .ok { color: var(--check); font-weight: 650; }
+  .note {
+    margin: 14px 0;
+    padding-left: 14px;
+    border-left: 2px solid var(--rule);
+  }
+  .verdict {
+    margin-top: 36px;
+    padding: 16px 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+  }
+  .verdict p { margin: 6px 0; }
+  footer {
+    margin-top: 56px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--rule);
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="badge">Round 4 · ws-runtime tests added + coverage tool surfaced</div>
+  <h1>Coverage tool, and ws-runtime tests</h1>
+  <p class="lede">Yes — <code>@vitest/coverage-v8</code> was already installed. Added <code>test:coverage</code> script, wrote 14 tests for <code>ws-runtime.ts</code>, and a real bug in the harness fell out along the way.</p>
+</header>
+
+<h2>Coverage tool</h2>
+
+<p>Already in <code>devDependencies</code> (<code>"@vitest/coverage-v8": "^4.1.2"</code>). I added a script alias for convenience — <code>npm run test:coverage</code> now runs the v8 coverage reporter.</p>
+
+<h2>Coverage report — before / after</h2>
+
+<p><strong>Before</strong> (the 5 files that had any tests):</p>
+
+<pre>File                  | %Stmts | %Branch | %Funcs | %Lines
+----------------------|--------|---------|--------|--------
+All files             | 91.91  | 86.34   | 95.83  | 93.62
+ pane-groups.ts       | 100    | 93.75   | 100    | 100
+ session-checkpoint.ts| 83.14  | 71.42   | 93.33  | 85.88
+ session-hooks.ts     | 92.23  | 75.92   | 94.11  | 95.65
+ session-state.ts     | 95.94  | 97.61   | 100    | 95.71
+ tiling.ts            | 98     | 98.03   | 100    | 100</pre>
+
+<p><strong>After</strong>:</p>
+
+<pre>File                  | %Stmts | %Branch | %Funcs | %Lines
+----------------------|--------|---------|--------|--------
+All files             | 91.12  | 83.62   | 94.11  | 92.42
+ src                  | 91.91  | 86.34   | 95.83  | 93.62
+  (unchanged 5 files)
+ src/server           | 88.29  | 62.96   | 90     | 88.23
+  ws-runtime.ts       | 88.29  | 62.96   | 90     | 88.23</pre>
+
+<p><strong>The 0% gap on <code>ws-runtime.ts</code> is closed</strong> — 88%+ on statements/lines/functions. Uncovered:</p>
+
+<ul>
+  <li><strong>Lines 51–52</strong>: the <code>if (buf && ws.readyState === WebSocket.OPEN)</code> false-branch in <code>flush</code> — defensive guard for a client that closed mid-batch. Hard to hit deterministically without fake timers; very low risk.</li>
+  <li><strong>Lines 145–153</strong>: the heartbeat <code>setInterval</code> body, including dead-client termination. Would need either a 30s real wait or <code>vi.useFakeTimers</code> around the runtime construction. Skipped — would be straightforward to add later.</li>
+</ul>
+
+<h2>What got tested (14 cases)</h2>
+
+<p>Used a real <code>http.Server</code> on a kernel-assigned port (<code>listen(0, ...)</code>) plus a real <code>ws</code> client. The fake session is a 35-line <code>EventEmitter</code> stand-in that captures <code>marks</code> / <code>writes</code> / <code>resizes</code> / <code>cleared</code> for assertions.</p>
+
+<ul>
+  <li><strong>Connect handshake</strong> — initial <code>sessions</code> message arrives with current session list.</li>
+  <li><strong>Message routing</strong> — <code>input</code> triggers both <code>markUserInput</code> and <code>write</code>; <code>resize</code> forwards cols/rows; <code>clear-input-dirty</code> is wired.</li>
+  <li><strong>Malformed input tolerance</strong> — bad JSON and unknown session names don't throw or close the socket.</li>
+  <li><strong>16ms batch window</strong> — two consecutive <code>emit("data", ...)</code> calls coalesce into one <code>data</code> broadcast.</li>
+  <li><strong>Broadcast fan-out</strong> — <code>broadcastStatus</code>, <code>broadcastSessionList</code>, <code>broadcastNotification</code>, <code>broadcastName</code> all reach all connected clients.</li>
+  <li><strong>Late session attach</strong> — <code>attachSession</code> wires existing clients to a session added after connect.</li>
+  <li><strong>Disconnect cleanup</strong> — <code>getClientCount</code> drops, post-disconnect <code>emit("data")</code> doesn't throw.</li>
+  <li><strong>Client count</strong> tracks connect/disconnect accurately.</li>
+  <li><strong>Shutdown</strong> terminates clients and zeros state.</li>
+</ul>
+
+<div class="note">
+  <h3>One hard-won note: the queued message harness</h3>
+  <p>First attempt timed out 13/13 because the <code>ws</code> client emits <code>open</code> then <code>message</code> in rapid succession — by the time the test awaited <code>connect()</code> and then attached a <code>once("message", ...)</code> listener, the initial <code>sessions</code> payload had already fired and been dropped. Real bug in my test setup, would have been a flaky test forever.</p>
+  <p>The fix is a small queue-from-open-time harness: register the <code>message</code> listener immediately on the WS object, buffer everything into a queue, and have <code>next()</code> drain from the queue with promise-waiters for the empty case. ~25 lines, replaces the racy <code>nextMessage</code>. It's at the top of <code>test/ws-runtime.test.ts</code> if you want to reuse the pattern for any future protocol tests.</p>
+</div>
+
+<h2>Final tally</h2>
+
+<div class="results">
+  <div class="label">test files</div>
+  <div class="value">6 (was 3 before refactor, 5 after round 3)</div>
+  <div class="label">tests</div>
+  <div class="value"><span class="ok">111 passed</span> (was 97)</div>
+  <div class="label">duration</div>
+  <div class="value">1.83s without coverage, 2.19s with</div>
+  <div class="label">ws-runtime coverage</div>
+  <div class="value">0% → 88.29% / 88.23% (stmts / lines)</div>
+  <div class="label">build</div>
+  <div class="value"><span class="ok">clean</span> at v0.1.32</div>
+</div>
+
+<h2>What's still 0%</h2>
+
+<ul>
+  <li><strong><code>routes/admin.ts</code></strong> — including <code>/api/preferences</code>. You called out earlier that this deserves a proper HOME-dir fake. Agree. Probably ~50 lines of test + tmpdir setup; can land as a follow-up.</li>
+  <li><strong><code>routes/emcom.ts</code>, <code>routes/sessions/*</code></strong> — same story, plus deeper PtySession plumbing. Not high-risk individually because the routes are thin pass-throughs.</li>
+  <li><strong><code>session.ts</code></strong> — the orchestrator. Best tested indirectly via controllers (already done) plus a few integration smoke tests later. Direct unit testing fights its EventEmitter shape.</li>
+  <li><strong>Heartbeat path in <code>ws-runtime.ts</code></strong> — noted above; fake-timer pass would close the gap.</li>
+</ul>
+
+<div class="verdict">
+  <p><strong>Bottom line:</strong> the ws-runtime gap is closed. Coverage tool is live (<code>npm run test:coverage</code>). 111 tests, 6 files, &lt;2s.</p>
+  <p>The refactor is in a comfortable place to land. Future tests should target admin routes (preferences) next — small surface, deterministic with a tmpdir fake.</p>
+</div>
+
+<footer>
+  Generated 2026-06-03 by moss · pty-win v0.1.32 · added <code>test/ws-runtime.test.ts</code> + <code>npm run test:coverage</code>
+</footer>
+
+</main>
+</body>
+</html>

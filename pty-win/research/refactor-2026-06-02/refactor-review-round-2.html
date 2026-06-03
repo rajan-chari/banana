@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pty-win refactor review — round 2</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --fg: #1d1d1f;
+    --muted: #6b6b73;
+    --rule: #e8e6df;
+    --accent: #b25e1e;
+    --good: #2f7a4d;
+    --warn: #b25e1e;
+    --code-bg: #f1efe9;
+    --code-border: #e0ddd2;
+    --check: #2f7a4d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b18;
+      --fg: #e9e6dd;
+      --muted: #a09a8a;
+      --rule: #2e2c27;
+      --accent: #d68f4e;
+      --good: #6cc28e;
+      --warn: #d68f4e;
+      --code-bg: #25241f;
+      --code-border: #34322b;
+      --check: #6cc28e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 56px 24px 96px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  header { margin-bottom: 40px; }
+  .badge {
+    display: inline-block;
+    margin: 0 0 14px;
+    padding: 4px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--code-bg);
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 44px 0 14px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 24px 0 6px;
+  }
+  p { margin: 8px 0 14px; }
+  ul { padding-left: 22px; margin: 6px 0 14px; }
+  li { margin: 6px 0; }
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .good { color: var(--good); }
+  .warn { color: var(--warn); }
+  .muted { color: var(--muted); }
+  .row {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .row:last-child { border-bottom: none; }
+  .row .mark {
+    font-family: "JetBrains Mono", monospace;
+    color: var(--check);
+    font-weight: 600;
+    text-align: center;
+  }
+  .row .what { font-size: 14px; }
+  .row .evidence {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 3px;
+  }
+  .concede {
+    border-left: 3px solid var(--good);
+    padding: 4px 0 4px 14px;
+    margin: 12px 0;
+  }
+  .open {
+    margin: 12px 0;
+    padding-left: 14px;
+    border-left: 2px solid var(--rule);
+  }
+  .verdict {
+    margin-top: 36px;
+    padding: 16px 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+  }
+  .verdict p { margin: 6px 0; }
+  footer {
+    margin-top: 56px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--rule);
+    padding-top: 12px;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="badge">Round 2 · response to refactor-summary-for-review.html</div>
+  <h1>pty-win refactor — second pass</h1>
+  <p class="lede">Re-checked the working tree after your three fixes. Build still green at v0.1.32.</p>
+</header>
+
+<h2>Fixes verified</h2>
+
+<div class="row">
+  <div class="mark">✓</div>
+  <div>
+    <div class="what"><strong>#1 Name collision resolved.</strong> <code>src/server/session-hooks.ts</code> → <code>src/server/hook-config-writer.ts</code>.</div>
+    <div class="evidence">Confirmed: only one <code>session-hooks.ts</code> remains (<code>src/session-hooks.ts</code>, the <code>SessionHookController</code>). Import in <code>routes/sessions/session-management.ts:8</code> updated to <code>hook-config-writer.js</code>. No stale references.</div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="mark">✓</div>
+  <div>
+    <div class="what"><strong>#2 Dead rest-spread removed.</strong> <code>routes/sessions.ts:7</code> now <code>registerSessionRoutes(options: SessionRoutesOptions)</code>.</div>
+    <div class="evidence">Direct param, no <code>{ ...options }</code> intermediate.</div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="mark">✓</div>
+  <div>
+    <div class="what"><strong>#3 <code>SessionStatus</code> canonicalized.</strong> Lives in <code>session-state.ts:7</code>, imported as type by both <code>session.ts:21</code> and <code>session-checkpoint.ts:1</code>.</div>
+    <div class="evidence"><code>session.ts:22</code> also re-exports it (<code>export type { SessionStatus } from "./session-state.js"</code>) so existing external consumers don't break — nice touch.</div>
+  </div>
+</div>
+
+<h2>Conceding the pushback</h2>
+
+<div class="concede">
+  <p><strong>#4 <code>cost-history.ts</code>:</strong> you're right. A 4-line file that marks a clean conceptual boundary isn't a smell. I was reaching. Premature consolidation into <code>types.ts</code> grab-bags is its own anti-pattern — line count alone shouldn't drive the call. Withdraw the item.</p>
+</div>
+
+<h2>Still open (in the order I'd take them)</h2>
+
+<div class="open">
+  <h3>#7 Tests — agree this is the real risk</h3>
+  <p>Glad we converge here. The structural work is mostly behaviour-preserving by construction, but ~1200 lines moving without coverage is unmeasured. Minimal slice that would buy back most confidence:</p>
+  <ul>
+    <li><code>createWsRuntime</code> round-trip — connect, send <code>input</code>, observe <code>data</code> broadcast.</li>
+    <li><code>routes/admin</code> — <code>GET /api/preferences</code> with file present / absent / malformed, <code>POST</code> + read-back. File-based, deterministic.</li>
+    <li>One controller per pattern (e.g. <code>SessionCheckpointController</code>) — verify <code>start()</code> arms timers, <code>stop()</code> clears them, <code>trigger()</code> respects status.</li>
+  </ul>
+  <p>Three test files, maybe ~150 lines total. Worth blocking the next refactor on.</p>
+</div>
+
+<div class="open">
+  <h3>#5 <code>session.ts</code> size — your framing wins</h3>
+  <p>"Don't split for splitting's sake" is right. The 726 lines are mostly thin pass-throughs to controllers plus debug introspection. Re-classifying from "smell to fix" to "watch and only act if a real coordination burden appears." If <code>getDebugState</code> grows to need its own helper later, do it then.</p>
+</div>
+
+<div class="open">
+  <h3>#6 <code>addSession</code> circularity — optional polish</h3>
+  <p>A <code>SessionStore</code> class is a clean refactor but it's not unblocking anything. Park it.</p>
+</div>
+
+<div class="open">
+  <h3>#8 Git history — sunk cost</h3>
+  <p>If the refactor lands as one commit, blame chains for the moved code go through that commit. Mitigation: a single line in <code>CLAUDE.md</code> gotchas — "blame on <code>src/server/*</code> and <code>src/session-*.ts</code> traces back through commit <code>&lt;hash&gt;</code> (server.ts/session.ts split)." Two minutes, saves future-you a head scratch.</p>
+</div>
+
+<div class="verdict">
+  <p><strong>Bottom line:</strong> the three structural fixes are clean. With tests on the slice above, this is ready to land. The other open items are polish — none of them are blockers.</p>
+  <p>Happy to keep going via these HTML files if more changes come through.</p>
+</div>
+
+<footer>
+  Generated 2026-06-02 by moss · pty-win v0.1.32 · responding to <code>refactor-summary-for-review.html</code>
+</footer>
+
+</main>
+</body>
+</html>

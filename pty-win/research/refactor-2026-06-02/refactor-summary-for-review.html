@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pty-win refactor summary</title>
+<style>
+  :root {
+    --bg: #f7f4ee;
+    --fg: #1f1d1a;
+    --muted: #6b655a;
+    --rule: #ddd7cb;
+    --accent: #a85c1b;
+    --good: #2f7a4d;
+    --soft: #efe7da;
+    --card: #fffdfa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #191713;
+      --fg: #efe8dc;
+      --muted: #a79d8d;
+      --rule: #2b2722;
+      --accent: #d18a4a;
+      --good: #6cc28e;
+      --soft: #231f1a;
+      --card: #201d18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, var(--bg), var(--card));
+    color: var(--fg);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 48px 20px 88px;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  h1 {
+    font-size: 30px;
+    line-height: 1.15;
+    margin: 0 0 10px;
+    letter-spacing: -0.02em;
+  }
+  .lede { margin: 0; color: var(--muted); max-width: 68ch; }
+  .badge {
+    display: inline-block;
+    margin: 0 0 16px;
+    padding: 4px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--soft);
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  section {
+    margin: 18px 0 0;
+    padding: 18px 20px;
+    background: rgba(255,255,255,0.25);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+  p { margin: 8px 0 12px; }
+  ul { margin: 8px 0 12px; padding-left: 22px; }
+  li { margin: 6px 0; }
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    background: var(--soft);
+    border: 1px solid var(--rule);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .good { color: var(--good); }
+  .muted { color: var(--muted); }
+  .callout {
+    border-left: 3px solid var(--accent);
+    padding-left: 14px;
+    margin: 12px 0;
+  }
+  .bottom-line {
+    padding: 16px 18px;
+    background: var(--soft);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+  }
+  footer {
+    margin-top: 24px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="badge">Shareable review note</div>
+    <h1>pty-win refactor: what changed and where I stand</h1>
+    <p class="lede">This is the short version I would hand to another reviewer. The goal was to make the server easier to reason about without changing behavior.</p>
+  </header>
+
+  <section>
+    <h2>What changed</h2>
+    <ul>
+      <li><code>server.ts</code> was reduced to an orchestrator and the route wiring was split into smaller domain files.</li>
+      <li><code>session.ts</code> was decomposed into focused collaborators for emcom, checkpointing, heuristic idle detection, hook lifecycle handling, and injection verification.</li>
+      <li>The duplicate <code>session-hooks.ts</code> naming confusion was removed by renaming the server-side hook writer to <code>hook-config-writer.ts</code>.</li>
+      <li><code>SessionStatus</code> now lives in <code>session-state.ts</code> as the shared canonical type.</li>
+      <li>The no-op rest spread in <code>routes/sessions.ts</code> was removed.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>My point of view</h2>
+    <div class="callout">
+      <p class="good"><strong>Strong positive:</strong> the refactor is structurally sound. The big win is not just smaller files, but clearer responsibility boundaries.</p>
+    </div>
+    <ul>
+      <li>I agree with the review that <code>server.ts</code> is now in a much healthier place. It is mostly composition, which is exactly what it should be.</li>
+      <li>I also agree that the duplicate file name was a real problem. Renaming the server-side writer was the right cleanup.</li>
+      <li>The shared-type cleanup was worth doing because it removes a small but annoying source of duplication.</li>
+      <li>I think the review slightly overstates a few lower-priority items. For example, a tiny <code>cost-history.ts</code> file is not automatically a smell if it preserves a clean boundary.</li>
+      <li>I would treat the lack of new tests as the main remaining risk, not as a theoretical nit. The behavior moved a lot, so coverage is the next practical step.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What I would prioritize next</h2>
+    <ul>
+      <li>Add a small test slice for the new modules, especially the hook/controller behavior and any deterministic route wiring.</li>
+      <li>Consider whether <code>session.ts</code> debug/introspection code should move into its own helper if the file keeps growing.</li>
+      <li>Only introduce more structural changes if they remove real coordination burden. I would not split things further just to chase smaller files.</li>
+    </ul>
+  </section>
+
+  <section class="bottom-line">
+    <h2>Bottom line</h2>
+    <p>The refactor is a net improvement and the review is mostly on target. I would frame the remaining work as follow-up hardening rather than fixing a broken design: add tests, keep the names clear, and avoid splitting for its own sake.</p>
+  </section>
+
+  <footer>
+    Generated for sharing with Claude. You can point to the current refactor files directly from this note.
+  </footer>
+</main>
+</body>
+</html>

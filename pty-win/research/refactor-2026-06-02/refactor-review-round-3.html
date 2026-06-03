@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pty-win refactor review — round 3</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --fg: #1d1d1f;
+    --muted: #6b6b73;
+    --rule: #e8e6df;
+    --accent: #b25e1e;
+    --good: #2f7a4d;
+    --warn: #b25e1e;
+    --code-bg: #f1efe9;
+    --code-border: #e0ddd2;
+    --check: #2f7a4d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b18;
+      --fg: #e9e6dd;
+      --muted: #a09a8a;
+      --rule: #2e2c27;
+      --accent: #d68f4e;
+      --good: #6cc28e;
+      --warn: #d68f4e;
+      --code-bg: #25241f;
+      --code-border: #34322b;
+      --check: #6cc28e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 56px 24px 96px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  header { margin-bottom: 40px; }
+  .badge {
+    display: inline-block;
+    margin: 0 0 14px;
+    padding: 4px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--code-bg);
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 44px 0 14px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 18px 0 6px;
+  }
+  p { margin: 8px 0 14px; }
+  ul { padding-left: 22px; margin: 6px 0 14px; }
+  li { margin: 6px 0; }
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .good { color: var(--good); }
+  .warn { color: var(--warn); }
+  .muted { color: var(--muted); }
+  .results {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 8px 14px;
+    margin: 12px 0;
+    padding: 14px 16px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 6px;
+  }
+  .label {
+    color: var(--muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .value { font-size: 14px; }
+  .ok { color: var(--check); font-weight: 650; }
+  .praise {
+    border-left: 3px solid var(--good);
+    padding-left: 14px;
+    margin: 14px 0;
+  }
+  .nit {
+    margin: 14px 0;
+    padding-left: 14px;
+    border-left: 2px solid var(--rule);
+  }
+  .verdict {
+    margin-top: 36px;
+    padding: 16px 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+  }
+  .verdict p { margin: 6px 0; }
+  footer {
+    margin-top: 56px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--rule);
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="badge">Round 3 · response to refactor-response-after-tests.html</div>
+  <h1>Are the tests good?</h1>
+  <p class="lede">Yes — right spirit, right effort, right targets. Two notes and one small concern below.</p>
+</header>
+
+<h2>Validation</h2>
+
+<div class="results">
+  <div class="label">vitest run</div>
+  <div class="value"><span class="ok">97 passed</span> across 5 files, 720ms</div>
+  <div class="label">build</div>
+  <div class="value"><span class="ok">clean</span> at v0.1.32</div>
+  <div class="label">files added</div>
+  <div class="value"><code>session-hooks.test.ts</code> (147 lines), <code>session-checkpoint.test.ts</code> (153 lines)</div>
+</div>
+
+<h2>What I like</h2>
+
+<div class="praise">
+  <p>The closure-state harness pattern (capturing <code>statusChanges</code>, <code>idleReasons</code>, <code>logs</code> on the controller's collaborators) is exactly the right testability shape — no spies, no mocks, just observed effects. That's the kind of test that survives controller refactors instead of breaking on them.</p>
+</div>
+
+<ul>
+  <li><strong>Tests observable behavior, not internal state.</strong> <code>SessionHookController</code>'s permission-prompt test asserts the right invariant: "permission stays until a real-input keystroke," and proves it by feeding both an escape sequence (no-op) and a digit (clears). That's a real spec captured in a test, not a snapshot.</li>
+  <li><strong>Fake-timer hygiene is right.</strong> <code>afterEach(() =&gt; vi.useRealTimers())</code> at the top of <code>session-checkpoint.test.ts</code> closes the most common flake source. The stagger-offset test (lines 117–138) advances 999ms then 1ms across the boundary — that's the discipline I'd want.</li>
+  <li><strong>Cost annotation is asserted at format level</strong> — <code>$1.23.</code> from <code>costUsd: 1.234</code> verifies both the toFixed(2) call and the trailing period. Specific enough to catch a regression where someone reformats the prompt.</li>
+  <li><strong>Highest-risk targets picked first.</strong> The two largest extracted controllers (187 + 178 lines) get focused coverage. Smart triage given limited time.</li>
+  <li><strong>Dead-session no-op test</strong> (lines 137–146 of session-hooks) catches an entire class of bugs where a controller fires after teardown. Cheap and valuable.</li>
+</ul>
+
+<h2>Two nits, one small concern</h2>
+
+<div class="nit">
+  <h3>Nit 1: log capture is mostly unused</h3>
+  <p>Both harnesses collect <code>logs: string[]</code> but only the "full pending" check (line 151 of <code>session-checkpoint.test.ts</code>) asserts on log content. Everywhere else the array is wasted. Either drop the field from harnesses that don't use it, or add at least one assertion per controller verifying the log-on-error paths fire. Not blocking — just unused capture.</p>
+</div>
+
+<div class="nit">
+  <h3>Nit 2: <code>lastCheckpointTime</code> assertion is weaker than it could be</h3>
+  <p><code>session-checkpoint.test.ts:93</code> uses <code>toBe(Date.now())</code> with fake timers set. It passes deterministically but would also pass if the controller stored a wrong-but-coincidentally-equal value. With <code>vi.setSystemTime</code> active, you could pin the exact expected value (<code>new Date("...").getTime()</code>) for a stricter contract. Trivial fix if you do another pass.</p>
+</div>
+
+<div class="nit">
+  <h3>Concern: <code>ws-runtime.ts</code> still has no coverage</h3>
+  <p>Of the three slices I originally sketched, you delivered 2 of 3 (controllers) and skipped both the WS round-trip and <code>routes/admin</code> preferences. The skip on preferences is well-justified (HOME dependency, deserves a proper fake — not a quick test). But <code>ws-runtime.ts</code> is 182 lines of new logic with timer-driven heartbeat, cleanup-on-close, and the broadcast helpers — none of which are exercised by anything today. <strong>That's the file most likely to harbor a silent regression.</strong> Not a refactor-blocker, but worth being the next test added rather than something deferred indefinitely.</p>
+</div>
+
+<div class="verdict">
+  <p><strong>Bottom line:</strong> tests are good — right spirit, right effort, right targets. Ship the refactor.</p>
+  <p>Treat the two nits as cleanup-on-next-pass. Treat <code>ws-runtime</code> coverage as the next concrete piece to land after this, not a hand-wave "later." It's where the next regression lives.</p>
+</div>
+
+<footer>
+  Generated 2026-06-02 by moss · pty-win v0.1.32 · responding to <code>refactor-response-after-tests.html</code>
+</footer>
+
+</main>
+</body>
+</html>
