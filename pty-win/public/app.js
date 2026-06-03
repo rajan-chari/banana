@@ -142,7 +142,7 @@ function connect() {
       case "sessions": {
         // Detect if the set of sessions changed (not just status updates)
         const prevNames = new Set(state.sessions.keys());
-        const serverNames = new Set(msg.payload.map((s) => s.name));
+        const serverNames = new Set(msg.payload.map(/** @param {import('./lib/state.js').SessionInfo} s */ (s) => s.name));
         const layoutChanged = hasSessionNameSetChanged(prevNames, serverNames);
 
         // Replace full session list (server is authoritative)
@@ -264,6 +264,9 @@ function connect() {
   };
 }
 
+/**
+ * @param {string} name
+ */
 function applyInstanceName(name) {
   const r = document.documentElement.style;
   if (name) {
@@ -328,6 +331,9 @@ async function initApp() {
 
 // ===== Folder Tree =====
 
+/**
+ * @param {string} path
+ */
 async function fetchChildren(path) {
   if (state.folderCache.has(path)) return state.folderCache.get(path);
   try {
@@ -401,7 +407,7 @@ function renderTree() {
     if (!rootCached) {
       fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
         .then((r) => r.json())
-        .then((info) => {
+        .then(/** @param {import('./lib/state.js').FolderEntry} info */ (info) => {
           state.folderInfoCache.set(rootCacheKey, info);
           // Update indicators in-place once folder info arrives
           const slot = label.querySelector(".indicator-slot");
@@ -436,6 +442,9 @@ function renderTree() {
   }
 }
 
+/**
+ * @param {string} path
+ */
 async function toggleExpand(path) {
   if (state.expandedPaths.has(path)) {
     state.expandedPaths.delete(path);
@@ -446,6 +455,11 @@ async function toggleExpand(path) {
   renderTree();
 }
 
+/**
+ * @param {string} parentPath
+ * @param {HTMLElement} container
+ * @param {number} depth
+ */
 async function loadAndRenderChildren(parentPath, container, depth) {
   const entries = await fetchChildren(parentPath);
   container.innerHTML = "";
@@ -727,6 +741,10 @@ function renderSessionsPanel() {
   }
 }
 
+/**
+ * @param {HTMLElement} container
+ * @param {any} opts
+ */
 function appendRowActions(container, opts) {
   const { identityName, unreadCount, workingDir, folderName,
     claudeAlive, pwshAlive, claudeCommand, isClaudeReady, hasIdentity, onKill } = opts;
@@ -854,6 +872,9 @@ function appendRowActions(container, opts) {
 
 let recreationInProgress = false;
 
+/**
+ * @param {string[]} names
+ */
 async function recreateOrphanedSessions(names) {
   if (recreationInProgress) return;
   recreationInProgress = true;
@@ -869,7 +890,7 @@ async function recreateOrphanedSessions(names) {
 
   // Fetch repo root for each session, group by repo
   const repoGroups = new Map(); // repoRoot -> [name, ...]
-  await Promise.all(names.map(async (name) => {
+  await Promise.all(names.map(/** @param {string} name */ async (name) => {
     const meta = state.sessionMeta.get(name);
     if (!meta) return;
     let repoRoot = null;
@@ -884,6 +905,9 @@ async function recreateOrphanedSessions(names) {
 
   const groups = [...repoGroups.values()];
 
+  /**
+   * @param {string[]} group
+   */
   async function launchGroup(group) {
     for (const name of group) {
       const meta = state.sessionMeta.get(name);
@@ -918,6 +942,9 @@ async function recreateOrphanedSessions(names) {
   recreationInProgress = false;
 }
 
+/**
+ * @param {string} name
+ */
 function pruneFailedSession(name) {
   state.sessionMeta.delete(name);
   saveSessionMeta();
@@ -948,7 +975,14 @@ function getOrCreateActiveWorkspace() {
   return createWorkspace("Workspace 1");
 }
 
-/** Open a folder as a session, optionally forcing a new workspace */
+/**
+ * Open a folder as a session, optionally forcing a new workspace
+ * @param {string} folderPath
+ * @param {string} folderName
+ * @param {string} command
+ * @param {boolean} [newWorkspace]
+ * @param {string[]} [args]
+ */
 async function openFolder(folderPath, folderName, command, newWorkspace = false, args = []) {
   const baseName = folderName || folderPath.split(/[/\\]/).filter(Boolean).pop();
   const isPwsh = command === "pwsh";
@@ -1044,6 +1078,9 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
   }
 }
 
+/**
+ * @param {string} name
+ */
 function focusExistingSession(name) {
   // Map session name to group name (pane leaf name)
   const groupName = name.replace(/~pwsh$/, "");
@@ -1082,7 +1119,10 @@ function focusExistingSession(name) {
   }
 }
 
-/** Update workspace tab name based on its sessions */
+/**
+ * Update workspace tab name based on its sessions
+ * @param {import('./lib/state.js').Workspace} ws
+ */
 function updateWorkspaceTabName(ws) {
   if (ws.customName) return; // user renamed — don't override
   const leaves = ws.layout ? getLeafList(ws.layout) : [];
@@ -1099,6 +1139,10 @@ function updateWorkspaceTabName(ws) {
 
 // ===== Context Menu =====
 
+/**
+ * @param {string} sessionName
+ * @param {HTMLElement} anchorEl
+ */
 function showQuickMessageInput(sessionName, anchorEl) {
   // Remove any existing popup
   byId("quick-msg-popup")?.remove();
@@ -1172,18 +1216,22 @@ function showQuickMessageInput(sessionName, anchorEl) {
   };
 
   sendBtn.onclick = send;
-  input.onkeydown = (e) => {
+  input.onkeydown = /** @param {KeyboardEvent} e */ (e) => {
     if (e.key === "Enter") send();
     if (e.key === "Escape") dismiss();
   };
 
   // Click outside to dismiss
-  const outside = (e) => {
+  const outside = /** @param {MouseEvent} e */ (e) => {
     if (!popup.contains(e.target)) { dismiss(); document.removeEventListener("mousedown", outside); }
   };
   setTimeout(() => document.addEventListener("mousedown", outside), 0);
 }
 
+/**
+ * @param {MouseEvent} e
+ * @param {string} path
+ */
 function showContextMenu(e, path) {
   e.preventDefault();
   e.stopPropagation();
@@ -1220,7 +1268,7 @@ document.addEventListener("click", () => {
   byId("context-menu").classList.add("hidden");
 });
 
-byId("context-menu").addEventListener("click", async (e) => {
+byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ async (e) => {
   const item = e.target.closest(".ctx-item");
   const action = item?.dataset.action;
   if (!action || !state.ctxTarget || item.classList.contains("ctx-disabled")) return;
@@ -1321,6 +1369,9 @@ function closeQuickOpen() {
   byId("quick-open").classList.add("hidden");
 }
 
+/**
+ * @param {string} query
+ */
 function renderQuickOpenResults(query) {
   const container = byId("quick-open-results");
   container.innerHTML = "";
@@ -1356,11 +1407,11 @@ function renderQuickOpenResults(query) {
   }
 }
 
-byId("quick-open-input").addEventListener("input", (e) => {
+byId("quick-open-input").addEventListener("input", /** @param {InputEvent & { target: HTMLInputElement }} e */ (e) => {
   renderQuickOpenResults(e.target.value);
 });
 
-byId("quick-open-input").addEventListener("keydown", (e) => {
+byId("quick-open-input").addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
   if (e.key === "Escape") { closeQuickOpen(); return; }
   if (e.key === "Enter") {
     const selected = document.querySelector(".qo-result.selected");
@@ -1379,7 +1430,7 @@ byId("quick-open-input").addEventListener("keydown", (e) => {
   }
 });
 
-byId("quick-open").addEventListener("click", (e) => {
+byId("quick-open").addEventListener("click", /** @param {MouseEvent} e */ (e) => {
   if (e.target === byId("quick-open")) closeQuickOpen();
 });
 
@@ -1412,12 +1463,12 @@ byId("btn-collapse-all").onclick = () => {
   const sidebar = byId("sidebar");
   if (!handle || !sidebar) return;
 
-  handle.addEventListener("mousedown", (e) => {
+  handle.addEventListener("mousedown", /** @param {MouseEvent} e */ (e) => {
     e.preventDefault();
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
 
-    const onMove = (e) => {
+    const onMove = /** @param {MouseEvent} e */ (e) => {
       const newWidth = Math.max(100, Math.min(500, e.clientX));
       sidebar.style.width = `${newWidth}px`;
     };
@@ -1452,6 +1503,9 @@ byId("btn-add-root").onclick = () => {
 
 // ===== Workspaces =====
 
+/**
+ * @param {string | null} name
+ */
 function createWorkspace(name) {
   const id = `ws-${state.nextWorkspaceId++}`;
   const ws = { id, name: name || `Workspace ${state.nextWorkspaceId - 1}`, layout: null };
@@ -1460,6 +1514,9 @@ function createWorkspace(name) {
   return ws;
 }
 
+/**
+ * @param {string} id
+ */
 function switchToWorkspace(id) {
   // Save focused pane for current workspace
   if (state.activeWorkspaceId) {
@@ -1529,6 +1586,9 @@ function stopTrackerPoll() {
   if (trackerPollTimer) { clearInterval(trackerPollTimer); trackerPollTimer = null; }
 }
 
+/**
+ * @param {string} sessionName
+ */
 function findWorkspaceContaining(sessionName) {
   for (const ws of state.workspaces) {
     if (ws.layout && treeContains(ws.layout, sessionName)) return ws;
@@ -1536,6 +1596,9 @@ function findWorkspaceContaining(sessionName) {
   return null;
 }
 
+/**
+ * @param {string} id
+ */
 function removeWorkspace(id) {
   const idx = state.workspaces.findIndex((w) => w.id === id);
   if (idx === -1) return;
@@ -1569,7 +1632,7 @@ function renderTabs() {
     const close = document.createElement("span");
     close.className = "tab-close";
     close.textContent = "\u00d7";
-    close.onclick = (e) => { e.stopPropagation(); removeWorkspace(ws.id); };
+    close.onclick = /** @param {MouseEvent} e */ (e) => { e.stopPropagation(); removeWorkspace(ws.id); };
     tab.appendChild(close);
 
     // Layout preset button (active tab with 2+ panes only)
@@ -1578,13 +1641,13 @@ function renderTabs() {
       layoutBtn.className = "tab-layout-btn";
       layoutBtn.title = "Layout presets";
       layoutBtn.textContent = "\u229e"; // ⊞
-      layoutBtn.onclick = (e) => showLayoutPresetsMenu(e, ws);
+      layoutBtn.onclick = /** @param {MouseEvent} e */ (e) => showLayoutPresetsMenu(e, ws);
       tab.appendChild(layoutBtn);
     }
 
     // Drag-to-reorder
     tab.draggable = true;
-    tab.addEventListener("dragstart", (e) => {
+    tab.addEventListener("dragstart", /** @param {DragEvent} e */ (e) => {
       dragSrcWsId = ws.id;
       tab.classList.add("dragging");
       e.dataTransfer.effectAllowed = "move";
@@ -1593,7 +1656,7 @@ function renderTabs() {
       dragSrcWsId = null;
       document.querySelectorAll(".tab").forEach((t) => t.classList.remove("drag-over-left", "drag-over-right", "dragging"));
     });
-    tab.addEventListener("dragover", (e) => {
+    tab.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
       // Session/folder drop onto tab
       if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
         e.preventDefault(); e.dataTransfer.dropEffect = "copy"; tab.classList.add("drop-target"); return;
@@ -1609,7 +1672,7 @@ function renderTabs() {
     tab.addEventListener("dragleave", () => {
       tab.classList.remove("drag-over-left", "drag-over-right", "drop-target");
     });
-    tab.addEventListener("drop", (e) => {
+    tab.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
       tab.classList.remove("drop-target");
       // Session/folder drop
       if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
@@ -1640,7 +1703,7 @@ function renderTabs() {
     };
 
     // Double-click to rename
-    label.ondblclick = (e) => {
+    label.ondblclick = /** @param {MouseEvent} e */ (e) => {
       e.stopPropagation();
       // Cancel the pending single-click
       if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
@@ -1660,7 +1723,7 @@ function renderTabs() {
         renderTabs();
       };
       input.onblur = finish;
-      input.onkeydown = (ev) => {
+      input.onkeydown = /** @param {KeyboardEvent} ev */ (ev) => {
         if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
         if (ev.key === "Escape") { input.value = ws.name; input.blur(); }
       };
@@ -1676,13 +1739,13 @@ function renderTabs() {
   addBtn.textContent = "+";
   addBtn.onclick = () => { const ws = createWorkspace(null); switchToWorkspace(ws.id); };
   // Drop on + creates new workspace with dragged session
-  addBtn.addEventListener("dragover", (e) => {
+  addBtn.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
     if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
       e.preventDefault(); e.dataTransfer.dropEffect = "copy"; addBtn.classList.add("drop-target");
     }
   });
   addBtn.addEventListener("dragleave", () => addBtn.classList.remove("drop-target"));
-  addBtn.addEventListener("drop", (e) => {
+  addBtn.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
     addBtn.classList.remove("drop-target");
     handleSessionDrop(e, null); // null = new workspace
   });
@@ -1691,6 +1754,10 @@ function renderTabs() {
 
 // ===== Session/Folder Drop Handler =====
 
+/**
+ * @param {DragEvent} e
+ * @param {string | null} targetWsId
+ */
 async function handleSessionDrop(e, targetWsId) {
   e.preventDefault();
   let groupName, workingDir, folderName;
@@ -1735,12 +1802,12 @@ async function handleSessionDrop(e, targetWsId) {
 }
 
 // Workspace area drop target (drop onto current workspace)
-byId("workspace-area")?.addEventListener("dragover", (e) => {
+byId("workspace-area")?.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
   if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
     e.preventDefault(); e.dataTransfer.dropEffect = "copy";
   }
 });
-byId("workspace-area")?.addEventListener("drop", (e) => {
+byId("workspace-area")?.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
   if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
     handleSessionDrop(e, state.activeWorkspaceId);
   }
@@ -1748,6 +1815,10 @@ byId("workspace-area")?.addEventListener("drop", (e) => {
 
 // ===== Tiling =====
 
+/**
+ * @param {string} workspaceId
+ * @param {string} sessionName
+ */
 function addSessionToWorkspace(workspaceId, sessionName) {
   const ws = state.workspaces.find((w) => w.id === workspaceId);
   if (!ws) return;
@@ -1772,6 +1843,9 @@ function addSessionToWorkspace(workspaceId, sessionName) {
  * }} */
 const paneDrag = { active: false, session: null, ghostEl: null, dropZoneEls: [], currentTarget: null };
 
+/**
+ * @param {string} excludeSession
+ */
 function showDropZones(excludeSession) {
   clearDropZones();
   document.querySelectorAll(".pane[data-session]").forEach(paneEl => {
@@ -1801,6 +1875,10 @@ function clearDropZones() {
   paneDrag.currentTarget = null;
 }
 
+/**
+ * @param {number} mx
+ * @param {number} my
+ */
 function updateDropZoneHighlight(mx, my) {
   let best = null;
   for (const el of paneDrag.dropZoneEls) {
@@ -1832,6 +1910,10 @@ function commitPaneDrop() {
   renderActiveWorkspace();
 }
 
+/**
+ * @param {MouseEvent} e
+ * @param {string} groupName
+ */
 function startPaneDrag(e, groupName) {
   const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
   if (!ws?.layout || getLeafList(ws.layout).length < 2) return;
@@ -1845,7 +1927,7 @@ function startPaneDrag(e, groupName) {
   document.body.appendChild(ghost);
   paneDrag.ghostEl = ghost;
   showDropZones(groupName);
-  const onMove = ev => {
+  const onMove = /** @param {MouseEvent} ev */ ev => {
     ghost.style.left = `${ev.clientX + 12}px`; ghost.style.top = `${ev.clientY + 8}px`;
     updateDropZoneHighlight(ev.clientX, ev.clientY);
   };
@@ -1855,7 +1937,7 @@ function startPaneDrag(e, groupName) {
     document.removeEventListener("keydown", onKey);
     commitPaneDrop();
   };
-  const onKey = ev => {
+  const onKey = /** @param {KeyboardEvent} ev */ ev => {
     if (ev.key !== "Escape") return;
     document.removeEventListener("mousemove", onMove);
     document.removeEventListener("mouseup", onUp);
@@ -1872,7 +1954,7 @@ function startPaneDrag(e, groupName) {
 // ===== Layout presets =====
 
 const LAYOUT_PRESETS = [
-  { name: "Auto (balanced)",    min: 1, build: s => buildBalancedTree(s) },
+  { name: "Auto (balanced)",    min: 1, build: /** @param {string[]} s */ (s) => buildBalancedTree(s) },
   { name: "2 Columns",          min: 2, build: ([a,b]) => ({ type:"split", direction:"h", ratio:0.5, children:[{type:"leaf",session:a},{type:"leaf",session:b}] }) },
   { name: "3 Columns",          min: 3, build: ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.333, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
   { name: "2 Top + 1 Bottom",   min: 3, build: ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:a},{type:"leaf",session:b}]},{type:"leaf",session:c}] }) },
@@ -1880,6 +1962,10 @@ const LAYOUT_PRESETS = [
   { name: "Large Left + Stack", min: 3, build: ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.6, children:[{type:"leaf",session:a},{type:"split",direction:"v",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
 ];
 
+/**
+ * @param {import('./lib/state.js').Workspace} ws
+ * @param {number} idx
+ */
 function applyLayoutPreset(ws, idx) {
   const preset = LAYOUT_PRESETS[idx];
   const sessions = getLeafList(ws.layout);
@@ -1888,6 +1974,10 @@ function applyLayoutPreset(ws, idx) {
   saveWorkspaces(); renderActiveWorkspace();
 }
 
+/**
+ * @param {MouseEvent & { target: HTMLElement }} e
+ * @param {import('./lib/state.js').Workspace} ws
+ */
 function showLayoutPresetsMenu(e, ws) {
   e.stopPropagation();
   const menu = byId("pane-context-menu");
@@ -1902,7 +1992,7 @@ function showLayoutPresetsMenu(e, ws) {
     if (sessions.length >= p.min) item.onclick = () => { applyLayoutPreset(ws, i); menu.classList.add("hidden"); };
     menu.appendChild(item);
   });
-  const close = ev => {
+  const close = /** @param {MouseEvent & { target: Node }} ev */ ev => {
     if (!menu.contains(ev.target)) { menu.classList.add("hidden"); document.removeEventListener("mousedown", close); }
   };
   setTimeout(() => document.addEventListener("mousedown", close), 0);
@@ -1929,6 +2019,10 @@ function renderActiveWorkspace() {
   requestAnimationFrame(() => fitAllTerminals(ws.layout));
 }
 
+/**
+ * @param {any} node
+ * @param {HTMLElement} parentEl
+ */
 function renderTileNode(node, parentEl) {
   if (node.type === "leaf") {
     parentEl.appendChild(createPane(node.session));
@@ -1959,8 +2053,13 @@ function renderTileNode(node, parentEl) {
   renderTileNode(node.children[1], child2);
 }
 
+/**
+ * @param {HTMLElement} handle
+ * @param {any} node
+ * @param {HTMLElement} container
+ */
 function setupDragHandle(handle, node, container) {
-  handle.addEventListener("mousedown", (e) => {
+  handle.addEventListener("mousedown", /** @param {MouseEvent} e */ (e) => {
     e.preventDefault();
     handle.classList.add("dragging");
     document.body.style.cursor = node.direction === "h" ? "col-resize" : "row-resize";
@@ -1969,7 +2068,7 @@ function setupDragHandle(handle, node, container) {
     const startRatio = node.ratio;
     const totalSize = node.direction === "h" ? container.offsetWidth : container.offsetHeight;
 
-    const onMove = (e) => {
+    const onMove = /** @param {MouseEvent} e */ (e) => {
       const delta = (node.direction === "h" ? e.clientX : e.clientY) - startPos;
       node.ratio = Math.max(0.15, Math.min(0.85, startRatio + delta / totalSize));
       const children = container.querySelectorAll(":scope > .split-child");
@@ -1992,6 +2091,9 @@ function setupDragHandle(handle, node, container) {
   });
 }
 
+/**
+ * @param {any} node
+ */
 function fitAllTerminals(node) {
   if (!node) return;
   if (node.type === "leaf") {
@@ -2008,6 +2110,9 @@ function fitAllTerminals(node) {
 
 // ===== Panes =====
 
+/**
+ * @param {string} groupName
+ */
 function createPane(groupName) {
   // Resolve which session to show via pane group
   const pg = state.paneGroups.get(groupName);
@@ -2051,17 +2156,17 @@ function createPane(groupName) {
 
   // Toggle button handlers
   if (hasBoth) {
-    topbar.querySelector(".toggle-claude")?.addEventListener("click", (e) => {
+    topbar.querySelector(".toggle-claude")?.addEventListener("click", /** @param {MouseEvent} e */ (e) => {
       e.stopPropagation();
       switchPaneType(groupName, "claude");
     });
-    topbar.querySelector(".toggle-pwsh")?.addEventListener("click", (e) => {
+    topbar.querySelector(".toggle-pwsh")?.addEventListener("click", /** @param {MouseEvent} e */ (e) => {
       e.stopPropagation();
       switchPaneType(groupName, "pwsh");
     });
   }
 
-  topbar.querySelector(".pane-action.code").onclick = (e) => {
+  topbar.querySelector(".pane-action.code").onclick = /** @param {MouseEvent} e */ (e) => {
     e.stopPropagation();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     fetch("/api/open-editor", {
@@ -2071,12 +2176,12 @@ function createPane(groupName) {
     });
   };
 
-  topbar.querySelector(".pane-close").onclick = (e) => {
+  topbar.querySelector(".pane-close").onclick = /** @param {MouseEvent} e */ (e) => {
     e.stopPropagation();
     killSession(activeSessionName);
   };
 
-  topbar.addEventListener("contextmenu", (e) => {
+  topbar.addEventListener("contextmenu", /** @param {MouseEvent} e */ (e) => {
     e.preventDefault();
     e.stopPropagation();
     showPaneContextMenu(e, groupName);
@@ -2086,14 +2191,14 @@ function createPane(groupName) {
   if (identityEl) {
     identityEl.style.cursor = "pointer";
     identityEl.title = `Switch feed to ${info.emcomIdentity}`;
-    identityEl.onclick = (e) => {
+    identityEl.onclick = /** @param {MouseEvent} e */ (e) => {
       e.stopPropagation();
       localStorage.setItem("pty-win-feed-identity", info.emcomIdentity);
       window.dispatchEvent(new CustomEvent("feed-identity-change", { detail: info.emcomIdentity }));
     };
   }
 
-  topbar.addEventListener("mousedown", (e) => {
+  topbar.addEventListener("mousedown", /** @param {MouseEvent & { target: HTMLElement }} e */ (e) => {
     if (e.target.closest("button, .pane-close, .pane-action, .pane-identity, .toggle-btn")) return;
     if (e.button !== 0) return;
     startPaneDrag(e, groupName);
@@ -2167,7 +2272,7 @@ function createPane(groupName) {
 
     if (!entry.resizeObserver) {
       let lastW = 0, lastH = 0;
-      entry.resizeObserver = new ResizeObserver((entries) => {
+      entry.resizeObserver = new ResizeObserver(/** @param {ResizeObserverEntry[]} entries */ (entries) => {
         const rect = entries[0]?.contentRect;
         if (!rect || rect.height < 50) return;
         // Skip if dimensions haven't actually changed (prevents spurious scroll resets)
@@ -2186,6 +2291,9 @@ function createPane(groupName) {
   return pane;
 }
 
+/**
+ * @param {string} sessionName
+ */
 function ensureTerminal(sessionName) {
   let entry = state.terminals.get(sessionName);
   if (entry) return entry;
@@ -2204,7 +2312,7 @@ function ensureTerminal(sessionName) {
   term.loadAddon(new window.WebLinksAddon.WebLinksAddon());
 
   let _pasteGuard = false;
-  term.onData((data) => {
+  term.onData(/** @param {string} data */ (data) => {
     if (_pasteGuard) return; // skip — already sent by Ctrl+V handler
     state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
   });
@@ -2213,7 +2321,7 @@ function ensureTerminal(sessionName) {
     state.ws?.send(JSON.stringify({ type: "resize", session: sessionName, payload: { cols, rows } }));
   });
 
-  term.attachCustomKeyEventHandler((e) => {
+  term.attachCustomKeyEventHandler(/** @param {KeyboardEvent} e */ (e) => {
     if (e.type !== "keydown") return true;
     if (e.ctrlKey && e.shiftKey) {
       if (e.key === " ") {
@@ -2263,6 +2371,10 @@ function ensureTerminal(sessionName) {
   return entry;
 }
 
+/**
+ * @param {string} groupName
+ * @param {string} type
+ */
 function switchPaneType(groupName, type) {
   const pg = state.paneGroups.get(groupName);
   if (!pg) return;
@@ -2271,6 +2383,11 @@ function switchPaneType(groupName, type) {
   focusPane(groupName);
 }
 
+/**
+ * @param {MouseEvent} e
+ * @param {string} folderPath
+ * @param {string} folderName
+ */
 function showAiTagContextMenu(e, folderPath, folderName) {
   const menu = byId("pane-context-menu");
   menu.classList.remove("hidden");
@@ -2303,7 +2420,7 @@ function showAiTagContextMenu(e, folderPath, folderName) {
         menu.classList.add("hidden");
         openFolder(folderPath, folderName, preset.command);
       };
-      item.oncontextmenu = (ev) => {
+      item.oncontextmenu = /** @param {MouseEvent} ev */ (ev) => {
         ev.preventDefault();
         setAiDefault(i);
         render(); // re-render to move the star
@@ -2329,7 +2446,7 @@ function showAiTagContextMenu(e, folderPath, folderName) {
 
   render();
 
-  const close = (ev) => {
+  const close = /** @param {MouseEvent & { target: Node }} ev */ (ev) => {
     if (!menu.contains(ev.target)) {
       menu.classList.add("hidden");
       document.removeEventListener("mousedown", close);
@@ -2338,6 +2455,11 @@ function showAiTagContextMenu(e, folderPath, folderName) {
   setTimeout(() => document.addEventListener("mousedown", close), 0);
 }
 
+/**
+ * @param {MouseEvent} e
+ * @param {string} folderPath
+ * @param {string} folderName
+ */
 function showAiPicker(e, folderPath, folderName) {
   const menu = byId("pane-context-menu");
   menu.innerHTML = "";
@@ -2355,7 +2477,7 @@ function showAiPicker(e, folderPath, folderName) {
       menu.classList.add("hidden");
       openFolder(folderPath, folderName, preset.command);
     };
-    item.oncontextmenu = (ev) => {
+    item.oncontextmenu = /** @param {MouseEvent} ev */ (ev) => {
       ev.preventDefault();
       setAiDefault(i);
       showAiPicker(e, folderPath, folderName); // re-render to update star
@@ -2378,7 +2500,7 @@ function showAiPicker(e, folderPath, folderName) {
   };
   menu.appendChild(customItem);
 
-  const close = (ev) => {
+  const close = /** @param {MouseEvent & { target: Node }} ev */ (ev) => {
     if (!menu.contains(ev.target)) {
       menu.classList.add("hidden");
       document.removeEventListener("mousedown", close);
@@ -2387,6 +2509,10 @@ function showAiPicker(e, folderPath, folderName) {
   setTimeout(() => document.addEventListener("mousedown", close), 0);
 }
 
+/**
+ * @param {MouseEvent} e
+ * @param {string} groupName
+ */
 function showPaneContextMenu(e, groupName) {
   const menu = byId("pane-context-menu");
   menu.innerHTML = "";
@@ -2454,7 +2580,7 @@ function showPaneContextMenu(e, groupName) {
   menu.appendChild(newItem);
 
   // Close on click outside
-  const close = (ev) => {
+  const close = /** @param {MouseEvent & { target: Node }} ev */ (ev) => {
     if (!menu.contains(ev.target)) {
       menu.classList.add("hidden");
       document.removeEventListener("mousedown", close);
@@ -2463,6 +2589,11 @@ function showPaneContextMenu(e, groupName) {
   setTimeout(() => document.addEventListener("mousedown", close), 0);
 }
 
+/**
+ * @param {string} groupName
+ * @param {import('./lib/state.js').Workspace | null} fromWs
+ * @param {import('./lib/state.js').Workspace} toWs
+ */
 function movePaneToWorkspace(groupName, fromWs, toWs) {
   if (fromWs) {
     fromWs.layout = removeSessionFromLayout(fromWs.layout, groupName);
@@ -2477,6 +2608,9 @@ function movePaneToWorkspace(groupName, fromWs, toWs) {
   renderActiveWorkspace();
 }
 
+/**
+ * @param {string} sessionName
+ */
 function updatePaneStatus(sessionName) {
   const info = state.sessions.get(sessionName);
   if (!info) return;
@@ -2504,6 +2638,9 @@ function updatePaneStatus(sessionName) {
   });
 }
 
+/**
+ * @param {string} groupName
+ */
 function focusPane(groupName) {
   state.focusedPane = groupName;
   document.querySelectorAll(".pane").forEach((p) => {
@@ -2525,6 +2662,9 @@ function focusPane(groupName) {
 
 // ===== Navigation =====
 
+/**
+ * @param {string} arrowKey
+ */
 function navigatePanes(arrowKey) {
   const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (!ws?.layout) return;
@@ -2537,6 +2677,9 @@ function navigatePanes(arrowKey) {
   focusPane(leaves[newIdx]);
 }
 
+/**
+ * @param {string} arrowKey
+ */
 function resizeFocused(arrowKey) {
   const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (!ws?.layout || ws.layout.type !== "split") return;
@@ -2560,6 +2703,9 @@ function closeFocusedPane() {
   renderActiveWorkspace();
 }
 
+/**
+ * @param {string} sessionName
+ */
 async function killSession(sessionName) {
   try {
     await fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" });
@@ -2601,6 +2747,10 @@ async function killSession(sessionName) {
   renderTabs();
 }
 
+/**
+ * @param {string} sessionName
+ * @param {string} workingDir
+ */
 function showDirtyWarning(sessionName, workingDir) {
   const folderName = workingDir.split(/[/\\]/).filter(Boolean).pop();
   log(`[dirty] ${sessionName} exited with uncommitted changes in ${folderName}`);
@@ -2613,6 +2763,9 @@ function showDirtyWarning(sessionName, workingDir) {
   setTimeout(() => toast.remove(), 30000);
 }
 
+/**
+ * @param {string} sessionName
+ */
 function autoRemoveDeadSession(sessionName) {
   // Check it's still dead (not restarted)
   const s = state.sessions.get(sessionName);
@@ -2731,7 +2884,11 @@ function renderDashboard() {
 }
 
 function buildHeaderHTML() {
-  const totalCost = [...state.sessions.values()].reduce((s, i) => s + (i.costUsd || 0), 0);
+  const totalCost = [...state.sessions.values()].reduce(/**
+   * @param {number} s
+   * @param {import('./lib/state.js').SessionInfo} i
+   */
+  (s, i) => s + (i.costUsd || 0), 0);
   const alive = [...state.sessions.values()].filter(i => i.status !== "dead").length;
   const busy = [...state.sessions.values()].filter(i => i.status === "busy").length;
   return `
@@ -2745,6 +2902,10 @@ function buildHeaderHTML() {
   `;
 }
 
+/**
+ * @param {string} name
+ * @param {import('./lib/state.js').SessionInfo} info
+ */
 function createDashboardCard(name, info) {
   const card = document.createElement("div");
   card.className = `dashboard-card status-${info.status}`;
@@ -2770,6 +2931,9 @@ function createDashboardCard(name, info) {
   return card;
 }
 
+/**
+ * @param {HTMLElement} dash
+ */
 function patchDashboard(dash) {
   if (state.sessions.size === 0) {
     dash.innerHTML = `
@@ -2835,6 +2999,9 @@ function patchDashboard(dash) {
 
 }
 
+/**
+ * @param {string} sessionName
+ */
 async function loadSnapshot(sessionName) {
   try {
     const res = await fetch(`/api/sessions/${encodeURIComponent(sessionName)}/snapshot?lines=8`);
@@ -2852,7 +3019,7 @@ function renderDashboardStats() {
   const container = byId("dashboard-stats");
   if (!container) return;
 
-  fetch("/api/stats").then((r) => r.json()).then((stats) => {
+  fetch("/api/stats").then((r) => r.json()).then(/** @param {any[]} stats */ (stats) => {
     if (!state.isDashboard) return;
 
     const statsMap = new Map(stats.map((s) => [s.name, s]));
@@ -2939,6 +3106,9 @@ let trackerSortField = "status"; // default: grouped by status
 let trackerSortDir = "asc";
 let trackerPrevItems = new Map();
 
+/**
+ * @param {any[]} items
+ */
 function filterTrackerItems(items) {
   return _filterTrackerItems(items, {
     repo: /** @type {HTMLSelectElement|null} */ (byId("tracker-filter-repo"))?.value || "",
@@ -2948,6 +3118,9 @@ function filterTrackerItems(items) {
   });
 }
 
+/**
+ * @param {any[]} items
+ */
 function populateTrackerFilters(items) {
   const repoSel = byId("tracker-filter-repo");
   const assigneeSel = byId("tracker-filter-assignee");
@@ -2955,7 +3128,11 @@ function populateTrackerFilters(items) {
 
   const { repos, assignees } = extractFilterOptions(items);
 
-  const updateOptions = (sel, options) => {
+  const updateOptions = /**
+   * @param {HTMLSelectElement} sel
+   * @param {string[]} options
+   */
+  (sel, options) => {
     const saved = localStorage.getItem(`pty-win-${sel.id}`) || "";
     const current = sel.value;
     if (sel.options.length - 1 === options.length) return; // no change
@@ -2968,6 +3145,9 @@ function populateTrackerFilters(items) {
   updateOptions(assigneeSel, assignees);
 }
 
+/**
+ * @param {any[]} items
+ */
 function sortTrackerItems(items) {
   return _sortTrackerItems(items, trackerSortField, trackerSortDir);
 }
@@ -2975,6 +3155,9 @@ function sortTrackerItems(items) {
 let _trackerRowNum = 0;
 function resetTrackerRowNum() { _trackerRowNum = 0; }
 
+/**
+ * @param {import('./lib/state.js').TrackerItem} item
+ */
 function buildTrackerItem(item) {
   const el = document.createElement("div");
   el.className = `tracker-item`;
@@ -2998,6 +3181,10 @@ function buildTrackerItem(item) {
   return el;
 }
 
+/**
+ * @param {HTMLElement} el
+ * @param {import('./lib/state.js').TrackerItem} item
+ */
 function patchTrackerItem(el, item) {
   const titleEl = el.querySelector(".tracker-item-title");
   if (titleEl && titleEl.textContent !== item.title) titleEl.textContent = item.title;
@@ -3029,6 +3216,9 @@ function patchTrackerItem(el, item) {
 
 const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = flex; first col is row #
 
+/**
+ * @param {HTMLElement} container
+ */
 function initTrackerColumnResize(container) {
   const thead = container.querySelector(".tracker-thead");
   if (!thead) return;
@@ -3061,13 +3251,13 @@ function initTrackerColumnResize(container) {
     handle.className = "tracker-col-resize";
     ths[i].appendChild(handle);
 
-    handle.onmousedown = (e) => {
+    handle.onmousedown = /** @param {MouseEvent} e */ (e) => {
       e.preventDefault();
       e.stopPropagation();
       handle.classList.add("dragging");
       const startX = e.clientX;
       const startW = ths[i].offsetWidth;
-      const onMove = (ev) => {
+      const onMove = /** @param {MouseEvent} ev */ (ev) => {
         const delta = ev.clientX - startX;
         const newW = Math.max(30, startW + delta);
         colWidths[i] = newW;
@@ -3085,6 +3275,10 @@ function initTrackerColumnResize(container) {
   }
 }
 
+/**
+ * @param {HTMLElement} el
+ * @param {string} itemId
+ */
 function loadTrackerHistory(el, itemId) {
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
   const detail = el.querySelector(".tracker-item-detail");
@@ -3201,7 +3395,11 @@ function renderTracker() {
     initTrackerColumnResize(container);
 
     // Wire filter dropdowns
-    const wireFilter = (id, key) => {
+    const wireFilter = /**
+     * @param {string} id
+     * @param {string} key
+     */
+    (id, key) => {
       const el = container.querySelector(`#${id}`);
       if (!el) return;
       const saved = localStorage.getItem(`pty-win-${id}`);
@@ -3236,7 +3434,7 @@ function renderTracker() {
     headers: { "X-Emcom-Name": identity },
   })
     .then(r => r.json())
-    .then(items => {
+    .then(/** @param {any[]} items */ items => {
       state.trackerItems = items;
       state.trackerDecisionCount = items.filter(i => i.status === "decision-pending").length;
 
@@ -3269,6 +3467,10 @@ function renderTracker() {
     });
 }
 
+/**
+ * @param {HTMLElement} container
+ * @param {any[]} items
+ */
 function renderTrackerBody(container, items) {
   const body = container.querySelector(".tracker-body");
   if (!body) return;
@@ -3383,17 +3585,17 @@ byId("m-create").onclick = () => {
   closeModal();
   openFolder(path, null, cmd);
 };
-byId("modal-overlay").onclick = (e) => {
+byId("modal-overlay").onclick = /** @param {MouseEvent} e */ (e) => {
   if (e.target === byId("modal-overlay")) closeModal();
 };
-byId("m-path").addEventListener("keydown", (e) => {
+byId("m-path").addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
   if (e.key === "Enter") byId("m-create").click();
   if (e.key === "Escape") closeModal();
 });
 
 // ===== Global keyboard shortcuts =====
 
-document.addEventListener("keydown", (e) => {
+document.addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
   if (e.ctrlKey && !e.shiftKey && e.key === "p") {
     e.preventDefault();
     openQuickOpen();
@@ -3507,6 +3709,9 @@ window.addEventListener("load", () => {
     "#e5c07b", "#ff6ac1", "#7ee787", "#a2d2fb", "#ffa657", "#bc8cff",
   ];
   const senderColorCache = new Map();
+  /**
+   * @param {string} name
+   */
   function getSenderColor(name) {
     if (senderColorCache.has(name)) return senderColorCache.get(name);
     let hash = 0;
@@ -3522,14 +3727,14 @@ window.addEventListener("load", () => {
 
   // --- Resize handle ---
   const feedHandle = byId("feed-resize-handle");
-  feedHandle.addEventListener("mousedown", (e) => {
+  feedHandle.addEventListener("mousedown", /** @param {MouseEvent} e */ (e) => {
     e.preventDefault();
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     // Pause ResizeObservers during drag to prevent fit() on every frame
     for (const entry of state.terminals.values()) entry.resizeObserver?.disconnect();
     let rafPending = false;
-    const onMove = (ev) => {
+    const onMove = /** @param {MouseEvent} ev */ (ev) => {
       if (rafPending) return;
       rafPending = true;
       requestAnimationFrame(() => {
@@ -3577,13 +3782,16 @@ window.addEventListener("load", () => {
   function updateTitle() {
     titleEl.textContent = "EMCOM FEED";
     identityBadge.textContent = feedIdentity || "";
-    identityBadge.onclick = feedIdentity ? (e) => {
+    identityBadge.onclick = feedIdentity ? /** @param {MouseEvent} e */ (e) => {
       e.stopPropagation();
       if (pickerOpen) { pickerOpen = false; lastFeedJson = ""; renderFeed(); }
       else showIdentityPicker();
     } : null;
   }
 
+  /**
+   * @param {number} count
+   */
   function updateUnreadBadge(count) {
     if (count > 0) {
       unreadBadge.textContent = count; unreadBadge.classList.remove("hidden");
@@ -3601,7 +3809,7 @@ window.addEventListener("load", () => {
     body.innerHTML = '<div class="feed-empty">// LOADING IDENTITIES...</div>';
     fetch(`/api/emcom/who?_=${Date.now()}`)
       .then(r => r.json())
-      .then(identities => {
+      .then(/** @param {any[]} identities */ identities => {
         body.innerHTML = "";
         if (!identities || identities.length === 0) {
           body.innerHTML = '<div class="feed-empty">// NO REGISTERED IDENTITIES<br>&gt; awaiting signal...</div>';
@@ -3672,6 +3880,9 @@ window.addEventListener("load", () => {
     renderFeed();
   };
 
+  /**
+   * @param {string} iso
+   */
   function fmtTime(iso) {
     const d = new Date(iso);
     const mo = String(d.getMonth() + 1).padStart(2, "0");
@@ -3681,6 +3892,9 @@ window.addEventListener("load", () => {
     return `${mo}/${day} ${hr}:${min}`;
   }
 
+  /**
+   * @param {string} str
+   */
   function escHtml(str) {
     const d = document.createElement("div");
     d.textContent = str;
@@ -3694,7 +3908,7 @@ window.addEventListener("load", () => {
     if (!feedIdentity) { showIdentityPicker(); return; }
     fetch(`/api/emcom-feed?identity=${encodeURIComponent(feedIdentity)}`)
       .then(r => r.text())
-      .then(text => {
+      .then(/** @param {string} text */ text => {
         if (text === lastFeedJson) return; // skip re-render if unchanged
         lastFeedJson = text;
         let emails;
@@ -3711,12 +3925,16 @@ window.addEventListener("load", () => {
         }
 
         // Sort
-        emails.sort((a, b) => sortNewest
+        emails.sort(/**
+         * @param {any} a
+         * @param {any} b
+         */
+        (a, b) => sortNewest
           ? new Date(b.created_at) - new Date(a.created_at)
           : new Date(a.created_at) - new Date(b.created_at));
 
         // Populate sender dropdown (preserve current selection)
-        const senders = [...new Set(emails.map(e => e.sender))].sort();
+        const senders = [...new Set(emails.map(/** @param {any} e */ e => e.sender))].sort();
         const prevSender = senderSelect.value;
         senderSelect.innerHTML = '<option value="">all</option>';
         for (const s of senders) {
@@ -3728,8 +3946,8 @@ window.addEventListener("load", () => {
 
         // Filter
         let filtered = emails;
-        if (filterSender) filtered = filtered.filter(e => e.sender === filterSender);
-        if (filterText) filtered = filtered.filter(e =>
+        if (filterSender) filtered = filtered.filter(/** @param {any} e */ e => e.sender === filterSender);
+        if (filterText) filtered = filtered.filter(/** @param {any} e */ e =>
           (e.subject || "").toLowerCase().includes(filterText) ||
           (e.body || "").toLowerCase().includes(filterText) ||
           (e.sender || "").toLowerCase().includes(filterText));
@@ -3753,7 +3971,7 @@ window.addEventListener("load", () => {
         for (const e of emails) { if (e.tags?.includes("unread")) unreadCount++; }
         updateUnreadBadge(unreadCount);
 
-        const currentIds = new Set(emails.map(e => e.id));
+        const currentIds = new Set(emails.map(/** @param {any} e */ e => e.id));
         const scrollTop = body.scrollTop;
 
         body.classList.add("feed-no-transition");
@@ -3778,7 +3996,7 @@ window.addEventListener("load", () => {
             <div class="feed-subject">${escHtml(root.subject)}${replies.length > 0 ? `<span class="feed-thread-count">[${replies.length + 1}]</span>` : ""}</div>
             <div class="feed-preview">${escHtml((root.body || "").slice(0, 100))}</div>
             <div class="feed-body-text">${escHtml(root.body || "")}</div>`;
-          div.onclick = (e) => {
+          div.onclick = /** @param {MouseEvent & { target: HTMLElement }} e */ (e) => {
             if (e.target.closest(".feed-body-text")) return;
             if (expandedItems.has(root.id)) expandedItems.delete(root.id);
             else expandedItems.add(root.id);
@@ -3802,7 +4020,7 @@ window.addEventListener("load", () => {
               </div>
               <div class="feed-preview">${escHtml((reply.body || "").slice(0, 100))}</div>
               <div class="feed-body-text">${escHtml(reply.body || "")}</div>`;
-            rdiv.onclick = (e) => {
+            rdiv.onclick = /** @param {MouseEvent & { target: HTMLElement }} e */ (e) => {
               if (e.target.closest(".feed-body-text")) return;
               if (expandedItems.has(reply.id)) expandedItems.delete(reply.id);
               else expandedItems.add(reply.id);
@@ -3831,7 +4049,7 @@ window.addEventListener("load", () => {
   setInterval(() => { if (feedIdentity) renderFeed(); }, FEED_POLL_MS);
 
   // Listen for identity changes from pane topbar clicks
-  window.addEventListener("feed-identity-change", (e) => {
+  window.addEventListener("feed-identity-change", /** @param {CustomEvent} e */ (e) => {
     feedIdentity = e.detail;
     pickerOpen = false;
     lastFeedJson = "";
@@ -3872,7 +4090,7 @@ function renderAgentsPanel() {
   }
 
   // Fetch stats for cb/s data
-  fetch("/api/stats").then(r => r.json()).then(stats => {
+  fetch("/api/stats").then(r => r.json()).then(/** @param {any[]} stats */ stats => {
     const statsMap = new Map(stats.map(s => [s.name, s]));
 
     // Patch summary
@@ -3966,8 +4184,11 @@ function renderAgentsPanel() {
   }).catch(() => {});
 }
 
+/**
+ * @param {HTMLElement} panel
+ */
 function fetchCostHistory(panel) {
-  fetch("/api/cost-history").then(r => r.json()).then(history => {
+  fetch("/api/cost-history").then(r => r.json()).then(/** @param {any[]} history */ history => {
     if (!history || history.length < 2) return;
 
     // Extract per-session time series
@@ -4033,6 +4254,10 @@ function fetchCostHistory(panel) {
   }).catch(() => {});
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @param {number[]} data
+ */
 function drawSparkline(canvas, data) {
   if (data.length < 2) return;
   const ctx = canvas.getContext("2d");
@@ -4151,10 +4376,17 @@ function drawSparkline(canvas, data) {
     initialState = {};
   }
 
+  /**
+   * @param {boolean} visible
+   */
   function show(visible) {
     modal.classList.toggle("hidden", !visible);
   }
 
+  /**
+   * @param {string} msg
+   * @param {string} [level]
+   */
   function setStatus(msg, level) {
     status.textContent = msg || "";
     status.classList.remove("error", "ok");
@@ -4169,6 +4401,10 @@ function drawSparkline(canvas, data) {
     }
   }
 
+  /**
+   * @param {string} key
+   * @param {any} def
+   */
   function renderRow(key, def) {
     const row = document.createElement("div");
     row.className = `settings-row ${def.type}`;
@@ -4254,6 +4490,10 @@ function drawSparkline(canvas, data) {
     return row;
   }
 
+  /**
+   * @param {any} value
+   * @param {any} def
+   */
   function isCustom(value, def) {
     if (def.type !== "select" || !def.allowCustom) return false;
     if (!value) return false;
@@ -4314,7 +4554,7 @@ function drawSparkline(canvas, data) {
   backdrop.onclick = closeModal;
   saveBtn.onclick = save;
 
-  document.addEventListener("keydown", (e) => {
+  document.addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
     if (e.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
   });
 })();

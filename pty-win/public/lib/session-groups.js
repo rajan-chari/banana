@@ -5,24 +5,8 @@
 // app.js wraps these and supplies state.paneGroups / state.sessions at call time.
 // All functions are read-only on their inputs.
 
-/** @typedef {{
- *   name: string,
- *   status?: "idle" | "busy" | "starting" | "dead",
- *   workingDir?: string,
- *   command?: string,
- *   unreadCount?: number,
- *   pendingPermission?: boolean,
- *   emcomIdentity?: string | null,
- *   group?: string,
- *   [key: string]: unknown,
- * }} SessionInfo */
-
-/** @typedef {{
- *   claude?: string | null,
- *   pwsh?: string | null,
- *   activeType?: "claude" | "pwsh",
- *   [key: string]: unknown,
- * }} PaneGroup */
+/** @typedef {import('./state.js').SessionInfo} SessionInfo */
+/** @typedef {import('./state.js').PaneGroup} PaneGroup */
 
 /** @typedef {{
  *   group: string,

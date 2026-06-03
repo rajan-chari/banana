@@ -3,16 +3,7 @@
 // loadAndRenderChildren() and refreshTreeRunningState() (tracker 8eb3a993
 // Phase 3). DOM building stays in app.js; only data-derivation moves here.
 
-/** @typedef {{
- *   name: string,
- *   status?: "idle" | "busy" | "starting" | "dead",
- *   workingDir?: string,
- *   command?: string,
- *   unreadCount?: number,
- *   pendingPermission?: boolean,
- *   emcomIdentity?: string | null,
- *   [key: string]: unknown,
- * }} SessionInfo */
+/** @typedef {import('./state.js').SessionInfo} SessionInfo */
 
 /** @typedef {(path: string | undefined | null) => string} NormPathFn */
 
