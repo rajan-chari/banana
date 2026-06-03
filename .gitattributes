@@ -1,0 +1,5 @@
+# Pin shell scripts to LF so they work under bash on any platform.
+# Without this, Windows checkout converts to CRLF and bash hooks fail
+# with "$'\r': command not found".
+.githooks/pre-push text eol=lf
+*.sh             text eol=lf

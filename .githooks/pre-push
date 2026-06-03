@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# pre-push hook for the banana monorepo.
+# Runs subproject checks when their files are part of the push.
+#
+# Activate (one-time per clone):
+#   git config core.hooksPath .githooks
+#
+# Skip in an emergency:
+#   git push --no-verify
+
+set -e
+
+# Determine the range of commits being pushed. Prefer upstream tracking
+# ref; fall back to origin/main for first-push scenarios.
+if git rev-parse --abbrev-ref @{u} > /dev/null 2>&1; then
+  range="@{u}..HEAD"
+else
+  range="origin/main..HEAD"
+fi
+
+changed=$(git diff --name-only "$range" 2>/dev/null || true)
+
+if [ -z "$changed" ]; then
+  echo "[pre-push] no changes against $range — skipping checks"
+  exit 0
+fi
+
+if echo "$changed" | grep -qE '^pty-win/'; then
+  echo "[pre-push] pty-win changes detected — running npm run check + npm test"
+  (cd pty-win && npm run check && npm test)
+fi
+
+echo "[pre-push] OK"
