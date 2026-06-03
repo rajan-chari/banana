@@ -89,6 +89,7 @@ Lazy-loaded tree via `GET /api/folders?path=...`. Checks each directory for `CLA
 
 - **`@xterm/headless` is CJS** — import as `import pkg from "@xterm/headless"; const { Terminal } = pkg;`
 - **Windows PTY** — spawns via `cmd.exe /c <command>` (npm .cmd shims need this)
+- **Vitest invocation path matters** — `npm --prefix <repo> test` can fail with `Cannot read properties of undefined (reading 'config')`; run tests from repo root with `npm test` (or use `npx vitest run`)
 - **Use `127.0.0.1`** not `localhost` (IPv6 penalty on Windows)
 - **xterm.js `open()` once only** — terminal uses a persistent wrapper div moved between re-renders
 - **`fitAddon.fit()` timing** — ResizeObserver + explicit resize sync to server after every fit

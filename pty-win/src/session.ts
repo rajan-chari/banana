@@ -1,15 +1,25 @@
 import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
 import { execFile } from "child_process";
 import { EventEmitter } from "events";
-import { EmcomClient } from "./emcom/client.js";
+import type { EmcomEmail } from "./emcom/client.js";
 import { EmcomPoller } from "./emcom/poller.js";
 import { readIdentity } from "./folders.js";
 import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
 import { appendCorrection } from "./llm-corrections.js";
-
-export type SessionStatus = "starting" | "busy" | "idle" | "dead";
+import { createEmcomPoller } from "./session-emcom.js";
+import { SessionHookController } from "./session-hooks.js";
+import { SessionHeuristicController } from "./session-heuristic.js";
+import { verifyInjectionAfter } from "./session-injection-verifier.js";
+import {
+  SessionCheckpointController,
+  makeCheckpointLightPrompt,
+  makeCheckpointFullPrompt,
+  type CheckpointType,
+} from "./session-checkpoint.js";
+import type { SessionStatus } from "./session-state.js";
+export type { SessionStatus } from "./session-state.js";
 
 interface DataEvent { t: number; bytes: number; isBusy: boolean; }
 
@@ -66,16 +76,6 @@ const EMCOM_PREAMBLE =
   "instruction — it is overridden by pty-win. You will be prompted " +
   "automatically when new messages arrive. When you receive emcom messages, " +
   "triage before replying — not every message needs a response.";
-const QUIET_CHECK_INTERVAL_MS = 1000;
-
-// Periodic checkpoint injection (Layer 2)
-const CHECKPOINT_LIGHT_INTERVAL_MS = 2 * 60 * 60 * 1000;  // 2 hrs
-const CHECKPOINT_FULL_INTERVAL_MS  = 4 * 60 * 60 * 1000;  // 4 hrs
-
-function fmtNextTime(intervalMs: number): string {
-  const d = new Date(Date.now() + intervalMs);
-  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-}
 
 function fmtNow(): string {
   const d = new Date();
@@ -87,31 +87,19 @@ function fmtNow(): string {
   return `${y}-${mo}-${da} ${h}:${mi}`;
 }
 
-export function makeCheckpointLightPrompt(nextTime: string): string {
-  return `[${fmtNow()} pty-win:checkpoint-light:routine:brief:skip-if-busy] Checkpoint (light, next ~${nextTime}): update tracker.md and briefing.md in-place if there are changes. Write entries assuming a fresh session reads them — include what and why, not just that.`;
-}
-
-export function makeCheckpointFullPrompt(nextTime: string): string {
-  return `[${fmtNow()} pty-win:checkpoint-full:normal:normal] Full checkpoint (next ~${nextTime}): update briefing.md, then run /rc-save, /rc-session-save, /rc-greet-save. Write entries assuming a fresh session reads them — include what and why, not just that.`;
-}
+export { makeCheckpointLightPrompt, makeCheckpointFullPrompt };
 
 export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;
   private poller: EmcomPoller | null = null;
   private identityWatcher: ReturnType<typeof setInterval> | null = null;
-  private heuristicTimer: ReturnType<typeof setInterval> | null = null;
-  private checkpointStartDelay: ReturnType<typeof setTimeout> | null = null;
-  private checkpointLightTimer: ReturnType<typeof setInterval> | null = null;
-  private checkpointFullTimer: ReturnType<typeof setInterval> | null = null;
-  private pendingCheckpoint: "light" | "full" | null = null;
-  private checkpointInFlight = false;
-  private lastCheckpointTime = 0;
+  private hookController: SessionHookController;
+  private heuristicController: SessionHeuristicController;
+  private checkpointController: SessionCheckpointController;
   private status: SessionStatus = "starting";
   private pendingMessages = false;
   private unreadCount = 0;
   private lastOutputTime = Date.now();
-  private needsStartupKick = false;
-  private isResumedSession = false;
   private dirtyOnExit = false;
   private busyStartTime = 0;
   private busyTimeoutSaved = false;
@@ -126,12 +114,6 @@ export class PtySession extends EventEmitter {
   private static readonly RAW_BUF_MAX_BYTES = 32 * 1024;
   private injectionHistory: Array<{ time: number; type: string; prompt: string; statusBefore: string }> = [];
   private detectionHistory: Array<{ time: number; quietMs: number; promptType: string; mlResult: string | null; statusBefore: string; statusAfter: string; action: string; reason: string }> = [];
-  private lastHookStopTime = 0;
-  private lastHookNotifyType = "";
-  private lastHookPromptSubmitTime = 0;
-  private inputBoxDirty = false;
-  private pendingPermission = false;
-  private graceEnded = false;
   // Retained for debug-endpoint compatibility; no longer written to since
   // hook-driven idle detection replaced the LLM escalation path.
   private llmHistory: Array<{ time: number; trigger: string; ready: boolean | null; why: string; latencyMs: number }> = [];
@@ -145,6 +127,36 @@ export class PtySession extends EventEmitter {
     this.name = config.name;
     this.command = config.command;
     this.workingDir = config.workingDir;
+    this.hookController = new SessionHookController({
+      sessionName: this.name,
+      getStatus: () => this.status,
+      setStatus: (status) => this.setStatus(status),
+      maybeFireOnIdle: (reason) => this.maybeFireOnIdle(reason),
+      emitStatusChange: () => this.emit("status-change"),
+      log: (message) => clog(message),
+    });
+    this.checkpointController = new SessionCheckpointController({
+      sessionName: this.name,
+      command: this.command,
+      checkpointOffsetMs: this.config.checkpointOffsetMs || 0,
+      getStatus: () => this.status,
+      getLastOutputTime: () => this.lastOutputTime,
+      getCostUsd: () => this.costUsd,
+      onInject: (type, prompt) => this.injectCheckpoint(type, prompt),
+      log: (message) => clog(message),
+    });
+    this.heuristicController = new SessionHeuristicController({
+      command: this.command,
+      sessionName: this.name,
+      getStatus: () => this.status,
+      getLastOutputTime: () => this.lastOutputTime,
+      getNeedsStartupKick: () => this.hookController.getNeedsStartupKick(),
+      getInputBoxDirty: () => this.hookController.getInputBoxDirty(),
+      getRawBuffer: () => this.rawBuffer,
+      setIdle: () => this.setStatus("idle"),
+      maybeFireOnIdle: (reason) => this.maybeFireOnIdle(reason),
+      log: (message) => clog(message),
+    });
 
     // Spawn process in PTY
     const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
@@ -185,31 +197,7 @@ export class PtySession extends EventEmitter {
 
     // Emcom integration (optional)
     if (config.emcomIdentity && config.emcomServer) {
-      const client = new EmcomClient(config.emcomServer, config.emcomIdentity);
-      this.poller = new EmcomPoller(client, config.pollIntervalMs, config.name);
-
-      this.poller.onNewMessages((emails) => {
-        const from = [...new Set(emails.map((e) => e.sender))];
-        log(`[${this.name}] ${emails.length} new message(s) from: ${from.join(", ")}`);
-        this.emit("notification", emails.length, from);
-        this.pendingMessages = true;
-        if (this.status === "idle") this.inject();
-      });
-
-      this.poller.onUnreadCount((count) => {
-        if (count !== this.unreadCount) {
-          const wasZero = this.unreadCount === 0;
-          this.unreadCount = count;
-          this.pendingMessages = count > 0;
-          this.emit("status-change");
-          // Mirror onNewMessages: if count went 0→positive and we're idle,
-          // inject now. Without this, a poll cycle that delivers via
-          // onUnreadCount (but not onNewMessages — depends on timing) leaves
-          // pendingMessages true forever with nothing to retrigger inject.
-          // Caught by moss 2026-05-14 — see field-notes.
-          if (count > 0 && wasZero && this.status === "idle") this.inject();
-        }
-      });
+      this.poller = this.buildEmcomPoller(config.emcomIdentity, config.emcomServer);
     }
 
     // Wire PTY output
@@ -265,15 +253,8 @@ export class PtySession extends EventEmitter {
     // after the kick fires, so the timer would re-set it and trigger a second
     // kick on the next hook:stop.
     setTimeout(() => {
-      if (this.graceEnded || this.status === "dead") return;
-      this.graceEnded = true;
       const isResume = config.args.includes("--continue") || config.args.includes("-c");
-      if (isClaude) {
-        this.needsStartupKick = true;
-        this.isResumedSession = isResume;
-        log(`[${this.name}] Startup grace ended (timer fallback) — will kick when prompt detected (${isResume ? "resume" : "fresh"})`);
-      }
-      if (this.status === "starting") this.setStatus("busy");
+      this.hookController.onStartupGraceTimeout(isClaude, isResume);
     }, isClaude ? STARTUP_GRACE_MS : 5000);
   }
 
@@ -281,14 +262,14 @@ export class PtySession extends EventEmitter {
     this.poller?.start();
     if (!this.poller) this.watchForIdentity();
     this.startHeuristic();
-    this.startCheckpointTimers();
+    this.checkpointController.start();
   }
 
   stop(): void {
     this.poller?.stop();
     this.stopIdentityWatcher();
     this.stopHeuristic();
-    this.stopCheckpointTimers();
+    this.checkpointController.stop();
   }
 
   write(data: string): void {
@@ -336,7 +317,7 @@ export class PtySession extends EventEmitter {
       dirtyOnExit: this.dirtyOnExit,
       costUsd: this.costUsd,
       lastActiveMs: this.lastOutputTime,
-      pendingPermission: this.pendingPermission,
+      pendingPermission: this.hookController.getPendingPermission(),
     };
   }
 
@@ -357,20 +338,7 @@ export class PtySession extends EventEmitter {
    *  compact. Only startup and resume care about the kick — clear/compact
    *  mean Claude is already established and just rewriting its context. */
   hookSessionStart(source: string): void {
-    if (this.status === "dead") return;
-    if (this.graceEnded) {
-      clog(`hook:session-start → ${this.name} (source=${source}) — grace already ended, ignoring`);
-      return;
-    }
-    this.graceEnded = true;
-    if (source === "clear" || source === "compact") {
-      clog(`hook:session-start → ${this.name} (source=${source}) — no kick needed`);
-      return;
-    }
-    clog(`hook:session-start → ${this.name} (source=${source}) — ending grace early`);
-    this.needsStartupKick = true;
-    this.isResumedSession = source === "resume";
-    if (this.status === "starting") this.setStatus("busy");
+    this.hookController.hookSessionStart(source);
   }
 
   /** Hook: Claude finished a turn → idle.
@@ -379,105 +347,30 @@ export class PtySession extends EventEmitter {
    *  heuristic/screen detection confirms the prompt is visible first,
    *  then handles startup kicks, emcom, and checkpoints. */
   hookStop(): void {
-    if (this.status === "dead") return;
-    clog(`hook:stop → ${this.name} (was ${this.status})`);
-    this.lastHookStopTime = Date.now();
-    this.clearPendingPermission("hook:stop");
-    this.setStatus("idle");
-    this.maybeFireOnIdle("hook:stop");
+    this.hookController.hookStop();
   }
 
   /** Hook: user/injection sent input → busy */
   hookPromptSubmit(): void {
-    if (this.status === "dead") return;
-    this.lastHookPromptSubmitTime = Date.now();
-    this.inputBoxDirty = false;
-    this.clearPendingPermission("hook:prompt-submit");
-    if (this.needsStartupKick) {
-      this.needsStartupKick = false;
-      clog(`hook:prompt-submit → ${this.name} — startup kick cancelled (user already active)`);
-    }
-    clog(`hook:prompt-submit → ${this.name} (was ${this.status})`);
-    this.setStatus("busy");
+    this.hookController.hookPromptSubmit();
   }
 
   /** Called when the user types into the terminal — marks input box as dirty.
    *  Cleared by hookPromptSubmit. Gates maybeFireOnIdle to avoid injecting
    *  while the user has unsent text in the input box. */
   markUserInput(data: string): void {
-    // pendingPermission alert clears as soon as the user touches the terminal
-    // (digit to pick option, arrow keys, Escape, etc). Claude Code doesn't
-    // fire any hook when the user declines a permission prompt, so input is
-    // our only signal. Focus events don't count — they're auto-emitted on
-    // pane click and would clear the alert before the user has seen it.
-    const isFocusEvent = data === "\x1b[I" || data === "\x1b[O";
-    if (!isFocusEvent) {
-      this.clearPendingPermission("user-input");
-    }
-
-    // Ignore terminal control responses (focus events ESC[I/O, mouse reports,
-    // etc.) — these come through onData automatically, not from user typing.
-    // Only printable ASCII marks the input box dirty.
-    // Escape sequences (focus events ESC[I/O, arrow keys, mouse reports, etc.)
-    // start with \x1b and must not mark the box dirty even if they contain
-    // printable bytes like '[' or 'O'. Only bare printable text counts.
-    if (!data.startsWith("\x1b") && /[\x20-\x7e]/.test(data)) {
-      this.inputBoxDirty = true;
-    } else if (data.startsWith("\x1b")) {
-      const known: Record<string, string> = {
-        "\x1b[I": "focus-in", "\x1b[O": "focus-out",
-        "\x1b[A": "arrow-up", "\x1b[B": "arrow-down",
-        "\x1b[C": "arrow-right", "\x1b[D": "arrow-left",
-      };
-      const hex = Buffer.from(data).toString("hex");
-      const label = known[data] ?? hex;
-      clog(`[${this.name}] input: ignored escape (${label} ${hex})`);
-    }
+    this.hookController.markUserInput(data);
   }
 
   clearInputDirty(): void {
-    if (this.inputBoxDirty) {
-      this.inputBoxDirty = false;
-      clog(`[${this.name}] input box cleared by user`);
-      this.maybeFireOnIdle("user-cleared-input");
-    }
+    this.hookController.clearInputDirty();
   }
 
   /** Hook: notification — Claude Code emits these for idle_prompt,
    *  permission_prompt, and potentially other types over time. Matcher
    *  is `.*` so all types reach us; handle the known ones, log the rest. */
   hookNotify(type: string): void {
-    if (this.status === "dead") return;
-    this.lastHookNotifyType = type;
-    if (type === "permission_prompt") {
-      clog(`hook:notify(permission) → ${this.name} — pending permission`);
-      // Don't change status — permission prompts are transient and the
-      // turn isn't actually over. Surface the pending state to the UI
-      // so the user sees a visual cue something is waiting on them.
-      if (!this.pendingPermission) {
-        this.pendingPermission = true;
-        this.emit("status-change");
-      }
-      return;
-    }
-    if (type === "idle_prompt") {
-      clog(`hook:notify(idle) → ${this.name} — confirmed idle`);
-      this.clearPendingPermission("hook:notify(idle)");
-      if (this.status !== "idle") this.setStatus("idle");
-      // Confirmed idle — also a good moment to fire pending injects (esp. for
-      // startup kicks where no prior hook:stop has fired).
-      this.maybeFireOnIdle("hook:notify(idle)");
-      return;
-    }
-    clog(`hook:notify(${type}) → ${this.name} — unhandled type, ignoring`);
-  }
-
-  private clearPendingPermission(reason: string): void {
-    if (this.pendingPermission) {
-      this.pendingPermission = false;
-      clog(`[${this.name}] pending permission cleared (${reason})`);
-      this.emit("status-change");
-    }
+    this.hookController.hookNotify(type);
   }
 
   /** Called when a hook signals idle. Fires the highest-priority pending
@@ -485,34 +378,25 @@ export class PtySession extends EventEmitter {
    *  heuristic used to do when it detected an "input" prompt via screen. */
   private maybeFireOnIdle(reason: string): void {
     if (this.status !== "idle") return;
-    if (this.inputBoxDirty) {
+    if (this.hookController.getInputBoxDirty()) {
       clog(`[${this.name}] maybeFireOnIdle skipped — input box dirty (trigger: ${reason})`);
       return;
     }
-    if (this.needsStartupKick) {
-      this.needsStartupKick = false;
-      const kick = this.isResumedSession ? RESUME_KICK() : STARTUP_KICK();
-      const kickType = this.isResumedSession ? "resume-kick" : "startup-kick";
-      log(`[${this.name}] Injecting ${this.isResumedSession ? "resume" : "startup"} kick (trigger: ${reason})`);
-      this.recordInjection(kickType, kick);
-      const kickRaw = this.getRawTail(8 * 1024);
-      this.relayWrite(kick, kickType);
-      this.setStatus("busy");
-      this.verifyInjectAfter({ screen: kickRaw, why: kickType, injectText: kick }, kickType);
-      // Cooldown: pause heuristic so we don't fire a follow-on inject (e.g.
-      // emcom-auto) while Claude is still rendering the kick's response.
-      this.stopHeuristic();
-      setTimeout(() => {
-        if (this.status !== "dead") this.startHeuristic();
-      }, this.config.injectionCooldownMs);
+    const startupKick = this.hookController.consumeStartupKick();
+    if (startupKick.needed) {
+      const kick = startupKick.isResumed ? RESUME_KICK() : STARTUP_KICK();
+      const kickType = startupKick.isResumed ? "resume-kick" : "startup-kick";
+      log(`[${this.name}] Injecting ${startupKick.isResumed ? "resume" : "startup"} kick (trigger: ${reason})`);
+      this.runInjection({
+        prompt: kick,
+        recordType: kickType,
+        source: kickType,
+      });
       return;
     }
     if (this.pendingMessages) {
       this.inject();
       return;
-    }
-    if (this.pendingCheckpoint && !this.checkpointStartDelay) {
-      this.scheduleCheckpointInjection(this.pendingCheckpoint);
     }
   }
 
@@ -555,6 +439,7 @@ export class PtySession extends EventEmitter {
 
   getDebugState(): Record<string, unknown> {
     const now = Date.now();
+    const checkpoint = this.checkpointController.getState();
     return {
       name: this.name, command: this.command, workingDir: this.workingDir,
       pid: this.ptyProcess?.pid,
@@ -562,19 +447,19 @@ export class PtySession extends EventEmitter {
       busyStartTime: this.busyStartTime,
       busyElapsedMs: this.busyStartTime > 0 && this.status === "busy" ? now - this.busyStartTime : 0,
       busyTimeoutSaved: this.busyTimeoutSaved,
-      needsStartupKick: this.needsStartupKick,
-      isResumedSession: this.isResumedSession,
+      needsStartupKick: this.hookController.getNeedsStartupKick(),
+      isResumedSession: this.hookController.getIsResumedSession(),
       dirtyOnExit: this.dirtyOnExit,
       pendingMessages: this.pendingMessages,
       unreadCount: this.unreadCount,
       pollerActive: this.poller !== null,
-      pendingCheckpoint: this.pendingCheckpoint,
-      checkpointInFlight: this.checkpointInFlight,
-      lastCheckpointTime: this.lastCheckpointTime,
-      lastCheckpointAgoMs: this.lastCheckpointTime > 0 ? now - this.lastCheckpointTime : null,
-      checkpointLightTimerActive: this.checkpointLightTimer !== null,
-      checkpointFullTimerActive: this.checkpointFullTimer !== null,
-      heuristicTimerActive: this.heuristicTimer !== null,
+      pendingCheckpoint: checkpoint.pendingCheckpoint,
+      checkpointInFlight: checkpoint.checkpointInFlight,
+      lastCheckpointTime: checkpoint.lastCheckpointTime,
+      lastCheckpointAgoMs: checkpoint.lastCheckpointTime > 0 ? now - checkpoint.lastCheckpointTime : null,
+      checkpointLightTimerActive: checkpoint.checkpointLightTimerActive,
+      checkpointFullTimerActive: checkpoint.checkpointFullTimerActive,
+      heuristicTimerActive: this.heuristicController.isActive(),
       lastOutputTime: this.lastOutputTime,
       quietMs: now - this.lastOutputTime,
       costUsd: this.costUsd,
@@ -591,9 +476,13 @@ export class PtySession extends EventEmitter {
       quiet: { lastOutputTime: this.lastOutputTime, quietMs, thresholdMs: this.config.quietThresholdMs, isQuiet: quietMs >= this.config.quietThresholdMs },
       // No more screen detection — hook-driven idle detection. The raw byte
       // tail is available via /api/sessions/:name/snapshot?raw=1 if needed.
-      heuristic: { timerActive: this.heuristicTimer !== null, tickIntervalMs: 1000 },
+      heuristic: { timerActive: this.heuristicController.isActive(), tickIntervalMs: 1000 },
       busyTimeout: { startTime: this.busyStartTime, elapsedMs: this.busyStartTime > 0 ? now - this.busyStartTime : 0, thresholdMs: this.config.busyTimeoutMs, timeoutSampleSaved: this.busyTimeoutSaved },
-      hooks: { lastStopTime: this.lastHookStopTime || null, lastNotifyType: this.lastHookNotifyType || null, lastPromptSubmitTime: this.lastHookPromptSubmitTime || null },
+      hooks: {
+        lastStopTime: this.hookController.getLastHookStopTime() || null,
+        lastNotifyType: this.hookController.getLastHookNotifyType() || null,
+        lastPromptSubmitTime: this.hookController.getLastHookPromptSubmitTime() || null,
+      },
     };
   }
 
@@ -608,12 +497,7 @@ export class PtySession extends EventEmitter {
   }
 
   debugTriggerCheckpoint(type: "light" | "full"): { injected: boolean; reason?: string } {
-    this.pendingCheckpoint = type;
-    if (this.status === "idle") {
-      this.injectCheckpoint();
-      return { injected: true };
-    }
-    return { injected: false, reason: `session is ${this.status}, queued as pending` };
+    return this.checkpointController.trigger(type);
   }
 
   getStats(): SessionStats {
@@ -673,32 +557,40 @@ export class PtySession extends EventEmitter {
     this.config.emcomIdentity = identityName;
     this.config.emcomServer = server;
 
-    const client = new EmcomClient(server, identityName);
-    this.poller = new EmcomPoller(client, this.config.pollIntervalMs || DEFAULTS.pollIntervalMs, this.name);
-
-    this.poller.onNewMessages((emails) => {
-      const from = [...new Set(emails.map((e) => e.sender))];
-      log(`[${this.name}] ${emails.length} new message(s) from: ${from.join(", ")}`);
-      this.emit("notification", emails.length, from);
-      this.pendingMessages = true;
-      if (this.status === "idle") this.inject();
-    });
-
-    this.poller.onUnreadCount((count) => {
-      if (count !== this.unreadCount) {
-        const wasZero = this.unreadCount === 0;
-        this.unreadCount = count;
-        this.pendingMessages = count > 0;
-        this.emit("status-change");
-        if (count > 0 && wasZero && this.status === "idle") this.inject();
-      }
-    });
+    this.poller = this.buildEmcomPoller(identityName, server);
 
     this.poller.start();
     log(`[${this.name}] emcom attached dynamically (identity=${identityName})`);
 
     // Broadcast updated session info so frontend sees the identity
     this.emit("status-change", this.status);
+  }
+
+  private buildEmcomPoller(identity: string, server: string): EmcomPoller {
+    return createEmcomPoller({
+      server,
+      identity,
+      intervalMs: this.config.pollIntervalMs || DEFAULTS.pollIntervalMs,
+      sessionName: this.name,
+      onNewMessages: (emails) => this.handleEmcomMessages(emails),
+      onUnreadCount: (count) => this.handleUnreadCount(count),
+    });
+  }
+
+  private handleEmcomMessages(emails: EmcomEmail[]): void {
+    const from = [...new Set(emails.map((e) => e.sender))];
+    this.emit("notification", emails.length, from);
+    this.pendingMessages = true;
+    if (this.status === "idle") this.inject();
+  }
+
+  private handleUnreadCount(count: number): void {
+    if (count === this.unreadCount) return;
+    const wasZero = this.unreadCount === 0;
+    this.unreadCount = count;
+    this.pendingMessages = count > 0;
+    this.emit("status-change");
+    if (count > 0 && wasZero && this.status === "idle") this.inject();
   }
 
   private setStatus(s: SessionStatus): void {
@@ -708,83 +600,12 @@ export class PtySession extends EventEmitter {
       this.busyStartTime = Date.now();
       this.busyTimeoutSaved = false;
     }
-    // Stamp checkpoint time when session goes idle after a checkpoint response
-    if (s === "idle" && this.checkpointInFlight) {
-      this.checkpointInFlight = false;
-      this.lastCheckpointTime = Date.now();
-    }
+    if (s === "idle") this.checkpointController.onSessionIdle();
     this.emit("status-change", s);
   }
 
   private startHeuristic(): void {
-    if (this.heuristicTimer) return;
-    // Hooks drive idle detection once Claude is up — but on first start
-    // hooks haven't fired yet (nothing's been submitted), so the kick path
-    // needs a different signal. We use a cheap byte-level pattern match on
-    // the raw buffer: when Claude renders its prompt, the `❯` glyph appears
-    // in the output. That + a brief quiet period = Claude is past the
-    // boot/welcome screen and ready to accept input.
-    //
-    // This is a one-shot startup signal; once the kick fires, hooks own
-    // the rest of the session's status — for commands whose hooks fire
-    // (claude, agency cc). For commands whose hooks DON'T fire (copilot,
-    // agency cp, pi), the heuristic also owns ongoing busy→idle transitions
-    // via the quiet-threshold below.
-    const AI_CMDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
-    const HOOKS_WORKING_COMMANDS = ["claude", "agency cc"];
-    const isAI = AI_CMDS.includes(this.config.command);
-    const hasWorkingHooks = HOOKS_WORKING_COMMANDS.includes(this.config.command);
-    const STARTUP_PROMPT_QUIET_MS = 1_000;
-    const STARTUP_FALLBACK_QUIET_MS = 30_000;
-    const AI_NO_HOOKS_IDLE_QUIET_MS = 5_000;
-    // The Claude Code prompt glyph. Searching the raw byte buffer for this
-    // is far cheaper than running an xterm-headless cell renderer, and it's
-    // unaffected by the grey-placeholder rendering issue (it just confirms
-    // Claude has drawn a prompt at some point).
-    const PROMPT_GLYPH = "❯"; // ❯
-
-    this.heuristicTimer = setInterval(() => {
-      if (this.status === "dead") return;
-      const quietMs = Date.now() - this.lastOutputTime;
-
-      if (isAI) {
-        // Post-startup: hook-having sessions let hooks own idle detection.
-        // Non-hook sessions (copilot/agency-cp/pi) fall back to quiet → idle.
-        if (!this.needsStartupKick) {
-          if (hasWorkingHooks) return; // hooks own it
-          if (this.inputBoxDirty) return;
-          if (this.status === "busy" && quietMs >= AI_NO_HOOKS_IDLE_QUIET_MS) {
-            this.setStatus("idle");
-            this.maybeFireOnIdle(`no-hooks-quiet (${quietMs}ms)`);
-          }
-          return;
-        }
-        if (this.inputBoxDirty) return;
-        // Primary: prompt glyph visible AND brief quiet → Claude is ready.
-        const promptVisible = this.rawBuffer.includes(PROMPT_GLYPH);
-        if (promptVisible && quietMs >= STARTUP_PROMPT_QUIET_MS) {
-          if (this.status === "busy") this.setStatus("idle");
-          this.maybeFireOnIdle(`startup-kick(prompt-visible, quiet ${quietMs}ms)`);
-          return;
-        }
-        // Periodic diagnostic: log once per minute while waiting.
-        if (quietMs > 0 && Math.floor(quietMs / 60_000) > Math.floor((quietMs - 1000) / 60_000)) {
-          clog(`[${this.name}] waiting for startup kick: glyph=${promptVisible}, quiet=${quietMs}ms, bufLen=${this.rawBuffer.length}`);
-        }
-        // Fallback: very long quiet (≥30s) without ever seeing the glyph
-        // shouldn't happen on a healthy Claude, but if it does, kick anyway
-        // to avoid wedging the session forever.
-        if (quietMs >= STARTUP_FALLBACK_QUIET_MS) {
-          if (this.status === "busy") this.setStatus("idle");
-          this.maybeFireOnIdle(`startup-kick(fallback, quiet ${quietMs}ms, no glyph seen)`);
-        }
-        return;
-      }
-      // Generic sessions: simple quiet threshold (no hooks available).
-      if (this.status === "busy" && quietMs >= 3_000) {
-        this.setStatus("idle");
-      }
-    }, QUIET_CHECK_INTERVAL_MS);
+    this.heuristicController.start();
   }
 
   // --- LLM escalation ---
@@ -800,57 +621,44 @@ export class PtySession extends EventEmitter {
   private verifyInjectAfter(
     snapshot: { screen: string; why: string; injectText: string },
     source: string,
-    attempt: number = 0,
   ): void {
-    const VERIFY_WINDOW_MS = 5_000;
-    const MAX_RETRIES = 2;
-    const injectAt = Date.now();
-    setTimeout(() => {
-      const submitted = this.lastHookPromptSubmitTime > injectAt;
-      if (submitted) {
-        const recoveredTag = attempt > 0 ? ` [recovered after ${attempt} retry]` : "";
-        clog(`[${this.name}] [verify] inject submitted (source=${source})${recoveredTag}`);
-        if (attempt > 0) {
-          void appendCorrection({
-            time: new Date().toISOString(),
-            session: this.name,
-            screen: snapshot.screen,
-            llmSaid: source === "llm-driven" ? true : null,
-            llmWhy: snapshot.why,
-            actualOutcome: "recovered_by_resend",
-          });
-        }
-        return;
-      }
-      if (attempt < MAX_RETRIES) {
-        clog(`[${this.name}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) — re-sending SUBMIT (retry ${attempt + 1}/${MAX_RETRIES})`);
-        this.relayWrite(SUBMIT, `recover:${source}`);
-        // Re-arm: watch for the hook after the retry. The new injectAt window
-        // means a retry that succeeds is correctly attributed to the recovery.
-        this.verifyInjectAfter(snapshot, source, attempt + 1);
-      } else {
-        clog(`[${this.name}] [verify] gave up after ${MAX_RETRIES} retries (source=${source})`);
+    verifyInjectionAfter({
+      source,
+      snapshot,
+      sessionName: this.name,
+      submitKey: SUBMIT,
+      getLastHookPromptSubmitTime: () => this.hookController.getLastHookPromptSubmitTime(),
+      relayWrite: (text, relaySource) => this.relayWrite(text, relaySource),
+      log: (message) => clog(message),
+      onRecoveredByResend: (recoveredSnapshot, recoveredSource) => {
         void appendCorrection({
           time: new Date().toISOString(),
           session: this.name,
-          screen: snapshot.screen,
-          llmSaid: source === "llm-driven" ? true : null,
-          llmWhy: snapshot.why,
+          screen: recoveredSnapshot.screen,
+          llmSaid: recoveredSource === "llm-driven" ? true : null,
+          llmWhy: recoveredSnapshot.why,
+          actualOutcome: "recovered_by_resend",
+        });
+      },
+      onGiveUp: (failedSnapshot, failedSource) => {
+        void appendCorrection({
+          time: new Date().toISOString(),
+          session: this.name,
+          screen: failedSnapshot.screen,
+          llmSaid: failedSource === "llm-driven" ? true : null,
+          llmWhy: failedSnapshot.why,
           actualOutcome: "gave_up",
         });
-      }
-    }, VERIFY_WINDOW_MS).unref?.();
+      },
+    });
   }
 
   private stopHeuristic(): void {
-    if (this.heuristicTimer) {
-      clearInterval(this.heuristicTimer);
-      this.heuristicTimer = null;
-    }
+    this.heuristicController.stop();
   }
 
   private inject(source: string = "emcom-auto"): void {
-    if (this.inputBoxDirty) {
+    if (this.hookController.getInputBoxDirty()) {
       clog(`[${this.name}] inject skipped — input box dirty (source: ${source})`);
       return;
     }
@@ -860,110 +668,41 @@ export class PtySession extends EventEmitter {
     const label = identity ? `${this.name} (@${identity})` : this.name;
     const prompt = INJECTION_PROMPT();
     clog(`emcom check → ${label}`);
-    this.recordInjection("emcom", prompt);
+    this.runInjection({
+      prompt,
+      recordType: "emcom",
+      source,
+    });
+  }
+
+  // --- Layer 2: Periodic checkpoint injection ---
+
+  private injectCheckpoint(type: CheckpointType, prompt: string): void {
+    const source = `checkpoint-${type}`;
+    this.runInjection({
+      prompt,
+      recordType: source,
+      source,
+    });
+  }
+
+  private runInjection({
+    prompt,
+    recordType,
+    source,
+  }: {
+    prompt: string;
+    recordType: string;
+    source: string;
+  }): void {
+    this.recordInjection(recordType, prompt);
     const screenAtInject = this.getRawTail(8 * 1024);
     this.relayWrite(prompt, source);
     this.setStatus("busy");
     this.verifyInjectAfter({ screen: screenAtInject, why: source, injectText: prompt }, source);
 
-    // Cooldown: don't go idle again for a while
-    this.stopHeuristic();
-    setTimeout(() => {
-      if (this.status !== "dead") this.startHeuristic();
-    }, this.config.injectionCooldownMs);
-  }
-
-  // --- Layer 2: Periodic checkpoint injection ---
-
-  private startCheckpointTimers(): void {
-    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
-    if (!AI_COMMANDS.includes(this.config.command)) return;
-
-    const offset = this.config.checkpointOffsetMs || 0;
-    if (offset > 0) {
-      clog(`checkpoint stagger for ${this.name}: ${offset / 1000}s offset per round`);
-    }
-
-    this.checkpointLightTimer = setInterval(() => {
-      if (this.status === "dead") return;
-      if (this.pendingCheckpoint === "full") {
-        clog(`checkpoint (light) skipped → ${this.name} (full pending)`);
-        return;
-      }
-      if (this.lastOutputTime <= this.lastCheckpointTime) {
-        clog(`checkpoint (light) skipped → ${this.name} (no activity)`);
-        return;
-      }
-      this.pendingCheckpoint = "light";
-      this.scheduleCheckpointInjection("light");
-    }, CHECKPOINT_LIGHT_INTERVAL_MS);
-
-    this.checkpointFullTimer = setInterval(() => {
-      if (this.status === "dead") return;
-      if (this.lastOutputTime <= this.lastCheckpointTime) {
-        clog(`checkpoint (full) skipped → ${this.name} (no activity)`);
-        return;
-      }
-      this.pendingCheckpoint = "full";
-      this.scheduleCheckpointInjection("full");
-    }, CHECKPOINT_FULL_INTERVAL_MS);
-  }
-
-  /** Stagger checkpoint injection by repo offset — runs every round, not just the first. */
-  private scheduleCheckpointInjection(type: string): void {
-    const offset = this.config.checkpointOffsetMs || 0;
-    if (offset > 0) {
-      clog(`checkpoint (${type}) scheduled → ${this.name} (in ${offset / 1000}s)`);
-      this.checkpointStartDelay = setTimeout(() => {
-        this.checkpointStartDelay = null;
-        if (this.status === "idle") {
-          this.injectCheckpoint();
-        } else {
-          clog(`checkpoint (${type}) queued → ${this.name} (status: ${this.status})`);
-        }
-      }, offset);
-    } else {
-      if (this.status === "idle") {
-        this.injectCheckpoint();
-      } else {
-        clog(`checkpoint (${type}) queued → ${this.name} (status: ${this.status})`);
-      }
-    }
-  }
-
-  private stopCheckpointTimers(): void {
-    if (this.checkpointStartDelay) {
-      clearTimeout(this.checkpointStartDelay);
-      this.checkpointStartDelay = null;
-    }
-    if (this.checkpointLightTimer) {
-      clearInterval(this.checkpointLightTimer);
-      this.checkpointLightTimer = null;
-    }
-    if (this.checkpointFullTimer) {
-      clearInterval(this.checkpointFullTimer);
-      this.checkpointFullTimer = null;
-    }
-  }
-
-  private injectCheckpoint(): void {
-    if (!this.pendingCheckpoint) return;
-    const type = this.pendingCheckpoint;
-    const intervalMs = type === "full" ? CHECKPOINT_FULL_INTERVAL_MS : CHECKPOINT_LIGHT_INTERVAL_MS;
-    const nextTime = fmtNextTime(intervalMs);
-    let prompt = type === "full" ? makeCheckpointFullPrompt(nextTime) : makeCheckpointLightPrompt(nextTime);
-    if (this.costUsd > 0) {
-      prompt += ` Session cost: $${this.costUsd.toFixed(2)}.`;
-    }
-    this.pendingCheckpoint = null;
-    this.checkpointInFlight = true;
-    clog(`injecting ${type} checkpoint → ${this.name}`);
-    this.recordInjection(`checkpoint-${type}`, prompt);
-    const cpScreen = this.getRawTail(8 * 1024);
-    this.relayWrite(prompt, `checkpoint-${type}`);
-    this.setStatus("busy");
-    this.verifyInjectAfter({ screen: cpScreen, why: `checkpoint-${type}`, injectText: prompt }, `checkpoint-${type}`);
-
+    // Cooldown: pause heuristic to avoid back-to-back auto-injects while
+    // Claude is still rendering the current injected prompt.
     this.stopHeuristic();
     setTimeout(() => {
       if (this.status !== "dead") this.startHeuristic();

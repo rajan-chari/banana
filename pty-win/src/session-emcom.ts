@@ -1,0 +1,36 @@
+import { EmcomClient, type EmcomEmail } from "./emcom/client.js";
+import { EmcomPoller } from "./emcom/poller.js";
+import { log } from "./log.js";
+
+export interface EmcomPollerOptions {
+  server: string;
+  identity: string;
+  intervalMs: number;
+  sessionName: string;
+  onNewMessages: (emails: EmcomEmail[]) => void;
+  onUnreadCount: (count: number) => void;
+}
+
+export function createEmcomPoller({
+  server,
+  identity,
+  intervalMs,
+  sessionName,
+  onNewMessages,
+  onUnreadCount,
+}: EmcomPollerOptions): EmcomPoller {
+  const client = new EmcomClient(server, identity);
+  const poller = new EmcomPoller(client, intervalMs, sessionName);
+
+  poller.onNewMessages((emails) => {
+    const from = [...new Set(emails.map((e) => e.sender))];
+    log(`[${sessionName}] ${emails.length} new message(s) from: ${from.join(", ")}`);
+    onNewMessages(emails);
+  });
+
+  poller.onUnreadCount((count) => {
+    onUnreadCount(count);
+  });
+
+  return poller;
+}

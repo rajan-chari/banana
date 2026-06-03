@@ -1,19 +1,21 @@
 import express from "express";
 import { createServer } from "http";
-import { WebSocketServer, WebSocket } from "ws";
-import { join, dirname, resolve, basename } from "path";
+import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { execFile, execFileSync, spawn } from "child_process";
-import { MessageChannel } from "worker_threads";
-import { PtySession, SUBMIT, SUBMIT_DELAY_MS } from "./session.js";
-import { EmcomClient } from "./emcom/client.js";
-import { listDir, readIdentity, createDir } from "./folders.js";
-import { DEFAULTS } from "./config.js";
-import type { SessionConfig, ServerConfig } from "./config.js";
+import { existsSync, readFileSync } from "fs";
+import { execFileSync } from "child_process";
+import { PtySession } from "./session.js";
+import type { ServerConfig } from "./config.js";
 import { log, clog, setLogPort, getLogPathInfo } from "./log.js";
 import { registerDebugRoutes } from "./debug-routes.js";
-import { resolveCliPreference, readPreferences, writePreferences } from "./preferences.js";
+import { createInjectionRelay } from "./server/injection.js";
+import { registerAdminRoutes } from "./server/routes/admin.js";
+import { registerEmcomRoutes } from "./server/routes/emcom.js";
+import { registerSessionRoutes } from "./server/routes/sessions.js";
+import { createWsRuntime } from "./server/ws-runtime.js";
+import { startBackgroundTasks, stopBackgroundTasks } from "./server/background-tasks.js";
+import { createShutdownHandler } from "./server/shutdown.js";
+import type { CostSample } from "./server/cost-history.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -26,140 +28,9 @@ const sessions = new Map<string, PtySession>();
 const sessionRepoRoots = new Map<string, string>(); // session name → normalized repo root
 const savedCosts = new Map<string, number>(); // session name → last known costUsd
 
-// MessageChannel for reliable PTY injection.
-// PTY writes from setInterval (heuristic tick) are unreliable — the I/O phase
-// context of MessagePort.on('message') makes writes reliable (same as HTTP handlers).
-const { port1: injectionReceiver, port2: injectionSender } = new MessageChannel();
-
-/** Write text to a session's PTY, then send SUBMIT after a delay.
- *  Shared by both the MessageChannel handler and the HTTP inject endpoint. */
-function injectWrite(session: PtySession, text: string, source: string = "unknown"): void {
-  const submitEsc = (SUBMIT as string) === "\r" ? "\\r" : (SUBMIT as string) === "\n" ? "\\n" : `0x${(SUBMIT as string).charCodeAt(0).toString(16)}`;
-  clog(`[inject ${source}] T+0   text(${text.length}b) → ${session.getInfo().name}`);
-  session.write(text);
-  setTimeout(() => {
-    clog(`[inject ${source}] T+${SUBMIT_DELAY_MS}  SUBMIT(${submitEsc}) → ${session.getInfo().name} (status=${session.getStatus()})`);
-    session.write(SUBMIT);
-  }, SUBMIT_DELAY_MS);
-}
-
-injectionReceiver.on("message", ({ name, text, source }: { name: string; text: string; source?: string }) => {
-  const session = sessions.get(name);
-  if (!session) { clog(`injection relay: session "${name}" not found`); return; }
-  injectWrite(session, text, source || "relay");
-});
+const { injectionSender, injectWrite } = createInjectionRelay(sessions);
 
 const CHECKPOINT_STAGGER_MS = 10_000; // 10s between sessions on same repo
-
-/** Detect git repo root for a directory. Returns normalized path or null. */
-function detectRepoRoot(dir: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    execFile("git", ["rev-parse", "--show-toplevel"], { cwd: dir, timeout: 5000 }, (err, stdout) => {
-      if (err || !stdout.trim()) return resolve(null);
-      resolve(stdout.trim().replace(/\\/g, "/").toLowerCase());
-    });
-  });
-}
-
-/** Count how many existing live sessions share the same repo root. */
-function countRepoSiblings(repoRoot: string): number {
-  let count = 0;
-  for (const [name, root] of sessionRepoRoots) {
-    const session = sessions.get(name);
-    if (root === repoRoot && session && session.getInfo().status !== "dead") {
-      count++;
-    }
-  }
-  return count;
-}
-
-
-function writeSessionHooks(workingDir: string, port: number): void {
-  try {
-    const claudeDir = join(workingDir, ".claude");
-    if (!existsSync(claudeDir)) mkdirSync(claudeDir, { recursive: true });
-    const settingsPath = join(claudeDir, "settings.local.json");
-    let settings: Record<string, unknown> = {};
-    if (existsSync(settingsPath)) {
-      try { settings = JSON.parse(readFileSync(settingsPath, "utf-8")); } catch { /* ignore */ }
-    }
-    const base = `http://127.0.0.1:${port}`;
-    // SessionStart only supports `command` and `mcp_tool` transport (no HTTP),
-    // so we spawn curl to forward the hook payload to our HTTP endpoint.
-    // curl.exe is built into Windows 10+. -d @- reads stdin (the hook JSON).
-    const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
-    settings.hooks = {
-      SessionStart: [{ matcher: ".*", hooks: [{ type: "command", command: sessionStartCmd, timeout: 5 }] }],
-      Stop: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/stop`, timeout: 2 }] }],
-      Notification: [{ matcher: ".*", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeout: 2 }] }],
-      UserPromptSubmit: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeout: 2 }] }],
-    };
-    settings.messageIdleNotifThresholdMs = 5000;
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-    clog(`hooks configured for ${workingDir} → port ${port}`);
-    writeCopilotHooks(workingDir, port);
-  } catch (e) {
-    log(`[server] Failed to write hooks for ${workingDir}: ${e}`);
-  }
-}
-
-/** Write per-workspace Copilot CLI hook config in Copilot's flat schema.
- *  Mirrors the Claude per-workspace approach so URLs can include this
- *  pty-win instance's port — keeps multiple pty-win servers isolated.
- *
- *  Copilot's schema (reverse-engineered by sam from v1.0.48 app.js):
- *    - FLAT: each entry has type/matcher/timeoutSec/(powershell|bash|url) at
- *      the same level. NO inner `hooks:[...]` array — that's a Claude-format
- *      remnant Copilot's loader passes verbatim into the command runner,
- *      which then throws "Neither bash nor powershell specified".
- *    - `timeoutSec`, not `timeout`.
- *    - Command hooks: `powershell:<script>` or `bash:<script>` as the script-
- *      holding key (no separate `shell` field).
- *    - Empty-string matcher fails Zod min(1).optional() validation; omit it.
- *    - Schema validation failure drops the WHOLE hooks block silently — so
- *      one bad entry kills HTTP entries too.
- *
- *  Verified 2026-05-14: hooks fire end-to-end with this format
- *  (~/.copilot/hook-test.log captured SessionStart + UserPromptSubmit). */
-function writeCopilotHooks(workingDir: string, port: number): void {
-  try {
-    const ghDir = join(workingDir, ".github", "copilot");
-    if (!existsSync(ghDir)) mkdirSync(ghDir, { recursive: true });
-    const settingsPath = join(ghDir, "settings.local.json");
-    let settings: Record<string, unknown> = {};
-    if (existsSync(settingsPath)) {
-      try { settings = JSON.parse(readFileSync(settingsPath, "utf-8")); } catch { /* ignore */ }
-    }
-    const base = `http://127.0.0.1:${port}`;
-    const isWin = process.platform === "win32";
-    // Copilot blocks http-type hooks targeting localhost/loopback/private addrs
-    // (verified via "resolves to blocked address 127.0.0.1" error). All four
-    // hooks must be COMMAND-type instead — a subprocess can hit localhost
-    // freely. On Windows, `curl` is a PowerShell alias for Invoke-WebRequest
-    // which mis-parses `-d @-`, so use Invoke-RestMethod natively.
-    const psHook = (endpoint: string) =>
-      `$b=[Console]::In.ReadToEnd();try{Invoke-RestMethod -Uri ${base}/api/hook/${endpoint} -Method POST -ContentType application/json -Body $b -TimeoutSec 4 | Out-Null}catch{}`;
-    const bashHook = (endpoint: string) =>
-      `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/${endpoint}`;
-    const mkEntry = (endpoint: string, matcher?: string): Record<string, unknown> => {
-      const entry: Record<string, unknown> = { type: "command", timeoutSec: 5 };
-      if (matcher) entry.matcher = matcher;
-      if (isWin) entry.powershell = psHook(endpoint);
-      else entry.bash = bashHook(endpoint);
-      return entry;
-    };
-    settings.hooks = {
-      SessionStart: [mkEntry("session-start", ".*")],
-      Stop: [mkEntry("stop")],
-      Notification: [mkEntry("notify", ".*")],
-      UserPromptSubmit: [mkEntry("prompt-submit")],
-    };
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-    clog(`copilot hooks configured for ${workingDir} → port ${port}`);
-  } catch (e) {
-    log(`[server] Failed to write copilot hooks for ${workingDir}: ${e}`);
-  }
-}
 
 export async function startServer(config: ServerConfig): Promise<void> {
   // Resolve the log file path based on the listening port. Must come before
@@ -182,7 +53,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
   } catch { /* ignore corrupt file */ }
 
   // Load cost history from previous run
-  interface CostSample { timestamp: number; sessions: Record<string, number>; }
   const costHistory: CostSample[] = [];
   const costHistoryPath = join(__dirname, "..", "cost-history.json");
   const COST_HISTORY_MAX = 1440; // 24h at 60s intervals
@@ -202,457 +72,34 @@ export async function startServer(config: ServerConfig): Promise<void> {
   const publicDir = join(__dirname, "..", "public");
   app.use(express.static(publicDir));
 
+  const httpServer = createServer(app);
+  const wsRuntime = createWsRuntime(httpServer, sessions);
+
   // --- REST API ---
 
-  // Folder browser: list children of a directory
-  app.get("/api/folders", (req, res) => {
-    const dirPath = req.query.path as string;
-    if (!dirPath) {
-      return res.status(400).json({ error: "path query parameter required" });
-    }
-    res.json(listDir(resolve(dirPath)));
+  registerAdminRoutes({
+    app,
+    config,
+    buildInfo,
+    onNameChange: () => wsRuntime.broadcastName(config.name),
   });
 
-  // Folder info: metadata for a single directory
-  app.get("/api/folder-info", (req, res) => {
-    const dirPath = req.query.path as string;
-    if (!dirPath) return res.status(400).json({ error: "path query parameter required" });
-    const resolved = resolve(dirPath);
-    const name = basename(resolved);
-    try {
-      const isClaudeReady = existsSync(join(resolved, "CLAUDE.md"));
-      const hasClaudeDir = existsSync(join(resolved, ".claude"));
-      let hasIdentity = false;
-      let identityName: string | undefined;
-      const identityPath = join(resolved, "identity.json");
-      if (existsSync(identityPath)) {
-        hasIdentity = true;
-        try {
-          const raw = JSON.parse(readFileSync(identityPath, "utf-8"));
-          if (typeof raw.name === "string" && raw.name.trim()) identityName = raw.name;
-        } catch {}
-      }
-      res.json({ name, path: resolved, isDir: true, isClaudeReady, hasIdentity, identityName, hasClaudeDir });
-    } catch (err) {
-      res.status(500).json({ error: String(err) });
-    }
+  registerSessionRoutes({
+    app,
+    config,
+    sessions,
+    sessionRepoRoots,
+    savedCosts,
+    costHistory,
+    checkpointStaggerMs: CHECKPOINT_STAGGER_MS,
+    injectionSender,
+    injectWrite,
+    addSession,
+    onSessionListChange: () => wsRuntime.broadcastSessionList(),
+    onSessionStatusChange: (session) => wsRuntime.broadcastStatus(session),
   });
 
-  // Folder browser: create a subdirectory
-  app.post("/api/folders", (req, res) => {
-    const { parentPath, name } = req.body;
-    if (!parentPath || !name) return res.status(400).json({ error: "parentPath and name required" });
-    if (/[/\\:*?"<>|]/.test(name)) return res.status(400).json({ error: "Invalid folder name" });
-    try {
-      res.json({ ok: true, path: createDir(resolve(parentPath), name) });
-    } catch (err) {
-      res.status(409).json({ error: String(err) });
-    }
-  });
-
-  // Config: return root dirs for initial favorites
-  app.get("/api/config", (_req, res) => {
-    res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name, build: buildInfo });
-  });
-
-  app.get("/api/preferences", (_req, res) => {
-    const resolved = resolveCliPreference();
-    const file = readPreferences();
-    res.json({
-      cliPreference: resolved.cliPreference,
-      source: resolved.source,
-      file: file || null,
-    });
-  });
-
-  app.post("/api/preferences", express.json(), (req, res) => {
-    const { cliPreference, updatedBy } = req.body;
-    if (typeof cliPreference !== "string" || !cliPreference) {
-      return res.status(400).json({ error: "cliPreference must be a non-empty string" });
-    }
-    if (typeof updatedBy !== "string" || !updatedBy) {
-      return res.status(400).json({ error: "updatedBy must be a non-empty string" });
-    }
-    const prev = readPreferences() || { schema: 1 as const };
-    const next = {
-      ...prev,
-      schema: 1 as const,
-      cliPreference,
-      updatedAt: new Date().toISOString(),
-      updatedBy,
-    };
-    try {
-      writePreferences(next);
-    } catch (e) {
-      return res.status(500).json({ error: `write failed: ${(e as Error).message}` });
-    }
-    res.json({ cliPreference: next.cliPreference, updatedAt: next.updatedAt, updatedBy: next.updatedBy });
-  });
-
-  app.post("/api/name", express.json(), (req, res) => {
-    const { name } = req.body;
-    if (typeof name !== "string") return res.status(400).json({ error: "name must be a string" });
-    config.name = name;
-    broadcastName();
-    res.json({ name: config.name });
-  });
-
-  app.get("/api/sessions", (_req, res) => {
-    const list = [...sessions.values()].map((s) => s.getInfo());
-    res.json(list);
-  });
-
-  app.post("/api/sessions", async (req, res) => {
-    const { workingDir, command, args = [], cols, rows } = req.body;
-    if (!workingDir) {
-      return res.status(400).json({ error: "workingDir is required" });
-    }
-
-    const resolvedDir = resolve(workingDir);
-    const isShell = command === "pwsh" || command === "bash" || command === "shell";
-    const suffix = isShell ? "~pwsh" : "";
-    const name = basename(resolvedDir) + suffix;
-
-    if (sessions.has(name)) {
-      return res.status(409).json({ error: "Session already exists" });
-    }
-
-    // Normalize shell command to platform default (pwsh on Windows, bash on Linux/Mac)
-    const resolvedCommand = isShell ? DEFAULTS.defaultShell : command;
-    const identity = isShell ? null : readIdentity(resolvedDir);
-
-    // Detect git repo root for checkpoint staggering
-    const repoRoot = await detectRepoRoot(resolvedDir);
-    const siblingCount = repoRoot ? countRepoSiblings(repoRoot) : 0;
-    const checkpointOffsetMs = siblingCount * CHECKPOINT_STAGGER_MS;
-
-    if (repoRoot) {
-      sessionRepoRoots.set(name, repoRoot);
-      if (siblingCount > 0) {
-        clog(`${name}: shares repo with ${siblingCount} session(s), checkpoint offset ${checkpointOffsetMs / 1000}s`);
-      }
-    }
-
-    const sessionConfig: SessionConfig = {
-      name,
-      command: resolvedCommand || "claude",
-      args,
-      workingDir: resolvedDir,
-      cols: cols || 120,
-      rows: rows || 40,
-      emcomIdentity: identity?.name,
-      emcomServer: identity ? identity.server : undefined,
-      pollIntervalMs: DEFAULTS.pollIntervalMs,
-      quietThresholdMs: DEFAULTS.quietThresholdMs,
-      injectionCooldownMs: DEFAULTS.injectionCooldownMs,
-      checkpointOffsetMs,
-      busyTimeoutMs: DEFAULTS.busyTimeoutMs,
-      injectionPort: injectionSender,
-    };
-
-    const session = new PtySession(sessionConfig);
-    if (savedCosts.has(name)) session.costUsd = savedCosts.get(name)!;
-    if (!isShell) writeSessionHooks(resolvedDir, config.port);
-    addSession(session);
-    session.start();
-
-    log(`[server] Created session: ${name} (${sessionConfig.command})${identity ? ` identity=${identity.name}` : ""}${repoRoot ? ` repo=${repoRoot}` : ""}`);
-    res.json({ ok: true, name, pid: session.getPid(), identity: identity?.name });
-  });
-
-  app.delete("/api/sessions/:name", (req, res) => {
-    const session = sessions.get(req.params.name);
-    if (!session) return res.status(404).json({ error: "not found" });
-    session.kill();
-    sessions.delete(req.params.name);
-    sessionRepoRoots.delete(req.params.name);
-    broadcastSessionList();
-    log(`[server] Killed session: ${req.params.name}`);
-    res.json({ ok: true });
-  });
-
-  app.post("/api/open-editor", (req, res) => {
-    const { path } = req.body;
-    if (!path) return res.status(400).json({ error: "path is required" });
-    const resolved = resolve(path);
-    clog(`vscode: opening ${resolved}`);
-    res.json({ ok: true });
-
-    if (process.platform === "win32") {
-      // Minimize the foreground window (the browser) then launch VS Code
-      // This ensures VS Code appears in front even when browser is fullscreen
-      const psScript = `
-        Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class Win32Focus {
-    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-}
-"@
-        $hwnd = [Win32Focus]::GetForegroundWindow()
-        [Win32Focus]::ShowWindow($hwnd, 6)  # SW_MINIMIZE
-        Start-Process code -ArgumentList '${resolved.replace(/'/g, "''")}' -WindowStyle Hidden
-      `;
-      clog(`vscode: launching via PowerShell (minimize + Start-Process)`);
-      const ps = spawn("powershell", ["-NoProfile", "-Command", psScript],
-        { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
-      ps.stdout?.on("data", (data: Buffer) => {
-        clog(`vscode: stdout: ${data.toString().trim()}`);
-      });
-      ps.stderr?.on("data", (data: Buffer) => {
-        clog(`vscode: stderr: ${data.toString().trim()}`);
-      });
-      ps.on("exit", (code) => {
-        clog(`vscode: PowerShell exited (code ${code})`);
-      });
-      ps.unref();
-    } else {
-      const child = spawn("code", [resolved], {
-        shell: true,
-        stdio: "ignore",
-      });
-      child.unref();
-      clog(`vscode: launched via shell`);
-    }
-  });
-
-  app.post("/api/sessions/:name/force-idle", (req, res) => {
-    const session = sessions.get(req.params.name);
-    if (!session) return res.status(404).json({ error: "not found" });
-    clog(`force-idle: ${req.params.name}`);
-    session.forceIdle();
-    broadcastSessionList();
-    res.json({ ok: true });
-  });
-
-  // --- Claude Code Hook Endpoints ---
-
-  function findSessionByCwd(cwd: string): PtySession | undefined {
-    if (!cwd) return undefined;
-    const norm = resolve(cwd).replace(/\\/g, "/").toLowerCase();
-    for (const session of sessions.values()) {
-      if (session.workingDir.replace(/\\/g, "/").toLowerCase() === norm) return session;
-    }
-    return undefined;
-  }
-
-  app.post("/api/hook/session-start", (req, res) => {
-    res.json({});
-    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
-    const source = req.body?.source || "startup";
-    if (session) { session.hookSessionStart(source); broadcastStatus(session); }
-  });
-
-  app.post("/api/hook/stop", (req, res) => {
-    res.json({});
-    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
-    if (session) { session.hookStop(); broadcastStatus(session); }
-  });
-
-  app.post("/api/hook/notify", (req, res) => {
-    res.json({});
-    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
-    const type = req.body?.type || req.body?.notification_type || "";
-    if (session) { session.hookNotify(type); broadcastStatus(session); }
-  });
-
-  app.post("/api/hook/prompt-submit", (req, res) => {
-    res.json({});
-    const session = findSessionByCwd(req.body?.cwd || req.body?.session_cwd);
-    if (session) { session.hookPromptSubmit(); broadcastStatus(session); }
-  });
-
-  app.post("/api/sessions/:name/quick-message", (req, res) => {
-    const session = sessions.get(req.params.name);
-    if (!session) return res.status(404).json({ error: "not found" });
-    const { text } = req.body;
-    if (typeof text !== "string" || !text.trim()) return res.status(400).json({ error: "text required" });
-    session.write(`${text.trim()} respond to Rajan via emcom.\r`);
-    res.json({ ok: true });
-  });
-
-  app.post("/api/sessions/:name/write", (req, res) => {
-    const session = sessions.get(req.params.name);
-    if (!session) return res.status(404).json({ error: "not found" });
-    const { text } = req.body;
-    if (typeof text !== "string") return res.status(400).json({ error: "text required" });
-    session.write(text);
-    res.json({ ok: true });
-  });
-
-  // Always-available injection endpoint — writes text + SUBMIT to a session's PTY.
-  // Used externally by curl/scripts and internally via MessageChannel relay.
-  app.post("/api/sessions/:name/inject", (req, res) => {
-    const session = sessions.get(req.params.name);
-    if (!session) return res.status(404).json({ error: "not found" });
-    const { text } = req.body;
-    if (typeof text !== "string") return res.status(400).json({ error: "text required" });
-    injectWrite(session, text, "http");
-    res.json({ ok: true });
-  });
-
-  app.get("/api/sessions/:name/snapshot", (req, res) => {
-    const session = sessions.get(req.params.name);
-    if (!session) return res.status(404).json({ error: "not found" });
-    // ?raw=1 → last raw PTY bytes (ANSI codes intact). Default: rendered lines
-    // via xterm-headless. Both paths exist during the refactor; raw becomes
-    // the primary once consumers move over.
-    if (req.query.raw === "1") {
-      const maxBytes = parseInt(req.query.bytes as string) || 32_768;
-      res.type("text/plain").send(session.getRawTail(maxBytes));
-      return;
-    }
-    const n = parseInt(req.query.lines as string) || 8;
-    res.json({ lines: session.getSnapshot(n) });
-  });
-
-  // Emcom feed for right panel — identity passed as query param
-  app.get("/api/emcom-feed", async (req, res) => {
-    const identity = req.query.identity as string;
-    if (!identity) return res.status(400).json({ error: "identity query param required" });
-    try {
-      const client = new EmcomClient(config.emcomServer, identity);
-      const emails = await client.getAll();
-      res.json(emails);
-    } catch (err) {
-      res.status(500).json({ error: String(err) });
-    }
-  });
-
-  // Proxy to emcom-server tracker
-  app.get("/api/emcom-proxy/tracker", async (req, res) => {
-    const identity = req.headers["x-emcom-name"] as string || "";
-    const status = req.query.status as string || "";
-    try {
-      const url = `${config.emcomServer}/tracker${status ? `?status=${status}` : ""}`;
-      const resp = await fetch(url, { headers: { "X-Emcom-Name": identity } });
-      const data = await resp.json();
-      res.json(data);
-    } catch (err) {
-      res.status(500).json({ error: String(err) });
-    }
-  });
-
-  app.get("/api/emcom-proxy/tracker/:id", async (req, res) => {
-    const identity = req.headers["x-emcom-name"] as string || "";
-    try {
-      const url = `${config.emcomServer}/tracker/${req.params.id}`;
-      const resp = await fetch(url, { headers: { "X-Emcom-Name": identity } });
-      const data = await resp.json();
-      res.json(data);
-    } catch (err) {
-      res.status(500).json({ error: String(err) });
-    }
-  });
-
-  // Repo root detection for startup stagger
-  app.get("/api/repo-root", async (req, res) => {
-    const dirPath = req.query.path as string;
-    if (!dirPath) return res.status(400).json({ error: "path required" });
-    const repoRoot = await detectRepoRoot(resolve(dirPath));
-    res.json({ repoRoot });
-  });
-
-  // Stats: rolling 5s averages per session
-  app.get("/api/stats", (_req, res) => {
-    const stats = [...sessions.values()].map((s) => s.getStats());
-    res.json(stats);
-  });
-
-  app.get("/api/costs", (_req, res) => {
-    const sessionCosts: Array<{ name: string; costUsd: number }> = [];
-    // Live sessions
-    for (const [name, session] of sessions) {
-      sessionCosts.push({ name, costUsd: session.getInfo().costUsd });
-    }
-    // Dead sessions from saved costs (not currently live)
-    for (const [name, cost] of savedCosts) {
-      if (!sessions.has(name)) {
-        sessionCosts.push({ name, costUsd: cost });
-      }
-    }
-    const totalUsd = sessionCosts.reduce((sum, s) => sum + s.costUsd, 0);
-    res.json({ sessions: sessionCosts, totalUsd: Math.round(totalUsd * 100) / 100 });
-  });
-
-  app.get("/api/cost-history", (_req, res) => {
-    res.json(costHistory);
-  });
-
-  // emcom/who kept for dashboard reference
-  app.get("/api/emcom/who", async (_req, res) => {
-    try {
-      const client = new EmcomClient(config.emcomServer, "");
-      const identities = await client.getWho();
-      res.json(identities);
-    } catch {
-      res.json([]);
-    }
-  });
-
-  // --- WebSocket ---
-
-  const httpServer = createServer(app);
-  const wss = new WebSocketServer({ server: httpServer });
-  const wsClients = new Set<WebSocket>();
-  const wsAlive = new Map<WebSocket, boolean>();
-
-  wss.on("connection", (ws) => {
-    wsClients.add(ws);
-    wsAlive.set(ws, true);
-
-    ws.on("pong", () => wsAlive.set(ws, true));
-
-    // Send current state
-    const list = [...sessions.values()].map((s) => s.getInfo());
-    ws.send(JSON.stringify({ type: "sessions", payload: list }));
-
-    ws.on("message", (raw) => {
-      try {
-        const msg = JSON.parse(raw.toString());
-        const session = msg.session ? sessions.get(msg.session) : null;
-
-        switch (msg.type) {
-          case "input":
-            session?.markUserInput(msg.payload);
-            session?.write(msg.payload);
-            break;
-          case "clear-input-dirty":
-            session?.clearInputDirty();
-            break;
-          case "resize":
-            session?.resize(msg.payload.cols, msg.payload.rows);
-            break;
-        }
-      } catch {}
-    });
-
-    ws.on("close", () => {
-      wsClients.delete(ws);
-      wsAlive.delete(ws);
-    });
-
-    // Subscribe to all session output
-    for (const [, session] of sessions) {
-      attachSessionToWs(session, ws);
-    }
-  });
-
-  // Heartbeat: detect dead connections every 30s
-  const heartbeatInterval = setInterval(() => {
-    for (const ws of wsClients) {
-      if (wsAlive.get(ws) === false) {
-        ws.terminate();
-        wsClients.delete(ws);
-        wsAlive.delete(ws);
-        continue;
-      }
-      wsAlive.set(ws, false);
-      ws.ping();
-    }
-  }, 30_000);
-  heartbeatInterval.unref();
+  registerEmcomRoutes({ app, config });
 
   // --- Helpers ---
 
@@ -660,103 +107,25 @@ public class Win32Focus {
     sessions.set(session.name, session);
 
     session.on("exit", () => {
-      broadcastSessionList();
+      wsRuntime.broadcastSessionList();
     });
 
     session.on("status-change", () => {
-      broadcastStatus(session);
+      wsRuntime.broadcastStatus(session);
     });
 
     session.on("notification", (count: number, from: string[]) => {
-      broadcastNotification(session.name, count, from);
+      wsRuntime.broadcastNotification(session.name, count, from);
     });
 
-    // Attach to all existing WS clients
-    for (const ws of wsClients) {
-      attachSessionToWs(session, ws);
-    }
-
-    broadcastSessionList();
-  }
-
-  const wsSessionCleanups = new Map<WebSocket, Array<() => void>>();
-
-  function attachSessionToWs(session: PtySession, ws: WebSocket): void {
-    const BATCH_MS = 16;
-    let buf = "";
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const flush = () => {
-      flushTimer = null;
-      if (buf && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "data", session: session.name, payload: buf }));
-        buf = "";
-      }
-    };
-
-    const onData = (data: string) => {
-      buf += data;
-      if (!flushTimer) flushTimer = setTimeout(flush, BATCH_MS);
-    };
-    session.on("data", onData);
-
-    if (!wsSessionCleanups.has(ws)) {
-      wsSessionCleanups.set(ws, []);
-      ws.on("close", () => {
-        for (const fn of wsSessionCleanups.get(ws) || []) fn();
-        wsSessionCleanups.delete(ws);
-      });
-    }
-    wsSessionCleanups.get(ws)!.push(() => {
-      session.off("data", onData);
-      if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-    });
-  }
-
-  function broadcastSessionList(): void {
-    const list = [...sessions.values()].map((s) => s.getInfo());
-    const msg = JSON.stringify({ type: "sessions", payload: list });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
-  }
-
-  function broadcastStatus(session: PtySession): void {
-    const info = session.getInfo();
-    const msg = JSON.stringify({
-      type: "status",
-      session: session.name,
-      payload: {
-        status: info.status,
-        unreadCount: info.unreadCount,
-        dirtyOnExit: info.dirtyOnExit,
-        workingDir: info.workingDir,
-        pendingPermission: info.pendingPermission,
-      },
-    });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
-  }
-
-  function broadcastNotification(name: string, count: number, from: string[]): void {
-    const msg = JSON.stringify({ type: "notification", session: name, payload: { count, from } });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
-  }
-
-  function broadcastName(): void {
-    const msg = JSON.stringify({ type: "config", name: config.name });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
+    wsRuntime.attachSession(session);
+    wsRuntime.broadcastSessionList();
   }
 
   // --- Debug routes (conditional) ---
 
   if (config.debug) {
-    registerDebugRoutes(app, sessions, sessionRepoRoots, config, costHistory, () => wsClients.size);
+    registerDebugRoutes(app, sessions, sessionRepoRoots, config, costHistory, () => wsRuntime.getClientCount());
     clog("Debug mode enabled — /api/debug/* routes active, /debug dashboard available");
   }
 
@@ -767,187 +136,30 @@ public class Win32Focus {
     console.log(`pty-win: http://${config.host}:${config.port}`);
   });
 
-  // 30s stats logger
-  setInterval(() => {
-    for (const session of sessions.values()) {
-      const s = session.getStats();
-      if (s.overall.callbacksPerSec === 0) continue;
-      const state = s.status === "busy" ? "busy" : s.status;
-      const bucket = s.status === "busy" ? s.busy : s.notBusy;
-      clog(`[stats] ${s.name}: ${bucket.callbacksPerSec} cb/s, ${Math.round(bucket.bytesPerSec / 1024)}KB/s, avg ${bucket.avgChunkBytes}b/cb (${state})`);
-    }
-  }, 30_000);
+  const backgroundTasks = startBackgroundTasks({
+    sessions,
+    costHistory,
+    costHistoryMax: COST_HISTORY_MAX,
+  });
 
-  // 60s cost history sampling
-  setInterval(() => {
-    if (sessions.size === 0) return;
-    const sample: CostSample = { timestamp: Date.now(), sessions: {} };
-    for (const [name, session] of sessions) {
-      const cost = session.getInfo().costUsd;
-      if (cost > 0) sample.sessions[name] = cost;
-    }
-    costHistory.push(sample);
-    if (costHistory.length > COST_HISTORY_MAX) costHistory.splice(0, costHistory.length - COST_HISTORY_MAX);
-  }, 60_000);
+  const shutdown = createShutdownHandler({
+    sessions,
+    sessionRepoRoots,
+    savedCosts,
+    costHistory,
+    costsPath,
+    costHistoryPath,
+    checkpointStaggerMs: CHECKPOINT_STAGGER_MS,
+    shutdownTimeoutMs: 240_000,
+    wsRuntime,
+    httpServer,
+  });
 
-  // Event-loop lag detector — measures setInterval drift. If > 200ms, the loop
-  // was blocked. Logs once per spike, with a cooldown to avoid log floods if
-  // the loop is degraded for an extended period.
-  {
-    const TICK_MS = 100;
-    const SPIKE_MS = 200;
-    let last = Date.now();
-    let cooldownUntil = 0;
-    setInterval(() => {
-      const now = Date.now();
-      const drift = now - last - TICK_MS;
-      last = now;
-      if (drift > SPIKE_MS && now > cooldownUntil) {
-        const heap = process.memoryUsage().heapUsed >> 20; // MB
-        clog(`[loop-lag] event loop blocked ${drift}ms (heap=${heap}MB, sessions=${sessions.size})`);
-        cooldownUntil = now + 5_000; // suppress further spikes for 5s
-      }
-    }, TICK_MS);
-  }
-
-  // Graceful shutdown with save injection
-  const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
-  function shutdownPrompt(): string {
-    const d = new Date();
-    const ts = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
-    return `[${ts} pty-win:shutdown:urgent:urgent] Server shutting down — update tracker.md and briefing.md, commit and push immediately. Write entries assuming a fresh session reads them — include what and why, not just that.`;
-  }
-  const SHUTDOWN_TIMEOUT_MS = 240_000;
-
-  const shutdown = async () => {
-    clog("Ctrl+C — graceful shutdown starting...");
-
-    // Find active AI sessions to save
-    const aiSessions: Array<[string, PtySession]> = [];
-    for (const [name, session] of sessions) {
-      const info = session.getInfo();
-      if (info.status !== "dead" && AI_COMMANDS.includes(info.command)) {
-        aiSessions.push([name, session]);
-      }
-    }
-
-    if (aiSessions.length > 0) {
-      clog(`Sending save to ${aiSessions.length} active AI session(s)...`);
-
-      // Group sessions by repo root for staggered injection
-      const repoGroups = new Map<string, Array<[string, PtySession]>>();
-      for (const [name, session] of aiSessions) {
-        const repo = sessionRepoRoots.get(name) || `__solo_${name}`;
-        if (!repoGroups.has(repo)) repoGroups.set(repo, []);
-        repoGroups.get(repo)!.push([name, session]);
-      }
-
-      // Inject save prompts, staggered within each repo group
-      const injectPromises: Promise<void>[] = [];
-      for (const [, group] of repoGroups) {
-        for (let i = 0; i < group.length; i++) {
-          const [name, session] = group[i];
-          const delay = i * CHECKPOINT_STAGGER_MS;
-          injectPromises.push(new Promise((resolve) => {
-            setTimeout(() => {
-              const identity = session.getInfo().emcomIdentity;
-              const label = identity ? `${name} (@${identity})` : name;
-              clog(`${label}: saving...${delay > 0 ? ` (delayed ${delay / 1000}s)` : ""}`);
-              session.forceIdle();
-              session.relayWrite(shutdownPrompt());
-              resolve();
-            }, delay);
-          }));
-        }
-      }
-      await Promise.all(injectPromises);
-
-      // Wait for each session to go idle (or timeout)
-      const startTime = Date.now();
-      const pending = new Set(aiSessions.map(([name]) => name));
-
-      await new Promise<void>((resolve) => {
-        const check = setInterval(() => {
-          for (const name of pending) {
-            const session = sessions.get(name);
-            if (!session) { pending.delete(name); continue; }
-            const info = session.getInfo();
-            if (info.status === "idle" || info.status === "dead") {
-              const identity = info.emcomIdentity;
-              const label = identity ? `${name} (@${identity})` : name;
-              clog(`${label}: idle ✓`);
-              pending.delete(name);
-            }
-          }
-          const elapsed = Math.round((Date.now() - startTime) / 1000);
-          if (pending.size === 0) {
-            clearInterval(check);
-            clog(`All sessions saved (${elapsed}s). Shutting down.`);
-            resolve();
-          } else if (Date.now() - startTime > SHUTDOWN_TIMEOUT_MS) {
-            clearInterval(check);
-            for (const name of pending) {
-              clog(`WARNING: ${name} did not finish saving (${elapsed}s timeout)`);
-            }
-            clog(`Timeout (${elapsed}s). Shutting down anyway.`);
-            resolve();
-          } else if (elapsed > 0 && elapsed % 10 === 0) {
-            const waiting = [...pending].join(", ");
-            clog(`${elapsed}s — waiting on: ${waiting}`);
-          }
-        }, 1000);
-      });
-    }
-
-    // Persist costs before shutdown
-    const costsData: Record<string, number> = {};
-    for (const [name, session] of sessions) {
-      const cost = session.getInfo().costUsd;
-      if (cost > 0) costsData[name] = cost;
-    }
-    for (const [name, cost] of savedCosts) {
-      if (!costsData[name] && cost > 0) costsData[name] = cost;
-    }
-    try {
-      writeFileSync(costsPath, JSON.stringify({ sessions: costsData }, null, 2));
-      clog(`Saved costs for ${Object.keys(costsData).length} session(s)`);
-    } catch (e) {
-      clog(`WARNING: Failed to save costs.json: ${e}`);
-    }
-
-    // Persist cost history
-    try {
-      writeFileSync(costHistoryPath, JSON.stringify(costHistory));
-      clog(`Saved ${costHistory.length} cost history sample(s)`);
-    } catch (e) {
-      clog(`WARNING: Failed to save cost-history.json: ${e}`);
-    }
-
-    // Kill all sessions and shut down
-    for (const [name, session] of sessions) {
-      log(`[server] Killing session: ${name}`);
-      session.kill();
-    }
-    sessions.clear();
-    sessionRepoRoots.clear();
-    clearInterval(heartbeatInterval);
-    for (const ws of wsClients) {
-      try { ws.terminate(); } catch {}
-    }
-    wsClients.clear();
-    wsAlive.clear();
-    wss.close();
-    httpServer.close(() => {
-      log("[server] Stopped");
-      process.exit(0);
-    });
-    // Force exit after 2s if clean shutdown stalls
-    setTimeout(() => {
-      log("[server] Force exit");
-      process.exit(0);
-    }, 2000);
+  const shutdownWithTaskCleanup = async () => {
+    stopBackgroundTasks(backgroundTasks);
+    await shutdown();
   };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdownWithTaskCleanup);
+  process.on("SIGTERM", shutdownWithTaskCleanup);
 }
