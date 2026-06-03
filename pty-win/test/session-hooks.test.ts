@@ -6,7 +6,6 @@ function makeController(initialStatus: HookSessionStatus = "busy") {
   const statusChanges: HookSessionStatus[] = [];
   const idleReasons: string[] = [];
   const emittedStatusChanges: number[] = [];
-  const logs: string[] = [];
 
   const controller = new SessionHookController({
     sessionName: "test-session",
@@ -17,7 +16,7 @@ function makeController(initialStatus: HookSessionStatus = "busy") {
     },
     maybeFireOnIdle: (reason) => idleReasons.push(reason),
     emitStatusChange: () => emittedStatusChanges.push(Date.now()),
-    log: (message) => logs.push(message),
+    log: () => {},
   });
 
   return {
@@ -26,7 +25,6 @@ function makeController(initialStatus: HookSessionStatus = "busy") {
     statusChanges,
     idleReasons,
     emittedStatusChanges,
-    logs,
   };
 }
 

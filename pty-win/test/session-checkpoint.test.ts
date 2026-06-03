@@ -86,11 +86,12 @@ describe("SessionCheckpointController", () => {
     harness.controller.trigger("light");
     expect(harness.controller.getState().checkpointInFlight).toBe(true);
 
-    vi.setSystemTime(new Date("2026-06-02T12:01:00Z"));
+    const expectedIdleTime = new Date("2026-06-02T12:01:00Z").getTime();
+    vi.setSystemTime(expectedIdleTime);
     harness.controller.onSessionIdle();
 
     expect(harness.controller.getState().checkpointInFlight).toBe(false);
-    expect(harness.controller.getState().lastCheckpointTime).toBe(Date.now());
+    expect(harness.controller.getState().lastCheckpointTime).toBe(expectedIdleTime);
   });
 
   it("start does not arm timers for non-AI commands", () => {

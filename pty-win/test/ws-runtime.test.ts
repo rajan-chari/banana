@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "events";
 import { createServer, type Server as HttpServer } from "http";
 import { AddressInfo } from "net";
@@ -314,6 +314,70 @@ describe("createWsRuntime", () => {
 
     runtime.shutdown();
     await new Promise((r) => setTimeout(r, 30));
+
+    expect(runtime.getClientCount()).toBe(0);
+  });
+});
+
+/** Heartbeat path — requires a fresh runtime constructed under fake setInterval
+ *  so we can advance time without affecting Node's real socket / setTimeout
+ *  scheduling. Lives in its own describe so beforeEach state is independent. */
+describe("createWsRuntime heartbeat", () => {
+  let httpServer: HttpServer;
+  let sessions: Map<string, PtySession>;
+  let runtime: WsRuntime;
+  let port: number;
+
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    sessions = new Map<string, PtySession>();
+    httpServer = createServer();
+    runtime = createWsRuntime(httpServer, sessions);
+    await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+    port = (httpServer.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    runtime.shutdown();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    vi.useRealTimers();
+  });
+
+  it("pings clients on each 30s heartbeat tick", async () => {
+    const c = await connect(port);
+    await c.next();
+
+    const pings: Buffer[] = [];
+    c.ws.on("ping", (data) => pings.push(Buffer.from(data)));
+
+    vi.advanceTimersByTime(30_000);
+    await new Promise((r) => setImmediate(r));
+
+    expect(pings.length).toBeGreaterThanOrEqual(1);
+
+    c.close();
+  });
+
+  it("terminates a client that fails to pong before the next tick", async () => {
+    const c = await connect(port);
+    await c.next();
+
+    // Suppress automatic pong-on-ping by removing the ws library's default handler.
+    // The library installs a built-in pong reply; intercepting "ping" and not
+    // calling ws.pong() simulates a dead client without writing back.
+    c.ws.removeAllListeners("ping");
+    c.ws.on("ping", () => { /* swallow — do not pong */ });
+
+    expect(runtime.getClientCount()).toBe(1);
+
+    // First tick: marks client as not-alive, sends a ping (which we swallow).
+    vi.advanceTimersByTime(30_000);
+    await new Promise((r) => setImmediate(r));
+    expect(runtime.getClientCount()).toBe(1);
+
+    // Second tick: client still not-alive → terminate.
+    vi.advanceTimersByTime(30_000);
+    await new Promise((r) => setImmediate(r));
 
     expect(runtime.getClientCount()).toBe(0);
   });
