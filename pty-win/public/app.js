@@ -165,7 +165,7 @@ function connect() {
           const updates = rebalanceLayoutsWithoutLeaves(state.workspaces, unrecoverable, getLeafList, buildBalancedTree);
           for (const { workspace, newLayout } of updates) {
             workspace.layout = newLayout;
-            updateWorkspaceTabName(workspace);
+            updateWorkspaceTabName(/** @type {import('./lib/state.js').Workspace} */ (workspace));
           }
         }
 
@@ -400,7 +400,7 @@ function renderTree() {
     if (!rootCached) {
       fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
         .then((r) => r.json())
-        .then(/** @param {import('./lib/state.js').FolderEntry} info */ (info) => {
+        .then(/** @param {import('./lib/state.js').FolderInfo} info */ (info) => {
           state.folderInfoCache.set(rootCacheKey, info);
           // Update indicators in-place once folder info arrives
           const slot = label.querySelector(".indicator-slot");
@@ -704,12 +704,12 @@ function renderSessionsPanel() {
       isClaudeReady: cached?.isClaudeReady || false,
       hasIdentity: cached?.hasIdentity || false,
       onKill: () => {
-        if (g.claudeAlive) killSession(g.pg.claude);
-        if (g.pwshAlive) killSession(g.pg.pwsh);
+        if (g.claudeAlive && g.pg.claude) killSession(g.pg.claude);
+        if (g.pwshAlive && g.pg.pwsh) killSession(g.pg.pwsh);
       },
     });
     // Fetch folder info if not cached (for indicator dots)
-    if (!cached) {
+    if (!cached && g.workingDir) {
       fetch(`/api/folder-info?path=${encodeURIComponent(g.workingDir)}`)
         .then((r) => r.json())
         .then((info) => {
@@ -728,8 +728,8 @@ function renderSessionsPanel() {
 
     // Click row → focus active session
     const activeName = getActiveSessionName(g.pg, g.claudeAlive, g.pwshAlive);
-    row.onclick = () => focusExistingSession(activeName);
-    row.addEventListener("contextmenu", (e) => showContextMenu(e, g.workingDir));
+    if (activeName) row.onclick = () => focusExistingSession(activeName);
+    row.addEventListener("contextmenu", (e) => { if (g.workingDir) showContextMenu(e, g.workingDir); });
     // Drag to workspace tab
     row.draggable = true;
     row.addEventListener("dragstart", (e) => {
@@ -892,7 +892,7 @@ async function recreateOrphanedSessions(names) {
   const repoGroups = new Map(); // repoRoot -> [name, ...]
   await Promise.all(names.map(/** @param {string} name */ async (name) => {
     const meta = state.sessionMeta.get(name);
-    if (!meta) return;
+    if (!meta || !meta.workingDir) return;
     let repoRoot = null;
     try {
       const r = await fetch(`/api/repo-root?path=${encodeURIComponent(meta.workingDir)}`);
@@ -980,12 +980,12 @@ function getOrCreateActiveWorkspace() {
  * Open a folder as a session, optionally forcing a new workspace
  * @param {string} folderPath
  * @param {string} folderName
- * @param {string} command
+ * @param {string} [command]
  * @param {boolean} [newWorkspace]
  * @param {string[]} [args]
  */
 async function openFolder(folderPath, folderName, command, newWorkspace = false, args = []) {
-  const baseName = folderName || folderPath.split(/[/\\]/).filter(Boolean).pop();
+  const baseName = folderName || folderPath.split(/[/\\]/).filter(Boolean).pop() || folderPath;
   const isPwsh = command === "pwsh";
   const sessionName = isPwsh ? baseName + "~pwsh" : baseName;
 
@@ -1225,7 +1225,8 @@ function showQuickMessageInput(sessionName, anchorEl) {
 
   // Click outside to dismiss
   const outside = /** @param {MouseEvent} e */ (e) => {
-    if (!popup.contains(e.target)) { dismiss(); document.removeEventListener("mousedown", outside); }
+    const t = e.target instanceof Node ? e.target : null;
+    if (!popup.contains(t)) { dismiss(); document.removeEventListener("mousedown", outside); }
   };
   setTimeout(() => document.addEventListener("mousedown", outside), 0);
 }
@@ -1277,7 +1278,7 @@ byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ asyn
   if (!action || !state.ctxTarget || item?.classList.contains("ctx-disabled")) return;
 
   const path = state.ctxTarget;
-  const name = path.split(/[/\\]/).filter(Boolean).pop();
+  const name = path.split(/[/\\]/).filter(Boolean).pop() || path;
 
   switch (action) {
     case "open":
@@ -1548,12 +1549,13 @@ function switchToWorkspace(id) {
   renderTabs();
   renderActiveWorkspace();
   if (state.focusedPane) {
-    focusPane(state.focusedPane);
+    const focused = state.focusedPane;
+    focusPane(focused);
     // Terminal DOM needs a frame to be ready for keyboard focus
     requestAnimationFrame(() => {
-      const pg = state.paneGroups.get(state.focusedPane);
-      const name = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : state.focusedPane;
-      const entry = state.terminals.get(name || state.focusedPane);
+      const pg = state.paneGroups.get(focused);
+      const name = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : focused;
+      const entry = state.terminals.get(name || focused);
       if (entry) entry.term.focus();
     });
   }
@@ -1851,7 +1853,7 @@ function addSessionToWorkspace(workspaceId, sessionName) {
  *   session: string | null,
  *   ghostEl: HTMLElement | null,
  *   dropZoneEls: HTMLElement[],
- *   currentTarget: { session: string, side: string } | null
+ *   currentTarget: { session: string, side: "left" | "right" | "top" | "bottom" } | null
  * }} */
 const paneDrag = { active: false, session: null, ghostEl: null, dropZoneEls: [], currentTarget: null };
 
@@ -1901,7 +1903,9 @@ function updateDropZoneHighlight(mx, my) {
   paneDrag.dropZoneEls.forEach(el => el.classList.remove("active"));
   if (best) {
     best.classList.add("active");
-    paneDrag.currentTarget = { session: best.dataset.session, side: best.dataset.side };
+    const session = best.dataset.session || "";
+    const side = /** @type {"left" | "right" | "top" | "bottom"} */ (best.dataset.side || "right");
+    paneDrag.currentTarget = { session, side };
   } else {
     paneDrag.currentTarget = null;
   }
@@ -1968,11 +1972,11 @@ function startPaneDrag(e, groupName) {
 
 const LAYOUT_PRESETS = [
   { name: "Auto (balanced)",    min: 1, build: /** @param {string[]} s */ (s) => buildBalancedTree(s) },
-  { name: "2 Columns",          min: 2, build: ([a,b]) => ({ type:"split", direction:"h", ratio:0.5, children:[{type:"leaf",session:a},{type:"leaf",session:b}] }) },
-  { name: "3 Columns",          min: 3, build: ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.333, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
-  { name: "2 Top + 1 Bottom",   min: 3, build: ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:a},{type:"leaf",session:b}]},{type:"leaf",session:c}] }) },
-  { name: "1 Top + 2 Bottom",   min: 3, build: ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
-  { name: "Large Left + Stack", min: 3, build: ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.6, children:[{type:"leaf",session:a},{type:"split",direction:"v",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
+  { name: "2 Columns",          min: 2, build: /** @param {string[]} s */ ([a,b]) => ({ type:"split", direction:"h", ratio:0.5, children:[{type:"leaf",session:a},{type:"leaf",session:b}] }) },
+  { name: "3 Columns",          min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.333, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
+  { name: "2 Top + 1 Bottom",   min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:a},{type:"leaf",session:b}]},{type:"leaf",session:c}] }) },
+  { name: "1 Top + 2 Bottom",   min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
+  { name: "Large Left + Stack", min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.6, children:[{type:"leaf",session:a},{type:"split",direction:"v",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
 ];
 
 /**
@@ -1988,14 +1992,15 @@ function applyLayoutPreset(ws, idx) {
 }
 
 /**
- * @param {MouseEvent & { target: HTMLElement }} e
+ * @param {MouseEvent} e
  * @param {import('./lib/state.js').Workspace} ws
  */
 function showLayoutPresetsMenu(e, ws) {
   e.stopPropagation();
   const menu = byId("pane-context-menu");
   menu.innerHTML = ""; menu.classList.remove("hidden");
-  const rect = e.target.getBoundingClientRect();
+  const target = e.target instanceof HTMLElement ? e.target : null;
+  const rect = target ? target.getBoundingClientRect() : { left: 0, bottom: 0 };
   menu.style.left = `${rect.left}px`; menu.style.top = `${rect.bottom + 2}px`;
   const sessions = ws.layout ? getLeafList(ws.layout) : [];
   LAYOUT_PRESETS.forEach((p, i) => {
@@ -2005,8 +2010,9 @@ function showLayoutPresetsMenu(e, ws) {
     if (sessions.length >= p.min) item.onclick = () => { applyLayoutPreset(ws, i); menu.classList.add("hidden"); };
     menu.appendChild(item);
   });
-  const close = /** @param {MouseEvent & { target: Node }} ev */ ev => {
-    if (!menu.contains(ev.target)) { menu.classList.add("hidden"); document.removeEventListener("mousedown", close); }
+  const close = /** @param {MouseEvent} ev */ ev => {
+    const t = ev.target instanceof Node ? ev.target : null;
+    if (!menu.contains(t)) { menu.classList.add("hidden"); document.removeEventListener("mousedown", close); }
   };
   setTimeout(() => document.addEventListener("mousedown", close), 0);
 }
@@ -2334,7 +2340,7 @@ function ensureTerminal(sessionName) {
     state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
   });
 
-  term.onResize(({ cols, rows }) => {
+  term.onResize(/** @param {{cols: number, rows: number}} dim */ ({ cols, rows }) => {
     state.ws?.send(JSON.stringify({ type: "resize", session: sessionName, payload: { cols, rows } }));
   });
 
@@ -2688,6 +2694,7 @@ function navigatePanes(arrowKey) {
   if (!ws?.layout) return;
   const leaves = getLeafList(ws.layout);
   if (!leaves.length) return;
+  if (!state.focusedPane) return;
   const idx = leaves.indexOf(state.focusedPane);
   const newIdx = (arrowKey === "ArrowRight" || arrowKey === "ArrowDown")
     ? (idx + 1) % leaves.length
@@ -2701,6 +2708,7 @@ function navigatePanes(arrowKey) {
 function resizeFocused(arrowKey) {
   const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (!ws?.layout || ws.layout.type !== "split") return;
+  if (!state.focusedPane) return;
   const splitNode = findParentSplit(ws.layout, state.focusedPane);
   if (!splitNode) return;
   const delta = 0.05;
@@ -2844,7 +2852,7 @@ function renderDashboard() {
   const area = byId("workspace-area");
 
   // Check if dashboard already exists — patch in-place instead of rebuilding
-  let dash = area.querySelector(".dashboard");
+  let dash = /** @type {HTMLElement | null} */ (area.querySelector(".dashboard"));
   if (dash) {
     patchDashboard(dash);
     return;
@@ -3127,6 +3135,7 @@ function renderDashboardStats() {
 // ===== Tracker Panel (Redesigned) =====
 
 const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred", "merged", "closed", "ready-to-merge", "testing", "pr-up"];
+/** @type {import('./lib/tracker-filters.js').TrackerSortField} */
 let trackerSortField = "status"; // default: grouped by status
 let trackerSortDir = "asc";
 let trackerPrevItems = new Map();
@@ -3147,8 +3156,8 @@ function filterTrackerItems(items) {
  * @param {any[]} items
  */
 function populateTrackerFilters(items) {
-  const repoSel = byId("tracker-filter-repo");
-  const assigneeSel = byId("tracker-filter-assignee");
+  const repoSel = /** @type {HTMLSelectElement | null} */ (byId("tracker-filter-repo"));
+  const assigneeSel = /** @type {HTMLSelectElement | null} */ (byId("tracker-filter-assignee"));
   if (!repoSel || !assigneeSel) return;
 
   const { repos, assignees } = extractFilterOptions(items);
@@ -3390,7 +3399,7 @@ function renderTracker() {
     container.querySelectorAll(".tracker-th").forEach(th => {
       if (!(th instanceof HTMLElement)) return;
       th.onclick = () => {
-        const field = th.dataset.sort;
+        const field = /** @type {import('./lib/tracker-filters.js').TrackerSortField} */ (th.dataset.sort || "status");
         if (trackerSortField === field) {
           trackerSortDir = trackerSortDir === "asc" ? "desc" : "asc";
         } else {
@@ -3538,7 +3547,7 @@ function renderTrackerBody(container, items) {
     for (const g of [...body.querySelectorAll(".tracker-group")]) g.remove();
     const sorted = sortTrackerItems(items);
     for (const item of sorted) {
-      let el = body.querySelector(`.tracker-item[data-id="${item.id}"]`);
+      let el = /** @type {HTMLElement | null} */ (body.querySelector(`.tracker-item[data-id="${item.id}"]`));
       if (!el) {
         el = buildTrackerItem(item);
         body.appendChild(el);
@@ -3574,7 +3583,7 @@ function renderTrackerBody(container, items) {
       }
 
       for (const item of groupItems) {
-        let el = groupEl.querySelector(`.tracker-item[data-id="${item.id}"]`);
+        let el = /** @type {HTMLElement | null} */ (groupEl.querySelector(`.tracker-item[data-id="${item.id}"]`));
         if (!el) {
           el = buildTrackerItem(item);
           groupEl.appendChild(el);
@@ -3618,7 +3627,7 @@ byId("m-create").onclick = () => {
   const cmd = /** @type {HTMLInputElement} */ (byId("m-cmd")).value.trim() || undefined;
   if (!path) { alert("Path is required."); return; }
   closeModal();
-  openFolder(path, null, cmd);
+  openFolder(path, "", cmd);
 };
 byId("modal-overlay").onclick = /** @param {MouseEvent} e */ (e) => {
   if (e.target === byId("modal-overlay")) closeModal();
@@ -3758,7 +3767,7 @@ window.addEventListener("load", () => {
   }
 
   // --- Restore saved width ---
-  const savedFeedWidth = parseInt(localStorage.getItem("pty-win-feed-width"), 10);
+  const savedFeedWidth = parseInt(localStorage.getItem("pty-win-feed-width") || "", 10);
   if (savedFeedWidth && savedFeedWidth >= 150) panel.style.width = `${savedFeedWidth}px`;
 
   // --- Resize handle ---
@@ -3784,7 +3793,7 @@ window.addEventListener("load", () => {
       document.body.style.userSelect = "";
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      localStorage.setItem("pty-win-feed-width", parseInt(panel.style.width, 10));
+      localStorage.setItem("pty-win-feed-width", String(parseInt(panel.style.width, 10)));
       // Reconnect ResizeObservers + fit once
       const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
       for (const [name, entry] of state.terminals) {

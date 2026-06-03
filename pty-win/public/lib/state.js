@@ -13,7 +13,7 @@
 /** @typedef {{ name: string, path: string, identityName?: string | null, isClaudeReady?: boolean, isDir?: boolean, [key: string]: any }} VisitedFolder */
 /** @typedef {{ name: string, command: string, icon: string }} AiPreset */
 /** @typedef {{ claude?: string, pwsh?: string, activeType: "claude"|"pwsh", [key: string]: any }} PaneGroup */
-/** @typedef {{ term: any, fitAddon: any, opened: boolean, wrapperEl?: HTMLElement, resizeObserver?: ResizeObserver, [key: string]: any }} TerminalEntry */
+/** @typedef {{ term: any, fitAddon: any, opened: boolean, wrapperEl: HTMLElement, resizeObserver?: ResizeObserver, [key: string]: any }} TerminalEntry */
 /** @typedef {{ name: string, group: string, command: string, status: string, [key: string]: any }} SessionInfo */
 /** @typedef {{ isClaudeReady: boolean, hasIdentity: boolean, identityName?: string | null }} FolderInfo */
 /** @typedef {{ workingDir?: string, command?: string | null, [key: string]: any }} SessionMeta */
