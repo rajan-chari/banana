@@ -84,6 +84,39 @@ let diagPollTimer = null;
 /** @type {ReturnType<typeof setInterval> | null} */
 let trackerPollTimer = null;
 
+// ===== DOM helpers =====
+// `byId` and `queryEl` assert non-null and return HTMLElement, so callers can
+// chain .style/.classList/.dataset without TS18047/2339 noise. They throw if
+// the element is missing, which matches the existing implicit-crash behavior
+// when `byId("x").foo` hit null at runtime.
+
+/**
+ * @param {string} id
+ * @returns {HTMLElement}
+ */
+function byId(id) {
+  const el = byId(id);
+  if (!el) {
+    console.error(`byId: #${id} missing`);
+    throw new Error(`Element #${id} not found`);
+  }
+  return el;
+}
+
+/**
+ * @param {ParentNode} parent
+ * @param {string} selector
+ * @returns {HTMLElement}
+ */
+function queryEl(parent, selector) {
+  const el = parent.querySelector(selector);
+  if (!el) {
+    console.error(`queryEl: ${selector} missing`);
+    throw new Error(`Element ${selector} not found`);
+  }
+  return /** @type {HTMLElement} */ (el);
+}
+
 function rebuildPaneGroups() {
   state.paneGroups = _rebuildPaneGroups(state.sessions, state.paneGroups);
 }
@@ -254,7 +287,7 @@ function applyInstanceName(name) {
     r.removeProperty("--bg-pane");
   }
   // Update name badge in sidebar header
-  const badge = document.getElementById("instance-name-badge");
+  const badge = byId("instance-name-badge");
   if (badge) badge.textContent = name || "";
 }
 
@@ -274,7 +307,7 @@ async function initApp() {
   } catch {}
 
   // Instance name badge — click to change
-  const nameBadge = document.getElementById("instance-name-badge");
+  const nameBadge = byId("instance-name-badge");
   if (nameBadge) {
     nameBadge.onclick = async () => {
       const current = nameBadge.textContent || "";
@@ -314,7 +347,7 @@ async function fetchChildren(path) {
 }
 
 function renderTree() {
-  const tree = document.getElementById("folder-tree");
+  const tree = byId("folder-tree");
   tree.innerHTML = "";
 
   const folderCountEl = document.querySelector(".folder-count");
@@ -509,7 +542,7 @@ function refreshTreeRunningState() {
 // ===== Quick Access Panel =====
 
 function renderQuickAccess() {
-  const panel = document.getElementById("quick-access-panel");
+  const panel = byId("quick-access-panel");
   if (!panel) return;
   panel.innerHTML = "";
 
@@ -608,7 +641,7 @@ function renderQuickAccess() {
 // ===== Sessions Panel =====
 
 function renderSessionsPanel() {
-  const list = document.getElementById("sessions-list");
+  const list = byId("sessions-list");
   const countEl = document.querySelector(".session-count");
   if (!list) return;
 
@@ -784,8 +817,8 @@ function appendRowActions(container, opts) {
 
 // Sessions panel collapse toggle
 (() => {
-  const header = document.getElementById("sessions-panel-header");
-  const body = document.getElementById("sessions-list");
+  const header = byId("sessions-panel-header");
+  const body = byId("sessions-list");
   const arrow = header?.querySelector(".arrow");
   const stored = localStorage.getItem("pty-win-sessions-expanded");
   if (stored === "false") {
@@ -801,8 +834,8 @@ function appendRowActions(container, opts) {
 
 // Folders panel collapse toggle
 (() => {
-  const header = document.getElementById("folders-panel-header");
-  const body = document.getElementById("folder-tree");
+  const header = byId("folders-panel-header");
+  const body = byId("folder-tree");
   const arrow = header?.querySelector(".arrow");
   const stored = localStorage.getItem("pty-win-folders-expanded");
   if (stored === "false") {
@@ -827,7 +860,7 @@ async function recreateOrphanedSessions(names) {
 
   const STARTUP_STAGGER_MS = 7000;
 
-  const mainEl = document.getElementById("main");
+  const mainEl = byId("main");
   const charW = 7.6, charH = 18;
   const availW = (mainEl?.clientWidth || 800) - 4;
   const availH = (mainEl?.clientHeight || 600) - 35 - 26 - 22 - 4;
@@ -948,7 +981,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
   // Create session
   try {
     // Estimate initial terminal size from the workspace area
-    const mainEl = document.getElementById("main");
+    const mainEl = byId("main");
     const charW = 7.6, charH = 18; // approximate character dimensions for Consolas 13px
     const availW = (mainEl?.clientWidth || 800) - 4; // minus pane borders
     const availH = (mainEl?.clientHeight || 600) - 35 - 26 - 22 - 4; // minus tabbar, topbar, statusbar, borders
@@ -1068,7 +1101,7 @@ function updateWorkspaceTabName(ws) {
 
 function showQuickMessageInput(sessionName, anchorEl) {
   // Remove any existing popup
-  document.getElementById("quick-msg-popup")?.remove();
+  byId("quick-msg-popup")?.remove();
 
   const popup = document.createElement("div");
   popup.id = "quick-msg-popup";
@@ -1156,7 +1189,7 @@ function showContextMenu(e, path) {
   e.stopPropagation();
   state.ctxTarget = path;
 
-  const menu = document.getElementById("context-menu");
+  const menu = byId("context-menu");
   const isFav = state.favorites.includes(path);
 
   menu.querySelector('[data-action="fav-add"]').classList.toggle("ctx-disabled", isFav);
@@ -1184,10 +1217,10 @@ function showContextMenu(e, path) {
 }
 
 document.addEventListener("click", () => {
-  document.getElementById("context-menu").classList.add("hidden");
+  byId("context-menu").classList.add("hidden");
 });
 
-document.getElementById("context-menu").addEventListener("click", async (e) => {
+byId("context-menu").addEventListener("click", async (e) => {
   const item = e.target.closest(".ctx-item");
   const action = item?.dataset.action;
   if (!action || !state.ctxTarget || item.classList.contains("ctx-disabled")) return;
@@ -1270,14 +1303,14 @@ document.getElementById("context-menu").addEventListener("click", async (e) => {
     }
   }
 
-  document.getElementById("context-menu").classList.add("hidden");
+  byId("context-menu").classList.add("hidden");
 });
 
 // ===== Quick-Open (Ctrl+P) =====
 
 function openQuickOpen() {
-  const overlay = document.getElementById("quick-open");
-  const input = document.getElementById("quick-open-input");
+  const overlay = byId("quick-open");
+  const input = byId("quick-open-input");
   overlay.classList.remove("hidden");
   input.value = "";
   input.focus();
@@ -1285,11 +1318,11 @@ function openQuickOpen() {
 }
 
 function closeQuickOpen() {
-  document.getElementById("quick-open").classList.add("hidden");
+  byId("quick-open").classList.add("hidden");
 }
 
 function renderQuickOpenResults(query) {
-  const container = document.getElementById("quick-open-results");
+  const container = byId("quick-open-results");
   container.innerHTML = "";
 
   const q = query.toLowerCase();
@@ -1323,11 +1356,11 @@ function renderQuickOpenResults(query) {
   }
 }
 
-document.getElementById("quick-open-input").addEventListener("input", (e) => {
+byId("quick-open-input").addEventListener("input", (e) => {
   renderQuickOpenResults(e.target.value);
 });
 
-document.getElementById("quick-open-input").addEventListener("keydown", (e) => {
+byId("quick-open-input").addEventListener("keydown", (e) => {
   if (e.key === "Escape") { closeQuickOpen(); return; }
   if (e.key === "Enter") {
     const selected = document.querySelector(".qo-result.selected");
@@ -1346,28 +1379,28 @@ document.getElementById("quick-open-input").addEventListener("keydown", (e) => {
   }
 });
 
-document.getElementById("quick-open").addEventListener("click", (e) => {
-  if (e.target === document.getElementById("quick-open")) closeQuickOpen();
+byId("quick-open").addEventListener("click", (e) => {
+  if (e.target === byId("quick-open")) closeQuickOpen();
 });
 
 // ===== Sidebar Toggle =====
 
 function toggleSidebar() {
   state.sidebarVisible = !state.sidebarVisible;
-  document.getElementById("sidebar").classList.toggle("hidden", !state.sidebarVisible);
-  document.getElementById("sidebar-strip").classList.toggle("hidden", state.sidebarVisible);
+  byId("sidebar").classList.toggle("hidden", !state.sidebarVisible);
+  byId("sidebar-strip").classList.toggle("hidden", state.sidebarVisible);
   // Refit terminals
   const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (ws?.layout) requestAnimationFrame(() => fitAllTerminals(ws.layout));
 }
 
-document.getElementById("btn-collapse").onclick = toggleSidebar;
-document.getElementById("btn-expand").onclick = toggleSidebar;
+byId("btn-collapse").onclick = toggleSidebar;
+byId("btn-expand").onclick = toggleSidebar;
 
 function refreshTree() { state.folderCache.clear(); renderTree(); }
-document.getElementById("btn-refresh").onclick = refreshTree;
+byId("btn-refresh").onclick = refreshTree;
 
-document.getElementById("btn-collapse-all").onclick = () => {
+byId("btn-collapse-all").onclick = () => {
   state.expandedPaths.clear();
   saveExpandedPaths();
   renderTree();
@@ -1375,8 +1408,8 @@ document.getElementById("btn-collapse-all").onclick = () => {
 
 // Sidebar resize handle
 (() => {
-  const handle = document.getElementById("sidebar-resize-handle");
-  const sidebar = document.getElementById("sidebar");
+  const handle = byId("sidebar-resize-handle");
+  const sidebar = byId("sidebar");
   if (!handle || !sidebar) return;
 
   handle.addEventListener("mousedown", (e) => {
@@ -1407,7 +1440,7 @@ document.getElementById("btn-collapse-all").onclick = () => {
 
 // ===== Add root =====
 
-document.getElementById("btn-add-root").onclick = () => {
+byId("btn-add-root").onclick = () => {
   const path = prompt("Enter folder path to add as root:");
   if (path && !state.favorites.includes(path)) {
     state.favorites.push(path);
@@ -1515,7 +1548,7 @@ function removeWorkspace(id) {
 
 function renderTabs() {
   saveWorkspaces();
-  const tabsEl = document.getElementById("tabs");
+  const tabsEl = byId("tabs");
   tabsEl.innerHTML = "";
 
   const dashTab = document.createElement("div");
@@ -1702,12 +1735,12 @@ async function handleSessionDrop(e, targetWsId) {
 }
 
 // Workspace area drop target (drop onto current workspace)
-document.getElementById("workspace-area")?.addEventListener("dragover", (e) => {
+byId("workspace-area")?.addEventListener("dragover", (e) => {
   if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
     e.preventDefault(); e.dataTransfer.dropEffect = "copy";
   }
 });
-document.getElementById("workspace-area")?.addEventListener("drop", (e) => {
+byId("workspace-area")?.addEventListener("drop", (e) => {
   if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
     handleSessionDrop(e, state.activeWorkspaceId);
   }
@@ -1857,7 +1890,7 @@ function applyLayoutPreset(ws, idx) {
 
 function showLayoutPresetsMenu(e, ws) {
   e.stopPropagation();
-  const menu = document.getElementById("pane-context-menu");
+  const menu = byId("pane-context-menu");
   menu.innerHTML = ""; menu.classList.remove("hidden");
   const rect = e.target.getBoundingClientRect();
   menu.style.left = `${rect.left}px`; menu.style.top = `${rect.bottom + 2}px`;
@@ -1876,7 +1909,7 @@ function showLayoutPresetsMenu(e, ws) {
 }
 
 function renderActiveWorkspace() {
-  const area = document.getElementById("workspace-area");
+  const area = byId("workspace-area");
   area.innerHTML = "";
 
   const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
@@ -2239,7 +2272,7 @@ function switchPaneType(groupName, type) {
 }
 
 function showAiTagContextMenu(e, folderPath, folderName) {
-  const menu = document.getElementById("pane-context-menu");
+  const menu = byId("pane-context-menu");
   menu.classList.remove("hidden");
   menu.style.left = `${e.clientX}px`;
   menu.style.top = `${e.clientY}px`;
@@ -2306,7 +2339,7 @@ function showAiTagContextMenu(e, folderPath, folderName) {
 }
 
 function showAiPicker(e, folderPath, folderName) {
-  const menu = document.getElementById("pane-context-menu");
+  const menu = byId("pane-context-menu");
   menu.innerHTML = "";
   menu.classList.remove("hidden");
   menu.style.left = `${e.clientX}px`;
@@ -2355,7 +2388,7 @@ function showAiPicker(e, folderPath, folderName) {
 }
 
 function showPaneContextMenu(e, groupName) {
-  const menu = document.getElementById("pane-context-menu");
+  const menu = byId("pane-context-menu");
   menu.innerHTML = "";
   menu.classList.remove("hidden");
   menu.style.left = `${e.clientX}px`;
@@ -2637,7 +2670,7 @@ function autoRemoveDeadSession(sessionName) {
 // ===== Dashboard =====
 
 function renderDashboard() {
-  const area = document.getElementById("workspace-area");
+  const area = byId("workspace-area");
 
   // Check if dashboard already exists — patch in-place instead of rebuilding
   let dash = area.querySelector(".dashboard");
@@ -2816,7 +2849,7 @@ async function loadSnapshot(sessionName) {
 
 function renderDashboardStats() {
   if (!state.isDashboard) return;
-  const container = document.getElementById("dashboard-stats");
+  const container = byId("dashboard-stats");
   if (!container) return;
 
   fetch("/api/stats").then((r) => r.json()).then((stats) => {
@@ -2908,16 +2941,16 @@ let trackerPrevItems = new Map();
 
 function filterTrackerItems(items) {
   return _filterTrackerItems(items, {
-    repo: /** @type {HTMLSelectElement|null} */ (document.getElementById("tracker-filter-repo"))?.value || "",
-    sev: /** @type {HTMLSelectElement|null} */ (document.getElementById("tracker-filter-sev"))?.value || "",
-    assignee: /** @type {HTMLSelectElement|null} */ (document.getElementById("tracker-filter-assignee"))?.value || "",
+    repo: /** @type {HTMLSelectElement|null} */ (byId("tracker-filter-repo"))?.value || "",
+    sev: /** @type {HTMLSelectElement|null} */ (byId("tracker-filter-sev"))?.value || "",
+    assignee: /** @type {HTMLSelectElement|null} */ (byId("tracker-filter-assignee"))?.value || "",
     cat: localStorage.getItem("pty-win-tracker-cat") || "",
   });
 }
 
 function populateTrackerFilters(items) {
-  const repoSel = document.getElementById("tracker-filter-repo");
-  const assigneeSel = document.getElementById("tracker-filter-assignee");
+  const repoSel = byId("tracker-filter-repo");
+  const assigneeSel = byId("tracker-filter-assignee");
   if (!repoSel || !assigneeSel) return;
 
   const { repos, assignees } = extractFilterOptions(items);
@@ -3086,7 +3119,7 @@ function loadTrackerHistory(el, itemId) {
 }
 
 function renderTracker() {
-  const area = document.getElementById("tracker-content");
+  const area = byId("tracker-content");
   if (!area) return;
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
 
@@ -3208,7 +3241,7 @@ function renderTracker() {
       state.trackerDecisionCount = items.filter(i => i.status === "decision-pending").length;
 
       // Update right panel tracker tab badge
-      const badge = document.getElementById("tracker-tab-badge");
+      const badge = byId("tracker-tab-badge");
       if (badge) {
         badge.textContent = state.trackerDecisionCount > 0 ? ` (${state.trackerDecisionCount})` : "";
         badge.classList.toggle("hidden", state.trackerDecisionCount === 0);
@@ -3332,29 +3365,29 @@ function renderTrackerBody(container, items) {
 // ===== Modal =====
 
 function openModal() {
-  document.getElementById("modal-overlay").classList.remove("hidden");
-  document.getElementById("m-path").value = "";
-  document.getElementById("m-cmd").value = "claude";
-  document.getElementById("m-path").focus();
+  byId("modal-overlay").classList.remove("hidden");
+  byId("m-path").value = "";
+  byId("m-cmd").value = "claude";
+  byId("m-path").focus();
 }
 
 function closeModal() {
-  document.getElementById("modal-overlay").classList.add("hidden");
+  byId("modal-overlay").classList.add("hidden");
 }
 
-document.getElementById("m-cancel").onclick = closeModal;
-document.getElementById("m-create").onclick = () => {
-  const path = document.getElementById("m-path").value.trim();
-  const cmd = document.getElementById("m-cmd").value.trim() || undefined;
+byId("m-cancel").onclick = closeModal;
+byId("m-create").onclick = () => {
+  const path = byId("m-path").value.trim();
+  const cmd = byId("m-cmd").value.trim() || undefined;
   if (!path) { alert("Path is required."); return; }
   closeModal();
   openFolder(path, null, cmd);
 };
-document.getElementById("modal-overlay").onclick = (e) => {
-  if (e.target === document.getElementById("modal-overlay")) closeModal();
+byId("modal-overlay").onclick = (e) => {
+  if (e.target === byId("modal-overlay")) closeModal();
 };
-document.getElementById("m-path").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") document.getElementById("m-create").click();
+byId("m-path").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") byId("m-create").click();
   if (e.key === "Escape") closeModal();
 });
 
@@ -3404,7 +3437,7 @@ for (const f of state.favorites) {
 
 // Restore sidebar width
 const savedWidth = loadSidebarWidth();
-document.getElementById("sidebar").style.width = `${savedWidth}px`;
+byId("sidebar").style.width = `${savedWidth}px`;
 
 // Restore workspaces (layouts referencing sessions — terminals reconnect via WS)
 const savedWs = loadWorkspaces();
@@ -3443,27 +3476,27 @@ window.addEventListener("load", () => {
 
 (function initFeedPanel() {
   const FEED_POLL_MS = 10_000;
-  const panel = document.getElementById("feed-panel");
-  const strip = document.getElementById("feed-strip");
-  const body = document.getElementById("feed-body");
-  const collapseBtn = document.getElementById("feed-collapse-btn");
-  const expandBtn = document.getElementById("feed-expand-btn");
-  const titleEl = document.getElementById("feed-title");
-  const unreadBadge = document.getElementById("feed-unread-badge");
-  const stripBadge = document.getElementById("feed-strip-badge");
-  const identityBadge = document.getElementById("feed-identity-badge");
+  const panel = byId("feed-panel");
+  const strip = byId("feed-strip");
+  const body = byId("feed-body");
+  const collapseBtn = byId("feed-collapse-btn");
+  const expandBtn = byId("feed-expand-btn");
+  const titleEl = byId("feed-title");
+  const unreadBadge = byId("feed-unread-badge");
+  const stripBadge = byId("feed-strip-badge");
+  const identityBadge = byId("feed-identity-badge");
 
   let feedIdentity = localStorage.getItem("pty-win-feed-identity") || "";
 
   // --- Expand/collapse all ---
-  document.getElementById("feed-expand-all").onclick = () => {
+  byId("feed-expand-all").onclick = () => {
     body.querySelectorAll(".feed-item").forEach(el => {
       const id = el.dataset.msgId;
       if (id) expandedItems.add(id);
       el.classList.add("expanded");
     });
   };
-  document.getElementById("feed-collapse-all").onclick = () => {
+  byId("feed-collapse-all").onclick = () => {
     expandedItems.clear();
     body.querySelectorAll(".feed-item").forEach(el => el.classList.remove("expanded"));
   };
@@ -3488,7 +3521,7 @@ window.addEventListener("load", () => {
   if (savedFeedWidth && savedFeedWidth >= 150) panel.style.width = `${savedFeedWidth}px`;
 
   // --- Resize handle ---
-  const feedHandle = document.getElementById("feed-resize-handle");
+  const feedHandle = byId("feed-resize-handle");
   feedHandle.addEventListener("mousedown", (e) => {
     e.preventDefault();
     document.body.style.cursor = "col-resize";
@@ -3617,10 +3650,10 @@ window.addEventListener("load", () => {
   let filterText = "";
 
   // --- Toolbar controls ---
-  const searchInput = document.getElementById("feed-search");
-  const senderSelect = document.getElementById("feed-sender-filter");
-  const sortBtn = document.getElementById("feed-sort-btn");
-  const threadsBtn = document.getElementById("feed-threads-btn");
+  const searchInput = byId("feed-search");
+  const senderSelect = byId("feed-sender-filter");
+  const sortBtn = byId("feed-sort-btn");
+  const threadsBtn = byId("feed-threads-btn");
 
   searchInput.oninput = () => { filterText = searchInput.value.toLowerCase(); lastFeedJson = ""; renderFeed(); };
   senderSelect.onchange = () => { filterSender = senderSelect.value; lastFeedJson = ""; renderFeed(); };
@@ -3811,7 +3844,7 @@ window.addEventListener("load", () => {
 // ===== Agents Panel =====
 
 function renderAgentsPanel() {
-  const area = document.getElementById("agents-content");
+  const area = byId("agents-content");
   if (!area) return;
 
   const allSessions = [...state.sessions.entries()];
@@ -4025,9 +4058,9 @@ function drawSparkline(canvas, data) {
 
 (function initRightPanelTabs() {
   const tabs = document.querySelectorAll("#right-panel-tabs .rp-tab");
-  const feedContent = document.getElementById("feed-content");
-  const trackerContent = document.getElementById("tracker-content");
-  const agentsContent = document.getElementById("agents-content");
+  const feedContent = byId("feed-content");
+  const trackerContent = byId("tracker-content");
+  const agentsContent = byId("agents-content");
 
   tabs.forEach(tab => {
     tab.onclick = () => {
@@ -4063,14 +4096,14 @@ function drawSparkline(canvas, data) {
 // pty-win-play writes — the two surfaces stay consistent.
 
 (function initSettingsModal() {
-  const btn = document.getElementById("settings-btn");
-  const modal = document.getElementById("settings-modal");
-  const backdrop = document.getElementById("settings-modal-backdrop");
-  const closeBtn = document.getElementById("settings-modal-close");
-  const cancelBtn = document.getElementById("settings-modal-cancel");
-  const saveBtn = document.getElementById("settings-modal-save");
-  const body = document.getElementById("settings-modal-body");
-  const status = document.getElementById("settings-modal-status");
+  const btn = byId("settings-btn");
+  const modal = byId("settings-modal");
+  const backdrop = byId("settings-modal-backdrop");
+  const closeBtn = byId("settings-modal-close");
+  const cancelBtn = byId("settings-modal-cancel");
+  const saveBtn = byId("settings-modal-save");
+  const body = byId("settings-modal-body");
+  const status = byId("settings-modal-status");
 
   if (!btn || !modal || !body) return;
 
