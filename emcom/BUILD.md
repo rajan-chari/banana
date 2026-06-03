@@ -26,8 +26,7 @@ __platform__    = "win-x64"            # matrix.platform
 ```
 
 - Committed values are sentinels (`"dev"` / `"unknown"`).
-- CI overwrites the file in-place before `pip install "emcom/"` + `pyinstaller`,
-  so the wheel that PyInstaller bundles carries real provenance.
+- CI overwrites the file in-place — **at `banana/emcom/emcom/_version.py`** (inside the Python package, not at the project-root sibling of `pyproject.toml`) — before `pip install "emcom/"` + `pyinstaller`, so the wheel that PyInstaller bundles carries real provenance. The path ambiguity is a real foot-gun: the file is at `emcom/_version.py` package-relative but `emcom/emcom/_version.py` banana-relative. fellow-agents `release.yml` heredoc runs from banana-root, so it MUST use the banana-relative form.
 - `emcom_server/main.py` does `from emcom import _version as _build_version` —
   the explicit import keeps `_version.py` in PyInstaller's static Analysis
   graph (orphan files are not bundled by `pyinstaller --onefile` against a
