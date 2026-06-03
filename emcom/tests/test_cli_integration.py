@@ -198,6 +198,17 @@ class TestEmcomTag:
             out2, _, _ = _emcom(["tag", "handled", id1, id2], identity_dir=agents["bob"])
             assert "Tagged 2 message(s)" in out2
 
+    def test_tag_rejects_unknown_flag(self, agents):
+        """`emcom tag <id> --add foo` must error, not treat --add as a literal tag (9637c329)."""
+        _emcom(["send", "--to", "bob", "--subject", "TagFlag", "--body", "x"], identity_dir=agents["alice"])
+        out, _, _ = _emcom(["inbox"], identity_dir=agents["bob"])
+        lines = [l for l in out.strip().split("\n") if l and not l.startswith(("ID", "--"))]
+        assert lines, "expected at least one inbox entry"
+        eid = lines[0].split()[0]
+        _, err, rc = _emcom(["tag", eid, "--add", "foo"], identity_dir=agents["bob"], expect_error=True)
+        assert rc != 0
+        assert "unrecognized" in err.lower() or "usage" in err.lower()
+
 
 class TestEmcomReply:
     def test_reply_with_handled(self, agents):
@@ -215,6 +226,57 @@ class TestEmcomReply:
             assert "Replied" in out2
             assert "Tagged" in out2
 
+    def test_reply_body_file(self, agents):
+        """`emcom reply <id> --body-file <path>` reads body from file (91d0b0d8)."""
+        out, _, _ = _emcom(
+            ["send", "--to", "bob", "--subject", "ReplyBF", "--body", "Original"],
+            identity_dir=agents["alice"],
+        )
+        eid = out.split("[")[1].split("]")[0]
+        body_path = os.path.join(tempfile.mkdtemp(), "reply.txt")
+        with open(body_path, "w", encoding="utf-8") as f:
+            f.write("Long reply body\nwith multiple lines\n")
+        out2, _, _ = _emcom(
+            ["reply", eid, "--body-file", body_path],
+            identity_dir=agents["bob"],
+        )
+        assert "Replied" in out2
+        # Verify body actually landed
+        thread_id = out2.split("thread")[1].strip()
+        out3, _, _ = _emcom(["inbox", "--full"], identity_dir=agents["alice"])
+        assert "Long reply body" in out3
+
+    def test_reply_body_and_body_file_mutex(self, agents):
+        out, _, _ = _emcom(
+            ["send", "--to", "bob", "--subject", "ReplyMutex", "--body", "Original"],
+            identity_dir=agents["alice"],
+        )
+        eid = out.split("[")[1].split("]")[0]
+        body_path = os.path.join(tempfile.mkdtemp(), "r.txt")
+        with open(body_path, "w") as f:
+            f.write("x")
+        _, err, rc = _emcom(
+            ["reply", eid, "--body", "inline", "--body-file", body_path],
+            identity_dir=agents["bob"],
+            expect_error=True,
+        )
+        assert rc != 0
+        assert "mutually exclusive" in err.lower()
+
+    def test_reply_body_file_missing(self, agents):
+        out, _, _ = _emcom(
+            ["send", "--to", "bob", "--subject", "ReplyMiss", "--body", "Original"],
+            identity_dir=agents["alice"],
+        )
+        eid = out.split("[")[1].split("]")[0]
+        _, err, rc = _emcom(
+            ["reply", eid, "--body-file", "/nonexistent/path/to/file.txt"],
+            identity_dir=agents["bob"],
+            expect_error=True,
+        )
+        assert rc != 0
+        assert "not found" in err.lower()
+
 
 class TestEmcomStatus:
     def test_status(self, agents):
@@ -224,11 +286,68 @@ class TestEmcomStatus:
         assert "Pending:" in out
 
 
+class TestEmcomInbox:
+    def test_inbox_rejects_unknown_flag(self, agents):
+        """Unknown flags on inbox must error rather than silently drop (9637c329 class)."""
+        _, err, rc = _emcom(["inbox", "--bogus"], identity_dir=agents["alice"], expect_error=True)
+        assert rc != 0
+        assert "unrecognized" in err.lower()
+
+
 class TestEmcomSearch:
     def test_search(self, agents):
         _emcom(["send", "--to", "bob", "--subject", "Unique9876", "--body", "x"], identity_dir=agents["alice"])
         out, _, _ = _emcom(["search", "--subject", "Unique9876"], identity_dir=agents["bob"])
         assert "Unique9876" in out
+
+    def test_search_rejects_unknown_flag(self, agents):
+        _, err, rc = _emcom(["search", "--bogus", "v"], identity_dir=agents["bob"], expect_error=True)
+        assert rc != 0
+        assert "unrecognized" in err.lower()
+
+
+class TestEmcomSendBodyFile:
+    def test_send_body_file(self, agents):
+        body_path = os.path.join(tempfile.mkdtemp(), "send.txt")
+        with open(body_path, "w", encoding="utf-8") as f:
+            f.write("Body from file\nwith newlines\n")
+        out, _, _ = _emcom(
+            ["send", "--to", "bob", "--subject", "BodyFileSend", "--body-file", body_path],
+            identity_dir=agents["alice"],
+        )
+        assert "Sent [" in out
+        out2, _, _ = _emcom(["inbox", "--full"], identity_dir=agents["bob"])
+        assert "Body from file" in out2
+
+    def test_send_body_and_body_file_mutex(self, agents):
+        body_path = os.path.join(tempfile.mkdtemp(), "send.txt")
+        with open(body_path, "w") as f:
+            f.write("x")
+        _, err, rc = _emcom(
+            ["send", "--to", "bob", "--subject", "Mutex", "--body", "inline", "--body-file", body_path],
+            identity_dir=agents["alice"],
+            expect_error=True,
+        )
+        assert rc != 0
+        assert "mutually exclusive" in err.lower()
+
+    def test_send_body_file_missing(self, agents):
+        _, err, rc = _emcom(
+            ["send", "--to", "bob", "--subject", "Miss", "--body-file", "/nonexistent/x.txt"],
+            identity_dir=agents["alice"],
+            expect_error=True,
+        )
+        assert rc != 0
+        assert "not found" in err.lower()
+
+    def test_send_rejects_unknown_flag(self, agents):
+        _, err, rc = _emcom(
+            ["send", "--to", "bob", "--subject", "X", "--body", "x", "--bogus"],
+            identity_dir=agents["alice"],
+            expect_error=True,
+        )
+        assert rc != 0
+        assert "unrecognized" in err.lower()
 
 
 class TestEmcomCC:

@@ -43,6 +43,14 @@ public static class Program
 
     private static EmcomClient MakeClient(string server, string identity) => new(identity, server);
 
+    /// <summary>Print a standard "unrecognized argument" error and return exit code 2.</summary>
+    private static int UnknownFlag(string cmd, string flag, string usage)
+    {
+        Console.Error.WriteLine($"{cmd}: unrecognized argument '{flag}'");
+        Console.Error.WriteLine($"Usage: {usage}");
+        return 2;
+    }
+
     /// <summary>Returns true if the string looks like a hex UUID prefix (used to distinguish email IDs from tag names).</summary>
     private static bool IsHexPrefix(string s) => s.Length >= 4 && s.All(c => char.IsAsciiHexDigit(c) || c == '-');
 
@@ -100,7 +108,10 @@ public static class Program
             {
                 string? desc = null;
                 for (int i = 0; i < rest.Count; i++)
+                {
                     if ((rest[i] == "--description" || rest[i] == "-d") && i + 1 < rest.Count) desc = rest[++i];
+                    else return UnknownFlag("update", rest[i], "emcom update --description <desc>");
+                }
                 if (desc == null) { Console.Error.WriteLine("Error: --description/-d required"); return 1; }
                 var id = c.UpdateDescription(desc);
                 Console.WriteLine($"Updated description for '{id.Name}'");
@@ -108,6 +119,7 @@ public static class Program
             }
             case "status":
             {
+                if (rest.Count > 0) return UnknownFlag("status", rest[0], "emcom status");
                 if (c.Name == null) { Console.Error.WriteLine("Not registered. Run: emcom register --name <name>"); return 1; }
                 var unread = c.Tagged("unread");
                 var pending = c.Tagged("pending");
@@ -118,14 +130,16 @@ public static class Program
             }
             case "inbox":
             {
-                bool all = rest.Contains("--all") || rest.Contains("-a");
-                bool full = rest.Contains("--full") || rest.Contains("-f");
+                bool all = false, full = false;
                 string? fromFilter = null, subjectFilter = null, sinceFilter = null;
                 for (int i = 0; i < rest.Count; i++)
                 {
-                    if (rest[i] == "--from" && i + 1 < rest.Count) fromFilter = rest[++i];
+                    if (rest[i] == "--all" || rest[i] == "-a") all = true;
+                    else if (rest[i] == "--full" || rest[i] == "-f") full = true;
+                    else if (rest[i] == "--from" && i + 1 < rest.Count) fromFilter = rest[++i];
                     else if (rest[i] == "--subject" && i + 1 < rest.Count) subjectFilter = rest[++i];
                     else if (rest[i] == "--since" && i + 1 < rest.Count) sinceFilter = rest[++i];
+                    else return UnknownFlag("inbox", rest[i], "emcom inbox [--all] [--full] [--from <name>] [--subject <text>] [--since <date>]");
                 }
                 var emails = c.Inbox(all);
                 if (fromFilter != null)
@@ -142,8 +156,14 @@ public static class Program
                 if (rest.Count < 1) { Console.Error.WriteLine("Error: email ID required"); return 1; }
                 List<string> tags = ["pending"];
                 for (int i = 1; i < rest.Count; i++)
+                {
                     if (rest[i] == "--tag")
-                        while (++i < rest.Count && !rest[i].StartsWith('-')) tags.Add(rest[i]);
+                    {
+                        while (i + 1 < rest.Count && !rest[i + 1].StartsWith('-')) tags.Add(rest[++i]);
+                    }
+                    else
+                        return UnknownFlag("read", rest[i], "emcom read <id> [--tag <tag>...]");
+                }
                 Console.WriteLine(Fmt.FormatEmail(c.ReadEmail(rest[0], tags)));
                 break;
             }
@@ -162,23 +182,35 @@ public static class Program
             }
             case "send":
             {
-                List<string> to = [], cc = []; string? subject = null, body = null;
+                List<string> to = [], cc = []; string? subject = null, body = null, bodyFile = null;
                 for (int i = 0; i < rest.Count; i++)
                 {
                     if ((rest[i] == "--to" || rest[i] == "-t") && i + 1 < rest.Count)
-                        while (++i < rest.Count && !rest[i].StartsWith('-'))
-                            to.AddRange(rest[i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-                    if (i < rest.Count && rest[i] == "--cc")
-                        while (++i < rest.Count && !rest[i].StartsWith('-'))
-                            cc.AddRange(rest[i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-                    if (i < rest.Count && (rest[i] == "--subject" || rest[i] == "-s") && i + 1 < rest.Count) subject = rest[++i];
-                    if (i < rest.Count && (rest[i] == "--body" || rest[i] == "-b" || rest[i] == "--message" || rest[i] == "-m") && i + 1 < rest.Count) body = rest[++i];
+                    {
+                        while (i + 1 < rest.Count && !rest[i + 1].StartsWith('-'))
+                            to.AddRange(rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                    }
+                    else if (rest[i] == "--cc" && i + 1 < rest.Count)
+                    {
+                        while (i + 1 < rest.Count && !rest[i + 1].StartsWith('-'))
+                            cc.AddRange(rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                    }
+                    else if ((rest[i] == "--subject" || rest[i] == "-s") && i + 1 < rest.Count) subject = rest[++i];
+                    else if ((rest[i] == "--body" || rest[i] == "-b" || rest[i] == "--message" || rest[i] == "-m") && i + 1 < rest.Count) body = rest[++i];
+                    else if (rest[i] == "--body-file" && i + 1 < rest.Count) bodyFile = rest[++i];
+                    else return UnknownFlag("send", rest[i], "emcom send --to <name>[,..] [--cc <name>[,..]] --subject <s> (--body <b> | --body-file <path> | stdin)");
                 }
                 if (to.Count == 0) { Console.Error.WriteLine("Error: --to/-t required"); return 1; }
                 if (subject == null) { Console.Error.WriteLine("Error: --subject/-s required"); return 1; }
-                // If no --body, read from stdin (supports piped input)
+                if (body != null && bodyFile != null) { Console.Error.WriteLine("Error: --body and --body-file are mutually exclusive"); return 1; }
+                if (bodyFile != null)
+                {
+                    if (!File.Exists(bodyFile)) { Console.Error.WriteLine($"Error: --body-file not found: {bodyFile}"); return 1; }
+                    body = File.ReadAllText(bodyFile).TrimEnd();
+                }
+                // If still no body, read from stdin (supports piped input)
                 body ??= Console.IsInputRedirected ? Console.In.ReadToEnd().TrimEnd() : null;
-                if (body == null) { Console.Error.WriteLine("Error: --body/-b/--message required (or pipe via stdin)"); return 1; }
+                if (body == null) { Console.Error.WriteLine("Error: --body/-b/--message or --body-file required (or pipe via stdin)"); return 1; }
                 var email = c.Send(to, subject, body, cc);
                 Console.WriteLine($"Sent [{Fmt.ShortId(email.Id)}] to {string.Join(", ", email.To)}");
                 break;
@@ -186,11 +218,23 @@ public static class Program
             case "reply":
             {
                 if (rest.Count < 1) { Console.Error.WriteLine("Error: email ID required"); return 1; }
-                string emailId = rest[0]; string? body = null;
-                bool handled = rest.Contains("--handled") || rest.Contains("-h");
+                string emailId = rest[0]; string? body = null, bodyFile = null;
+                bool handled = false;
                 for (int i = 1; i < rest.Count; i++)
+                {
                     if ((rest[i] == "--body" || rest[i] == "-b" || rest[i] == "--message" || rest[i] == "-m") && i + 1 < rest.Count) body = rest[++i];
-                if (body == null) { Console.Error.WriteLine("Error: --body/-b/--message required"); return 1; }
+                    else if (rest[i] == "--body-file" && i + 1 < rest.Count) bodyFile = rest[++i];
+                    else if (rest[i] == "--handled" || rest[i] == "-h") handled = true;
+                    else return UnknownFlag("reply", rest[i], "emcom reply <id> (--body <b> | --body-file <path> | stdin) [--handled]");
+                }
+                if (body != null && bodyFile != null) { Console.Error.WriteLine("Error: --body and --body-file are mutually exclusive"); return 1; }
+                if (bodyFile != null)
+                {
+                    if (!File.Exists(bodyFile)) { Console.Error.WriteLine($"Error: --body-file not found: {bodyFile}"); return 1; }
+                    body = File.ReadAllText(bodyFile).TrimEnd();
+                }
+                body ??= Console.IsInputRedirected ? Console.In.ReadToEnd().TrimEnd() : null;
+                if (body == null) { Console.Error.WriteLine("Error: --body/-b/--message or --body-file required (or pipe via stdin)"); return 1; }
                 var email = c.Reply(emailId, body);
                 Console.WriteLine($"Replied [{Fmt.ShortId(email.Id)}] in thread {Fmt.ShortId(email.ThreadId)}");
                 if (handled)
@@ -203,22 +247,28 @@ public static class Program
             case "thread":
             {
                 if (rest.Count < 1) { Console.Error.WriteLine("Error: thread ID required"); return 1; }
+                if (rest.Count > 1) return UnknownFlag("thread", rest[1], "emcom thread <id>");
                 Console.WriteLine(Fmt.FormatThread(c.Thread(rest[0])));
                 break;
             }
             case "threads":
+                if (rest.Count > 0) return UnknownFlag("threads", rest[0], "emcom threads");
                 Console.WriteLine(Fmt.FormatThreads(c.Threads()));
                 break;
             case "sent":
+                if (rest.Count > 0) return UnknownFlag("sent", rest[0], "emcom sent");
                 Console.WriteLine(Fmt.FormatSent(c.Sent()));
                 break;
             case "all":
+                if (rest.Count > 0) return UnknownFlag("all", rest[0], "emcom all");
                 Console.WriteLine(Fmt.FormatAllMail(c.AllMail(), c.Name ?? ""));
                 break;
             case "tag":
             {
                 if (rest.Count < 2) { Console.Error.WriteLine("Error: email ID and tag(s) required"); return 1; }
-                // Batch mode: if first arg is not hex (i.e. it's a tag name), treat as: tag <tagname> <id1> [id2...]
+                foreach (var t in rest)
+                    if (t.StartsWith('-'))
+                        return UnknownFlag("tag", t, "emcom tag <id> <tag>... | emcom tag <tagname> <id>...");
                 bool batchMode = !IsHexPrefix(rest[0]);
                 if (batchMode)
                 {
@@ -238,6 +288,9 @@ public static class Program
             case "untag":
             {
                 if (rest.Count < 2) { Console.Error.WriteLine("Error: email ID and tag required"); return 1; }
+                foreach (var t in rest)
+                    if (t.StartsWith('-'))
+                        return UnknownFlag("untag", t, "emcom untag <id> <tag>");
                 c.Untag(rest[0], rest[1]);
                 Console.WriteLine($"Removed tag '{rest[1]}' from {Fmt.ShortId(rest[0])}");
                 break;
@@ -245,6 +298,9 @@ public static class Program
             case "tagged":
             {
                 if (rest.Count < 1) { Console.Error.WriteLine("Error: tag required"); return 1; }
+                foreach (var t in rest)
+                    if (t.StartsWith('-'))
+                        return UnknownFlag("tagged", t, "emcom tagged <tag>");
                 Console.WriteLine(Fmt.FormatInbox(c.Tagged(rest[0])));
                 break;
             }
@@ -258,13 +314,19 @@ public static class Program
                     else if (rest[i] == "--subject" && i + 1 < rest.Count) subject = rest[++i];
                     else if (rest[i] == "--tag" && i + 1 < rest.Count) tag = rest[++i];
                     else if ((rest[i] == "--body" || rest[i] == "--message") && i + 1 < rest.Count) body = rest[++i];
+                    else return UnknownFlag("search", rest[i], "emcom search [--from <n>] [--to <n>] [--subject <s>] [--tag <t>] [--body <b>]");
                 }
                 Console.WriteLine(Fmt.FormatInbox(c.Search(from, to, subject, tag, body)));
                 break;
             }
             case "purge":
             {
-                bool confirmed = rest.Contains("--confirm-system-wide");
+                bool confirmed = false;
+                foreach (var t in rest)
+                {
+                    if (t == "--confirm-system-wide") confirmed = true;
+                    else return UnknownFlag("purge", t, "emcom purge --confirm-system-wide");
+                }
                 if (!confirmed)
                 {
                     Console.Error.WriteLine("DANGER: 'emcom purge' wipes ALL emails, tags, and identities SYSTEM-WIDE for every agent.");
@@ -282,11 +344,14 @@ public static class Program
             {
                 List<string>? add = null;
                 for (int i = 0; i < rest.Count; i++)
+                {
                     if (rest[i] == "--add")
                     {
                         add = [];
-                        while (++i < rest.Count && !rest[i].StartsWith('-')) add.Add(rest[i]);
+                        while (i + 1 < rest.Count && !rest[i + 1].StartsWith('-')) add.Add(rest[++i]);
                     }
+                    else return UnknownFlag("names", rest[i], "emcom names [--add <name>...]");
+                }
                 if (add != null)
                 {
                     var added = c.AddNames(add);
