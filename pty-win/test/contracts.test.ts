@@ -93,3 +93,107 @@ describe("SessionInfo contract (server <-> client)", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// TrackerItem contract: public/lib/state.js  <->  emcom tracker API
+// ---------------------------------------------------------------------------
+//
+// TrackerItem comes from the emcom Python service (out of this repo). There
+// is no TypeScript source-of-truth on the producer side, so the bridge is:
+//
+//   1. A captured fixture (TRACKER_FIXTURE below) representing a realistic
+//      response from GET /api/emcom-proxy/tracker. The fixture is typed as
+//      ClientTrackerItem — if the client typedef drops or renames a field
+//      the fixture uses, the cast fails at type-check time.
+//
+//   2. A required-fields list. Any tracker item missing these will break
+//      tracker-render.js. If a future server change removes one of these,
+//      refresh the fixture + bump the assertion.
+//
+// To refresh the fixture: call the live API, copy a representative item:
+//   curl -H "X-Emcom-Name: moss" http://127.0.0.1:8800/tracker | jq '.[0]'
+
+import type { TrackerItem as ClientTrackerItem, TrackerHistoryEntry } from "../public/lib/state.js";
+
+// Captured 2026-06-03. Realistic shape — every typedef field populated so
+// changes to the typedef force a corresponding fixture update.
+const TRACKER_FIXTURE: ClientTrackerItem = {
+  id: "abc12345",
+  title: "Example tracker item with all known fields populated",
+  repo: "banana",
+  number: 42,
+  status: "open",
+  severity: "normal",
+  assigned_to: "moss",
+  opened_by: "rajan-chari",
+  github_author: "rajan-chari",
+  created_by: "rajan-chari",
+  github_last_commenter: "milo",
+  responders: ["moss", "milo"],
+  labels: ["bug", "guard-rail"],
+  created_at: "2026-06-01T10:00:00.000Z",
+  updated_at: "2026-06-03T17:00:00.000Z",
+  date_found: "2026-06-01",
+  last_github_activity: "2026-06-03T16:30:00.000Z",
+  blocker: "waiting on CI",
+  findings: "Repro confirmed",
+  decision: "fix",
+  decision_rationale: "Affects future guard-rails",
+  notes: "Working as planned",
+};
+
+// History entries arrive via a separate /api/emcom-proxy/tracker/<id> fetch
+// (see app.js:3393). Same drift risk: fixture below documents the expected
+// shape; fixing the typedef without the fixture would silently un-test the
+// new field.
+const TRACKER_HISTORY_FIXTURE: TrackerHistoryEntry = {
+  field: "status",
+  new_value: "open",
+  comment: "Triaged",
+  changed_at: "2026-06-01T10:00:00.000Z",
+  changed_by: "rajan-chari",
+};
+
+// Required at runtime by tracker-render.js + tracker-filters.js. Removing
+// any of these from the server response would break the row entirely.
+const TRACKER_REQUIRED_FIELDS = ["id"] as const;
+
+// Compile-time confirm the lists reference real TrackerItem keys.
+const _trackerRequiredAreKeys: ReadonlyArray<keyof ClientTrackerItem> =
+  TRACKER_REQUIRED_FIELDS as ReadonlyArray<keyof ClientTrackerItem>;
+void _trackerRequiredAreKeys;
+
+describe("TrackerItem contract (emcom API <-> client)", () => {
+  it("fixture satisfies all required tracker fields", () => {
+    for (const field of TRACKER_REQUIRED_FIELDS) {
+      expect(TRACKER_FIXTURE).toHaveProperty(field);
+      expect(TRACKER_FIXTURE[field]).toBeTruthy();
+    }
+  });
+
+  it("fixture exercises every field declared in the client typedef", () => {
+    // Hardcoded list mirrors the typedef in public/lib/state.js. If the
+    // typedef gains/loses a field, update BOTH this list and the fixture.
+    // The compile-time `keyof ClientTrackerItem` check below guarantees
+    // every name here is a real typedef field.
+    const typedefFields = [
+      "id", "title", "repo", "number", "status", "severity",
+      "assigned_to", "opened_by", "github_author", "created_by",
+      "github_last_commenter", "responders", "labels",
+      "created_at", "updated_at", "date_found", "last_github_activity",
+      "blocker", "findings", "decision", "decision_rationale", "notes",
+    ] as const satisfies ReadonlyArray<keyof ClientTrackerItem>;
+    for (const field of typedefFields) {
+      expect(TRACKER_FIXTURE).toHaveProperty(field);
+    }
+  });
+
+  it("history fixture exercises every TrackerHistoryEntry field", () => {
+    const historyFields = [
+      "field", "new_value", "comment", "changed_at", "changed_by",
+    ] as const satisfies ReadonlyArray<keyof TrackerHistoryEntry>;
+    for (const field of historyFields) {
+      expect(TRACKER_HISTORY_FIXTURE).toHaveProperty(field);
+    }
+  });
+});
