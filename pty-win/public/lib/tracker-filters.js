@@ -26,6 +26,23 @@ import { sevOrder } from "./format.js";
 /** @typedef {"asc" | "desc"} TrackerSortDir */
 
 /**
+ * Derive the option lists used to populate filter `<select>`s from the
+ * current tracker items: distinct repo values and distinct assignee
+ * values, alphabetically sorted, with falsy/empty entries excluded.
+ *
+ * @param {TrackerItem[]} items
+ * @returns {{ repos: string[], assignees: string[] }}
+ */
+export function extractFilterOptions(items) {
+  const repos = [...new Set(items.map((i) => i.repo).filter(Boolean))].sort();
+  const assignees = [...new Set(items.map((i) => i.assigned_to).filter(Boolean))].sort();
+  return {
+    repos: /** @type {string[]} */ (repos),
+    assignees: /** @type {string[]} */ (assignees),
+  };
+}
+
+/**
  * Filter tracker items by repo, severity, assignee, and label/category.
  * Empty/missing filter values are no-ops (don't restrict).
  *

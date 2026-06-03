@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
   filterTrackerItems,
   sortTrackerItems,
+  extractFilterOptions,
 } from "../public/lib/tracker-filters.js";
 import type { TrackerItem, TrackerFilters } from "../public/lib/tracker-filters.js";
 
@@ -117,5 +118,52 @@ describe("sortTrackerItems", () => {
     ];
     expect(() => sortTrackerItems(noDates, "age", "asc")).not.toThrow();
     expect(() => sortTrackerItems(noDates, "updated", "asc")).not.toThrow();
+  });
+});
+
+describe("extractFilterOptions", () => {
+  it("returns sorted unique repos and assignees from the fixture", () => {
+    const { repos, assignees } = extractFilterOptions(items);
+    expect(repos).toEqual(["emcom", "pty-win"]);
+    expect(assignees).toEqual(["frost", "moss"]);
+  });
+
+  it("returns empty arrays for empty input", () => {
+    const out = extractFilterOptions([]);
+    expect(out.repos).toEqual([]);
+    expect(out.assignees).toEqual([]);
+  });
+
+  it("excludes falsy/empty repo and assigned_to values", () => {
+    const it: TrackerItem[] = [
+      { id: "1", repo: "", assigned_to: "" },
+      { id: "2", repo: undefined as unknown as string, assigned_to: undefined as unknown as string },
+      { id: "3", repo: "a", assigned_to: "x" },
+    ];
+    const { repos, assignees } = extractFilterOptions(it);
+    expect(repos).toEqual(["a"]);
+    expect(assignees).toEqual(["x"]);
+  });
+
+  it("dedupes repeated values", () => {
+    const it: TrackerItem[] = [
+      { id: "1", repo: "a", assigned_to: "x" },
+      { id: "2", repo: "a", assigned_to: "x" },
+      { id: "3", repo: "b", assigned_to: "y" },
+      { id: "4", repo: "a", assigned_to: "x" },
+    ];
+    const { repos, assignees } = extractFilterOptions(it);
+    expect(repos).toEqual(["a", "b"]);
+    expect(assignees).toEqual(["x", "y"]);
+  });
+
+  it("sorts results case-sensitively (matches default String.sort)", () => {
+    const it: TrackerItem[] = [
+      { id: "1", repo: "Beta", assigned_to: "Zoe" },
+      { id: "2", repo: "alpha", assigned_to: "alice" },
+    ];
+    // default sort puts uppercase before lowercase
+    expect(extractFilterOptions(it).repos).toEqual(["Beta", "alpha"]);
+    expect(extractFilterOptions(it).assignees).toEqual(["Zoe", "alice"]);
   });
 });

@@ -51,6 +51,7 @@ import {
 import {
   filterTrackerItems as _filterTrackerItems,
   sortTrackerItems as _sortTrackerItems,
+  extractFilterOptions,
 } from "./lib/tracker-filters.js";
 import {
   buildSessionGroups,
@@ -2900,10 +2901,9 @@ function populateTrackerFilters(items) {
   const assigneeSel = document.getElementById("tracker-filter-assignee");
   if (!repoSel || !assigneeSel) return;
 
-  const repos = [...new Set(items.map(i => i.repo).filter(Boolean))].sort();
-  const assignees = [...new Set(items.map(i => i.assigned_to).filter(Boolean))].sort();
+  const { repos, assignees } = extractFilterOptions(items);
 
-  const updateOptions = (sel, options, key) => {
+  const updateOptions = (sel, options) => {
     const saved = localStorage.getItem(`pty-win-${sel.id}`) || "";
     const current = sel.value;
     if (sel.options.length - 1 === options.length) return; // no change
@@ -2912,8 +2912,8 @@ function populateTrackerFilters(items) {
     sel.value = saved || current;
   };
 
-  updateOptions(repoSel, repos, "repo");
-  updateOptions(assigneeSel, assignees, "assigned_to");
+  updateOptions(repoSel, repos);
+  updateOptions(assigneeSel, assignees);
 }
 
 function sortTrackerItems(items) {
