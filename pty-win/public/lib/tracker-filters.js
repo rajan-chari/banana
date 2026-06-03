@@ -5,20 +5,7 @@
 
 import { sevOrder } from "./format.js";
 
-/** @typedef {{
- *   id: string,
- *   repo?: string,
- *   number?: number,
- *   title?: string,
- *   assigned_to?: string,
- *   opened_by?: string,
- *   responders?: string[],
- *   severity?: string,
- *   labels?: string[],
- *   created_at?: string,
- *   updated_at?: string,
- *   [key: string]: unknown,
- * }} TrackerItem */
+/** @typedef {import('./state.js').TrackerItem} TrackerItem */
 
 /** @typedef {{ repo?: string, sev?: string, assignee?: string, cat?: string }} TrackerFilters */
 

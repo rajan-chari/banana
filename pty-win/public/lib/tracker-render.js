@@ -11,6 +11,9 @@
 
 import { escapeHtml, fmtAge, fmtDate, staleClass } from "./format.js";
 
+/** @typedef {import('./state.js').TrackerItem} TrackerItem */
+/** @typedef {import('./state.js').TrackerHistoryEntry} TrackerHistoryEntry */
+
 /**
  * Build the GitHub URL fragment "org/name" for a tracker item.
  * Tracker items historically store either the bare repo name
@@ -44,8 +47,8 @@ export function severityClass(severity) {
  * Every user-controlled field is escaped via escapeHtml; the caller
  * may assign the result directly to el.innerHTML.
  *
- * @param {Record<string, any>} item   tracker item from the API
- * @param {number} rowNum              the 1-based row number to display
+ * @param {TrackerItem} item   tracker item from the API
+ * @param {number} rowNum      the 1-based row number to display
  * @returns {string}
  */
 export function renderTrackerItemHtml(item, rowNum) {
@@ -53,7 +56,7 @@ export function renderTrackerItemHtml(item, rowNum) {
   const ageDate = item.date_found || item.created_at;
   const ageStale = staleClass(ageDate);
   const activeStale = item.last_github_activity ? staleClass(item.last_github_activity) : "";
-  const isClosedLike = ["closed", "merged", "deferred"].includes(item.status);
+  const isClosedLike = ["closed", "merged", "deferred"].includes(item.status ?? "");
 
   const refHtml = item.number
     ? `<span class="tracker-ref-repo">${escapeHtml(item.repo)}</span><span class="tracker-ref-num">#${escapeHtml(item.number)}</span>`
@@ -83,8 +86,8 @@ export function renderTrackerItemHtml(item, rowNum) {
       <div class="tracker-detail-meta">
         <span>Opened by <strong>${escapeHtml(item.opened_by || item.github_author || item.created_by || "?")}</strong></span>
         ${item.github_last_commenter ? `<span>Last reply: <strong>${escapeHtml(item.github_last_commenter)}</strong></span>` : ""}
-        <span>${new Date(item.created_at).toLocaleString()}</span>
-        <span>Updated ${new Date(item.updated_at).toLocaleString()}</span>
+        <span>${item.created_at ? new Date(item.created_at).toLocaleString() : ""}</span>
+        <span>Updated ${item.updated_at ? new Date(item.updated_at).toLocaleString() : ""}</span>
         <span>Status: ${escapeHtml(item.status)}</span>
       </div>
     </div>`;
@@ -96,13 +99,14 @@ export function renderTrackerItemHtml(item, rowNum) {
  * Returns "" for an empty history. The caller wraps with the
  * "History" title and either-state.
  *
- * @param {Array<Record<string, any>>} history
+ * @param {TrackerHistoryEntry[]} history
  * @returns {string}
  */
 export function renderTrackerHistoryEntries(history) {
   if (!Array.isArray(history) || history.length === 0) return "";
 
-  const fmtTs = (/** @type {string} */ ts) => {
+  const fmtTs = (/** @type {string | undefined} */ ts) => {
+    if (!ts) return "";
     const d = new Date(ts);
     return `${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getDate().toString().padStart(2, "0")} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };

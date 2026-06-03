@@ -399,7 +399,7 @@ function renderTree() {
 
     const label = document.createElement("div");
     label.className = "tree-root-label";
-    label.dataset.path = normPath(rootPath);
+    label.dataset["path"] = normPath(rootPath);
     const expanded = state.expandedPaths.has(rootPath);
 
     // Arrow
@@ -505,7 +505,7 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     // The clickable row
     const row = document.createElement("div");
     row.className = "tree-node";
-    row.dataset.path = normPath(entry.path);
+    row.dataset["path"] = normPath(entry.path);
     if (isFolderRunning(state.sessions, entry.path, normPath)) {
       row.classList.add("running");
     }
@@ -574,7 +574,7 @@ function refreshTreeRunningState() {
   // Child folder nodes
   document.querySelectorAll(".tree-node[data-path]").forEach(/** @param {Element} n */ (n) => {
     if (!(n instanceof HTMLElement)) return;
-    const path = n.dataset.path ?? "";
+    const path = n.dataset["path"] ?? "";
     n.classList.toggle("running", running.has(path));
     const dot = n.querySelector(".unread-dot");
     if (dot) dot.classList.toggle("show", unread.has(path));
@@ -582,7 +582,7 @@ function refreshTreeRunningState() {
   // Root folder labels
   document.querySelectorAll(".tree-root-label[data-path]").forEach(/** @param {Element} n */ (n) => {
     if (!(n instanceof HTMLElement)) return;
-    const path = n.dataset.path ?? "";
+    const path = n.dataset["path"] ?? "";
     const nameSpan = n.querySelector(".root-name");
     if (nameSpan) nameSpan.classList.toggle("running", running.has(path));
     const dot = n.querySelector(".unread-dot");
@@ -715,7 +715,7 @@ function renderSessionsPanel() {
   for (const g of groups) {
     const row = document.createElement("div");
     row.className = `session-row ${g.group === state.focusedPane ? "active" : ""}`;
-    row.dataset.group = g.group;
+    row.dataset["group"] = g.group;
 
     // Status dot — worst-of status across group; pendingPermission overrides
     const dotClass = computeGroupStatus(g.claudeInfo, g.pwshInfo, g.claudeAlive, g.pwshAlive);
@@ -1314,7 +1314,7 @@ document.addEventListener("click", () => {
 
 byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ async (e) => {
   const item = e.target instanceof Element ? /** @type {HTMLElement | null} */ (e.target.closest(".ctx-item")) : null;
-  const action = item?.dataset.action;
+  const action = item?.dataset["action"];
   if (!action || !state.ctxTarget || item?.classList.contains("ctx-disabled")) return;
 
   const path = state.ctxTarget;
@@ -1430,7 +1430,7 @@ function renderQuickOpenResults(query) {
     const f = matches[i];
     const row = document.createElement("div");
     row.className = `qo-result ${i === 0 ? "selected" : ""}`;
-    row.dataset.idx = String(i);
+    row.dataset["idx"] = String(i);
 
     const isRunning = state.sessions.has(f.name);
 
@@ -1905,7 +1905,7 @@ function showDropZones(excludeSession) {
   clearDropZones();
   document.querySelectorAll(".pane[data-session]").forEach(paneEl => {
     if (!(paneEl instanceof HTMLElement)) return;
-    const session = paneEl.dataset.session;
+    const session = paneEl.dataset["session"];
     if (session === excludeSession) return;
     const r = paneEl.getBoundingClientRect();
     [
@@ -1916,8 +1916,8 @@ function showDropZones(excludeSession) {
     ].forEach(({ side, x, y, w, h }) => {
       const el = document.createElement("div");
       el.className = "pane-drop-zone";
-      el.dataset.session = session;
-      el.dataset.side = side;
+      el.dataset["session"] = session;
+      el.dataset["side"] = side;
       el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
       document.body.appendChild(el);
       paneDrag.dropZoneEls.push(el);
@@ -1944,8 +1944,8 @@ function updateDropZoneHighlight(mx, my) {
   paneDrag.dropZoneEls.forEach(el => el.classList.remove("active"));
   if (best) {
     best.classList.add("active");
-    const session = best.dataset.session || "";
-    const side = /** @type {"left" | "right" | "top" | "bottom"} */ (best.dataset.side || "right");
+    const session = best.dataset["session"] || "";
+    const side = /** @type {"left" | "right" | "top" | "bottom"} */ (best.dataset["side"] || "right");
     paneDrag.currentTarget = { session, side };
   } else {
     paneDrag.currentTarget = null;
@@ -2185,7 +2185,7 @@ function createPane(groupName) {
 
   const pane = document.createElement("div");
   pane.className = `pane ${groupName === state.focusedPane ? "focused" : ""} ${info?.status === "dead" ? "dead" : ""}`;
-  pane.dataset.session = groupName;
+  pane.dataset["session"] = groupName;
   pane.addEventListener("mousedown", () => focusPane(groupName));
 
   // Top bar
@@ -2716,7 +2716,7 @@ function focusPane(groupName) {
   state.focusedPane = groupName;
   document.querySelectorAll(".pane").forEach((p) => {
     if (!(p instanceof HTMLElement)) return;
-    p.classList.toggle("focused", p.dataset.session === groupName);
+    p.classList.toggle("focused", p.dataset["session"] === groupName);
   });
   // Update sessions panel highlight
   document.querySelectorAll(".session-row").forEach((r) => r.classList.remove("active"));
@@ -2984,7 +2984,7 @@ function buildHeaderHTML() {
 function createDashboardCard(name, info) {
   const card = document.createElement("div");
   card.className = `dashboard-card status-${info.status}`;
-  card.dataset.session = name;
+  card.dataset["session"] = name;
   card.style.contain = "content";
   const unread = info.unreadCount || 0;
   const identity = info.emcomIdentity ? `<span class="dashboard-card-identity">@${info.emcomIdentity}</span>` : "";
@@ -3042,7 +3042,7 @@ function patchDashboard(dash) {
   // Remove cards for sessions that no longer exist
   for (const card of existingCards) {
     if (!(card instanceof HTMLElement)) continue;
-    if (!currentNames.has(card.dataset.session ?? "")) {
+    if (!currentNames.has(card.dataset["session"] ?? "")) {
       card.remove();
     }
   }
@@ -3127,7 +3127,7 @@ function renderDashboardStats() {
     // Remove rows for sessions that no longer exist
     for (const row of [...tbody.querySelectorAll(".diag-row")]) {
       if (!(row instanceof HTMLElement)) continue;
-      if (!currentNames.has(row.dataset.session ?? "")) row.remove();
+      if (!currentNames.has(row.dataset["session"] ?? "")) row.remove();
     }
 
     // Add or patch rows
@@ -3139,7 +3139,7 @@ function renderDashboardStats() {
       if (!row) {
         row = document.createElement("tr");
         row.className = "diag-row";
-        row.dataset.session = name;
+        row.dataset["session"] = name;
         row.style.cursor = "pointer";
         row.onclick = () => focusExistingSession(name);
         row.innerHTML = `<td class="diag-name"></td><td class="diag-status"></td><td class="diag-ago"></td><td class="diag-cbs"></td><td class="diag-kbs"></td><td class="diag-cost"></td>`;
@@ -3244,12 +3244,12 @@ function resetTrackerRowNum() { _trackerRowNum = 0; }
 function buildTrackerItem(item) {
   const el = document.createElement("div");
   el.className = `tracker-item`;
-  el.dataset.id = item.id;
+  el.dataset["id"] = item.id;
   el.style.contain = "content";
 
   const ageDate = item.date_found || item.created_at;
   if (staleClass(ageDate) === "stale-red") el.classList.add("stale-row");
-  if (["closed", "merged", "deferred"].includes(item.status)) el.classList.add("tracker-item-done");
+  if (["closed", "merged", "deferred"].includes(item.status ?? "")) el.classList.add("tracker-item-done");
 
   el.innerHTML = renderTrackerItemHtml(item, ++_trackerRowNum);
 
@@ -3257,7 +3257,7 @@ function buildTrackerItem(item) {
     const wasExpanded = el.classList.contains("expanded");
     el.classList.toggle("expanded");
     // Lazy-load history on first expand
-    if (!wasExpanded && !el.dataset.historyLoaded) {
+    if (!wasExpanded && !el.dataset["historyLoaded"]) {
       loadTrackerHistory(el, item.id);
     }
   });
@@ -3270,7 +3270,7 @@ function buildTrackerItem(item) {
  */
 function patchTrackerItem(el, item) {
   const titleEl = el.querySelector(".tracker-item-title");
-  if (titleEl && titleEl.textContent !== item.title) titleEl.textContent = item.title;
+  if (titleEl && titleEl.textContent !== item.title) titleEl.textContent = item.title ?? "";
   const assigneeEl = el.querySelector(".tracker-assignee");
   const assigneeText = item.assigned_to ? "@" + item.assigned_to : "";
   if (assigneeEl && assigneeEl.textContent !== assigneeText) assigneeEl.textContent = assigneeText;
@@ -3294,7 +3294,7 @@ function patchTrackerItem(el, item) {
     actEl.className = `tracker-activity ${item.last_github_activity ? staleClass(item.last_github_activity) : ""}`;
   }
   el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
-  el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status));
+  el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status ?? ""));
 }
 
 const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = flex; first col is row #
@@ -3389,7 +3389,7 @@ function loadTrackerHistory(el, itemId) {
   fetch(`/api/emcom-proxy/tracker/${itemId}`, { headers: { "X-Emcom-Name": identity } })
     .then(r => r.json())
     .then(data => {
-      el.dataset.historyLoaded = "true";
+      el.dataset["historyLoaded"] = "true";
       const history = data.history || [];
       if (history.length === 0) {
         timeline.innerHTML = `<div class="tracker-timeline-title">History</div><div class="tracker-timeline-loading">No history</div>`;
@@ -3451,14 +3451,14 @@ function renderTracker() {
     area.appendChild(container);
   }
   const c = container;
-  if (!c.dataset.wired) {
-    c.dataset.wired = "1";
+  if (!c.dataset["wired"]) {
+    c.dataset["wired"] = "1";
 
     // Wire sortable headers
     c.querySelectorAll(".tracker-th").forEach(th => {
       if (!(th instanceof HTMLElement)) return;
       th.onclick = () => {
-        const field = /** @type {import('./lib/tracker-filters.js').TrackerSortField} */ (th.dataset.sort || "status");
+        const field = /** @type {import('./lib/tracker-filters.js').TrackerSortField} */ (th.dataset["sort"] || "status");
         if (trackerSortField === field) {
           trackerSortDir = trackerSortDir === "asc" ? "desc" : "asc";
         } else {
@@ -3468,9 +3468,9 @@ function renderTracker() {
         // Update sort indicators
         c.querySelectorAll(".tracker-th").forEach(h => {
           if (!(h instanceof HTMLElement)) return;
-          h.classList.toggle("sort-active", h.dataset.sort === trackerSortField);
+          h.classList.toggle("sort-active", h.dataset["sort"] === trackerSortField);
           const arrow = h.querySelector(".sort-arrow");
-          if (arrow) arrow.textContent = h.dataset.sort === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
+          if (arrow) arrow.textContent = h.dataset["sort"] === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
         });
         renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
       };
@@ -3516,14 +3516,14 @@ function renderTracker() {
     const savedCat = localStorage.getItem("pty-win-tracker-cat") || "";
     c.querySelectorAll(".tracker-cat-btn").forEach(btn => {
       if (!(btn instanceof HTMLElement)) return;
-      if (btn.dataset.cat === savedCat) {
+      if (btn.dataset["cat"] === savedCat) {
         c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
       }
       btn.onclick = () => {
         c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        localStorage.setItem("pty-win-tracker-cat", btn.dataset.cat ?? "");
+        localStorage.setItem("pty-win-tracker-cat", btn.dataset["cat"] ?? "");
         renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
       };
     });
@@ -3593,7 +3593,7 @@ function renderTrackerBody(container, items) {
   // Remove items that no longer exist
   for (const el of [...body.querySelectorAll(".tracker-item[data-id]")]) {
     if (!(el instanceof HTMLElement)) continue;
-    if (!currentIds.has(el.dataset.id ?? "")) el.remove();
+    if (!currentIds.has(el.dataset["id"] ?? "")) el.remove();
   }
 
   // Remove empty groups
@@ -3629,7 +3629,7 @@ function renderTrackerBody(container, items) {
       if (!groupEl) {
         groupEl = document.createElement("div");
         groupEl.className = "tracker-group";
-        groupEl.dataset.status = status;
+        groupEl.dataset["status"] = status;
         groupEl.innerHTML = `<div class="tracker-group-bar">
           <span class="tracker-group-dot"></span>
           <span class="tracker-group-name">${status.replace(/-/g, " ")}</span>
@@ -3654,7 +3654,7 @@ function renderTrackerBody(container, items) {
       // Remove items that moved to a different status
       for (const el of [...groupEl.querySelectorAll(".tracker-item[data-id]")]) {
         if (!(el instanceof HTMLElement)) continue;
-        const item = newItemMap.get(el.dataset.id ?? "");
+        const item = newItemMap.get(el.dataset["id"] ?? "");
         if (!item || item.status !== status) el.remove();
       }
     }
@@ -3796,7 +3796,7 @@ window.addEventListener("load", () => {
   byId("feed-expand-all").onclick = () => {
     body.querySelectorAll(".feed-item").forEach(el => {
       if (!(el instanceof HTMLElement)) return;
-      const id = el.dataset.msgId;
+      const id = el.dataset["msgId"];
       if (id) expandedItems.add(id);
       el.classList.add("expanded");
     });
@@ -4089,7 +4089,7 @@ window.addEventListener("load", () => {
           const senderColor = getSenderColor(root.sender);
           const div = document.createElement("div");
           div.className = `feed-item${isUnread ? " unread" : ""}${isExpanded ? " expanded" : ""}${isNew ? " feed-new" : ""}`;
-          div.dataset.msgId = root.id;
+          div.dataset["msgId"] = root.id;
           div.style.setProperty("--sender-color", senderColor);
           div.innerHTML = `
             <div class="feed-meta">
@@ -4115,7 +4115,7 @@ window.addEventListener("load", () => {
             const rColor = getSenderColor(reply.sender);
             const rdiv = document.createElement("div");
             rdiv.className = `feed-item feed-reply${rUnread ? " unread" : ""}${rExpanded ? " expanded" : ""}${rNew ? " feed-new" : ""}`;
-            rdiv.dataset.msgId = reply.id;
+            rdiv.dataset["msgId"] = reply.id;
             rdiv.style.setProperty("--sender-color", rColor);
             rdiv.innerHTML = `
               <div class="feed-meta">
@@ -4222,7 +4222,7 @@ function renderAgentsPanel() {
     // Remove rows for gone sessions
     for (const row of [...tbody.querySelectorAll(".agents-row")]) {
       if (!(row instanceof HTMLElement)) continue;
-      if (!currentNames.has(row.dataset.session ?? "")) row.remove();
+      if (!currentNames.has(row.dataset["session"] ?? "")) row.remove();
     }
 
     // Add or patch rows
@@ -4232,7 +4232,7 @@ function renderAgentsPanel() {
       if (!row) {
         row = document.createElement("tr");
         row.className = "agents-row";
-        row.dataset.session = name;
+        row.dataset["session"] = name;
         row.style.cursor = "pointer";
         row.onclick = () => focusExistingSession(name);
         row.innerHTML = `<td class="agents-name"></td><td class="agents-status"></td><td class="agents-cbs"></td><td class="agents-active"></td><td class="agents-trend"></td><td class="agents-cost"></td>`;
@@ -4397,7 +4397,7 @@ function drawSparkline(canvas, data) {
     tab.onclick = () => {
       tabs.forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
-      const panel = tab.dataset.panel;
+      const panel = tab.dataset["panel"];
       if (feedContent) feedContent.classList.toggle("active", panel === "feed");
       if (trackerContent) trackerContent.classList.toggle("active", panel === "tracker");
       if (agentsContent) agentsContent.classList.toggle("active", panel === "agents");
@@ -4644,7 +4644,7 @@ function drawSparkline(canvas, data) {
       }
       // Update local AI default index to match the saved value.
       if (typeof state !== "undefined" && state.aiPresets) {
-        const cli = formState.cliPreference;
+        const cli = formState["cliPreference"];
         const idx = state.aiPresets.findIndex((p) => p.command === cli);
         if (idx >= 0) {
           state.aiDefaultIndex = idx;

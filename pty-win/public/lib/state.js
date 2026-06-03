@@ -36,7 +36,52 @@
  * }} SessionInfo */
 /** @typedef {{ isClaudeReady: boolean, hasIdentity: boolean, identityName?: string | null }} FolderInfo */
 /** @typedef {{ workingDir?: string, command?: string | null, [key: string]: any }} SessionMeta */
-/** @typedef {Record<string, any>} TrackerItem */
+
+/**
+ * Tracker work item, as returned by /api/emcom-proxy/tracker.
+ *
+ * Shape mirrors the emcom tracker JSON API; only `id` is required.
+ * Many fields are user-controlled / optional / nullable. If you add a
+ * field here, double-check that callers in lib/tracker-render.js,
+ * lib/tracker-filters.js, and app.js handle it correctly — this typedef
+ * has no index signature so any new field access will be a check error.
+ *
+ * @typedef {{
+ *   id: string,
+ *   title?: string,
+ *   repo?: string,
+ *   number?: string | number,
+ *   status?: string,
+ *   severity?: string,
+ *   assigned_to?: string,
+ *   opened_by?: string,
+ *   github_author?: string,
+ *   created_by?: string,
+ *   github_last_commenter?: string,
+ *   responders?: string[],
+ *   labels?: string[],
+ *   created_at?: string,
+ *   updated_at?: string,
+ *   date_found?: string,
+ *   last_github_activity?: string,
+ *   blocker?: string,
+ *   findings?: string,
+ *   decision?: string,
+ *   decision_rationale?: string,
+ *   notes?: string,
+ * }} TrackerItem
+ */
+
+/**
+ * Single entry in a tracker item's audit history.
+ * @typedef {{
+ *   field?: string,
+ *   new_value?: string,
+ *   comment?: string,
+ *   changed_at?: string,
+ *   changed_by?: string,
+ * }} TrackerHistoryEntry
+ */
 
 export const state = {
   /** @type {WebSocket | null} */
