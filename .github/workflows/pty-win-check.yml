@@ -29,7 +29,7 @@ jobs:
           cache-dependency-path: pty-win/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Type-check + circular deps (build + check:public + check:deps)
         run: npm run check
