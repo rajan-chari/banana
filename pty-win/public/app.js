@@ -51,9 +51,39 @@ function getDefaultAiCommand() {
 function getAiPresetForCommand(cmd) {
   return state.aiPresets.find((p) => p.command === cmd) || { name: cmd, command: cmd, icon: "?" };
 }
-function setAiDefault(index) {
+function setAiDefault(index, updatedBy = "pty-win-play") {
   state.aiDefaultIndex = index;
   localStorage.setItem("pty-win-ai-default", String(index));
+  // Mirror to preferences.json (fire-and-forget). Lets fellow-agents config get/set
+  // see the same value the user picked here.
+  const preset = state.aiPresets[index];
+  if (preset?.command) {
+    fetch("/api/preferences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cliPreference: preset.command, updatedBy }),
+    }).catch(() => {});
+  }
+}
+
+/** Fetch the server-side default preference at startup. Picks up changes made
+ *  via `fellow-agents config set` or first-run prompt. localStorage acts as a
+ *  no-flicker cache that the server value overrides. */
+async function syncAiDefaultFromServer() {
+  try {
+    const resp = await fetch("/api/preferences");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data.cliPreference) return;
+    const idx = state.aiPresets.findIndex((p) => p.command === data.cliPreference);
+    if (idx < 0) return; // custom path or unknown — leave localStorage value
+    if (idx !== state.aiDefaultIndex) {
+      state.aiDefaultIndex = idx;
+      localStorage.setItem("pty-win-ai-default", String(idx));
+    }
+  } catch {
+    // Server unreachable — keep localStorage default.
+  }
 }
 
 // ===== xterm theme =====
@@ -3767,6 +3797,8 @@ connect();
 
 // Refit all terminals after page fully loads (fixes Ctrl+F5 layout)
 window.addEventListener("load", () => {
+  // Seed AI default from server preference (overrides localStorage when present).
+  syncAiDefaultFromServer();
   // Multiple delayed refits to handle async font/CSS loading
   for (const delay of [100, 300, 600, 1200]) {
     setTimeout(() => {

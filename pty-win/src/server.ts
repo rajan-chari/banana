@@ -13,6 +13,7 @@ import { DEFAULTS } from "./config.js";
 import type { SessionConfig, ServerConfig } from "./config.js";
 import { log, clog, setLogPort, getLogPathInfo } from "./log.js";
 import { registerDebugRoutes } from "./debug-routes.js";
+import { resolveCliPreference, readPreferences, writePreferences } from "./preferences.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -252,6 +253,40 @@ export async function startServer(config: ServerConfig): Promise<void> {
   // Config: return root dirs for initial favorites
   app.get("/api/config", (_req, res) => {
     res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name, build: buildInfo });
+  });
+
+  app.get("/api/preferences", (_req, res) => {
+    const resolved = resolveCliPreference();
+    const file = readPreferences();
+    res.json({
+      cliPreference: resolved.cliPreference,
+      source: resolved.source,
+      file: file || null,
+    });
+  });
+
+  app.post("/api/preferences", express.json(), (req, res) => {
+    const { cliPreference, updatedBy } = req.body;
+    if (typeof cliPreference !== "string" || !cliPreference) {
+      return res.status(400).json({ error: "cliPreference must be a non-empty string" });
+    }
+    if (typeof updatedBy !== "string" || !updatedBy) {
+      return res.status(400).json({ error: "updatedBy must be a non-empty string" });
+    }
+    const prev = readPreferences() || { schema: 1 as const };
+    const next = {
+      ...prev,
+      schema: 1 as const,
+      cliPreference,
+      updatedAt: new Date().toISOString(),
+      updatedBy,
+    };
+    try {
+      writePreferences(next);
+    } catch (e) {
+      return res.status(500).json({ error: `write failed: ${(e as Error).message}` });
+    }
+    res.json({ cliPreference: next.cliPreference, updatedAt: next.updatedAt, updatedBy: next.updatedBy });
   });
 
   app.post("/api/name", express.json(), (req, res) => {
