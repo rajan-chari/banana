@@ -138,10 +138,13 @@ export default tseslint.config(
       complexity: ["warn", { max: 20 }],
 
       // app.js has 4700+ lines; large functions are a known smell. Lenient
-      // baseline so it's a backlog generator, not a blocker.
+      // baseline so it's a backlog generator, not a blocker. IIFEs excluded
+      // because they're init-time scaffolding that captures private state in
+      // a closure — forcing decomposition would just move that state to
+      // module scope (loss of encapsulation, not a real improvement).
       "max-lines-per-function": [
         "warn",
-        { max: 150, skipBlankLines: true, skipComments: true, IIFEs: true },
+        { max: 150, skipBlankLines: true, skipComments: true, IIFEs: false },
       ],
 
       // TS's noFallthroughCasesInSwitch covers the bug case; eslint version is
@@ -154,6 +157,15 @@ export default tseslint.config(
       // Common foot-gun: `for (var i ...)` capturing in closures.
       "no-var": "error",
       "prefer-const": ["warn", { destructuring: "all" }],
+    },
+  },
+
+  // Test-file overrides — describe/it callbacks are inherent scaffolding,
+  // not real functions worth size-limiting.
+  {
+    files: ["test/**/*.ts"],
+    rules: {
+      "max-lines-per-function": "off",
     },
   },
 );
