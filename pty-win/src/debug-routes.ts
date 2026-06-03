@@ -10,24 +10,26 @@ import { recentForFewShot } from "./llm-corrections.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function registerDebugRoutes(
+type GetSession = (req: Request, res: Response) => PtySession | null;
+
+function makeGetSession(sessions: Map<string, PtySession>): GetSession {
+  return (req, res) => {
+    const name = req.params["name"] as string;
+    const session = sessions.get(name);
+    if (!session) { res.status(404).json({ error: "session not found" }); return null; }
+    return session;
+  };
+}
+
+function registerInspectionRoutes(
   app: Express,
   sessions: Map<string, PtySession>,
   sessionRepoRoots: Map<string, string>,
   config: ServerConfig,
   costHistory: unknown[],
   wsClientCount: () => number,
+  getSession: GetSession,
 ): void {
-
-  function getSession(req: Request, res: Response): PtySession | null {
-    const name = req.params["name"] as string;
-    const session = sessions.get(name);
-    if (!session) { res.status(404).json({ error: "session not found" }); return null; }
-    return session;
-  }
-
-  // --- Inspection ---
-
   app.get("/api/debug/server", (_req, res) => {
     const repoGroups: Record<string, string[]> = {};
     for (const [name, root] of sessionRepoRoots) {
@@ -135,9 +137,9 @@ export function registerDebugRoutes(
     }
     res.json({ serverTime: Date.now(), sessions: result });
   });
+}
 
-  // --- Actions ---
-
+function registerActionRoutes(app: Express, getSession: GetSession): void {
   app.post("/api/debug/sessions/:name/inject", (req, res) => {
     const session = getSession(req, res);
     if (!session) return;
@@ -165,7 +167,6 @@ export function registerDebugRoutes(
   });
 
   // Manually trigger an LLM readiness check on the current screen.
-  // Same code path as a heuristic-driven escalation, but on demand.
   app.post("/api/debug/sessions/:name/llm-check", async (req, res) => {
     const session = getSession(req, res);
     if (!session) return;
@@ -193,9 +194,7 @@ export function registerDebugRoutes(
     if (!session) return;
     const { text, delayMs = 50 } = req.body || {};
     if (!text) return res.status(400).json({ error: "text required" });
-    // Write text without submit
     session.write(text);
-    // Send submit after delay
     setTimeout(() => session.write(SUBMIT), delayMs);
     res.json({ ok: true, textLen: text.length, delayMs });
   });
@@ -205,9 +204,9 @@ export function registerDebugRoutes(
     setDebugLog({ enabled, path, level });
     res.json(getDebugLogState());
   });
+}
 
-  // --- SSE log stream ---
-
+function registerLogStreamRoute(app: Express): void {
   app.get("/api/debug/log-stream", (_req, res) => {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -222,10 +221,25 @@ export function registerDebugRoutes(
 
     _req.on("close", remove);
   });
+}
 
-  // --- Serve debug page ---
-
+function registerDebugPageRoute(app: Express): void {
   app.get("/debug", (_req, res) => {
     res.sendFile("debug.html", { root: join(__dirname, "..", "public") });
   });
+}
+
+export function registerDebugRoutes(
+  app: Express,
+  sessions: Map<string, PtySession>,
+  sessionRepoRoots: Map<string, string>,
+  config: ServerConfig,
+  costHistory: unknown[],
+  wsClientCount: () => number,
+): void {
+  const getSession = makeGetSession(sessions);
+  registerInspectionRoutes(app, sessions, sessionRepoRoots, config, costHistory, wsClientCount, getSession);
+  registerActionRoutes(app, getSession);
+  registerLogStreamRoute(app);
+  registerDebugPageRoute(app);
 }
