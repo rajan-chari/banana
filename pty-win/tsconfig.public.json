@@ -1,0 +1,21 @@
+{
+  "//": "Standalone tsc config to type-check the browser-side JS in public/.",
+  "//1": "The main tsconfig.json only compiles src/**/*.ts (the server). This",
+  "//2": "config runs `tsc --noEmit` against public/app.js + public/lib/*.js so",
+  "//3": "the `// @ts-check` diagnostics surface from the CLI (npm run check:public)",
+  "//4": "instead of only inside VS Code's language server.",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
+  "include": ["public/app.js", "public/lib/**/*.js"]
+}

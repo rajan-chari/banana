@@ -143,6 +143,16 @@ describe("public/app.js module load smoke test", () => {
     window.requestAnimationFrame = () => 0;
     // @ts-expect-error - rAF stub
     globalThis.requestAnimationFrame = () => 0;
+
+    // Several top-level handlers call window.prompt (e.g. btn-add-root).
+    // happy-dom returns undefined by default; force null so the
+    // handlers early-return on the "user cancelled" path.
+    window.prompt = () => null;
+    // window.alert is invoked by some error paths; make it a no-op so
+    // it doesn't print to test stdout.
+    window.alert = () => {};
+    // window.confirm — same treatment.
+    window.confirm = () => false;
   });
 
   it("imports app.js without throwing", async () => {
@@ -162,4 +172,41 @@ describe("public/app.js module load smoke test", () => {
     expect(el).not.toBeNull();
     expect(el?.id).toBe("sidebar");
   });
+
+  // Click each top-level wired button and assert the handler does
+  // not throw. Catches bugs inside the assigned onclick callbacks
+  // (which the load-time test cannot reach because the callbacks
+  // only fire on user interaction). For handlers that depend on
+  // network IO or prompts, the stubs in beforeAll() resolve those
+  // synchronously to a benign value.
+  //
+  // Skip btn-add-root: its handler reads window.prompt() and then
+  // mutates state.favorites + persists to localStorage on the
+  // non-null path. We stub prompt to null which makes it a no-op,
+  // but the test still belongs in the list for regression value.
+  const TOP_LEVEL_BUTTONS = [
+    "btn-collapse",
+    "btn-expand",
+    "btn-refresh",
+    "btn-collapse-all",
+    "btn-add-root",
+    "m-cancel",
+    "m-create",
+    "modal-overlay",
+  ];
+
+  for (const id of TOP_LEVEL_BUTTONS) {
+    it(`clicking #${id} does not throw`, async () => {
+      // Import is idempotent — module is cached from the load test.
+      await import("../public/app.js");
+      const el = document.getElementById(id);
+      expect(el, `#${id} must exist in index.html for the handler to be wired`).not.toBeNull();
+      // Synchronously dispatch the click. If the handler throws, the
+      // call surfaces here. If it queues a microtask that throws, the
+      // test will still see it in the next tick, but for handler
+      // bodies that are mostly synchronous (DOM mutation, state
+      // updates, fetch initiation) this is sufficient coverage.
+      expect(() => (el as HTMLElement).click()).not.toThrow();
+    });
+  }
 });
