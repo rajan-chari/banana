@@ -8,10 +8,14 @@ import {
   countLeaves,
   insertAdjacentToPane,
 } from "../public/lib/tiling.js";
-import type { TileNode, LeafNode } from "../public/lib/tiling.js";
+import type { TileNode, LeafNode, SplitNode } from "../public/lib/tiling.js";
 
 // Helpers
 const leaf = (s: string): LeafNode => ({ type: "leaf", session: s });
+const asSplit = (n: TileNode): SplitNode => {
+  if (n.type !== "split") throw new Error(`expected split node, got ${n.type}`);
+  return n;
+};
 
 describe("buildBalancedTree", () => {
   it("returns null for empty array", () => {
@@ -25,14 +29,14 @@ describe("buildBalancedTree", () => {
   it("returns horizontal split for 2 sessions", () => {
     const tree = buildBalancedTree(["a", "b"])!;
     expect(tree.type).toBe("split");
-    expect(tree.direction).toBe("h");
+    expect(asSplit(tree).direction).toBe("h");
     expect(getLeafList(tree)).toEqual(["a", "b"]);
   });
 
   it("returns vertical split for 3+ sessions", () => {
     const tree = buildBalancedTree(["a", "b", "c"])!;
     expect(tree.type).toBe("split");
-    expect(tree.direction).toBe("v");
+    expect(asSplit(tree).direction).toBe("v");
     expect(getLeafList(tree)).toEqual(["a", "b", "c"]);
   });
 
@@ -175,28 +179,28 @@ describe("insertAdjacentToPane", () => {
   it("inserts right of target leaf", () => {
     const result = insertAdjacentToPane(leaf("a"), "a", "b", "right")!;
     expect(result.type).toBe("split");
-    expect(result.direction).toBe("h");
+    expect(asSplit(result).direction).toBe("h");
     expect(getLeafList(result)).toEqual(["a", "b"]);
   });
 
   it("inserts left of target leaf", () => {
     const result = insertAdjacentToPane(leaf("a"), "a", "b", "left")!;
     expect(result.type).toBe("split");
-    expect(result.direction).toBe("h");
+    expect(asSplit(result).direction).toBe("h");
     expect(getLeafList(result)).toEqual(["b", "a"]);
   });
 
   it("inserts below target leaf", () => {
     const result = insertAdjacentToPane(leaf("a"), "a", "b", "bottom")!;
     expect(result.type).toBe("split");
-    expect(result.direction).toBe("v");
+    expect(asSplit(result).direction).toBe("v");
     expect(getLeafList(result)).toEqual(["a", "b"]);
   });
 
   it("inserts above target leaf", () => {
     const result = insertAdjacentToPane(leaf("a"), "a", "b", "top")!;
     expect(result.type).toBe("split");
-    expect(result.direction).toBe("v");
+    expect(asSplit(result).direction).toBe("v");
     expect(getLeafList(result)).toEqual(["b", "a"]);
   });
 

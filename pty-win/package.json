@@ -21,8 +21,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check:public": "tsc -p tsconfig.public.json",
+    "check:test": "tsc -p tsconfig.test.json",
     "check:deps": "madge --circular public/ && madge --circular --extensions ts src/",
-    "check": "npm run build -- --noEmit && npm run check:public && npm run check:deps"
+    "check": "npm run build -- --noEmit && npm run check:public && npm run check:test && npm run check:deps"
   },
   "dependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",

@@ -3,7 +3,7 @@ import { rebuildPaneGroups } from "../public/lib/pane-groups.js";
 import type { SessionInfo, PaneGroup } from "../public/lib/pane-groups.js";
 
 // Helper to build sessions map
-function sessions(...entries: Array<{ name: string; group?: string; command?: string; status?: string }>): Map<string, SessionInfo> {
+function sessions(...entries: Array<{ name: string; group?: string; command?: string; status?: SessionInfo["status"] }>): Map<string, SessionInfo> {
   const map = new Map<string, SessionInfo>();
   for (const e of entries) {
     map.set(e.name, {

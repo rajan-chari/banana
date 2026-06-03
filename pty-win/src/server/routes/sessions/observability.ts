@@ -9,7 +9,7 @@ export function registerSessionObservabilityRoutes({
   costHistory,
 }: SessionRoutesOptions): void {
   app.get("/api/repo-root", async (req, res) => {
-    const dirPath = req.query.path as string;
+    const dirPath = req.query["path"] as string;
     if (!dirPath) return res.status(400).json({ error: "path required" });
     const repoRoot = await detectRepoRoot(resolve(dirPath));
     res.json({ repoRoot });

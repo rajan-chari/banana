@@ -9,7 +9,7 @@ interface EmcomRoutesOptions {
 
 export function registerEmcomRoutes({ app, config }: EmcomRoutesOptions): void {
   app.get("/api/emcom-feed", async (req, res) => {
-    const identity = req.query.identity as string;
+    const identity = req.query["identity"] as string;
     if (!identity) return res.status(400).json({ error: "identity query param required" });
     try {
       const client = new EmcomClient(config.emcomServer, identity);
@@ -22,7 +22,7 @@ export function registerEmcomRoutes({ app, config }: EmcomRoutesOptions): void {
 
   app.get("/api/emcom-proxy/tracker", async (req, res) => {
     const identity = req.headers["x-emcom-name"] as string || "";
-    const status = req.query.status as string || "";
+    const status = req.query["status"] as string || "";
     try {
       const url = `${config.emcomServer}/tracker${status ? `?status=${status}` : ""}`;
       const resp = await fetch(url, { headers: { "X-Emcom-Name": identity } });

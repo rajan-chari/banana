@@ -1,0 +1,22 @@
+{
+  "//": "Type-checks test/*.ts files. Vitest's esbuild only strips types — without",
+  "//1": "this config, tests can drift from their imports (client typedefs in public/",
+  "//2": "and server interfaces in src/) without being caught until runtime. With it,",
+  "//3": "`npm run check` enforces contracts written as type-level assertions in tests.",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["test/**/*.ts"]
+}

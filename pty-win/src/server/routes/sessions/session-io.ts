@@ -31,12 +31,12 @@ export function registerSessionIoRoutes({ app, sessions, injectWrite }: SessionR
   app.get("/api/sessions/:name/snapshot", (req, res) => {
     const session = sessions.get(req.params.name);
     if (!session) return res.status(404).json({ error: "not found" });
-    if (req.query.raw === "1") {
-      const maxBytes = parseInt(req.query.bytes as string) || 32_768;
+    if (req.query["raw"] === "1") {
+      const maxBytes = parseInt(req.query["bytes"] as string) || 32_768;
       res.type("text/plain").send(session.getRawTail(maxBytes));
       return;
     }
-    const n = parseInt(req.query.lines as string) || 8;
+    const n = parseInt(req.query["lines"] as string) || 8;
     res.json({ lines: session.getSnapshot(n) });
   });
 }

@@ -24,7 +24,7 @@ interface AdminRoutesOptions {
 
 export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: AdminRoutesOptions): void {
   app.get("/api/folders", (req, res) => {
-    const dirPath = req.query.path as string;
+    const dirPath = req.query["path"] as string;
     if (!dirPath) {
       return res.status(400).json({ error: "path query parameter required" });
     }
@@ -32,7 +32,7 @@ export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: Ad
   });
 
   app.get("/api/folder-info", (req, res) => {
-    const dirPath = req.query.path as string;
+    const dirPath = req.query["path"] as string;
     if (!dirPath) return res.status(400).json({ error: "path query parameter required" });
     const resolved = resolve(dirPath);
     const name = basename(resolved);

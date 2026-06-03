@@ -14,13 +14,13 @@ export function writeSessionHooks(workingDir: string, port: number): void {
     }
     const base = `http://127.0.0.1:${port}`;
     const sessionStartCmd = `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/session-start`;
-    settings.hooks = {
+    settings["hooks"] = {
       SessionStart: [{ matcher: ".*", hooks: [{ type: "command", command: sessionStartCmd, timeout: 5 }] }],
       Stop: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/stop`, timeout: 2 }] }],
       Notification: [{ matcher: ".*", hooks: [{ type: "http", url: `${base}/api/hook/notify`, timeout: 2 }] }],
       UserPromptSubmit: [{ matcher: "", hooks: [{ type: "http", url: `${base}/api/hook/prompt-submit`, timeout: 2 }] }],
     };
-    settings.messageIdleNotifThresholdMs = 5000;
+    settings["messageIdleNotifThresholdMs"] = 5000;
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     clog(`hooks configured for ${workingDir} -> port ${port}`);
     writeCopilotHooks(workingDir, port);
@@ -50,12 +50,12 @@ function writeCopilotHooks(workingDir: string, port: number): void {
       `curl -s -m 4 -X POST -H "Content-Type: application/json" -d @- ${base}/api/hook/${endpoint}`;
     const mkEntry = (endpoint: string, matcher?: string): Record<string, unknown> => {
       const entry: Record<string, unknown> = { type: "command", timeoutSec: 5 };
-      if (matcher) entry.matcher = matcher;
-      if (isWin) entry.powershell = psHook(endpoint);
-      else entry.bash = bashHook(endpoint);
+      if (matcher) entry["matcher"] = matcher;
+      if (isWin) entry["powershell"] = psHook(endpoint);
+      else entry["bash"] = bashHook(endpoint);
       return entry;
     };
-    settings.hooks = {
+    settings["hooks"] = {
       SessionStart: [mkEntry("session-start", ".*")],
       Stop: [mkEntry("stop")],
       Notification: [mkEntry("notify", ".*")],

@@ -139,9 +139,7 @@ describe("public/app.js module load smoke test", () => {
 
     // happy-dom provides requestAnimationFrame, but make it a no-op so
     // queued fits never run (they would touch xterm internals).
-    // @ts-expect-error - rAF stub
     window.requestAnimationFrame = () => 0;
-    // @ts-expect-error - rAF stub
     globalThis.requestAnimationFrame = () => 0;
 
     // Several top-level handlers call window.prompt (e.g. btn-add-root).

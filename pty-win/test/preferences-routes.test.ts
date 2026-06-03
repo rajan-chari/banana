@@ -13,16 +13,16 @@ import { registerAdminRoutes } from "../src/server/routes/admin.js";
  *  needed), and exposes the assigned port for fetch-driven assertions. */
 async function setup() {
   const home = mkdtempSync(join(tmpdir(), "pty-win-prefs-"));
-  const prevUserProfile = process.env.USERPROFILE;
-  const prevHome = process.env.HOME;
-  process.env.USERPROFILE = home;
-  process.env.HOME = home;
+  const prevUserProfile = process.env["USERPROFILE"];
+  const prevHome = process.env["HOME"];
+  process.env["USERPROFILE"] = home;
+  process.env["HOME"] = home;
 
   const app = express();
   app.use(express.json());
   registerAdminRoutes({
     app,
-    config: { rootDirs: [], port: 0, host: "127.0.0.1", name: "test", debug: false },
+    config: { rootDirs: [], port: 0, host: "127.0.0.1", name: "test", debug: false, emcomServer: "http://127.0.0.1:8800" },
     buildInfo: { version: "test", commit: "test", startedAt: "test" },
     onNameChange: () => {},
   });
@@ -37,10 +37,10 @@ async function setup() {
     prefsFile: join(home, ".fellow-agents", "preferences.json"),
     async teardown() {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-      if (prevUserProfile === undefined) delete process.env.USERPROFILE;
-      else process.env.USERPROFILE = prevUserProfile;
-      if (prevHome === undefined) delete process.env.HOME;
-      else process.env.HOME = prevHome;
+      if (prevUserProfile === undefined) delete process.env["USERPROFILE"];
+      else process.env["USERPROFILE"] = prevUserProfile;
+      if (prevHome === undefined) delete process.env["HOME"];
+      else process.env["HOME"] = prevHome;
       rmSync(home, { recursive: true, force: true });
     },
   };

@@ -28,7 +28,7 @@ describe("buildSessionGroups", () => {
     const sessions = new Map<string, SessionInfo>([
       ["alice", s({ name: "alice", status: "idle", workingDir: "C:/repo/alice" })],
     ]);
-    const pg: PaneGroup = { claude: "alice", pwsh: null, activeType: "claude" };
+    const pg: PaneGroup = { claude: "alice", activeType: "claude" };
     const out = buildSessionGroups(new Map([["alice", pg]]), sessions);
     expect(out).toHaveLength(1);
     expect(out[0].group).toBe("alice");
@@ -81,16 +81,16 @@ describe("buildSessionGroups", () => {
       ["c", s({ name: "c", workingDir: "C:/c" })],
     ]);
     const paneGroups = new Map<string, PaneGroup>([
-      ["b", { claude: "b", pwsh: null, activeType: "claude" }],
-      ["c", { claude: "c", pwsh: null, activeType: "claude" }],
-      ["a", { claude: "a", pwsh: null, activeType: "claude" }],
+      ["b", { claude: "b", activeType: "claude" }],
+      ["c", { claude: "c", activeType: "claude" }],
+      ["a", { claude: "a", activeType: "claude" }],
     ]);
     const out = buildSessionGroups(paneGroups, sessions);
     expect(out.map((g: ActiveSessionGroup) => g.group)).toEqual(["b", "c", "a"]);
   });
 
   it("treats pg.claude=null and pg.pwsh=null as no-session", () => {
-    const pg: PaneGroup = { claude: null, pwsh: null, activeType: "claude" };
+    const pg: PaneGroup = { activeType: "claude" };
     expect(buildSessionGroups(new Map([["empty", pg]]), new Map())).toEqual([]);
   });
 });
@@ -205,7 +205,7 @@ describe("getActiveSessionName", () => {
   });
 
   it("returns null when pg.claude and pg.pwsh are both unset", () => {
-    const pg: PaneGroup = { claude: null, pwsh: null, activeType: "claude" };
+    const pg: PaneGroup = { activeType: "claude" };
     expect(getActiveSessionName(pg, false, false)).toBe(null);
   });
 });

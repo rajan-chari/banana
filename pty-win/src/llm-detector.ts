@@ -170,7 +170,7 @@ async function callOpenAI<TParsed>(
   messages: RawMessage[],
   validate: (obj: unknown) => TParsed | null,
 ): Promise<({ parsed: TParsed; latencyMs: number; inputTokens?: number; outputTokens?: number }) | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env["OPENAI_API_KEY"];
   if (!apiKey) {
     clog("[llm-detector] OPENAI_API_KEY not set — skipping");
     return null;

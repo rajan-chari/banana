@@ -109,7 +109,7 @@ describe("createWsRuntime", () => {
     const first = await c.next();
 
     expect(first.type).toBe("sessions");
-    expect((first.payload as Array<{ name: string }>)[0].name).toBe("alpha");
+    expect((first["payload"] as Array<{ name: string }>)[0].name).toBe("alpha");
 
     c.close();
   });
@@ -190,8 +190,8 @@ describe("createWsRuntime", () => {
     const msgs = await c.drainFor(80);
     const dataMsgs = msgs.filter((m) => m.type === "data");
     expect(dataMsgs).toHaveLength(1);
-    expect(dataMsgs[0].payload).toBe("abcdef");
-    expect(dataMsgs[0].session).toBe("alpha");
+    expect(dataMsgs[0]["payload"]).toBe("abcdef");
+    expect(dataMsgs[0]["session"]).toBe("alpha");
 
     c.close();
   });
@@ -210,8 +210,8 @@ describe("createWsRuntime", () => {
     const [m1, m2] = await Promise.all([c1.next(), c2.next()]);
     for (const m of [m1, m2]) {
       expect(m.type).toBe("status");
-      expect(m.session).toBe("alpha");
-      const payload = m.payload as { status: string; unreadCount: number };
+      expect(m["session"]).toBe("alpha");
+      const payload = m["payload"] as { status: string; unreadCount: number };
       expect(payload.status).toBe("busy");
       expect(payload.unreadCount).toBe(3);
     }
@@ -231,7 +231,7 @@ describe("createWsRuntime", () => {
     const m = await c.next();
 
     expect(m.type).toBe("sessions");
-    expect((m.payload as Array<{ name: string }>)[0].name).toBe("alpha");
+    expect((m["payload"] as Array<{ name: string }>)[0].name).toBe("alpha");
 
     c.close();
   });
@@ -244,8 +244,8 @@ describe("createWsRuntime", () => {
     const m = await c.next();
 
     expect(m.type).toBe("notification");
-    expect(m.session).toBe("alpha");
-    expect(m.payload).toEqual({ count: 2, from: ["rajan", "milo"] });
+    expect(m["session"]).toBe("alpha");
+    expect(m["payload"]).toEqual({ count: 2, from: ["rajan", "milo"] });
 
     c.close();
   });
@@ -258,7 +258,7 @@ describe("createWsRuntime", () => {
     const m = await c.next();
 
     expect(m.type).toBe("config");
-    expect(m.name).toBe("preview");
+    expect(m["name"]).toBe("preview");
 
     c.close();
   });
@@ -273,10 +273,10 @@ describe("createWsRuntime", () => {
 
     late.emitData("late-data");
     const msgs = await c.drainFor(80);
-    const data = msgs.find((m) => m.type === "data" && m.session === "beta");
+    const data = msgs.find((m) => m.type === "data" && m["session"] === "beta");
 
     expect(data).toBeDefined();
-    expect(data!.payload).toBe("late-data");
+    expect(data!["payload"]).toBe("late-data");
 
     c.close();
   });

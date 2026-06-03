@@ -20,7 +20,7 @@ export function registerDebugRoutes(
 ): void {
 
   function getSession(req: Request, res: Response): PtySession | null {
-    const name = req.params.name as string;
+    const name = req.params["name"] as string;
     const session = sessions.get(name);
     if (!session) { res.status(404).json({ error: "session not found" }); return null; }
     return session;
@@ -60,17 +60,17 @@ export function registerDebugRoutes(
   app.get("/api/debug/sessions/:name/screen", (req, res) => {
     const session = getSession(req, res);
     if (!session) return;
-    const lines = parseInt(req.query.lines as string) || 20;
+    const lines = parseInt(req.query["lines"] as string) || 20;
     const contentLines = session.getContentLines(lines);
-    if (req.query.format === "text") {
+    if (req.query["format"] === "text") {
       res.type("text/plain").send(contentLines.join("\n"));
       return;
     }
     const detection = session.getDetectionState() as Record<string, unknown>;
     res.json({
-      session: req.params.name,
+      session: req.params["name"],
       contentLines,
-      quiet: detection.quiet,
+      quiet: detection["quiet"],
     });
   });
 
@@ -122,15 +122,15 @@ export function registerDebugRoutes(
       const state = session.getDebugState();
       result[name] = {
         repoRoot: sessionRepoRoots.get(name) || null,
-        status: state.status,
-        quietMs: state.quietMs,
-        pendingCheckpoint: state.pendingCheckpoint,
-        checkpointInFlight: state.checkpointInFlight,
-        lastCheckpointTime: state.lastCheckpointTime,
-        lastCheckpointAgoMs: state.lastCheckpointAgoMs,
-        checkpointLightTimerActive: state.checkpointLightTimerActive,
-        checkpointFullTimerActive: state.checkpointFullTimerActive,
-        heuristicTimerActive: state.heuristicTimerActive,
+        status: state["status"],
+        quietMs: state["quietMs"],
+        pendingCheckpoint: state["pendingCheckpoint"],
+        checkpointInFlight: state["checkpointInFlight"],
+        lastCheckpointTime: state["lastCheckpointTime"],
+        lastCheckpointAgoMs: state["lastCheckpointAgoMs"],
+        checkpointLightTimerActive: state["checkpointLightTimerActive"],
+        checkpointFullTimerActive: state["checkpointFullTimerActive"],
+        heuristicTimerActive: state["heuristicTimerActive"],
       };
     }
     res.json({ serverTime: Date.now(), sessions: result });
