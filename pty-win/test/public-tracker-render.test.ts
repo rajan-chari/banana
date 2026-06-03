@@ -14,6 +14,7 @@ import {
   renderTrackerHistoryEntries,
   severityClass,
   githubOrgRepo,
+  patchTrackerItem,
 } from "../public/lib/tracker-render.js";
 
 const XSS = "<script>alert(1)</script>";
@@ -258,5 +259,74 @@ describe("renderTrackerHistoryEntries", () => {
       { field: "assigned_to", new_value: "", changed_at: "2026-06-01T00:00:00Z", changed_by: "moss" },
     ]));
     expect(el.textContent).toContain("unassigned");
+  });
+});
+
+
+describe("patchTrackerItem", () => {
+  // Build a row from renderTrackerItemHtml so we have the real DOM
+  // structure (.tracker-item-title, .tracker-severity, etc.), then
+  // patch it with a different item and assert the visible fields
+  // change accordingly.
+  function buildRow(item: typeof baseItem): HTMLElement {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = renderTrackerItemHtml(item, 1);
+    // renderTrackerItemHtml returns a <div class="tracker-item"...> root.
+    return wrap.firstElementChild as HTMLElement;
+  }
+
+  it("updates the title text without rebuilding the row", () => {
+    const row = buildRow(baseItem);
+    const titleEl = row.querySelector(".tracker-item-title");
+    patchTrackerItem(row, { ...baseItem, title: "new title" });
+    expect(titleEl?.textContent).toBe("new title");
+    // Same element instance: not a re-render.
+    expect(row.querySelector(".tracker-item-title")).toBe(titleEl);
+  });
+
+  it("updates the assignee with @ prefix and clears when empty", () => {
+    const row = buildRow(baseItem);
+    patchTrackerItem(row, { ...baseItem, assigned_to: "newperson" });
+    expect(row.querySelector(".tracker-assignee")?.textContent).toBe("@newperson");
+    patchTrackerItem(row, { ...baseItem, assigned_to: undefined });
+    expect(row.querySelector(".tracker-assignee")?.textContent).toBe("");
+  });
+
+  it("updates severity text + class consistent with renderTrackerItemHtml", () => {
+    const row = buildRow(baseItem);
+    patchTrackerItem(row, { ...baseItem, severity: "critical" });
+    const sev = row.querySelector(".tracker-severity");
+    expect(sev?.textContent).toBe("critical");
+    expect(sev?.className).toBe("tracker-severity sev-critical");
+  });
+
+  it("maps severity=low to sev-low (matches renderTrackerItemHtml)", () => {
+    // Regression: prior inline ternary in app.js mapped low -> sev-normal,
+    // diverging from the render path. Extraction to severityClass fixes this.
+    const row = buildRow({ ...baseItem, severity: "high" });
+    patchTrackerItem(row, { ...baseItem, severity: "low" });
+    expect(row.querySelector(".tracker-severity")?.className).toBe("tracker-severity sev-low");
+  });
+
+  it("renders '-' for missing last_github_activity", () => {
+    const row = buildRow(baseItem);
+    patchTrackerItem(row, { ...baseItem, last_github_activity: undefined });
+    expect(row.querySelector(".tracker-activity")?.textContent).toBe("-");
+  });
+
+  it("toggles tracker-item-done class based on status", () => {
+    const row = buildRow(baseItem);
+    patchTrackerItem(row, { ...baseItem, status: "closed" });
+    expect(row.classList.contains("tracker-item-done")).toBe(true);
+    patchTrackerItem(row, { ...baseItem, status: "in-progress" });
+    expect(row.classList.contains("tracker-item-done")).toBe(false);
+  });
+
+  it("joins responders with comma-space, clears when empty array", () => {
+    const row = buildRow(baseItem);
+    patchTrackerItem(row, { ...baseItem, responders: ["a", "b", "c"] });
+    expect(row.querySelector(".tracker-responders")?.textContent).toBe("a, b, c");
+    patchTrackerItem(row, { ...baseItem, responders: [] });
+    expect(row.querySelector(".tracker-responders")?.textContent).toBe("");
   });
 });

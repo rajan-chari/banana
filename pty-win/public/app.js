@@ -50,15 +50,14 @@ import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
 import {
   renderTrackerItemHtml,
   renderTrackerHistoryEntries,
+  patchTrackerItem,
 } from "./lib/tracker-render.js";
 import {
   normPath,
   cssId,
   truncatePath,
-  fmtAge,
   fmtAgo,
   staleClass,
-  fmtDate,
   escapeHtml,
 } from "./lib/format.js";
 import {
@@ -3255,35 +3254,6 @@ function buildTrackerItem(item) {
  * @param {HTMLElement} el
  * @param {import('./lib/state.js').TrackerItem} item
  */
-function patchTrackerItem(el, item) {
-  const titleEl = el.querySelector(".tracker-item-title");
-  if (titleEl && titleEl.textContent !== item.title) titleEl.textContent = item.title ?? "";
-  const assigneeEl = el.querySelector(".tracker-assignee");
-  const assigneeText = item.assigned_to ? "@" + item.assigned_to : "";
-  if (assigneeEl && assigneeEl.textContent !== assigneeText) assigneeEl.textContent = assigneeText;
-  const openedByEl = el.querySelector(".tracker-opened-by");
-  if (openedByEl) openedByEl.textContent = item.opened_by || "";
-  const respondersEl = el.querySelector(".tracker-responders");
-  if (respondersEl) respondersEl.textContent = Array.isArray(item.responders) && item.responders.length ? item.responders.join(", ") : "";
-  const sevEl = el.querySelector(".tracker-severity");
-  if (sevEl && sevEl.textContent !== (item.severity || "normal")) {
-    sevEl.textContent = item.severity || "normal";
-    sevEl.className = `tracker-severity ${item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : "sev-normal"}`;
-  }
-  const ageDate = item.date_found || item.created_at;
-  const ageEl = el.querySelector(".tracker-age");
-  if (ageEl) { ageEl.textContent = fmtAge(ageDate); ageEl.className = `tracker-age ${staleClass(ageDate)}`; }
-  const updEl = el.querySelector(".tracker-updated");
-  if (updEl) updEl.textContent = fmtDate(item.updated_at);
-  const actEl = el.querySelector(".tracker-activity");
-  if (actEl) {
-    actEl.textContent = item.last_github_activity ? fmtAge(item.last_github_activity) : "-";
-    actEl.className = `tracker-activity ${item.last_github_activity ? staleClass(item.last_github_activity) : ""}`;
-  }
-  el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
-  el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status ?? ""));
-}
-
 const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = flex; first col is row #
 
 /**

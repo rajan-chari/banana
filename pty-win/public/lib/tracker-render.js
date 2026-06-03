@@ -131,3 +131,94 @@ export function renderTrackerHistoryEntries(history) {
     </div>`;
   }).join("");
 }
+
+/**
+ * Update simple text-only fields on a rendered tracker row.
+ * Skips writes when textContent is already correct (avoids triggering
+ * unnecessary mutation observers / reflows).
+ *
+ * @param {Element} el
+ * @param {TrackerItem} item
+ */
+function patchTextFields(el, item) {
+  const titleEl = el.querySelector(".tracker-item-title");
+  if (titleEl && titleEl.textContent !== item.title) titleEl.textContent = item.title ?? "";
+
+  const assigneeEl = el.querySelector(".tracker-assignee");
+  const assigneeText = item.assigned_to ? "@" + item.assigned_to : "";
+  if (assigneeEl && assigneeEl.textContent !== assigneeText) assigneeEl.textContent = assigneeText;
+
+  const openedByEl = el.querySelector(".tracker-opened-by");
+  if (openedByEl) openedByEl.textContent = item.opened_by || "";
+
+  const respondersEl = el.querySelector(".tracker-responders");
+  if (respondersEl) respondersEl.textContent = Array.isArray(item.responders) && item.responders.length ? item.responders.join(", ") : "";
+
+  const updEl = el.querySelector(".tracker-updated");
+  if (updEl) updEl.textContent = fmtDate(item.updated_at);
+}
+
+/**
+ * Update the severity badge text + sev-* class. Uses severityClass()
+ * so the patched row stays consistent with renderTrackerItemHtml --
+ * the prior inline ternary missed "low" (always rendered sev-normal).
+ *
+ * @param {Element} el
+ * @param {TrackerItem} item
+ */
+function patchSeverityField(el, item) {
+  const sevEl = el.querySelector(".tracker-severity");
+  if (!sevEl) return;
+  const sevText = item.severity || "normal";
+  if (sevEl.textContent === sevText) return;
+  sevEl.textContent = sevText;
+  sevEl.className = `tracker-severity ${severityClass(item.severity)}`;
+}
+
+/**
+ * Update the age + last-activity fields with their text + stale-* class.
+ *
+ * @param {Element} el
+ * @param {TrackerItem} item
+ */
+function patchAgeFields(el, item) {
+  const ageDate = item.date_found || item.created_at;
+  const ageEl = el.querySelector(".tracker-age");
+  if (ageEl) { ageEl.textContent = fmtAge(ageDate); ageEl.className = `tracker-age ${staleClass(ageDate)}`; }
+  const actEl = el.querySelector(".tracker-activity");
+  if (actEl) {
+    actEl.textContent = item.last_github_activity ? fmtAge(item.last_github_activity) : "-";
+    actEl.className = `tracker-activity ${item.last_github_activity ? staleClass(item.last_github_activity) : ""}`;
+  }
+}
+
+/**
+ * Toggle row-level classes (`stale-row`, `tracker-item-done`) based on status/age.
+ *
+ * @param {Element} el
+ * @param {TrackerItem} item
+ */
+function patchRowClasses(el, item) {
+  const ageDate = item.date_found || item.created_at;
+  el.classList.toggle("stale-row", staleClass(ageDate) === "stale-red");
+  el.classList.toggle("tracker-item-done", ["closed", "merged", "deferred"].includes(item.status ?? ""));
+}
+
+/**
+ * Patch a previously-rendered tracker item row in-place with fresh data.
+ * Companion to renderTrackerItemHtml -- the row is built once with that
+ * function, then patched here on subsequent renders to avoid full
+ * innerHTML rebuilds (preserves focus, scroll, and prevents flicker).
+ *
+ * Composed of four focused field-group patchers -- each is independently
+ * testable in happy-dom.
+ *
+ * @param {Element} el
+ * @param {TrackerItem} item
+ */
+export function patchTrackerItem(el, item) {
+  patchTextFields(el, item);
+  patchSeverityField(el, item);
+  patchAgeFields(el, item);
+  patchRowClasses(el, item);
+}
