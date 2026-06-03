@@ -8,6 +8,57 @@ import { detectRepoRoot, countRepoSiblings } from "../../repo-roots.js";
 import { writeSessionHooks } from "../../hook-config-writer.js";
 import type { SessionRoutesOptions } from "./types.js";
 
+type Identity = ReturnType<typeof readIdentity>;
+
+async function registerRepoRoot(
+  name: string,
+  resolvedDir: string,
+  sessions: Map<string, PtySession>,
+  sessionRepoRoots: Map<string, string>,
+  checkpointStaggerMs: number,
+): Promise<number> {
+  const repoRoot = await detectRepoRoot(resolvedDir);
+  if (!repoRoot) return 0;
+  const siblingCount = countRepoSiblings(repoRoot, sessionRepoRoots, sessions);
+  const checkpointOffsetMs = siblingCount * checkpointStaggerMs;
+  sessionRepoRoots.set(name, repoRoot);
+  if (siblingCount > 0) {
+    clog(`${name}: shares repo with ${siblingCount} session(s), checkpoint offset ${checkpointOffsetMs / 1000}s`);
+  }
+  return checkpointOffsetMs;
+}
+
+interface BuildSessionConfigOpts {
+  name: string;
+  resolvedDir: string;
+  command: string | undefined;
+  args: string[];
+  cols: number | undefined;
+  rows: number | undefined;
+  identity: Identity;
+  checkpointOffsetMs: number;
+  injectionSender: SessionConfig["injectionPort"];
+}
+
+function buildSessionConfig(opts: BuildSessionConfigOpts): SessionConfig {
+  return {
+    name: opts.name,
+    command: opts.command || "claude",
+    args: opts.args,
+    workingDir: opts.resolvedDir,
+    cols: opts.cols || 120,
+    rows: opts.rows || 40,
+    emcomIdentity: opts.identity?.name,
+    emcomServer: opts.identity ? opts.identity.server : undefined,
+    pollIntervalMs: DEFAULTS.pollIntervalMs,
+    quietThresholdMs: DEFAULTS.quietThresholdMs,
+    injectionCooldownMs: DEFAULTS.injectionCooldownMs,
+    checkpointOffsetMs: opts.checkpointOffsetMs,
+    busyTimeoutMs: DEFAULTS.busyTimeoutMs,
+    injectionPort: opts.injectionSender,
+  };
+}
+
 export function registerSessionManagementRoutes({
   app,
   config,
@@ -41,34 +92,19 @@ export function registerSessionManagementRoutes({
 
     const resolvedCommand = isShell ? DEFAULTS.defaultShell : command;
     const identity = isShell ? null : readIdentity(resolvedDir);
+    const checkpointOffsetMs = await registerRepoRoot(name, resolvedDir, sessions, sessionRepoRoots, checkpointStaggerMs);
 
-    const repoRoot = await detectRepoRoot(resolvedDir);
-    const siblingCount = repoRoot ? countRepoSiblings(repoRoot, sessionRepoRoots, sessions) : 0;
-    const checkpointOffsetMs = siblingCount * checkpointStaggerMs;
-
-    if (repoRoot) {
-      sessionRepoRoots.set(name, repoRoot);
-      if (siblingCount > 0) {
-        clog(`${name}: shares repo with ${siblingCount} session(s), checkpoint offset ${checkpointOffsetMs / 1000}s`);
-      }
-    }
-
-    const sessionConfig: SessionConfig = {
+    const sessionConfig = buildSessionConfig({
       name,
-      command: resolvedCommand || "claude",
+      resolvedDir,
+      command: resolvedCommand,
       args,
-      workingDir: resolvedDir,
-      cols: cols || 120,
-      rows: rows || 40,
-      emcomIdentity: identity?.name,
-      emcomServer: identity ? identity.server : undefined,
-      pollIntervalMs: DEFAULTS.pollIntervalMs,
-      quietThresholdMs: DEFAULTS.quietThresholdMs,
-      injectionCooldownMs: DEFAULTS.injectionCooldownMs,
+      cols,
+      rows,
+      identity,
       checkpointOffsetMs,
-      busyTimeoutMs: DEFAULTS.busyTimeoutMs,
-      injectionPort: injectionSender,
-    };
+      injectionSender,
+    });
 
     const session = new PtySession(sessionConfig);
     if (savedCosts.has(name)) session.costUsd = savedCosts.get(name)!;
@@ -76,7 +112,7 @@ export function registerSessionManagementRoutes({
     addSession(session);
     session.start();
 
-    log(`[server] Created session: ${name} (${sessionConfig.command})${identity ? ` identity=${identity.name}` : ""}${repoRoot ? ` repo=${repoRoot}` : ""}`);
+    log(`[server] Created session: ${name} (${sessionConfig.command})${identity ? ` identity=${identity.name}` : ""}${sessionRepoRoots.get(name) ? ` repo=${sessionRepoRoots.get(name)}` : ""}`);
     res.json({ ok: true, name, pid: session.getPid(), identity: identity?.name });
   });
 

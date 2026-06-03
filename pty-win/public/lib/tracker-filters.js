@@ -61,31 +61,53 @@ export function filterTrackerItems(items, filters) {
  * @param {TrackerSortDir} sortDir
  * @returns {TrackerItem[]}
  */
+/**
+ * Project a tracker item to the value that should be used for a given sort field.
+ * Returns a value comparable to the equivalent projection of another item.
+ * Numbers compare numerically; strings compare via locale-aware compare in the caller.
+ *
+ * @param {TrackerItem} item
+ * @param {Exclude<TrackerSortField, "status">} field
+ * @returns {string | number}
+ */
+function trackerSortKey(item, field) {
+  switch (field) {
+    case "ref": return `${item.repo}#${item.number}`;
+    case "title": return item.title || "";
+    case "assignee": return item.assigned_to || "";
+    case "opened_by": return item.opened_by || "";
+    case "responders": return (item.responders || []).join(",");
+    case "severity": return sevOrder(item.severity);
+    case "age": return new Date(item.created_at || 0).getTime();
+    case "updated": return new Date(item.updated_at || 0).getTime();
+  }
+}
+
+/**
+ * Compare two tracker sort keys. Strings → locale-aware compare; numbers → subtraction.
+ * @param {string | number} a
+ * @param {string | number} b
+ * @returns {number}
+ */
+function compareSortKeys(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b));
+}
+
+/**
+ * Sort tracker items by the chosen field/direction.
+ * For `sortField === "status"` the input is returned unchanged
+ * (the caller handles status grouping separately).
+ *
+ * @param {TrackerItem[]} items
+ * @param {TrackerSortField} sortField
+ * @param {TrackerSortDir} sortDir
+ * @returns {TrackerItem[]}
+ */
 export function sortTrackerItems(items, sortField, sortDir) {
   if (sortField === "status") return items;
-  const sorted = [...items];
   const dir = sortDir === "asc" ? 1 : -1;
-  sorted.sort((a, b) => {
-    switch (sortField) {
-      case "ref":
-        return dir * (`${a.repo}#${a.number}`).localeCompare(`${b.repo}#${b.number}`);
-      case "title":
-        return dir * (a.title || "").localeCompare(b.title || "");
-      case "assignee":
-        return dir * (a.assigned_to || "").localeCompare(b.assigned_to || "");
-      case "opened_by":
-        return dir * (a.opened_by || "").localeCompare(b.opened_by || "");
-      case "responders":
-        return dir * ((a.responders || []).join(",")).localeCompare((b.responders || []).join(","));
-      case "severity":
-        return dir * (sevOrder(a.severity) - sevOrder(b.severity));
-      case "age":
-        return dir * (new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
-      case "updated":
-        return dir * (new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime());
-      default:
-        return 0;
-    }
-  });
+  const sorted = [...items];
+  sorted.sort((a, b) => dir * compareSortKeys(trackerSortKey(a, sortField), trackerSortKey(b, sortField)));
   return sorted;
 }
