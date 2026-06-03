@@ -18,5 +18,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["public/app.js", "public/lib/**/*.js"]
+  "include": ["public/**/*.js", "public/**/*.d.ts"]
 }

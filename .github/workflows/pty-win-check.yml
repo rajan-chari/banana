@@ -1,0 +1,38 @@
+name: pty-win checks
+
+on:
+  push:
+    paths:
+      - 'pty-win/**'
+      - '.github/workflows/pty-win-check.yml'
+    branches: [main]
+  pull_request:
+    paths:
+      - 'pty-win/**'
+      - '.github/workflows/pty-win-check.yml'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pty-win
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: pty-win/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check + circular deps (build + check:public + check:deps)
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
