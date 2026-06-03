@@ -13,6 +13,7 @@ import {
   renderTrackerItemHtml,
   renderTrackerHistoryEntries,
   severityClass,
+  githubOrgRepo,
 } from "../public/lib/tracker-render.js";
 
 const XSS = "<script>alert(1)</script>";
@@ -37,6 +38,40 @@ const baseItem = {
   created_at: "2026-06-01T00:00:00.000Z",
   updated_at: "2026-06-04T00:00:00.000Z",
 };
+
+describe("githubOrgRepo", () => {
+  it("prefixes unscoped repo with 'microsoft/'", () => {
+    expect(githubOrgRepo("teams.net")).toBe("microsoft/teams.net");
+    expect(githubOrgRepo("fellow-agents")).toBe("microsoft/fellow-agents");
+  });
+  it("returns already-qualified repo unchanged", () => {
+    expect(githubOrgRepo("microsoft/teams-cli")).toBe("microsoft/teams-cli");
+    expect(githubOrgRepo("rajan-chari/banana")).toBe("rajan-chari/banana");
+  });
+  it("returns empty string for missing input", () => {
+    expect(githubOrgRepo("")).toBe("");
+    expect(githubOrgRepo(null)).toBe("");
+    expect(githubOrgRepo(undefined)).toBe("");
+  });
+});
+
+describe("renderTrackerItemHtml — GitHub href construction", () => {
+  it("builds a correct href for unscoped repo names", () => {
+    const el = mount(renderTrackerItemHtml({ ...baseItem, repo: "teams.net", number: 519 }, 1));
+    const a = el.querySelector("a.tracker-gh-link") as HTMLAnchorElement | null;
+    expect(a?.getAttribute("href")).toBe("https://github.com/microsoft/teams.net/issues/519");
+  });
+  it("does not double-prefix already-scoped repo names (closes 75bbe69b)", () => {
+    const el = mount(renderTrackerItemHtml({ ...baseItem, repo: "microsoft/teams-cli", number: 2843 }, 1));
+    const a = el.querySelector("a.tracker-gh-link") as HTMLAnchorElement | null;
+    expect(a?.getAttribute("href")).toBe("https://github.com/microsoft/teams-cli/issues/2843");
+  });
+  it("supports non-microsoft orgs in scoped repo names", () => {
+    const el = mount(renderTrackerItemHtml({ ...baseItem, repo: "rajan-chari/banana", number: 1 }, 1));
+    const a = el.querySelector("a.tracker-gh-link") as HTMLAnchorElement | null;
+    expect(a?.getAttribute("href")).toBe("https://github.com/rajan-chari/banana/issues/1");
+  });
+});
 
 describe("severityClass", () => {
   it("returns sev-critical / sev-high / sev-low for known values", () => {

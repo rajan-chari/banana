@@ -12,6 +12,22 @@
 import { escapeHtml, fmtAge, fmtDate, staleClass } from "./format.js";
 
 /**
+ * Build the GitHub URL fragment "org/name" for a tracker item.
+ * Tracker items historically store either the bare repo name
+ * (e.g. "teams.net") or the fully-qualified "org/name"
+ * (e.g. "microsoft/teams-cli"). For unscoped names we default
+ * the org to "microsoft". For already-qualified names we use
+ * them as-is to avoid double-prefixing.
+ *
+ * @param {string | null | undefined} repo
+ * @returns {string}    "" if repo is missing
+ */
+export function githubOrgRepo(repo) {
+  if (!repo) return "";
+  return repo.includes("/") ? repo : `microsoft/${repo}`;
+}
+
+/**
  * Map a severity value to its CSS class. Unknown/missing -> sev-normal.
  * @param {string | null | undefined} severity
  * @returns {string}
@@ -57,7 +73,7 @@ export function renderTrackerItemHtml(item, rowNum) {
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
-      ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${escapeHtml(item.repo)}/issues/${escapeHtml(item.number)}" target="_blank">${escapeHtml(item.repo)}#${escapeHtml(item.number)} on GitHub &#x2197;</a></div>` : ""}
+      ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/${escapeHtml(githubOrgRepo(item.repo))}/issues/${escapeHtml(item.number)}" target="_blank">${escapeHtml(item.repo)}#${escapeHtml(item.number)} on GitHub &#x2197;</a></div>` : ""}
       ${item.blocker ? `<div class="tracker-blocker-badge">${escapeHtml(item.blocker)}</div>` : ""}
       ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${escapeHtml(item.findings)}</div></div>` : ""}
       ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${escapeHtml(item.decision)}</div></div>` : ""}
