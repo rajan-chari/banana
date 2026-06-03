@@ -13,95 +13,24 @@ import {
   setAiDefault,
   syncAiDefaultFromServer,
 } from "./lib/state.js";
+import {
+  loadFavorites,
+  saveFavorites,
+  loadPinnedFolders,
+  savePinnedFolders,
+  loadExpandedPaths,
+  saveExpandedPaths,
+  loadSidebarWidth,
+  saveSidebarWidth,
+  loadWorkspaces,
+  saveWorkspaces,
+  loadSessionMeta,
+  saveSessionMeta,
+} from "./lib/persistence.js";
 
-let nextWorkspaceId = 1;
 let dragSrcWsId = null;
 let diagPollTimer = null;
 let trackerPollTimer = null;
-
-// ===== Persistence =====
-
-function loadFavorites() {
-  try {
-    const raw = localStorage.getItem("pty-win-favorites");
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveFavorites() {
-  localStorage.setItem("pty-win-favorites", JSON.stringify(state.favorites));
-}
-
-function loadPinnedFolders() {
-  try {
-    const raw = localStorage.getItem("pty-win-pinned");
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function savePinnedFolders() {
-  localStorage.setItem("pty-win-pinned", JSON.stringify(state.pinnedFolders));
-}
-
-function loadExpandedPaths() {
-  try {
-    const raw = localStorage.getItem("pty-win-expanded");
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch { return new Set(); }
-}
-
-function saveExpandedPaths() {
-  localStorage.setItem("pty-win-expanded", JSON.stringify([...state.expandedPaths]));
-}
-
-function loadSidebarWidth() {
-  try {
-    const w = localStorage.getItem("pty-win-sidebar-width");
-    return w ? parseInt(w, 10) : 220;
-  } catch { return 220; }
-}
-
-function saveWorkspaces() {
-  // Save workspace metadata + layout (session names only, not terminal instances)
-  const data = state.workspaces.map((ws) => ({
-    id: ws.id,
-    name: ws.name,
-    customName: ws.customName || false,
-    layout: ws.layout,
-  }));
-  localStorage.setItem("pty-win-workspaces", JSON.stringify({
-    workspaces: data,
-    activeWorkspaceId: state.activeWorkspaceId,
-    isDashboard: state.isDashboard,
-    nextId: nextWorkspaceId,
-  }));
-}
-
-function loadWorkspaces() {
-  try {
-    const raw = localStorage.getItem("pty-win-workspaces");
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-function saveSidebarWidth(w) {
-  localStorage.setItem("pty-win-sidebar-width", String(w));
-}
-
-function loadSessionMeta() {
-  try {
-    const raw = localStorage.getItem("pty-win-session-meta");
-    if (!raw) return new Map();
-    return new Map(Object.entries(JSON.parse(raw)));
-  } catch { return new Map(); }
-}
-
-function saveSessionMeta() {
-  const obj = {};
-  for (const [name, meta] of state.sessionMeta) obj[name] = meta;
-  localStorage.setItem("pty-win-session-meta", JSON.stringify(obj));
-}
 
 function rebuildPaneGroups() {
   // Preserve activeType selections across rebuilds
@@ -1506,8 +1435,8 @@ document.getElementById("btn-add-root").onclick = () => {
 // ===== Workspaces =====
 
 function createWorkspace(name) {
-  const id = `ws-${nextWorkspaceId++}`;
-  const ws = { id, name: name || `Workspace ${nextWorkspaceId - 1}`, layout: null };
+  const id = `ws-${state.nextWorkspaceId++}`;
+  const ws = { id, name: name || `Workspace ${state.nextWorkspaceId - 1}`, layout: null };
   state.workspaces.push(ws);
   renderTabs();
   return ws;
@@ -3693,7 +3622,7 @@ if (savedWs) {
   state.workspaces = savedWs.workspaces || [];
   state.activeWorkspaceId = savedWs.activeWorkspaceId || null;
   state.isDashboard = savedWs.isDashboard !== false;
-  nextWorkspaceId = savedWs.nextId || 1;
+  state.nextWorkspaceId = savedWs.nextId || 1;
 }
 state.sessionMeta = loadSessionMeta();
 

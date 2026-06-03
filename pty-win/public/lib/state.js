@@ -32,6 +32,7 @@ export const state = {
   paneGroups: new Map(),  // group -> { claude?: name, pwsh?: name, activeType: "claude"|"pwsh" }
   folderInfoCache: new Map(), // normPath(workingDir) -> { isClaudeReady, hasIdentity, identityName }
   pinnedFolders: [],          // string[] — paths pinned to Quick Access
+  nextWorkspaceId: 1,         // monotonic counter used for new-workspace IDs
   aiPresets: [
     { name: "Claude", command: "claude", icon: "▶" },
     { name: "Agency CC", command: "agency cc", icon: "A" },
