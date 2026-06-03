@@ -57,6 +57,153 @@ export function fmtFeedTime(iso) {
 }
 
 /**
+ * @typedef {object} FeedEmail
+ * @property {string} id
+ * @property {string} sender
+ * @property {string} [subject]
+ * @property {string} [body]
+ * @property {string} [thread_id]
+ * @property {string[]} [to]
+ * @property {string[]} [tags]
+ * @property {string} created_at
+ */
+
+/**
+ * Sort emails by created_at in place. Returns the same array for
+ * chaining. Pure (ignores DOM).
+ *
+ * @param {FeedEmail[]} emails
+ * @param {boolean} newestFirst
+ * @returns {FeedEmail[]}
+ */
+export function sortEmailsByDate(emails, newestFirst) {
+  emails.sort((a, b) => newestFirst
+    ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    : new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  return emails;
+}
+
+/**
+ * Filter emails by sender (exact match) and free-text search across
+ * subject/body/sender (case-insensitive substring). Pure.
+ *
+ * @param {FeedEmail[]} emails
+ * @param {string} sender - empty string = no sender filter
+ * @param {string} text - lowercase substring; empty = no text filter
+ * @returns {FeedEmail[]}
+ */
+export function filterEmails(emails, sender, text) {
+  let out = emails;
+  if (sender) out = out.filter(e => e.sender === sender);
+  if (text) {
+    out = out.filter(e =>
+      (e.subject || "").toLowerCase().includes(text) ||
+      (e.body || "").toLowerCase().includes(text) ||
+      (e.sender || "").toLowerCase().includes(text));
+  }
+  return out;
+}
+
+/**
+ * Group emails into thread roots + replies, preserving the order in
+ * which thread roots first appear in `emails`. Pure.
+ *
+ * @param {FeedEmail[]} emails
+ * @returns {Array<{root: FeedEmail, replies: FeedEmail[]}>}
+ */
+export function buildThreadGroups(emails) {
+  const threadMap = new Map();
+  for (const e of emails) {
+    if (!threadMap.has(e.thread_id)) threadMap.set(e.thread_id, []);
+    threadMap.get(e.thread_id).push(e);
+  }
+  const seen = new Set();
+  const items = [];
+  for (const e of emails) {
+    if (seen.has(e.thread_id)) continue;
+    seen.add(e.thread_id);
+    const thread = threadMap.get(e.thread_id);
+    items.push({ root: thread[0], replies: thread.slice(1) });
+  }
+  return items;
+}
+
+/**
+ * Count emails tagged "unread". Pure.
+ *
+ * @param {FeedEmail[]} emails
+ * @returns {number}
+ */
+export function countUnread(emails) {
+  let n = 0;
+  for (const e of emails) if (e.tags?.includes("unread")) n++;
+  return n;
+}
+
+/**
+ * Repopulate a sender-filter <select> with one option per unique
+ * sender from `emails` (sorted). Preserves the prior selection if
+ * still present (falls back to "all" / empty string otherwise).
+ * The leading "all" option always exists.
+ *
+ * @param {HTMLSelectElement} selectEl
+ * @param {FeedEmail[]} emails
+ * @param {string} prevValue
+ */
+export function populateSenderOptions(selectEl, emails, prevValue) {
+  const senders = [...new Set(emails.map(e => e.sender))].sort();
+  selectEl.innerHTML = '<option value="">all</option>';
+  for (const s of senders) {
+    const opt = document.createElement("option");
+    opt.value = s;
+    opt.textContent = s;
+    selectEl.appendChild(opt);
+  }
+  // Setting `.value` after all options are appended is more portable than
+  // `opt.selected = true` before append (which happy-dom does not honor).
+  // If prevValue isn't a current option, .value silently falls back to "".
+  selectEl.value = prevValue;
+}
+
+/**
+ * Build the CSS className for a feed item div.
+ *
+ * @param {{isReply: boolean, isUnread: boolean, isExpanded: boolean, isNew: boolean}} flags
+ * @returns {string}
+ */
+export function buildFeedItemClassName({ isReply, isUnread, isExpanded, isNew }) {
+  return `feed-item${isReply ? " feed-reply" : ""}${isUnread ? " unread" : ""}${isExpanded ? " expanded" : ""}${isNew ? " feed-new" : ""}`;
+}
+
+/**
+ * Build the innerHTML string for a feed item (root or reply).
+ * Root items get a subject line + optional thread-count badge;
+ * replies do not.
+ *
+ * @param {FeedEmail} email
+ * @param {{isReply: boolean, replyCount: number, color: string, escapeHtmlFn: (s: string) => string, fmtTimeFn: (iso: string) => string}} opts
+ * @returns {string}
+ */
+export function buildFeedItemInnerHtml(email, opts) {
+  const { isReply, replyCount, color, escapeHtmlFn, fmtTimeFn } = opts;
+  const isUnread = email.tags?.includes("unread") || false;
+  const dot = isUnread ? '<span class="feed-unread-dot"></span>' : "";
+  const recipient = email.to?.length
+    ? `<span class="feed-arrow">\u2192</span><span class="feed-recipient">${escapeHtmlFn(email.to.join(", "))}</span>`
+    : "";
+  const meta = `<div class="feed-meta">
+              <span class="feed-sender" style="color:${color}">${dot}${escapeHtmlFn(email.sender)}${recipient}</span>
+              <span class="feed-time">${fmtTimeFn(email.created_at)}</span>
+            </div>`;
+  const subject = isReply
+    ? ""
+    : `\n            <div class="feed-subject">${escapeHtmlFn(email.subject || "")}${replyCount > 0 ? `<span class="feed-thread-count">[${replyCount + 1}]</span>` : ""}</div>`;
+  const preview = `\n            <div class="feed-preview">${escapeHtmlFn((email.body || "").slice(0, 100))}</div>`;
+  const bodyText = `\n            <div class="feed-body-text">${escapeHtmlFn(email.body || "")}</div>`;
+  return `\n            ${meta}${subject}${preview}${bodyText}`;
+}
+
+/**
  * @typedef {object} FeedPanelDeps
  * @property {(id: string) => HTMLElement} byId
  * @property {(id: string) => HTMLInputElement} inputById
@@ -300,52 +447,11 @@ export function initFeedPanel(deps) {
           return;
         }
 
-        // Sort
-        emails.sort(/**
-         * @param {any} a
-         * @param {any} b
-         */
-        (a, b) => sortNewest
-          ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          : new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-        // Populate sender dropdown (preserve current selection)
-        const senders = [...new Set(emails.map(/** @param {any} e */ e => e.sender))].sort();
-        const prevSender = senderSelect.value;
-        senderSelect.innerHTML = '<option value="">all</option>';
-        for (const s of senders) {
-          const opt = document.createElement("option");
-          opt.value = s; opt.textContent = s;
-          if (s === prevSender) opt.selected = true;
-          senderSelect.appendChild(opt);
-        }
-
-        // Filter
-        let filtered = emails;
-        if (filterSender) filtered = filtered.filter(/** @param {any} e */ e => e.sender === filterSender);
-        if (filterText) filtered = filtered.filter(/** @param {any} e */ e =>
-          (e.subject || "").toLowerCase().includes(filterText) ||
-          (e.body || "").toLowerCase().includes(filterText) ||
-          (e.sender || "").toLowerCase().includes(filterText));
-
-        const threadMap = new Map();
-        for (const e of filtered) {
-          if (!threadMap.has(e.thread_id)) threadMap.set(e.thread_id, []);
-          threadMap.get(e.thread_id).push(e);
-        }
-        const seen = new Set();
-        const items = [];
-        for (const e of filtered) {
-          if (!seen.has(e.thread_id)) {
-            seen.add(e.thread_id);
-            const thread = threadMap.get(e.thread_id);
-            items.push({ root: thread[0], replies: thread.slice(1) });
-          }
-        }
-
-        let unreadCount = 0;
-        for (const e of emails) { if (e.tags?.includes("unread")) unreadCount++; }
-        updateUnreadBadge(unreadCount);
+        sortEmailsByDate(emails, sortNewest);
+        populateSenderOptions(senderSelect, emails, senderSelect.value);
+        const filtered = filterEmails(emails, filterSender, filterText);
+        const items = buildThreadGroups(filtered);
+        updateUnreadBadge(countUnread(emails));
 
         const currentIds = new Set(emails.map(/** @param {any} e */ e => e.id));
         const scrollTop = body.scrollTop;
@@ -355,58 +461,10 @@ export function initFeedPanel(deps) {
         for (const { root, replies } of items) {
           const threadDiv = document.createElement("div");
           threadDiv.className = "feed-thread";
-
-          const isUnread = root.tags?.includes("unread");
-          const isExpanded = expandedItems.has(root.id);
-          const isNew = !previousIds.has(root.id) && previousIds.size > 0;
-          const senderColor = getSenderColor(root.sender);
-          const div = document.createElement("div");
-          div.className = `feed-item${isUnread ? " unread" : ""}${isExpanded ? " expanded" : ""}${isNew ? " feed-new" : ""}`;
-          div.dataset["msgId"] = root.id;
-          div.style.setProperty("--sender-color", senderColor);
-          div.innerHTML = `
-            <div class="feed-meta">
-              <span class="feed-sender" style="color:${senderColor}">${isUnread ? '<span class="feed-unread-dot"></span>' : ""}${escHtml(root.sender)}${root.to?.length ? `<span class="feed-arrow">\u2192</span><span class="feed-recipient">${escHtml(root.to.join(", "))}</span>` : ""}</span>
-              <span class="feed-time">${fmtFeedTime(root.created_at)}</span>
-            </div>
-            <div class="feed-subject">${escHtml(root.subject)}${replies.length > 0 ? `<span class="feed-thread-count">[${replies.length + 1}]</span>` : ""}</div>
-            <div class="feed-preview">${escHtml((root.body || "").slice(0, 100))}</div>
-            <div class="feed-body-text">${escHtml(root.body || "")}</div>`;
-          div.onclick = (e) => {
-            const t = e.target instanceof Element ? e.target : null;
-            if (t && t.closest(".feed-body-text")) return;
-            if (expandedItems.has(root.id)) expandedItems.delete(root.id);
-            else expandedItems.add(root.id);
-            div.classList.toggle("expanded");
-          };
-          threadDiv.appendChild(div);
-
+          threadDiv.appendChild(buildFeedItemDiv(root, false, replies.length));
           for (const reply of (threadsCollapsed ? [] : replies)) {
-            const rUnread = reply.tags?.includes("unread");
-            const rExpanded = expandedItems.has(reply.id);
-            const rNew = !previousIds.has(reply.id) && previousIds.size > 0;
-            const rColor = getSenderColor(reply.sender);
-            const rdiv = document.createElement("div");
-            rdiv.className = `feed-item feed-reply${rUnread ? " unread" : ""}${rExpanded ? " expanded" : ""}${rNew ? " feed-new" : ""}`;
-            rdiv.dataset["msgId"] = reply.id;
-            rdiv.style.setProperty("--sender-color", rColor);
-            rdiv.innerHTML = `
-              <div class="feed-meta">
-                <span class="feed-sender" style="color:${rColor}">${rUnread ? '<span class="feed-unread-dot"></span>' : ""}${escHtml(reply.sender)}${reply.to?.length ? `<span class="feed-arrow">\u2192</span><span class="feed-recipient">${escHtml(reply.to.join(", "))}</span>` : ""}</span>
-                <span class="feed-time">${fmtFeedTime(reply.created_at)}</span>
-              </div>
-              <div class="feed-preview">${escHtml((reply.body || "").slice(0, 100))}</div>
-              <div class="feed-body-text">${escHtml(reply.body || "")}</div>`;
-            rdiv.onclick = (e) => {
-              const t = e.target instanceof Element ? e.target : null;
-              if (t && t.closest(".feed-body-text")) return;
-              if (expandedItems.has(reply.id)) expandedItems.delete(reply.id);
-              else expandedItems.add(reply.id);
-              rdiv.classList.toggle("expanded");
-            };
-            threadDiv.appendChild(rdiv);
+            threadDiv.appendChild(buildFeedItemDiv(reply, true, 0));
           }
-
           body.appendChild(threadDiv);
         }
 
@@ -418,6 +476,37 @@ export function initFeedPanel(deps) {
         body.innerHTML = '<div class="feed-empty">// CONNECTION LOST<br>&gt; server unavailable</div>';
         updateUnreadBadge(0);
       });
+  }
+
+  /**
+   * Build a single feed-item div (root or reply). Captures closure
+   * state (expandedItems, previousIds, escHtml) for the toggle handler
+   * and sender-color lookup. Returns the constructed div.
+   *
+   * @param {any} email
+   * @param {boolean} isReply
+   * @param {number} replyCount
+   */
+  function buildFeedItemDiv(email, isReply, replyCount) {
+    const isUnread = email.tags?.includes("unread") || false;
+    const isExpanded = expandedItems.has(email.id);
+    const isNew = !previousIds.has(email.id) && previousIds.size > 0;
+    const color = getSenderColor(email.sender);
+    const div = document.createElement("div");
+    div.className = buildFeedItemClassName({ isReply, isUnread, isExpanded, isNew });
+    div.dataset["msgId"] = email.id;
+    div.style.setProperty("--sender-color", color);
+    div.innerHTML = buildFeedItemInnerHtml(email, {
+      isReply, replyCount, color, escapeHtmlFn: escHtml, fmtTimeFn: fmtFeedTime,
+    });
+    div.onclick = (e) => {
+      const t = e.target instanceof Element ? e.target : null;
+      if (t && t.closest(".feed-body-text")) return;
+      if (expandedItems.has(email.id)) expandedItems.delete(email.id);
+      else expandedItems.add(email.id);
+      div.classList.toggle("expanded");
+    };
+    return div;
   }
 
   // --- Initialize ---

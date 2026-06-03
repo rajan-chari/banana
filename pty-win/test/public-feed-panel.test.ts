@@ -12,6 +12,13 @@ import {
   getSenderColor,
   fmtFeedTime,
   initFeedPanel,
+  sortEmailsByDate,
+  filterEmails,
+  buildThreadGroups,
+  countUnread,
+  populateSenderOptions,
+  buildFeedItemClassName,
+  buildFeedItemInnerHtml,
 } from "../public/lib/feed-panel.js";
 
 describe("getSenderColor", () => {
@@ -49,6 +56,264 @@ describe("fmtFeedTime", () => {
     const d = new Date(2026, 0, 5, 7, 3); // Jan 5, 7:03
     const result = fmtFeedTime(d.toISOString());
     expect(result).toBe("01/05 07:03");
+  });
+});
+
+// --- Pure helpers extracted from renderFeed ----------------------
+
+function mkEmail(over: Partial<{
+  id: string;
+  sender: string;
+  subject: string;
+  body: string;
+  thread_id: string;
+  to: string[];
+  tags: string[];
+  created_at: string;
+}> = {}) {
+  return {
+    id: over.id ?? "id1",
+    sender: over.sender ?? "alice",
+    subject: over.subject ?? "hi",
+    body: over.body ?? "body",
+    thread_id: over.thread_id ?? "t1",
+    to: over.to ?? [],
+    tags: over.tags ?? [],
+    created_at: over.created_at ?? "2026-06-01T10:00:00",
+  };
+}
+
+describe("sortEmailsByDate", () => {
+  it("sorts newest first when flag is true", () => {
+    const e1 = mkEmail({ id: "1", created_at: "2026-06-01T10:00:00" });
+    const e2 = mkEmail({ id: "2", created_at: "2026-06-02T10:00:00" });
+    const e3 = mkEmail({ id: "3", created_at: "2026-05-30T10:00:00" });
+    const result = sortEmailsByDate([e1, e2, e3], true);
+    expect(result.map(e => e.id)).toEqual(["2", "1", "3"]);
+  });
+
+  it("sorts oldest first when flag is false", () => {
+    const e1 = mkEmail({ id: "1", created_at: "2026-06-01T10:00:00" });
+    const e2 = mkEmail({ id: "2", created_at: "2026-06-02T10:00:00" });
+    const e3 = mkEmail({ id: "3", created_at: "2026-05-30T10:00:00" });
+    const result = sortEmailsByDate([e1, e2, e3], false);
+    expect(result.map(e => e.id)).toEqual(["3", "1", "2"]);
+  });
+
+  it("returns the same array reference (sorts in place)", () => {
+    const arr = [mkEmail()];
+    expect(sortEmailsByDate(arr, true)).toBe(arr);
+  });
+});
+
+describe("filterEmails", () => {
+  const emails = [
+    mkEmail({ id: "1", sender: "alice", subject: "hello world", body: "lorem" }),
+    mkEmail({ id: "2", sender: "bob",   subject: "test",        body: "ipsum hello" }),
+    mkEmail({ id: "3", sender: "alice", subject: "other",       body: "dolor" }),
+  ];
+
+  it("returns all emails when no filters set", () => {
+    expect(filterEmails(emails, "", "").map(e => e.id)).toEqual(["1", "2", "3"]);
+  });
+
+  it("filters by exact sender match", () => {
+    expect(filterEmails(emails, "alice", "").map(e => e.id)).toEqual(["1", "3"]);
+  });
+
+  it("filters by lowercase substring across subject/body/sender", () => {
+    // "hello" appears in #1 subject and #2 body
+    expect(filterEmails(emails, "", "hello").map(e => e.id)).toEqual(["1", "2"]);
+  });
+
+  it("matches sender substring too", () => {
+    expect(filterEmails(emails, "", "bob").map(e => e.id)).toEqual(["2"]);
+  });
+
+  it("combines sender + text filters (AND)", () => {
+    expect(filterEmails(emails, "alice", "hello").map(e => e.id)).toEqual(["1"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const before = emails.map(e => e.id);
+    filterEmails(emails, "alice", "hello");
+    expect(emails.map(e => e.id)).toEqual(before);
+  });
+});
+
+describe("buildThreadGroups", () => {
+  it("groups by thread_id with the first occurrence as root", () => {
+    const e1 = mkEmail({ id: "1", thread_id: "tA" });
+    const e2 = mkEmail({ id: "2", thread_id: "tA" });
+    const e3 = mkEmail({ id: "3", thread_id: "tB" });
+    const result = buildThreadGroups([e1, e2, e3]);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.root.id).toBe("1");
+    expect(result[0]?.replies.map(r => r.id)).toEqual(["2"]);
+    expect(result[1]?.root.id).toBe("3");
+    expect(result[1]?.replies).toEqual([]);
+  });
+
+  it("preserves the order of thread roots from the input", () => {
+    const e1 = mkEmail({ id: "1", thread_id: "tA" });
+    const e2 = mkEmail({ id: "2", thread_id: "tB" });
+    const e3 = mkEmail({ id: "3", thread_id: "tA" });
+    const result = buildThreadGroups([e1, e2, e3]);
+    // tA first (because id=1 came first), then tB
+    expect(result.map(r => r.root.id)).toEqual(["1", "2"]);
+    expect(result[0]?.replies.map(r => r.id)).toEqual(["3"]);
+  });
+
+  it("handles empty input", () => {
+    expect(buildThreadGroups([])).toEqual([]);
+  });
+});
+
+describe("countUnread", () => {
+  it("counts emails tagged unread", () => {
+    const emails = [
+      mkEmail({ tags: ["unread"] }),
+      mkEmail({ tags: [] }),
+      mkEmail({ tags: ["read", "unread"] }),
+      mkEmail({ tags: ["read"] }),
+    ];
+    expect(countUnread(emails)).toBe(2);
+  });
+
+  it("returns 0 when none unread", () => {
+    expect(countUnread([mkEmail({ tags: [] })])).toBe(0);
+  });
+
+  it("returns 0 for empty input", () => {
+    expect(countUnread([])).toBe(0);
+  });
+});
+
+describe("populateSenderOptions", () => {
+  let select: HTMLSelectElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    select = document.createElement("select");
+    document.body.appendChild(select);
+  });
+
+  it("populates one option per unique sender, sorted, with 'all' first", () => {
+    const emails = [
+      mkEmail({ sender: "charlie" }),
+      mkEmail({ sender: "alice" }),
+      mkEmail({ sender: "bob" }),
+      mkEmail({ sender: "alice" }), // duplicate
+    ];
+    populateSenderOptions(select, emails, "");
+    const values = [...select.options].map(o => o.value);
+    expect(values).toEqual(["", "alice", "bob", "charlie"]);
+  });
+
+  it("preserves prior selection if still present", () => {
+    const emails = [mkEmail({ sender: "alice" }), mkEmail({ sender: "bob" })];
+    populateSenderOptions(select, emails, "bob");
+    expect(select.value).toBe("bob");
+  });
+
+  it("falls back to 'all' if prior selection is no longer present", () => {
+    const emails = [mkEmail({ sender: "alice" })];
+    populateSenderOptions(select, emails, "ghost");
+    expect(select.value).toBe("");
+  });
+
+  it("replaces existing options on each call", () => {
+    const before = [mkEmail({ sender: "alice" })];
+    const after = [mkEmail({ sender: "bob" })];
+    populateSenderOptions(select, before, "");
+    populateSenderOptions(select, after, "");
+    const values = [...select.options].map(o => o.value);
+    expect(values).toEqual(["", "bob"]);
+  });
+});
+
+describe("buildFeedItemClassName", () => {
+  it("returns just 'feed-item' when all flags false", () => {
+    expect(buildFeedItemClassName({ isReply: false, isUnread: false, isExpanded: false, isNew: false }))
+      .toBe("feed-item");
+  });
+
+  it("adds 'feed-reply' for replies", () => {
+    expect(buildFeedItemClassName({ isReply: true, isUnread: false, isExpanded: false, isNew: false }))
+      .toBe("feed-item feed-reply");
+  });
+
+  it("combines all flags in stable order", () => {
+    expect(buildFeedItemClassName({ isReply: true, isUnread: true, isExpanded: true, isNew: true }))
+      .toBe("feed-item feed-reply unread expanded feed-new");
+  });
+});
+
+describe("buildFeedItemInnerHtml", () => {
+  const idEsc = (s: string) => s; // pass-through escaper for assertion clarity
+  const idTime = (_: string) => "06/01 10:00";
+
+  it("includes subject for root items", () => {
+    const html = buildFeedItemInnerHtml(
+      mkEmail({ subject: "the subject" }),
+      { isReply: false, replyCount: 0, color: "#fff", escapeHtmlFn: idEsc, fmtTimeFn: idTime },
+    );
+    expect(html).toContain("feed-subject");
+    expect(html).toContain("the subject");
+  });
+
+  it("omits subject block for replies", () => {
+    const html = buildFeedItemInnerHtml(
+      mkEmail({ subject: "irrelevant" }),
+      { isReply: true, replyCount: 0, color: "#fff", escapeHtmlFn: idEsc, fmtTimeFn: idTime },
+    );
+    expect(html).not.toContain("feed-subject");
+    expect(html).not.toContain("irrelevant");
+  });
+
+  it("includes thread-count badge when replyCount > 0 on root", () => {
+    const html = buildFeedItemInnerHtml(
+      mkEmail({}),
+      { isReply: false, replyCount: 3, color: "#fff", escapeHtmlFn: idEsc, fmtTimeFn: idTime },
+    );
+    expect(html).toContain("feed-thread-count");
+    expect(html).toContain("[4]"); // replyCount + 1
+  });
+
+  it("renders unread dot when email is tagged unread", () => {
+    const html = buildFeedItemInnerHtml(
+      mkEmail({ tags: ["unread"] }),
+      { isReply: false, replyCount: 0, color: "#fff", escapeHtmlFn: idEsc, fmtTimeFn: idTime },
+    );
+    expect(html).toContain("feed-unread-dot");
+  });
+
+  it("renders recipient arrow when 'to' is non-empty", () => {
+    const html = buildFeedItemInnerHtml(
+      mkEmail({ to: ["bob", "carol"] }),
+      { isReply: false, replyCount: 0, color: "#fff", escapeHtmlFn: idEsc, fmtTimeFn: idTime },
+    );
+    expect(html).toContain("feed-arrow");
+    expect(html).toContain("bob, carol");
+  });
+
+  it("truncates preview to 100 chars", () => {
+    const longBody = "x".repeat(250);
+    const html = buildFeedItemInnerHtml(
+      mkEmail({ body: longBody }),
+      { isReply: false, replyCount: 0, color: "#fff", escapeHtmlFn: idEsc, fmtTimeFn: idTime },
+    );
+    // preview is the 100-char prefix; full body is in feed-body-text
+    const previewMatch = html.match(/<div class="feed-preview">(.*?)<\/div>/);
+    expect(previewMatch?.[1]).toHaveLength(100);
+  });
+
+  it("applies the sender color inline", () => {
+    const html = buildFeedItemInnerHtml(
+      mkEmail({}),
+      { isReply: false, replyCount: 0, color: "#abcdef", escapeHtmlFn: idEsc, fmtTimeFn: idTime },
+    );
+    expect(html).toContain("color:#abcdef");
   });
 });
 
