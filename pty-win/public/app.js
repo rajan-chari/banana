@@ -5,6 +5,16 @@
 // (modularization tracker 8eb3a993, first cut). Further extractions happen
 // incrementally so each commit stays bisectable.
 
+// xterm.js globals — loaded via <script> tags in index.html, so they live on window
+// instead of being importable. Declare for ts-check.
+/** @typedef {any} XtermNS */
+/** @type {XtermNS} */
+const xtermTerminal = /** @type {any} */ (window).Terminal;
+/** @type {XtermNS} */
+const xtermFitAddon = /** @type {any} */ (window).FitAddon;
+/** @type {XtermNS} */
+const xtermWebLinksAddon = /** @type {any} */ (window).WebLinksAddon;
+
 import {
   state,
   TERM_THEME,
@@ -395,8 +405,8 @@ function renderTree() {
           // Update indicators in-place once folder info arrives
           const slot = label.querySelector(".indicator-slot");
           if (slot) {
-            const indC = slot.querySelector(".indicator.claude-ready");
-            const indI = slot.querySelector(".indicator.identity");
+            const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
+            const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
             if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
             if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
           }
@@ -521,17 +531,21 @@ async function loadAndRenderChildren(parentPath, container, depth) {
 function refreshTreeRunningState() {
   const { running, unread } = buildRunningUnreadSets(state.sessions, normPath);
   // Child folder nodes
-  document.querySelectorAll(".tree-node[data-path]").forEach((node) => {
-    node.classList.toggle("running", running.has(node.dataset.path));
-    const dot = node.querySelector(".unread-dot");
-    if (dot) dot.classList.toggle("show", unread.has(node.dataset.path));
+  document.querySelectorAll(".tree-node[data-path]").forEach(/** @param {Element} n */ (n) => {
+    if (!(n instanceof HTMLElement)) return;
+    const path = n.dataset.path ?? "";
+    n.classList.toggle("running", running.has(path));
+    const dot = n.querySelector(".unread-dot");
+    if (dot) dot.classList.toggle("show", unread.has(path));
   });
   // Root folder labels
-  document.querySelectorAll(".tree-root-label[data-path]").forEach((label) => {
-    const nameSpan = label.querySelector(".root-name");
-    if (nameSpan) nameSpan.classList.toggle("running", running.has(label.dataset.path));
-    const dot = label.querySelector(".unread-dot");
-    if (dot) dot.classList.toggle("show", unread.has(label.dataset.path));
+  document.querySelectorAll(".tree-root-label[data-path]").forEach(/** @param {Element} n */ (n) => {
+    if (!(n instanceof HTMLElement)) return;
+    const path = n.dataset.path ?? "";
+    const nameSpan = n.querySelector(".root-name");
+    if (nameSpan) nameSpan.classList.toggle("running", running.has(path));
+    const dot = n.querySelector(".unread-dot");
+    if (dot) dot.classList.toggle("show", unread.has(path));
   });
 }
 
@@ -613,8 +627,8 @@ function renderQuickAccess() {
           state.folderInfoCache.set(np, info);
           const slot = row.querySelector(".indicator-slot");
           if (slot) {
-            const indC = slot.querySelector(".indicator.claude-ready");
-            const indI = slot.querySelector(".indicator.identity");
+            const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
+            const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
             if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
             if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
           }
@@ -701,8 +715,8 @@ function renderSessionsPanel() {
           // Update indicators in-place once folder info arrives
           const slot = row.querySelector(".indicator-slot");
           if (slot) {
-            const indC = slot.querySelector(".indicator.claude-ready");
-            const indI = slot.querySelector(".indicator.identity");
+            const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
+            const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
             if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
             if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
           }
@@ -844,10 +858,10 @@ function appendRowActions(container, opts) {
     arrow?.classList.remove("expanded");
   }
   header?.addEventListener("click", (e) => {
-    if (e.target.closest(".panel-actions")) return; // don't toggle when clicking buttons
+    if (e.target instanceof Element && e.target.closest(".panel-actions")) return; // don't toggle when clicking buttons
     const isExpanded = body.classList.toggle("expanded");
     arrow.classList.toggle("expanded", isExpanded);
-    localStorage.setItem("pty-win-folders-expanded", isExpanded);
+    localStorage.setItem("pty-win-folders-expanded", String(isExpanded));
   });
 })();
 
@@ -897,6 +911,7 @@ async function recreateOrphanedSessions(names) {
       if (!meta) continue;
       try {
         const isClaude = !meta.command || meta.command === "claude";
+        /** @type {{workingDir: string | undefined, cols: number, rows: number, command?: string, args?: string[]}} */
         const body = { workingDir: meta.workingDir, cols, rows };
         if (meta.command && meta.command !== "claude") body.command = meta.command;
         if (isClaude) body.args = ["--continue"];
@@ -1005,6 +1020,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
     const cols = Math.max(80, Math.floor(availW / charW));
     const rows = Math.max(24, Math.floor(availH / charH));
 
+    /** @type {{workingDir: string, cols: number, rows: number, command?: string, args?: string[]}} */
     const body = { workingDir: folderPath, cols, rows };
     if (command) body.command = command;
     else body.command = getDefaultAiCommand();
@@ -1231,7 +1247,7 @@ function showContextMenu(e, path) {
   menu.querySelector('[data-action="pin-remove"]').classList.toggle("ctx-disabled", !isPinned);
 
   // Hide separator only when both pin items are disabled (nothing meaningful to show)
-  const pinSep = menu.querySelector(".ctx-sep-pin");
+  const pinSep = /** @type {HTMLElement | null} */ (menu.querySelector(".ctx-sep-pin"));
   if (pinSep) pinSep.style.display = "";
 
   // Show "Force idle" only when a busy AI session exists at this path
@@ -1240,7 +1256,8 @@ function showContextMenu(e, path) {
   const hasBusyAI = [...state.sessions.values()].some(
     (s) => aiCommands.has(s.command) && s.status === "busy" && normPath(s.workingDir) === np
   );
-  menu.querySelector('[data-action="force-idle"]').style.display = hasBusyAI ? "" : "none";
+  const forceIdleItem = /** @type {HTMLElement | null} */ (menu.querySelector('[data-action="force-idle"]'));
+  if (forceIdleItem) forceIdleItem.style.display = hasBusyAI ? "" : "none";
 
   menu.style.left = `${e.clientX}px`;
   menu.style.top = `${e.clientY}px`;
@@ -1252,9 +1269,9 @@ document.addEventListener("click", () => {
 });
 
 byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ async (e) => {
-  const item = e.target.closest(".ctx-item");
+  const item = e.target instanceof Element ? /** @type {HTMLElement | null} */ (e.target.closest(".ctx-item")) : null;
   const action = item?.dataset.action;
-  if (!action || !state.ctxTarget || item.classList.contains("ctx-disabled")) return;
+  if (!action || !state.ctxTarget || item?.classList.contains("ctx-disabled")) return;
 
   const path = state.ctxTarget;
   const name = path.split(/[/\\]/).filter(Boolean).pop();
@@ -1341,7 +1358,7 @@ byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ asyn
 
 function openQuickOpen() {
   const overlay = byId("quick-open");
-  const input = byId("quick-open-input");
+  const input = /** @type {HTMLInputElement} */ (byId("quick-open-input"));
   overlay.classList.remove("hidden");
   input.value = "";
   input.focus();
@@ -1397,7 +1414,7 @@ byId("quick-open-input").addEventListener("input", /** @param {InputEvent & { ta
 byId("quick-open-input").addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
   if (e.key === "Escape") { closeQuickOpen(); return; }
   if (e.key === "Enter") {
-    const selected = document.querySelector(".qo-result.selected");
+    const selected = /** @type {HTMLElement | null} */ (document.querySelector(".qo-result.selected"));
     if (selected) selected.click();
     return;
   }
@@ -1488,9 +1505,11 @@ byId("btn-add-root").onclick = () => {
 
 /**
  * @param {string | null} name
+ * @returns {import("./lib/state.js").Workspace}
  */
 function createWorkspace(name) {
   const id = `ws-${state.nextWorkspaceId++}`;
+  /** @type {import("./lib/state.js").Workspace} */
   const ws = { id, name: name || `Workspace ${state.nextWorkspaceId - 1}`, layout: null };
   state.workspaces.push(ws);
   renderTabs();
@@ -1832,6 +1851,7 @@ const paneDrag = { active: false, session: null, ghostEl: null, dropZoneEls: [],
 function showDropZones(excludeSession) {
   clearDropZones();
   document.querySelectorAll(".pane[data-session]").forEach(paneEl => {
+    if (!(paneEl instanceof HTMLElement)) return;
     const session = paneEl.dataset.session;
     if (session === excludeSession) return;
     const r = paneEl.getBoundingClientRect();
@@ -2055,8 +2075,10 @@ function setupDragHandle(handle, node, container) {
       const delta = (node.direction === "h" ? e.clientX : e.clientY) - startPos;
       node.ratio = Math.max(0.15, Math.min(0.85, startRatio + delta / totalSize));
       const children = container.querySelectorAll(":scope > .split-child");
-      if (children[0]) children[0].style.flex = `${node.ratio} 0 0%`;
-      if (children[1]) children[1].style.flex = `${1 - node.ratio} 0 0%`;
+      const c0 = /** @type {HTMLElement | null} */ (children[0] || null);
+      const c1 = /** @type {HTMLElement | null} */ (children[1] || null);
+      if (c0) c0.style.flex = `${node.ratio} 0 0%`;
+      if (c1) c1.style.flex = `${1 - node.ratio} 0 0%`;
     };
 
     const onUp = () => {
@@ -2149,7 +2171,8 @@ function createPane(groupName) {
     });
   }
 
-  topbar.querySelector(".pane-action.code").onclick = /** @param {MouseEvent} e */ (e) => {
+  const codeBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-action.code"));
+  if (codeBtn) codeBtn.onclick = /** @param {MouseEvent} e */ (e) => {
     e.stopPropagation();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     fetch("/api/open-editor", {
@@ -2159,7 +2182,8 @@ function createPane(groupName) {
     });
   };
 
-  topbar.querySelector(".pane-close").onclick = /** @param {MouseEvent} e */ (e) => {
+  const closeBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-close"));
+  if (closeBtn) closeBtn.onclick = /** @param {MouseEvent} e */ (e) => {
     e.stopPropagation();
     killSession(activeSessionName);
   };
@@ -2170,7 +2194,7 @@ function createPane(groupName) {
     showPaneContextMenu(e, groupName);
   });
 
-  const identityEl = topbar.querySelector(".pane-identity");
+  const identityEl = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-identity"));
   if (identityEl) {
     identityEl.style.cursor = "pointer";
     identityEl.title = `Switch feed to ${info.emcomIdentity}`;
@@ -2281,7 +2305,7 @@ function ensureTerminal(sessionName) {
   let entry = state.terminals.get(sessionName);
   if (entry) return entry;
 
-  const term = new window.Terminal({
+  const term = new xtermTerminal({
     theme: TERM_THEME,
     fontFamily: "'Cascadia Code', Consolas, 'Courier New', monospace",
     fontSize: 13,
@@ -2290,9 +2314,9 @@ function ensureTerminal(sessionName) {
     allowProposedApi: true,
   });
 
-  const fitAddon = new window.FitAddon.FitAddon();
+  const fitAddon = new xtermFitAddon.FitAddon();
   term.loadAddon(fitAddon);
-  term.loadAddon(new window.WebLinksAddon.WebLinksAddon());
+  term.loadAddon(new xtermWebLinksAddon.WebLinksAddon());
 
   let _pasteGuard = false;
   term.onData(/** @param {string} data */ (data) => {
@@ -2627,6 +2651,7 @@ function updatePaneStatus(sessionName) {
 function focusPane(groupName) {
   state.focusedPane = groupName;
   document.querySelectorAll(".pane").forEach((p) => {
+    if (!(p instanceof HTMLElement)) return;
     p.classList.toggle("focused", p.dataset.session === groupName);
   });
   // Update sessions panel highlight
@@ -2846,8 +2871,9 @@ function renderDashboard() {
   cardsHeader.className = "dash-cards-header";
   cardsHeader.innerHTML = `<span class="dash-cards-arrow">${cardsCollapsed ? "\u25b8" : "\u25be"}</span> Workspaces <span class="dash-cards-count">(${state.sessions.size})</span>`;
   cardsHeader.onclick = () => {
-    const grid = cardsSection.querySelector(".dash-cards");
-    const arrow = cardsHeader.querySelector(".dash-cards-arrow");
+    const grid = /** @type {HTMLElement | null} */ (cardsSection.querySelector(".dash-cards"));
+    const arrow = /** @type {HTMLElement | null} */ (cardsHeader.querySelector(".dash-cards-arrow"));
+    if (!grid || !arrow) return;
     const collapsed = grid.style.display === "none";
     grid.style.display = collapsed ? "" : "none";
     arrow.textContent = collapsed ? "\u25be" : "\u25b8";
@@ -2949,7 +2975,8 @@ function patchDashboard(dash) {
 
   // Remove cards for sessions that no longer exist
   for (const card of existingCards) {
-    if (!currentNames.has(card.dataset.session)) {
+    if (!(card instanceof HTMLElement)) continue;
+    if (!currentNames.has(card.dataset.session ?? "")) {
       card.remove();
     }
   }
@@ -3032,14 +3059,15 @@ function renderDashboardStats() {
 
     // Remove rows for sessions that no longer exist
     for (const row of [...tbody.querySelectorAll(".diag-row")]) {
-      if (!currentNames.has(row.dataset.session)) row.remove();
+      if (!(row instanceof HTMLElement)) continue;
+      if (!currentNames.has(row.dataset.session ?? "")) row.remove();
     }
 
     // Add or patch rows
     for (const [name, info] of allSessions) {
       const s = statsMap.get(name);
       const hot = s && s.busy.callbacksPerSec > 100;
-      let row = tbody.querySelector(`.diag-row[data-session="${CSS.escape(name)}"]`);
+      let row = /** @type {HTMLTableRowElement | null} */ (tbody.querySelector(`.diag-row[data-session="${CSS.escape(name)}"]`));
 
       if (!row) {
         row = document.createElement("tr");
@@ -3156,14 +3184,14 @@ function buildTrackerItem(item) {
 
   el.innerHTML = renderTrackerItemHtml(item, ++_trackerRowNum);
 
-  el.querySelector(".tracker-item-row").onclick = () => {
+  el.querySelector(".tracker-item-row")?.addEventListener("click", () => {
     const wasExpanded = el.classList.contains("expanded");
     el.classList.toggle("expanded");
     // Lazy-load history on first expand
     if (!wasExpanded && !el.dataset.historyLoaded) {
       loadTrackerHistory(el, item.id);
     }
-  };
+  });
   return el;
 }
 
@@ -3206,9 +3234,9 @@ const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = fle
  * @param {HTMLElement} container
  */
 function initTrackerColumnResize(container) {
-  const thead = container.querySelector(".tracker-thead");
+  const thead = /** @type {HTMLElement | null} */ (container.querySelector(".tracker-thead"));
   if (!thead) return;
-  const ths = [...thead.querySelectorAll(".tracker-th")];
+  const ths = /** @type {HTMLElement[]} */ ([...thead.querySelectorAll(".tracker-th")]);
 
   // Load saved widths (reset if column count changed)
   /** @type {number[]} */
@@ -3222,14 +3250,16 @@ function initTrackerColumnResize(container) {
   function applyWidths() {
     const tpl = colWidths.map(w => w === 0 ? "minmax(0,1fr)" : `${w}px`).join(" ");
     thead.style.gridTemplateColumns = tpl;
-    container.querySelectorAll(".tracker-item-row").forEach(r => r.style.gridTemplateColumns = tpl);
+    container.querySelectorAll(".tracker-item-row").forEach(r => {
+      if (r instanceof HTMLElement) r.style.gridTemplateColumns = tpl;
+    });
   }
 
   applyWidths();
 
   // Store applyWidths so new rows can pick it up
-  container._applyColWidths = applyWidths;
-  container._colWidths = colWidths;
+  /** @type {any} */ (container)._applyColWidths = applyWidths;
+  /** @type {any} */ (container)._colWidths = colWidths;
 
   // Add resize handles to all but last header
   for (let i = 0; i < ths.length - 1; i++) {
@@ -3345,6 +3375,7 @@ function renderTracker() {
 
     // Wire sortable headers
     container.querySelectorAll(".tracker-th").forEach(th => {
+      if (!(th instanceof HTMLElement)) return;
       th.onclick = () => {
         const field = th.dataset.sort;
         if (trackerSortField === field) {
@@ -3355,6 +3386,7 @@ function renderTracker() {
         }
         // Update sort indicators
         container.querySelectorAll(".tracker-th").forEach(h => {
+          if (!(h instanceof HTMLElement)) return;
           h.classList.toggle("sort-active", h.dataset.sort === trackerSortField);
           const arrow = h.querySelector(".sort-arrow");
           if (arrow) arrow.textContent = h.dataset.sort === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
@@ -3364,15 +3396,15 @@ function renderTracker() {
     });
 
     // Wire refresh button
-    const refreshBtn = container.querySelector("#tracker-refresh-btn");
+    const refreshBtn = /** @type {HTMLElement | null} */ (container.querySelector("#tracker-refresh-btn"));
     if (refreshBtn) refreshBtn.onclick = () => renderTracker();
 
     // Wire closed toggle
-    const closedToggle = container.querySelector("#tracker-closed-toggle");
+    const closedToggle = /** @type {HTMLInputElement | null} */ (container.querySelector("#tracker-closed-toggle"));
     if (closedToggle) {
       closedToggle.checked = localStorage.getItem("pty-win-tracker-show-closed") === "true";
       closedToggle.onchange = () => {
-        localStorage.setItem("pty-win-tracker-show-closed", closedToggle.checked);
+        localStorage.setItem("pty-win-tracker-show-closed", String(closedToggle.checked));
         renderTracker();
       };
     }
@@ -3386,7 +3418,7 @@ function renderTracker() {
      * @param {string} _key reserved for future use; currently the localStorage key derives from id
      */
     (id, _key) => {
-      const el = container.querySelector(`#${id}`);
+      const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (container.querySelector(`#${id}`));
       if (!el) return;
       const saved = localStorage.getItem(`pty-win-${id}`);
       if (saved) el.value = saved;
@@ -3402,6 +3434,7 @@ function renderTracker() {
     // Wire category toggle buttons
     const savedCat = localStorage.getItem("pty-win-tracker-cat") || "";
     container.querySelectorAll(".tracker-cat-btn").forEach(btn => {
+      if (!(btn instanceof HTMLElement)) return;
       if (btn.dataset.cat === savedCat) {
         container.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
@@ -3409,7 +3442,7 @@ function renderTracker() {
       btn.onclick = () => {
         container.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        localStorage.setItem("pty-win-tracker-cat", btn.dataset.cat);
+        localStorage.setItem("pty-win-tracker-cat", btn.dataset.cat ?? "");
         renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
       };
     });
@@ -3478,7 +3511,8 @@ function renderTrackerBody(container, items) {
 
   // Remove items that no longer exist
   for (const el of [...body.querySelectorAll(".tracker-item[data-id]")]) {
-    if (!currentIds.has(el.dataset.id)) el.remove();
+    if (!(el instanceof HTMLElement)) continue;
+    if (!currentIds.has(el.dataset.id ?? "")) el.remove();
   }
 
   // Remove empty groups
@@ -3510,7 +3544,7 @@ function renderTrackerBody(container, items) {
         continue;
       }
 
-      let groupEl = body.querySelector(`.tracker-group[data-status="${status}"]`);
+      let groupEl = /** @type {HTMLElement | null} */ (body.querySelector(`.tracker-group[data-status="${status}"]`));
       if (!groupEl) {
         groupEl = document.createElement("div");
         groupEl.className = "tracker-group";
@@ -3538,7 +3572,8 @@ function renderTrackerBody(container, items) {
 
       // Remove items that moved to a different status
       for (const el of [...groupEl.querySelectorAll(".tracker-item[data-id]")]) {
-        const item = newItemMap.get(el.dataset.id);
+        if (!(el instanceof HTMLElement)) continue;
+        const item = newItemMap.get(el.dataset.id ?? "");
         if (!item || item.status !== status) el.remove();
       }
     }
@@ -3547,15 +3582,16 @@ function renderTrackerBody(container, items) {
   trackerPrevItems = newItemMap;
 
   // Apply column widths to any new rows
-  if (container._applyColWidths) container._applyColWidths();
+  const containerAny = /** @type {any} */ (container);
+  if (containerAny._applyColWidths) containerAny._applyColWidths();
 }
 
 // ===== Modal =====
 
 function openModal() {
   byId("modal-overlay").classList.remove("hidden");
-  byId("m-path").value = "";
-  byId("m-cmd").value = "claude";
+  /** @type {HTMLInputElement} */ (byId("m-path")).value = "";
+  /** @type {HTMLInputElement} */ (byId("m-cmd")).value = "claude";
   byId("m-path").focus();
 }
 
@@ -3565,8 +3601,8 @@ function closeModal() {
 
 byId("m-cancel").onclick = closeModal;
 byId("m-create").onclick = () => {
-  const path = byId("m-path").value.trim();
-  const cmd = byId("m-cmd").value.trim() || undefined;
+  const path = /** @type {HTMLInputElement} */ (byId("m-path")).value.trim();
+  const cmd = /** @type {HTMLInputElement} */ (byId("m-cmd")).value.trim() || undefined;
   if (!path) { alert("Path is required."); return; }
   closeModal();
   openFolder(path, null, cmd);
@@ -3679,6 +3715,7 @@ window.addEventListener("load", () => {
   // --- Expand/collapse all ---
   byId("feed-expand-all").onclick = () => {
     body.querySelectorAll(".feed-item").forEach(el => {
+      if (!(el instanceof HTMLElement)) return;
       const id = el.dataset.msgId;
       if (id) expandedItems.add(id);
       el.classList.add("expanded");
@@ -3844,8 +3881,8 @@ window.addEventListener("load", () => {
   let filterText = "";
 
   // --- Toolbar controls ---
-  const searchInput = byId("feed-search");
-  const senderSelect = byId("feed-sender-filter");
+  const searchInput = /** @type {HTMLInputElement} */ (byId("feed-search"));
+  const senderSelect = /** @type {HTMLSelectElement} */ (byId("feed-sender-filter"));
   const sortBtn = byId("feed-sort-btn");
   const threadsBtn = byId("feed-threads-btn");
 
@@ -4103,13 +4140,14 @@ function renderAgentsPanel() {
 
     // Remove rows for gone sessions
     for (const row of [...tbody.querySelectorAll(".agents-row")]) {
-      if (!currentNames.has(row.dataset.session)) row.remove();
+      if (!(row instanceof HTMLElement)) continue;
+      if (!currentNames.has(row.dataset.session ?? "")) row.remove();
     }
 
     // Add or patch rows
     for (const [name, info] of allSessions) {
       const s = statsMap.get(name);
-      let row = tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`);
+      let row = /** @type {HTMLTableRowElement | null} */ (tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`));
       if (!row) {
         row = document.createElement("tr");
         row.className = "agents-row";
@@ -4197,7 +4235,7 @@ function fetchCostHistory(panel) {
       const trendCell = row.querySelector(".agents-trend");
       if (!trendCell) continue;
 
-      let canvas = trendCell.querySelector(".agents-sparkline");
+      let canvas = /** @type {HTMLCanvasElement | null} */ (trendCell.querySelector(".agents-sparkline"));
       if (!canvas) {
         canvas = document.createElement("canvas");
         canvas.className = "agents-sparkline";
@@ -4226,7 +4264,7 @@ function fetchCostHistory(panel) {
       }
       trendCell = totalRow.querySelector(".agents-trend");
       if (trendCell) {
-        let canvas = trendCell.querySelector(".agents-sparkline");
+        let canvas = /** @type {HTMLCanvasElement | null} */ (trendCell.querySelector(".agents-sparkline"));
         if (!canvas) {
           canvas = document.createElement("canvas");
           canvas.className = "agents-sparkline";
@@ -4274,6 +4312,7 @@ function drawSparkline(canvas, data) {
   const agentsContent = byId("agents-content");
 
   tabs.forEach(tab => {
+    if (!(tab instanceof HTMLElement)) return;
     tab.onclick = () => {
       tabs.forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
@@ -4312,17 +4351,23 @@ function drawSparkline(canvas, data) {
   const backdrop = byId("settings-modal-backdrop");
   const closeBtn = byId("settings-modal-close");
   const cancelBtn = byId("settings-modal-cancel");
-  const saveBtn = byId("settings-modal-save");
+  const saveBtn = /** @type {HTMLButtonElement} */ (byId("settings-modal-save"));
   const body = byId("settings-modal-body");
   const status = byId("settings-modal-status");
 
   if (!btn || !modal || !body) return;
 
-  /** Current rendered state — keyed by pref name, value is the editor's current value. */
+  /** Current rendered state — keyed by pref name, value is the editor's current value.
+   * @type {Record<string, any>}
+   */
   let formState = {};
-  /** Original loaded values, for cancel/dirty detection. */
+  /** Original loaded values, for cancel/dirty detection.
+   * @type {Record<string, any>}
+   */
   let initialState = {};
-  /** Schema descriptor loaded from server. */
+  /** Schema descriptor loaded from server.
+   * @type {Record<string, any>}
+   */
   let schema = {};
 
   async function openModal() {
