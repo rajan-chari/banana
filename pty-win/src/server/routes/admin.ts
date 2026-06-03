@@ -7,7 +7,7 @@ import { createDir, listDir } from "../../folders.js";
 import { DEFAULTS } from "../../config.js";
 import type { ServerConfig } from "../../config.js";
 import { clog } from "../../log.js";
-import { readPreferences, resolveCliPreference, writePreferences } from "../../preferences.js";
+import { KEY_SCHEMAS, readPreferences, resolveCliPreference, writePreferences } from "../../preferences.js";
 
 interface BuildInfo {
   version: string;
@@ -70,6 +70,10 @@ export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: Ad
 
   app.get("/api/config", (_req, res) => {
     res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name, build: buildInfo });
+  });
+
+  app.get("/api/preferences/schema", (_req, res) => {
+    res.json({ keys: KEY_SCHEMAS });
   });
 
   app.get("/api/preferences", (_req, res) => {

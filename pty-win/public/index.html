@@ -55,8 +55,28 @@
   <div id="main">
     <div id="tabbar">
       <div id="tabs"></div>
+      <div id="tabbar-actions">
+        <button id="settings-btn" title="Settings…" aria-label="Open settings">&#x2699;</button>
+      </div>
     </div>
     <div id="workspace-area"></div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div id="settings-modal-backdrop"></div>
+    <div id="settings-modal-panel">
+      <div id="settings-modal-header">
+        <h2 id="settings-modal-title">Settings</h2>
+        <button id="settings-modal-close" aria-label="Close">&#x2715;</button>
+      </div>
+      <div id="settings-modal-body"></div>
+      <div id="settings-modal-footer">
+        <span id="settings-modal-status"></span>
+        <button id="settings-modal-cancel">Cancel</button>
+        <button id="settings-modal-save" class="primary">Save</button>
+      </div>
+    </div>
   </div>
 
   <!-- Right panel (feed + tracker toggle) -->

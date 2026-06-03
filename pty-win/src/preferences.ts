@@ -22,6 +22,35 @@ export type UpdatedBy =
 
 const KNOWN_CLIS = ["claude", "copilot", "pi"];
 
+// Mirror of fellow-agents src/lib/preferences.ts KEY_SCHEMAS.
+// When forge adds or changes a key there, update this file in the same
+// release window. Schema shape locked in emcom 41023bd5 with forge.
+//
+// Future renderers: "number" / "string" / "boolean" — supported by the
+// frontend dispatch but no key uses them yet. Add `min` / `max` for number
+// keys when introducing one.
+export interface KeySchema {
+  type: "select" | "number" | "string" | "boolean";
+  label: string;
+  description?: string;
+  options?: string[];        // for select
+  allowCustom?: boolean;     // for select; admits a free-text path
+  customLabel?: string;
+  min?: number;              // for number
+  max?: number;
+}
+
+export const KEY_SCHEMAS: Record<string, KeySchema> = {
+  cliPreference: {
+    type: "select",
+    label: "Default CLI",
+    description: "The CLI launched by pty-win's play button in each new tab.",
+    options: [...KNOWN_CLIS],
+    allowCustom: true,
+    customLabel: "Custom path…",
+  },
+};
+
 function prefsPath(): string {
   return join(homedir(), ".fellow-agents", "preferences.json");
 }
