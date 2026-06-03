@@ -29,7 +29,6 @@ import {
 } from "./lib/persistence.js";
 import {
   buildBalancedTree,
-  countLeaves,
   removeSessionFromLayout,
   insertAdjacentToPane,
   appendLeafToTree,
@@ -41,7 +40,6 @@ import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
 import {
   renderTrackerItemHtml,
   renderTrackerHistoryEntries,
-  severityClass,
 } from "./lib/tracker-render.js";
 import {
   normPath,
@@ -51,7 +49,6 @@ import {
   fmtAgo,
   staleClass,
   fmtDate,
-  sevOrder,
   escapeHtml,
 } from "./lib/format.js";
 import {
@@ -85,36 +82,22 @@ let diagPollTimer = null;
 let trackerPollTimer = null;
 
 // ===== DOM helpers =====
-// `byId` and `queryEl` assert non-null and return HTMLElement, so callers can
-// chain .style/.classList/.dataset without TS18047/2339 noise. They throw if
-// the element is missing, which matches the existing implicit-crash behavior
-// when `byId("x").foo` hit null at runtime.
+// `byId` asserts non-null and returns HTMLElement, so callers can chain
+// .style/.classList/.dataset without TS18047/2339 noise. It throws if the
+// element is missing, which matches the existing implicit-crash behavior
+// when `document.getElementById("x").foo` hit null at runtime.
 
 /**
  * @param {string} id
  * @returns {HTMLElement}
  */
 function byId(id) {
-  const el = byId(id);
+  const el = document.getElementById(id);
   if (!el) {
     console.error(`byId: #${id} missing`);
     throw new Error(`Element #${id} not found`);
   }
   return el;
-}
-
-/**
- * @param {ParentNode} parent
- * @param {string} selector
- * @returns {HTMLElement}
- */
-function queryEl(parent, selector) {
-  const el = parent.querySelector(selector);
-  if (!el) {
-    console.error(`queryEl: ${selector} missing`);
-    throw new Error(`Element ${selector} not found`);
-  }
-  return /** @type {HTMLElement} */ (el);
 }
 
 function rebuildPaneGroups() {
@@ -1039,7 +1022,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
       return;
     }
 
-    const data = await res.json();
+    await res.json();
 
     // Check if a sibling session already has a pane in a workspace
     const siblingWs = findWorkspaceContaining(baseName);
@@ -3101,7 +3084,6 @@ function renderDashboardStats() {
 // ===== Tracker Panel (Redesigned) =====
 
 const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred", "merged", "closed", "ready-to-merge", "testing", "pr-up"];
-const TRACKER_SORT_FIELDS = ["ref", "title", "assignee", "severity", "age", "updated"];
 let trackerSortField = "status"; // default: grouped by status
 let trackerSortDir = "asc";
 let trackerPrevItems = new Map();
@@ -3397,9 +3379,9 @@ function renderTracker() {
     // Wire filter dropdowns
     const wireFilter = /**
      * @param {string} id
-     * @param {string} key
+     * @param {string} _key reserved for future use; currently the localStorage key derives from id
      */
-    (id, key) => {
+    (id, _key) => {
       const el = container.querySelector(`#${id}`);
       if (!el) return;
       const saved = localStorage.getItem(`pty-win-${id}`);
