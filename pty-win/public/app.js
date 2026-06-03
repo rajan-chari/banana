@@ -38,6 +38,20 @@ import {
   findParentSplit,
 } from "./lib/tiling.js";
 import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
+import {
+  normPath,
+  cssId,
+  truncatePath,
+  fmtAge,
+  fmtAgo,
+  staleClass,
+  fmtDate,
+  sevOrder,
+} from "./lib/format.js";
+import {
+  filterTrackerItems as _filterTrackerItems,
+  sortTrackerItems as _sortTrackerItems,
+} from "./lib/tracker-filters.js";
 
 let dragSrcWsId = null;
 let diagPollTimer = null;
@@ -468,10 +482,6 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     if (isExpanded) loadAndRenderChildren(entry.path, childContainer, depth + 1);
   }
 }
-function normPath(p) {
-  return p ? p.replace(/\\/g, "/").toLowerCase() : "";
-}
-
 function refreshTreeRunningState() {
   const running = new Set();
   const unread = new Set();
@@ -494,9 +504,6 @@ function refreshTreeRunningState() {
   });
 }
 
-function cssId(path) {
-  return path.replace(/[^a-zA-Z0-9]/g, "_");
-}
 
 // ===== Quick Access Panel =====
 
@@ -2486,13 +2493,6 @@ function focusPane(groupName) {
   }
 }
 
-function truncatePath(p) {
-  if (!p) return "";
-  const parts = p.replace(/\\/g, "/").split("/");
-  if (parts.length <= 3) return p;
-  return ".../" + parts.slice(-2).join("/");
-}
-
 // ===== Navigation =====
 
 function navigatePanes(arrowKey) {
@@ -2822,16 +2822,6 @@ function renderDashboardStats() {
   const container = document.getElementById("dashboard-stats");
   if (!container) return;
 
-  const fmtAgo = (ms) => {
-    if (!ms) return "-";
-    const sec = Math.floor((Date.now() - ms) / 1000);
-    if (sec < 60) return `${sec}s`;
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m`;
-    const hr = Math.floor(min / 60);
-    return `${hr}h${min % 60}m`;
-  };
-
   fetch("/api/stats").then((r) => r.json()).then((stats) => {
     if (!state.isDashboard) return;
 
@@ -2919,43 +2909,13 @@ let trackerSortField = "status"; // default: grouped by status
 let trackerSortDir = "asc";
 let trackerPrevItems = new Map();
 
-function fmtAge(dateStr) {
-  if (!dateStr) return "-";
-  const ms = Date.now() - new Date(dateStr).getTime();
-  const hrs = Math.floor(ms / 3600000);
-  if (hrs < 1) return `${Math.floor(ms / 60000)}m`;
-  if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d`;
-}
-
-function staleClass(dateStr) {
-  if (!dateStr) return "stale-green";
-  const days = (Date.now() - new Date(dateStr).getTime()) / 86400000;
-  if (days > 7) return "stale-red";
-  if (days > 3) return "stale-yellow";
-  return "stale-green";
-}
-
-function fmtDate(dateStr) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  return `${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getDate().toString().padStart(2,"0")}`;
-}
-
-function sevOrder(s) { return s === "critical" ? 0 : s === "high" ? 1 : 2; }
-
 function filterTrackerItems(items) {
-  const repo = document.getElementById("tracker-filter-repo")?.value || "";
-  const sev = document.getElementById("tracker-filter-sev")?.value || "";
-  const assignee = document.getElementById("tracker-filter-assignee")?.value || "";
-  const cat = localStorage.getItem("pty-win-tracker-cat") || "";
-  return items.filter(i =>
-    (!repo || i.repo === repo) &&
-    (!sev || i.severity === sev) &&
-    (!assignee || i.assigned_to === assignee) &&
-    (!cat || (i.labels && i.labels.includes(cat)))
-  );
+  return _filterTrackerItems(items, {
+    repo: /** @type {HTMLSelectElement|null} */ (document.getElementById("tracker-filter-repo"))?.value || "",
+    sev: /** @type {HTMLSelectElement|null} */ (document.getElementById("tracker-filter-sev"))?.value || "",
+    assignee: /** @type {HTMLSelectElement|null} */ (document.getElementById("tracker-filter-assignee"))?.value || "",
+    cat: localStorage.getItem("pty-win-tracker-cat") || "",
+  });
 }
 
 function populateTrackerFilters(items) {
@@ -2980,23 +2940,7 @@ function populateTrackerFilters(items) {
 }
 
 function sortTrackerItems(items) {
-  if (trackerSortField === "status") return items; // use group order
-  const sorted = [...items];
-  const dir = trackerSortDir === "asc" ? 1 : -1;
-  sorted.sort((a, b) => {
-    switch (trackerSortField) {
-      case "ref": return dir * (`${a.repo}#${a.number}`).localeCompare(`${b.repo}#${b.number}`);
-      case "title": return dir * (a.title || "").localeCompare(b.title || "");
-      case "assignee": return dir * (a.assigned_to || "").localeCompare(b.assigned_to || "");
-      case "opened_by": return dir * (a.opened_by || "").localeCompare(b.opened_by || "");
-      case "responders": return dir * ((a.responders || []).join(",")).localeCompare((b.responders || []).join(","));
-      case "severity": return dir * (sevOrder(a.severity) - sevOrder(b.severity));
-      case "age": return dir * (new Date(a.created_at) - new Date(b.created_at));
-      case "updated": return dir * (new Date(a.updated_at) - new Date(b.updated_at));
-      default: return 0;
-    }
-  });
-  return sorted;
+  return _sortTrackerItems(items, trackerSortField, trackerSortDir);
 }
 
 let _trackerRowNum = 0;
@@ -3930,16 +3874,6 @@ window.addEventListener("load", () => {
 function renderAgentsPanel() {
   const area = document.getElementById("agents-content");
   if (!area) return;
-
-  const fmtAgo = (ms) => {
-    if (!ms) return "-";
-    const sec = Math.floor((Date.now() - ms) / 1000);
-    if (sec < 60) return `${sec}s`;
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m`;
-    const hr = Math.floor(min / 60);
-    return `${hr}h${min % 60}m`;
-  };
 
   const allSessions = [...state.sessions.entries()];
   if (allSessions.length === 0) {
