@@ -71,6 +71,19 @@ public static class Program
                     if ((rest[i] == "--name" || rest[i] == "-n") && i + 1 < rest.Count) name = rest[++i];
                     else if ((rest[i] == "--description" || rest[i] == "-d") && i + 1 < rest.Count) desc = rest[++i];
                     else if (rest[i] == "--force" || rest[i] == "-f") force = true;
+                    else if (!rest[i].StartsWith("-") && name == null) name = rest[i];
+                    else
+                    {
+                        Console.Error.WriteLine($"register: unrecognized argument '{rest[i]}'");
+                        Console.Error.WriteLine("Usage: emcom register <name> [--description <desc>] [--force]");
+                        return 2;
+                    }
+                }
+                if (name == null && !force)
+                {
+                    Console.Error.WriteLine("register: name required (no --name, no positional, no --force)");
+                    Console.Error.WriteLine("Usage: emcom register <name> [--description <desc>] [--force]");
+                    return 2;
                 }
                 var id = c.Register(name, desc, force);
                 Console.WriteLine($"Registered as '{id.Name}'");

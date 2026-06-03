@@ -100,6 +100,37 @@ class TestEmcomRegister:
         assert f"Registered as '{name}'" in out
         assert os.path.exists(os.path.join(d, "identity.json"))
 
+    def test_register_positional(self, test_server):
+        """Positional argument should be treated as the name (7eb3665a)."""
+        d = tempfile.mkdtemp()
+        name = f"pos-{uuid.uuid4().hex[:6]}"
+        out, _, _ = _emcom(["register", name, "--description", "positional test"], identity_dir=d)
+        assert f"Registered as '{name}'" in out
+        assert os.path.exists(os.path.join(d, "identity.json"))
+
+    def test_register_explicit_name_wins_over_positional(self, test_server):
+        """When both --name and a positional are given, explicit --name wins."""
+        d = tempfile.mkdtemp()
+        explicit = f"exp-{uuid.uuid4().hex[:6]}"
+        # Positional comes first; --name should still win
+        out, _, _ = _emcom(["register", "ignored-positional", "--name", explicit], identity_dir=d)
+        assert f"Registered as '{explicit}'" in out
+
+    def test_register_no_name_errors(self, test_server):
+        """Bare `emcom register` (no name, no --force) must error, not silently auto-assign (7eb3665a-B)."""
+        d = tempfile.mkdtemp()
+        _, err, rc = _emcom(["register"], identity_dir=d, expect_error=True)
+        assert rc != 0
+        assert "name required" in err.lower() or "usage" in err.lower()
+        assert not os.path.exists(os.path.join(d, "identity.json")), "no identity.json should be created on error"
+
+    def test_register_unknown_flag_errors(self, test_server):
+        """Unknown flags must error, not be silently dropped (7eb3665a-A class; 9637c329)."""
+        d = tempfile.mkdtemp()
+        _, err, rc = _emcom(["register", "--bogus", "foo"], identity_dir=d, expect_error=True)
+        assert rc != 0
+        assert "unrecognized" in err.lower() or "usage" in err.lower()
+
     def test_who(self, test_server):
         out, _, _ = _emcom(["who"])
         assert "Name" in out  # header row present
