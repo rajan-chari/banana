@@ -23,7 +23,8 @@
     "check:public": "tsc -p tsconfig.public.json",
     "check:test": "tsc -p tsconfig.test.json",
     "check:deps": "madge --circular public/ && madge --circular --extensions ts src/",
-    "check": "npm run build -- --noEmit && npm run check:public && npm run check:test && npm run check:deps"
+    "lint": "eslint .",
+    "check": "npm run build -- --noEmit && npm run check:public && npm run check:test && npm run check:deps && npm run lint"
   },
   "dependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
@@ -31,13 +32,16 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.0",
     "@vitest/coverage-v8": "^4.1.2",
+    "eslint": "^10.4.1",
     "happy-dom": "^20.9.0",
     "madge": "^8.0.0",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.60.1",
     "vitest": "^4.1.2"
   }
 }

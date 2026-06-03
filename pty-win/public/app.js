@@ -1821,7 +1821,6 @@ async function handleSessionDrop(e, targetWsId) {
   if (sessionData) {
     const d = JSON.parse(sessionData);
     groupName = d.group;
-    workingDir = d.workingDir;
   } else if (folderData) {
     const d = JSON.parse(folderData);
     workingDir = d.workingDir;
