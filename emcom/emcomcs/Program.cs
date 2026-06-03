@@ -67,9 +67,8 @@ public static class Program
         switch (cmd)
         {
             case "version":
-                Console.WriteLine($"emcom {BuildInfo.Version}");
-                Console.WriteLine($"Built: {BuildInfo.BuildTime}");
-                Console.WriteLine($"Features: check, read-all, status, inbox --full, tag batch, reply --handled, inbox filters, CC comma, stdin body");
+                Console.WriteLine($"emcom {BuildInfo.ReleaseTag} {BuildInfo.ProvenanceLine}");
+                Console.WriteLine($"Features: check, read-all, status, inbox --full, tag batch, reply --handled, inbox filters, CC comma, stdin body, --body-file, strict-flag parsing");
                 break;
             case "register":
             {

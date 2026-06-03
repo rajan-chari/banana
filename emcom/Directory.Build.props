@@ -1,0 +1,40 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Build provenance for emcom + tracker CLIs. Defaults to 'dev' for local builds.
+      CI sets these via env vars (BANANA_SHA, RELEASE_TAG, BUILT_AT, BUILD_PLATFORM) in fellow-agents release.yml.
+      MSBuild auto-imports env vars as properties; -p:BuildInfoFoo=... on the publish line wins over env.
+      Two-line cascade: env var if set, else 'dev' sentinel (mirrors python _version.py defaults).
+    -->
+    <BuildInfoBananaSha Condition="'$(BuildInfoBananaSha)' == ''">$(BANANA_SHA)</BuildInfoBananaSha>
+    <BuildInfoBananaSha Condition="'$(BuildInfoBananaSha)' == ''">dev</BuildInfoBananaSha>
+
+    <BuildInfoReleaseTag Condition="'$(BuildInfoReleaseTag)' == ''">$(RELEASE_TAG)</BuildInfoReleaseTag>
+    <BuildInfoReleaseTag Condition="'$(BuildInfoReleaseTag)' == ''">dev</BuildInfoReleaseTag>
+
+    <BuildInfoBuiltAt Condition="'$(BuildInfoBuiltAt)' == ''">$(BUILT_AT)</BuildInfoBuiltAt>
+    <BuildInfoBuiltAt Condition="'$(BuildInfoBuiltAt)' == ''">dev</BuildInfoBuiltAt>
+
+    <BuildInfoPlatform Condition="'$(BuildInfoPlatform)' == ''">$(BUILD_PLATFORM)</BuildInfoPlatform>
+    <BuildInfoPlatform Condition="'$(BuildInfoPlatform)' == ''">dev</BuildInfoPlatform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BananaSha</_Parameter1>
+      <_Parameter2>$(BuildInfoBananaSha)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>ReleaseTag</_Parameter1>
+      <_Parameter2>$(BuildInfoReleaseTag)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BuiltAt</_Parameter1>
+      <_Parameter2>$(BuildInfoBuiltAt)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>Platform</_Parameter1>
+      <_Parameter2>$(BuildInfoPlatform)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

@@ -195,8 +195,7 @@ public static class Program
         switch (cmd)
         {
             case "version":
-                Console.WriteLine($"tracker {BuildInfo.Version}");
-                Console.WriteLine($"Built: {BuildInfo.BuildTime}");
+                Console.WriteLine($"tracker {BuildInfo.ReleaseTag} {BuildInfo.ProvenanceLine}");
                 Console.WriteLine($"Features: create, update, comment, link, list, view, queue, stats, report, decisions, stale, blocked, search, history");
                 break;
             case "create":
