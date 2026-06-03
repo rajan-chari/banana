@@ -58,6 +58,12 @@ import {
   computeGroupUnread,
   getActiveSessionName,
 } from "./lib/session-groups.js";
+import {
+  hasSessionNameSetChanged,
+  findOrphanedLeaves,
+  classifyOrphanGroups,
+  rebalanceLayoutsWithoutLeaves,
+} from "./lib/ws-handlers.js";
 
 let dragSrcWsId = null;
 let diagPollTimer = null;
@@ -89,9 +95,7 @@ function connect() {
         // Detect if the set of sessions changed (not just status updates)
         const prevNames = new Set(state.sessions.keys());
         const serverNames = new Set(msg.payload.map((s) => s.name));
-        const layoutChanged = prevNames.size !== serverNames.size ||
-          [...serverNames].some((n) => !prevNames.has(n)) ||
-          [...prevNames].some((n) => !serverNames.has(n));
+        const layoutChanged = hasSessionNameSetChanged(prevNames, serverNames);
 
         // Replace full session list (server is authoritative)
         state.sessions.clear();
@@ -108,34 +112,19 @@ function connect() {
 
         // Collect orphaned workspace leaves (in layout but not on server)
         const serverGroups = new Set([...state.sessions.values()].map((s) => s.group || s.name));
-        const orphans = new Set();
-        for (const ws of state.workspaces) {
-          if (!ws.layout) continue;
-          for (const name of getLeafList(ws.layout)) {
-            if (!serverGroups.has(name)) orphans.add(name);
-          }
-        }
+        const orphans = findOrphanedLeaves(state.workspaces, serverGroups, getLeafList);
 
-        // Attempt to recreate orphans that have saved metadata; prune the rest
-        // Orphans are group names; metadata is keyed by session name (group or group~pwsh)
-        const hasMetaForGroup = (g) => state.sessionMeta.has(g) || state.sessionMeta.has(g + "~pwsh");
-        const recreatable = [];
-        for (const g of orphans) {
-          if (state.sessionMeta.has(g)) recreatable.push(g);
-          if (state.sessionMeta.has(g + "~pwsh")) recreatable.push(g + "~pwsh");
-        }
-        const unrecoverable = [...orphans].filter((n) => !hasMetaForGroup(n));
+        // Classify orphan group names: which have saved metadata (recreatable)
+        // vs which are truly unknown (must be pruned from layouts).
+        const { recreatable, unrecoverable } = classifyOrphanGroups(orphans, state.sessionMeta);
 
-        // Prune leaves with no metadata (truly unknown)
+        // Prune leaves with no metadata — rebuilds affected workspaces as
+        // balanced trees (split ratios discarded; see ws-handlers JSDoc).
         if (unrecoverable.length > 0) {
-          for (const ws of state.workspaces) {
-            if (!ws.layout) continue;
-            const leaves = getLeafList(ws.layout);
-            const alive = leaves.filter((n) => !unrecoverable.includes(n));
-            if (alive.length < leaves.length) {
-              ws.layout = buildBalancedTree(alive);
-              updateWorkspaceTabName(ws);
-            }
+          const updates = rebalanceLayoutsWithoutLeaves(state.workspaces, unrecoverable, getLeafList, buildBalancedTree);
+          for (const { workspace, newLayout } of updates) {
+            workspace.layout = newLayout;
+            updateWorkspaceTabName(workspace);
           }
         }
 
