@@ -496,12 +496,12 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     const pwshMatchesPath = childResolved.pwshMatchesPath;
     appendRowActions(row, {
       identityName: entry.hasIdentity ? (entry.identityName || null) : null,
-      unreadCount: sessionMatchesPath ? (sessionInfo.unreadCount || 0) : 0,
+      unreadCount: sessionMatchesPath ? (sessionInfo?.unreadCount || 0) : 0,
       workingDir: entry.path,
       folderName: entry.name,
-      claudeAlive: !!(sessionMatchesPath && sessionInfo.status !== "dead"),
-      pwshAlive: !!(pwshMatchesPath && pwshInfo.status !== "dead"),
-      claudeCommand: sessionMatchesPath ? sessionInfo.command : null,
+      claudeAlive: !!(sessionMatchesPath && sessionInfo && sessionInfo.status !== "dead"),
+      pwshAlive: !!(pwshMatchesPath && pwshInfo && pwshInfo.status !== "dead"),
+      claudeCommand: sessionMatchesPath ? sessionInfo?.command : null,
       isClaudeReady: entry.isClaudeReady,
       hasIdentity: entry.hasIdentity,
     });
@@ -512,6 +512,7 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     // Drag to workspace tab
     row.draggable = true;
     row.addEventListener("dragstart", (e) => {
+      if (!e.dataTransfer) return;
       e.dataTransfer.setData("pty-win/folder", JSON.stringify({ workingDir: entry.path, folderName: entry.name }));
       e.dataTransfer.effectAllowed = "copy";
     });
@@ -641,6 +642,7 @@ function renderQuickAccess() {
     // Drag to workspace tab
     row.draggable = true;
     row.addEventListener("dragstart", (e) => {
+      if (!e.dataTransfer) return;
       e.dataTransfer.setData("pty-win/folder", JSON.stringify({ workingDir: folderPath, folderName: name }));
       e.dataTransfer.effectAllowed = "copy";
     });
@@ -698,7 +700,7 @@ function renderSessionsPanel() {
       folderName: g.group,
       claudeAlive: g.claudeAlive,
       pwshAlive: g.pwshAlive,
-      claudeCommand: g.claudeAlive ? g.claudeInfo.command : null,
+      claudeCommand: g.claudeAlive ? g.claudeInfo?.command : null,
       isClaudeReady: cached?.isClaudeReady || false,
       hasIdentity: cached?.hasIdentity || false,
       onKill: () => {
@@ -731,6 +733,7 @@ function renderSessionsPanel() {
     // Drag to workspace tab
     row.draggable = true;
     row.addEventListener("dragstart", (e) => {
+      if (!e.dataTransfer) return;
       e.dataTransfer.setData("pty-win/session", JSON.stringify({ group: g.group, workingDir: g.workingDir }));
       e.dataTransfer.effectAllowed = "copy";
     });
@@ -842,8 +845,8 @@ function appendRowActions(container, opts) {
   }
   header?.addEventListener("click", () => {
     const isExpanded = body.classList.toggle("expanded");
-    arrow.classList.toggle("expanded", isExpanded);
-    localStorage.setItem("pty-win-sessions-expanded", isExpanded);
+    arrow?.classList.toggle("expanded", isExpanded);
+    localStorage.setItem("pty-win-sessions-expanded", String(isExpanded));
   });
 })();
 
@@ -860,7 +863,7 @@ function appendRowActions(container, opts) {
   header?.addEventListener("click", (e) => {
     if (e.target instanceof Element && e.target.closest(".panel-actions")) return; // don't toggle when clicking buttons
     const isExpanded = body.classList.toggle("expanded");
-    arrow.classList.toggle("expanded", isExpanded);
+    arrow?.classList.toggle("expanded", isExpanded);
     localStorage.setItem("pty-win-folders-expanded", String(isExpanded));
   });
 })();
@@ -1650,6 +1653,7 @@ function renderTabs() {
     // Drag-to-reorder
     tab.draggable = true;
     tab.addEventListener("dragstart", /** @param {DragEvent} e */ (e) => {
+      if (!e.dataTransfer) return;
       dragSrcWsId = ws.id;
       tab.classList.add("dragging");
       e.dataTransfer.effectAllowed = "move";
@@ -1659,6 +1663,7 @@ function renderTabs() {
       document.querySelectorAll(".tab").forEach((t) => t.classList.remove("drag-over-left", "drag-over-right", "dragging"));
     });
     tab.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
+      if (!e.dataTransfer) return;
       // Session/folder drop onto tab
       if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
         e.preventDefault(); e.dataTransfer.dropEffect = "copy"; tab.classList.add("drop-target"); return;
@@ -1675,6 +1680,7 @@ function renderTabs() {
       tab.classList.remove("drag-over-left", "drag-over-right", "drop-target");
     });
     tab.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
+      if (!e.dataTransfer) return;
       tab.classList.remove("drop-target");
       // Session/folder drop
       if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
@@ -1742,6 +1748,7 @@ function renderTabs() {
   addBtn.onclick = () => { const ws = createWorkspace(null); switchToWorkspace(ws.id); };
   // Drop on + creates new workspace with dragged session
   addBtn.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
+    if (!e.dataTransfer) return;
     if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
       e.preventDefault(); e.dataTransfer.dropEffect = "copy"; addBtn.classList.add("drop-target");
     }
@@ -1762,6 +1769,7 @@ function renderTabs() {
  */
 async function handleSessionDrop(e, targetWsId) {
   e.preventDefault();
+  if (!e.dataTransfer) return;
   let groupName, workingDir, folderName;
 
   const sessionData = e.dataTransfer.getData("pty-win/session");
@@ -1805,11 +1813,13 @@ async function handleSessionDrop(e, targetWsId) {
 
 // Workspace area drop target (drop onto current workspace)
 byId("workspace-area")?.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
+  if (!e.dataTransfer) return;
   if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
     e.preventDefault(); e.dataTransfer.dropEffect = "copy";
   }
 });
 byId("workspace-area")?.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
+  if (!e.dataTransfer) return;
   if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
     handleSessionDrop(e, state.activeWorkspaceId);
   }
@@ -3054,7 +3064,8 @@ function renderDashboardStats() {
       table = container.querySelector(".diag-table");
     }
 
-    const tbody = table.querySelector("tbody");
+    const tbody = table?.querySelector("tbody");
+    if (!tbody) return;
     const currentNames = new Set(state.sessions.keys());
 
     // Remove rows for sessions that no longer exist
@@ -3106,7 +3117,7 @@ function renderDashboardStats() {
       }
       const totalCell = totalRow.querySelector(".diag-cost");
       const totalText = `$${totalCostVal.toFixed(2)}`;
-      if (totalCell.textContent !== totalText) totalCell.textContent = totalText;
+      if (totalCell && totalCell.textContent !== totalText) totalCell.textContent = totalText;
     } else if (totalRow) {
       totalRow.remove();
     }
@@ -3236,7 +3247,8 @@ const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = fle
 function initTrackerColumnResize(container) {
   const thead = /** @type {HTMLElement | null} */ (container.querySelector(".tracker-thead"));
   if (!thead) return;
-  const ths = /** @type {HTMLElement[]} */ ([...thead.querySelectorAll(".tracker-th")]);
+  const theadEl = thead; // narrow for closures
+  const ths = /** @type {HTMLElement[]} */ ([...theadEl.querySelectorAll(".tracker-th")]);
 
   // Load saved widths (reset if column count changed)
   /** @type {number[]} */
@@ -3249,7 +3261,7 @@ function initTrackerColumnResize(container) {
 
   function applyWidths() {
     const tpl = colWidths.map(w => w === 0 ? "minmax(0,1fr)" : `${w}px`).join(" ");
-    thead.style.gridTemplateColumns = tpl;
+    theadEl.style.gridTemplateColumns = tpl;
     container.querySelectorAll(".tracker-item-row").forEach(r => {
       if (r instanceof HTMLElement) r.style.gridTemplateColumns = tpl;
     });
@@ -3334,7 +3346,8 @@ function renderTracker() {
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
 
   // Ensure container + chrome exist (build once)
-  let container = area.querySelector(".tracker-view");
+  /** @type {HTMLElement} */
+  let container = /** @type {HTMLElement | null} */ (area.querySelector(".tracker-view"));
   if (!container) {
     area.innerHTML = "";
     container = document.createElement("div");
@@ -4199,7 +4212,7 @@ function renderAgentsPanel() {
       }
       const totalCell = totalRow.querySelector(".agents-cost");
       const totalText = `$${totalCost.toFixed(2)}`;
-      if (totalCell.textContent !== totalText) totalCell.textContent = totalText;
+      if (totalCell && totalCell.textContent !== totalText) totalCell.textContent = totalText;
     } else if (totalRow) {
       totalRow.remove();
     }
@@ -4285,6 +4298,7 @@ function fetchCostHistory(panel) {
 function drawSparkline(canvas, data) {
   if (data.length < 2) return;
   const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
