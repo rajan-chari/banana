@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { rebuildPaneGroups, type SessionInfo, type PaneGroup } from "../src/pane-groups.js";
+import { rebuildPaneGroups } from "../public/lib/pane-groups.js";
+import type { SessionInfo, PaneGroup } from "../public/lib/pane-groups.js";
 
 // Helper to build sessions map
 function sessions(...entries: Array<{ name: string; group?: string; command?: string; status?: string }>): Map<string, SessionInfo> {

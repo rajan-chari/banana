@@ -7,9 +7,8 @@ import {
   treeContains,
   countLeaves,
   insertAdjacentToPane,
-  type TileNode,
-  type LeafNode,
-} from "../src/tiling.js";
+} from "../public/lib/tiling.js";
+import type { TileNode, LeafNode } from "../public/lib/tiling.js";
 
 // Helpers
 const leaf = (s: string): LeafNode => ({ type: "leaf", session: s });

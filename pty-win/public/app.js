@@ -27,34 +27,24 @@ import {
   loadSessionMeta,
   saveSessionMeta,
 } from "./lib/persistence.js";
+import {
+  buildBalancedTree,
+  countLeaves,
+  removeSessionFromLayout,
+  insertAdjacentToPane,
+  appendLeafToTree,
+  getLeafList,
+  treeContains,
+  findParentSplit,
+} from "./lib/tiling.js";
+import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
 
 let dragSrcWsId = null;
 let diagPollTimer = null;
 let trackerPollTimer = null;
 
 function rebuildPaneGroups() {
-  // Preserve activeType selections across rebuilds
-  const prevActive = new Map();
-  for (const [g, pg] of state.paneGroups) prevActive.set(g, pg.activeType);
-
-  state.paneGroups.clear();
-  for (const [name, info] of state.sessions) {
-    const group = info.group || name;
-    if (!state.paneGroups.has(group)) {
-      state.paneGroups.set(group, { activeType: prevActive.get(group) || "claude" });
-    }
-    const pg = state.paneGroups.get(group);
-    if (name.endsWith("~pwsh")) {
-      pg.pwsh = name;
-    } else {
-      pg.claude = name;
-    }
-  }
-  // If activeType points to a dead/missing session, flip to the other
-  for (const [, pg] of state.paneGroups) {
-    if (pg.activeType === "pwsh" && !pg.pwsh) pg.activeType = "claude";
-    if (pg.activeType === "claude" && !pg.claude) pg.activeType = "pwsh";
-  }
+  state.paneGroups = _rebuildPaneGroups(state.sessions, state.paneGroups);
 }
 
 // ===== WebSocket =====
@@ -1518,11 +1508,6 @@ function findWorkspaceContaining(sessionName) {
   return null;
 }
 
-function treeContains(node, sessionName) {
-  if (node.type === "leaf") return node.session === sessionName;
-  return treeContains(node.children[0], sessionName) || treeContains(node.children[1], sessionName);
-}
-
 function removeWorkspace(id) {
   const idx = state.workspaces.findIndex((w) => w.id === id);
   if (idx === -1) return;
@@ -1746,29 +1731,6 @@ function addSessionToWorkspace(workspaceId, sessionName) {
 }
 
 /** Build a balanced binary tree from a list of session names */
-function buildBalancedTree(sessions) {
-  if (sessions.length === 0) return null;
-  if (sessions.length === 1) return { type: "leaf", session: sessions[0] };
-
-  const mid = Math.ceil(sessions.length / 2);
-  const left = sessions.slice(0, mid);
-  const right = sessions.slice(mid);
-
-  // Top-level: vertical split (rows). Within rows: horizontal split (columns).
-  const direction = sessions.length <= 2 ? "h" : "v";
-  return {
-    type: "split",
-    direction,
-    ratio: mid / sessions.length,
-    children: [buildBalancedTree(left), buildBalancedTree(right)],
-  };
-}
-
-function countLeaves(node) {
-  if (node.type === "leaf") return 1;
-  return countLeaves(node.children[0]) + countLeaves(node.children[1]);
-}
-
 // ===== Pane drag-to-reorder =====
 
 const paneDrag = { active: false, session: null, ghostEl: null, dropZoneEls: [], currentTarget: null };
@@ -1907,43 +1869,6 @@ function showLayoutPresetsMenu(e, ws) {
     if (!menu.contains(ev.target)) { menu.classList.add("hidden"); document.removeEventListener("mousedown", close); }
   };
   setTimeout(() => document.addEventListener("mousedown", close), 0);
-}
-
-function removeSessionFromLayout(node, sessionName) {
-  if (!node) return null;
-  if (node.type === "leaf") return node.session === sessionName ? null : node;
-  const left = removeSessionFromLayout(node.children[0], sessionName);
-  const right = removeSessionFromLayout(node.children[1], sessionName);
-  if (!left && !right) return null;
-  if (!left) return right;
-  if (!right) return left;
-  return { ...node, children: [left, right] };
-}
-
-function insertAdjacentToPane(node, targetSession, insertSession, side) {
-  if (!node) return null;
-  if (node.type === "leaf") {
-    if (node.session !== targetSession) return node;
-    const insertLeaf = { type: "leaf", session: insertSession };
-    const direction = (side === "left" || side === "right") ? "h" : "v";
-    const first  = (side === "left"  || side === "top")    ? insertLeaf : node;
-    const second = (side === "right" || side === "bottom") ? insertLeaf : node;
-    return { type: "split", direction, ratio: 0.5, children: [first, second] };
-  }
-  return {
-    ...node,
-    children: [
-      insertAdjacentToPane(node.children[0], targetSession, insertSession, side),
-      insertAdjacentToPane(node.children[1], targetSession, insertSession, side),
-    ],
-  };
-}
-
-function appendLeafToTree(node, newLeaf) {
-  if (node.type === "leaf") {
-    return { type: "split", direction: "h", ratio: 0.5, children: [node, newLeaf] };
-  }
-  return { ...node, children: [node.children[0], appendLeafToTree(node.children[1], newLeaf)] };
 }
 
 function renderActiveWorkspace() {
@@ -2570,14 +2495,6 @@ function truncatePath(p) {
 
 // ===== Navigation =====
 
-function getLeafList(node, list = []) {
-  if (!node) return list;
-  if (node.type === "leaf") { list.push(node.session); return list; }
-  getLeafList(node.children[0], list);
-  getLeafList(node.children[1], list);
-  return list;
-}
-
 function navigatePanes(arrowKey) {
   const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (!ws?.layout) return;
@@ -2600,16 +2517,6 @@ function resizeFocused(arrowKey) {
     ? Math.min(0.85, splitNode.ratio + delta)
     : Math.max(0.15, splitNode.ratio - delta);
   renderActiveWorkspace();
-}
-
-function findParentSplit(node, sessionName) {
-  if (node.type === "leaf") return null;
-  for (const child of node.children) {
-    if (child.type === "leaf" && child.session === sessionName) return node;
-    const found = findParentSplit(child, sessionName);
-    if (found) return found;
-  }
-  return null;
 }
 
 function closeFocusedPane() {
