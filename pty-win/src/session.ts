@@ -220,7 +220,7 @@ export class PtySession extends EventEmitter {
         this.rawBuffer = this.rawBuffer.slice(-PtySession.RAW_BUF_MAX_BYTES);
       }
       const costMatch = costRegexExit.exec(data) || costRegexLive.exec(data);
-      if (costMatch) this.costUsd = parseFloat(costMatch[1]);
+      if (costMatch && costMatch[1]) this.costUsd = parseFloat(costMatch[1]);
       this.emit("data", data);
       // Status transitions on PTY data:
       //   - For Claude sessions: don't flip to busy on bytes. Hooks own the

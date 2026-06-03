@@ -35,16 +35,22 @@ let emcomServer = DEFAULTS.emcomServer;
 const rootDirs: string[] = [];
 
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === "--port" && args[i + 1]) {
-    port = parseInt(args[++i], 10);
-  } else if (args[i] === "--host" && args[i + 1]) {
-    host = args[++i];
-  } else if (args[i] === "--name" && args[i + 1]) {
-    name = args[++i];
-  } else if (args[i] === "--emcom" && args[i + 1]) {
-    emcomServer = args[++i];
-  } else if (args[i] === "--root" && args[i + 1]) {
-    rootDirs.push(args[++i]);
+  const next = args[i + 1];
+  if (args[i] === "--port" && next) {
+    port = parseInt(next, 10);
+    i++;
+  } else if (args[i] === "--host" && next) {
+    host = next;
+    i++;
+  } else if (args[i] === "--name" && next) {
+    name = next;
+    i++;
+  } else if (args[i] === "--emcom" && next) {
+    emcomServer = next;
+    i++;
+  } else if (args[i] === "--root" && next) {
+    rootDirs.push(next);
+    i++;
   } else if (args[i] === "--debug") {
     debug = true;
   }

@@ -62,7 +62,9 @@ export function createShutdownHandler({
       const injectPromises: Promise<void>[] = [];
       for (const [, group] of repoGroups) {
         for (let i = 0; i < group.length; i++) {
-          const [name, session] = group[i];
+          const entry = group[i];
+          if (!entry) continue;
+          const [name, session] = entry;
           const delay = i * checkpointStaggerMs;
           injectPromises.push(
             new Promise((resolve) => {
