@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['C:/s/projects/work/teams/working/banana/emcom/emcom_server/main.py'],
+    ['emcom_server/main.py'],
     pathex=[],
     binaries=[],
     datas=[],

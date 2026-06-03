@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['C:/s/projects/work/teams/working/banana/emcom/emcom/tui.py'],
+    ['emcom/tui.py'],
     pathex=[],
     binaries=[],
     datas=[],
