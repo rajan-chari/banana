@@ -1109,13 +1109,13 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
     }
 
     // No existing pane — tile into workspace using the group name (baseName)
-    let ws = newWorkspace ? createWorkspace(baseName) : getOrCreateActiveWorkspace();
+    const ws = newWorkspace ? createWorkspace(baseName) : getOrCreateActiveWorkspace();
     addSessionToWorkspace(ws.id, baseName);
     switchToWorkspace(ws.id);
     renderActiveWorkspace();
     focusPane(baseName);
     updateWorkspaceTabName(ws);
-  } catch (err) {
+  } catch {
     alert("Failed to create session");
   }
 }
@@ -1616,18 +1616,6 @@ function switchToDashboard() {
   renderTabs();
   renderDashboard();
   diagPollTimer = setInterval(renderDashboardStats, 5000);
-}
-
-function switchToTracker() {
-  stopDiagPoll();
-  stopTrackerPoll();
-  state.activeWorkspaceId = null;
-  state.isDashboard = false;
-  state.isDiag = false;
-  state.isTracker = true;
-  renderTabs();
-  renderTracker();
-  trackerPollTimer = setInterval(renderTracker, 10000);
 }
 
 function stopTrackerPoll() {
@@ -2291,7 +2279,7 @@ function createPane(groupName) {
   pane.appendChild(statusbar);
 
   // Create or reattach xterm for the active session
-  let entry = ensureTerminal(activeSessionName);
+  const entry = ensureTerminal(activeSessionName);
 
   // Fit terminal and explicitly notify server of new dimensions
   // Guards against unnecessary fit() calls that reset xterm scroll position
@@ -3048,7 +3036,7 @@ function patchDashboard(dash) {
 
   // Add or patch cards
   for (const [name, info] of state.sessions) {
-    let card = cardsGrid.querySelector(`.dashboard-card[data-session="${CSS.escape(name)}"]`);
+    const card = cardsGrid.querySelector(`.dashboard-card[data-session="${CSS.escape(name)}"]`);
     if (!card) {
       // New session — add card
       cardsGrid.appendChild(createDashboardCard(name, info));
@@ -3666,13 +3654,6 @@ function renderTrackerBody(container, items) {
 }
 
 // ===== Modal =====
-
-function openModal() {
-  byId("modal-overlay").classList.remove("hidden");
-  inputById("m-path").value = "";
-  inputById("m-cmd").value = "claude";
-  byId("m-path").focus();
-}
 
 function closeModal() {
   byId("modal-overlay").classList.add("hidden");

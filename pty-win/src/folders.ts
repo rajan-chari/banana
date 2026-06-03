@@ -1,5 +1,5 @@
-import { readdirSync, statSync, readFileSync, existsSync, mkdirSync } from "fs";
-import { join, basename } from "path";
+import { readdirSync, readFileSync, existsSync, mkdirSync } from "fs";
+import { join } from "path";
 import { log } from "./log.js";
 
 export interface FolderEntry {
