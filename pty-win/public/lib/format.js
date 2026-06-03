@@ -3,6 +3,31 @@
 // Extracted from app.js as part of tracker e0ca3757 / 8eb3a993.
 
 /**
+ * Escape the HTML-special characters in an arbitrary value so the result
+ * is safe to interpolate inside a string-built innerHTML template. Replaces
+ * `&`, `<`, `>`, `"`, `'` — covering both attribute and element contexts.
+ *
+ * NOT a sanitizer for HTML fragments; this is for literal user-controlled
+ * text that should appear as text in the DOM. If a field can legitimately
+ * contain HTML, use `textContent`-based DOM construction instead.
+ *
+ * Returns "" for null/undefined and stringifies other primitives.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function escapeHtml(value) {
+  if (value == null) return "";
+  const s = typeof value === "string" ? value : String(value);
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * Normalize a filesystem path for comparison: backslashes -> forward,
  * lowercased (case-insensitive on Windows).
  * @param {string | null | undefined} p

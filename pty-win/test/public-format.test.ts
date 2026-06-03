@@ -12,7 +12,45 @@ import {
   staleClass,
   fmtDate,
   sevOrder,
+  escapeHtml,
 } from "../public/lib/format.js";
+
+describe("escapeHtml", () => {
+  it("escapes the five HTML-special characters", () => {
+    expect(escapeHtml("&")).toBe("&amp;");
+    expect(escapeHtml("<")).toBe("&lt;");
+    expect(escapeHtml(">")).toBe("&gt;");
+    expect(escapeHtml('"')).toBe("&quot;");
+    expect(escapeHtml("'")).toBe("&#39;");
+  });
+  it("neutralizes a script tag injection attempt", () => {
+    expect(escapeHtml("<script>alert(1)</script>")).toBe(
+      "&lt;script&gt;alert(1)&lt;/script&gt;",
+    );
+  });
+  it("escapes & before other entities so output is not double-decoded", () => {
+    expect(escapeHtml("&lt;")).toBe("&amp;lt;");
+  });
+  it("neutralizes an attribute-context injection", () => {
+    expect(escapeHtml('" onerror="alert(1)')).toBe(
+      "&quot; onerror=&quot;alert(1)",
+    );
+  });
+  it("returns empty string for null and undefined", () => {
+    expect(escapeHtml(null)).toBe("");
+    expect(escapeHtml(undefined)).toBe("");
+  });
+  it("returns empty string for empty input", () => {
+    expect(escapeHtml("")).toBe("");
+  });
+  it("stringifies non-string primitives", () => {
+    expect(escapeHtml(42)).toBe("42");
+    expect(escapeHtml(true)).toBe("true");
+  });
+  it("leaves plain text unchanged", () => {
+    expect(escapeHtml("hello world 123")).toBe("hello world 123");
+  });
+});
 
 describe("normPath", () => {
   it("lowercases and converts backslashes to forward slashes", () => {
