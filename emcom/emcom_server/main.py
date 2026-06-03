@@ -4,12 +4,21 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+
+# Import _version explicitly so PyInstaller's static Analysis bundles it.
+# CI (fellow-agents release.yml) overwrites emcom/_version.py with real
+# provenance before pyinstaller runs; dev builds get the sentinel values.
+try:
+    from emcom import _version as _build_version
+except ImportError:  # pragma: no cover — package missing _version.py
+    _build_version = None
 
 
 class _SuppressPollingFilter(logging.Filter):
@@ -113,7 +122,25 @@ def create_app() -> FastAPI:
     return app
 
 
+def _format_version() -> str:
+    """Build the one-line version string. Shape locked with forge (thread b4446536):
+        emcom-server v0.0.22 (banana 7a9e2c4, win-x64, built 2026-05-28T21:45:00Z)
+    """
+    if _build_version is None:
+        return "emcom-server (no build provenance — _version.py missing)"
+    sha = _build_version.__banana_sha__
+    sha_short = sha[:7] if len(sha) >= 7 else sha
+    return (
+        f"emcom-server {_build_version.__release_tag__} "
+        f"(banana {sha_short}, {_build_version.__platform__}, "
+        f"built {_build_version.__built_at__})"
+    )
+
+
 def run():
+    if "--version" in sys.argv or "-V" in sys.argv:
+        print(_format_version())
+        return
     host = os.environ.get("EMCOM_HOST", "127.0.0.1")
     port = int(os.environ.get("EMCOM_PORT", "8800"))
     app = create_app()
