@@ -2999,7 +2999,11 @@ async function loadSnapshot(sessionName) {
 
 function renderDashboardStats() {
   if (!state.isDashboard) return;
-  const container = byId("dashboard-stats");
+  // Use getElementById here (not byId) because the #dashboard-stats
+  // container is not currently rendered — the guarded early-return
+  // keeps the polling interval harmless. If the dashboard ever gains
+  // a real stats container with this ID, this can switch to byId.
+  const container = document.getElementById("dashboard-stats");
   if (!container) return;
 
   fetch("/api/stats").then((r) => r.json()).then(/** @param {any[]} stats */ (stats) => {
