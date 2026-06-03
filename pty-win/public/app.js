@@ -64,6 +64,11 @@ import {
   classifyOrphanGroups,
   rebalanceLayoutsWithoutLeaves,
 } from "./lib/ws-handlers.js";
+import {
+  isFolderRunning,
+  buildRunningUnreadSets,
+  resolveFolderSessions,
+} from "./lib/folder-tree.js";
 
 let dragSrcWsId = null;
 let diagPollTimer = null;
@@ -327,18 +332,16 @@ function renderTree() {
     label.appendChild(nameSpan);
 
     // Green name for running sessions
-    for (const [, s] of state.sessions) {
-      if (s.status !== "dead" && normPath(s.workingDir) === label.dataset.path) {
-        nameSpan.classList.add("running");
-        break;
-      }
+    if (isFolderRunning(state.sessions, rootPath, normPath)) {
+      nameSpan.classList.add("running");
     }
 
     // Shared right-side section (uses cached folder info, fetches async if needed)
-    const rootSessionInfo = state.sessions.get(rootName);
-    const rootMatchesPath = rootSessionInfo && normPath(rootSessionInfo.workingDir) === normPath(rootPath);
-    const rootPwshInfo = state.sessions.get(rootName + "~pwsh");
-    const rootPwshMatches = rootPwshInfo && normPath(rootPwshInfo.workingDir) === normPath(rootPath);
+    const rootResolved = resolveFolderSessions(state.sessions, rootName, rootPath, normPath);
+    const rootSessionInfo = rootResolved.sessionInfo;
+    const rootMatchesPath = rootResolved.sessionMatchesPath;
+    const rootPwshInfo = rootResolved.pwshInfo;
+    const rootPwshMatches = rootResolved.pwshMatchesPath;
     const rootCacheKey = normPath(rootPath);
     const rootCached = state.folderInfoCache.get(rootCacheKey);
     appendRowActions(label, {
@@ -413,11 +416,8 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     const row = document.createElement("div");
     row.className = "tree-node";
     row.dataset.path = normPath(entry.path);
-    for (const [, s] of state.sessions) {
-      if (s.status !== "dead" && normPath(s.workingDir) === row.dataset.path) {
-        row.classList.add("running");
-        break;
-      }
+    if (isFolderRunning(state.sessions, entry.path, normPath)) {
+      row.classList.add("running");
     }
 
     // Indent
@@ -439,10 +439,11 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     row.appendChild(name);
 
     // Shared right-side section (matches sessions panel layout)
-    const sessionInfo = state.sessions.get(entry.name);
-    const sessionMatchesPath = sessionInfo && normPath(sessionInfo.workingDir) === normPath(entry.path);
-    const pwshInfo = state.sessions.get(entry.name + "~pwsh");
-    const pwshMatchesPath = pwshInfo && normPath(pwshInfo.workingDir) === normPath(entry.path);
+    const childResolved = resolveFolderSessions(state.sessions, entry.name, entry.path, normPath);
+    const sessionInfo = childResolved.sessionInfo;
+    const sessionMatchesPath = childResolved.sessionMatchesPath;
+    const pwshInfo = childResolved.pwshInfo;
+    const pwshMatchesPath = childResolved.pwshMatchesPath;
     appendRowActions(row, {
       identityName: entry.hasIdentity ? (entry.identityName || null) : null,
       unreadCount: sessionMatchesPath ? (sessionInfo.unreadCount || 0) : 0,
@@ -478,12 +479,7 @@ async function loadAndRenderChildren(parentPath, container, depth) {
   }
 }
 function refreshTreeRunningState() {
-  const running = new Set();
-  const unread = new Set();
-  for (const [, s] of state.sessions) {
-    if (s.status !== "dead" && s.workingDir) running.add(normPath(s.workingDir));
-    if (s.unreadCount > 0 && s.workingDir) unread.add(normPath(s.workingDir));
-  }
+  const { running, unread } = buildRunningUnreadSets(state.sessions, normPath);
   // Child folder nodes
   document.querySelectorAll(".tree-node[data-path]").forEach((node) => {
     node.classList.toggle("running", running.has(node.dataset.path));
