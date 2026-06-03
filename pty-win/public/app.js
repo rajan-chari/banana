@@ -39,6 +39,11 @@ import {
 } from "./lib/tiling.js";
 import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
 import {
+  renderTrackerItemHtml,
+  renderTrackerHistoryEntries,
+  severityClass,
+} from "./lib/tracker-render.js";
+import {
   normPath,
   cssId,
   truncatePath,
@@ -2930,46 +2935,11 @@ function buildTrackerItem(item) {
   el.dataset.id = item.id;
   el.style.contain = "content";
 
-  const sevClass = item.severity === "critical" ? "sev-critical" : item.severity === "high" ? "sev-high" : item.severity === "low" ? "sev-low" : "sev-normal";
   const ageDate = item.date_found || item.created_at;
-  const ageStale = staleClass(ageDate);
-  const activeStale = item.last_github_activity ? staleClass(item.last_github_activity) : "";
-  if (ageStale === "stale-red") el.classList.add("stale-row");
+  if (staleClass(ageDate) === "stale-red") el.classList.add("stale-row");
   if (["closed", "merged", "deferred"].includes(item.status)) el.classList.add("tracker-item-done");
 
-  const refHtml = item.number
-    ? `<span class="tracker-ref-repo">${escapeHtml(item.repo)}</span><span class="tracker-ref-num">#${escapeHtml(item.number)}</span>`
-    : `<span class="tracker-ref-repo">${escapeHtml(item.repo)}</span>`;
-
-  el.innerHTML = `
-    <div class="tracker-item-row">
-      <span class="tracker-row-num">${++_trackerRowNum}</span>
-      <span class="tracker-ref">${refHtml}</span>
-      <span class="tracker-item-title">${escapeHtml(item.title)}${item.github_author ? `<span class="tracker-author-tag">by ${escapeHtml(item.github_author)}</span>` : ""}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>` : ""}</span>
-      <span class="tracker-assignee">${item.assigned_to ? "@" + escapeHtml(item.assigned_to) : ""}</span>
-      <span class="tracker-opened-by">${escapeHtml(item.opened_by || "")}</span>
-      <span class="tracker-responders">${Array.isArray(item.responders) && item.responders.length ? escapeHtml(item.responders.join(", ")) : ""}</span>
-      <span class="tracker-severity ${sevClass}">${escapeHtml(item.severity || "normal")}</span>
-      <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
-      <span class="tracker-activity ${activeStale}">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
-      <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
-    </div>
-    <div class="tracker-item-detail">
-      ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${escapeHtml(item.repo)}/issues/${escapeHtml(item.number)}" target="_blank">${escapeHtml(item.repo)}#${escapeHtml(item.number)} on GitHub &#x2197;</a></div>` : ""}
-      ${item.blocker ? `<div class="tracker-blocker-badge">${escapeHtml(item.blocker)}</div>` : ""}
-      ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${escapeHtml(item.findings)}</div></div>` : ""}
-      ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${escapeHtml(item.decision)}</div></div>` : ""}
-      ${item.decision_rationale ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Rationale</div><div class="tracker-detail-value">${escapeHtml(item.decision_rationale)}</div></div>` : ""}
-      ${item.notes ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Notes</div><div class="tracker-detail-value">${escapeHtml(item.notes)}</div></div>` : ""}
-      ${item.labels?.length ? `<div class="tracker-detail-section">${item.labels.map(l => `<span class="tracker-label">${escapeHtml(l)}</span>`).join(" ")}</div>` : ""}
-      <div class="tracker-detail-meta">
-        <span>Opened by <strong>${escapeHtml(item.opened_by || item.github_author || item.created_by || "?")}</strong></span>
-        ${item.github_last_commenter ? `<span>Last reply: <strong>${escapeHtml(item.github_last_commenter)}</strong></span>` : ""}
-        <span>${new Date(item.created_at).toLocaleString()}</span>
-        <span>Updated ${new Date(item.updated_at).toLocaleString()}</span>
-        <span>Status: ${escapeHtml(item.status)}</span>
-      </div>
-    </div>`;
+  el.innerHTML = renderTrackerItemHtml(item, ++_trackerRowNum);
 
   el.querySelector(".tracker-item-row").onclick = () => {
     const wasExpanded = el.classList.contains("expanded");
@@ -3092,30 +3062,7 @@ function loadTrackerHistory(el, itemId) {
         return;
       }
 
-      const fmtTs = (ts) => {
-        const d = new Date(ts);
-        return `${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getDate().toString().padStart(2,"0")} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
-      };
-
-      const entries = history.map(h => {
-        let what = "";
-        if (h.field === "status") {
-          what = `<span class="tl-arrow">\u2192</span> ${escapeHtml(h.new_value)}`;
-        } else if (h.field === "assigned_to") {
-          what = `assigned \u2192 ${escapeHtml(h.new_value || "unassigned")}`;
-        } else if (h.field === "blocker") {
-          what = h.new_value ? `blocker: ${escapeHtml(h.new_value)}` : "blocker cleared";
-        } else {
-          what = `${escapeHtml(h.field)}: ${escapeHtml(h.new_value || "(cleared)")}`;
-        }
-        if (h.comment) what += ` <span class="tl-comment">${escapeHtml(h.comment)}</span>`;
-
-        return `<div class="tracker-timeline-entry">
-          <span class="tracker-timeline-date">${fmtTs(h.changed_at)}</span>
-          <span class="tracker-timeline-who">[${escapeHtml(h.changed_by)}]</span>
-          <span class="tracker-timeline-what">${what}</span>
-        </div>`;
-      }).join("");
+      const entries = renderTrackerHistoryEntries(history);
 
       timeline.innerHTML = `<div class="tracker-timeline-title">History</div>${entries}`;
     })
