@@ -47,6 +47,7 @@ import {
   staleClass,
   fmtDate,
   sevOrder,
+  escapeHtml,
 } from "./lib/format.js";
 import {
   filterTrackerItems as _filterTrackerItems,
@@ -2246,7 +2247,7 @@ function showAiTagContextMenu(e, folderPath, folderName) {
       const isDefault = i === state.aiDefaultIndex;
       const item = document.createElement("div");
       item.className = "ctx-item ai-picker-item";
-      item.innerHTML = `<span class="default-star">${isDefault ? "\u2605" : ""}</span> ${preset.name} <span class="ai-icon">${preset.icon}</span>`;
+      item.innerHTML = `<span class="default-star">${isDefault ? "\u2605" : ""}</span> ${escapeHtml(preset.name)} <span class="ai-icon">${escapeHtml(preset.icon)}</span>`;
       item.onclick = () => {
         menu.classList.add("hidden");
         openFolder(folderPath, folderName, preset.command);
@@ -2298,7 +2299,7 @@ function showAiPicker(e, folderPath, folderName) {
     const isDefault = i === state.aiDefaultIndex;
     const item = document.createElement("div");
     item.className = "ctx-item ai-picker-item";
-    item.innerHTML = `<span class="default-star">${isDefault ? "\u2605" : ""}</span> ${preset.name} <span class="ai-icon">${preset.icon}</span>`;
+    item.innerHTML = `<span class="default-star">${isDefault ? "\u2605" : ""}</span> ${escapeHtml(preset.name)} <span class="ai-icon">${escapeHtml(preset.icon)}</span>`;
     item.onclick = () => {
       menu.classList.add("hidden");
       openFolder(folderPath, folderName, preset.command);
@@ -2554,7 +2555,7 @@ function showDirtyWarning(sessionName, workingDir) {
   log(`[dirty] ${sessionName} exited with uncommitted changes in ${folderName}`);
   const toast = document.createElement("div");
   toast.className = "dirty-toast";
-  toast.innerHTML = `<strong>⚠ ${folderName}</strong> has uncommitted changes (session ${sessionName} exited)`;
+  toast.innerHTML = `<strong>⚠ ${escapeHtml(folderName)}</strong> has uncommitted changes (session ${escapeHtml(sessionName)} exited)`;
   toast.onclick = () => toast.remove();
   document.body.appendChild(toast);
   // Auto-dismiss after 30s
@@ -2908,7 +2909,7 @@ function populateTrackerFilters(items) {
     const current = sel.value;
     if (sel.options.length - 1 === options.length) return; // no change
     const firstLabel = sel.options[0].textContent;
-    sel.innerHTML = `<option value="">${firstLabel}</option>` + options.map(o => `<option value="${o}">${o}</option>`).join("");
+    sel.innerHTML = `<option value="">${escapeHtml(firstLabel)}</option>` + options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("");
     sel.value = saved || current;
   };
 
@@ -2937,36 +2938,36 @@ function buildTrackerItem(item) {
   if (["closed", "merged", "deferred"].includes(item.status)) el.classList.add("tracker-item-done");
 
   const refHtml = item.number
-    ? `<span class="tracker-ref-repo">${item.repo}</span><span class="tracker-ref-num">#${item.number}</span>`
-    : `<span class="tracker-ref-repo">${item.repo}</span>`;
+    ? `<span class="tracker-ref-repo">${escapeHtml(item.repo)}</span><span class="tracker-ref-num">#${escapeHtml(item.number)}</span>`
+    : `<span class="tracker-ref-repo">${escapeHtml(item.repo)}</span>`;
 
   el.innerHTML = `
     <div class="tracker-item-row">
       <span class="tracker-row-num">${++_trackerRowNum}</span>
       <span class="tracker-ref">${refHtml}</span>
-      <span class="tracker-item-title">${item.title}${item.github_author ? `<span class="tracker-author-tag">by ${item.github_author}</span>` : ""}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${item.status}">${item.status}</span>` : ""}</span>
-      <span class="tracker-assignee">${item.assigned_to ? "@" + item.assigned_to : ""}</span>
-      <span class="tracker-opened-by">${item.opened_by || ""}</span>
-      <span class="tracker-responders">${Array.isArray(item.responders) && item.responders.length ? item.responders.join(", ") : ""}</span>
-      <span class="tracker-severity ${sevClass}">${item.severity || "normal"}</span>
+      <span class="tracker-item-title">${escapeHtml(item.title)}${item.github_author ? `<span class="tracker-author-tag">by ${escapeHtml(item.github_author)}</span>` : ""}${["closed","merged","deferred"].includes(item.status) ? `<span class="tracker-closed-badge badge-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>` : ""}</span>
+      <span class="tracker-assignee">${item.assigned_to ? "@" + escapeHtml(item.assigned_to) : ""}</span>
+      <span class="tracker-opened-by">${escapeHtml(item.opened_by || "")}</span>
+      <span class="tracker-responders">${Array.isArray(item.responders) && item.responders.length ? escapeHtml(item.responders.join(", ")) : ""}</span>
+      <span class="tracker-severity ${sevClass}">${escapeHtml(item.severity || "normal")}</span>
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
       <span class="tracker-activity ${activeStale}">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
     </div>
     <div class="tracker-item-detail">
-      ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${item.repo}/issues/${item.number}" target="_blank">${item.repo}#${item.number} on GitHub &#x2197;</a></div>` : ""}
-      ${item.blocker ? `<div class="tracker-blocker-badge">${item.blocker}</div>` : ""}
-      ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${item.findings}</div></div>` : ""}
-      ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${item.decision}</div></div>` : ""}
-      ${item.decision_rationale ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Rationale</div><div class="tracker-detail-value">${item.decision_rationale}</div></div>` : ""}
-      ${item.notes ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Notes</div><div class="tracker-detail-value">${item.notes}</div></div>` : ""}
-      ${item.labels?.length ? `<div class="tracker-detail-section">${item.labels.map(l => `<span class="tracker-label">${l}</span>`).join(" ")}</div>` : ""}
+      ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/microsoft/${encodeURIComponent(item.repo)}/issues/${encodeURIComponent(item.number)}" target="_blank">${escapeHtml(item.repo)}#${escapeHtml(item.number)} on GitHub &#x2197;</a></div>` : ""}
+      ${item.blocker ? `<div class="tracker-blocker-badge">${escapeHtml(item.blocker)}</div>` : ""}
+      ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${escapeHtml(item.findings)}</div></div>` : ""}
+      ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${escapeHtml(item.decision)}</div></div>` : ""}
+      ${item.decision_rationale ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Rationale</div><div class="tracker-detail-value">${escapeHtml(item.decision_rationale)}</div></div>` : ""}
+      ${item.notes ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Notes</div><div class="tracker-detail-value">${escapeHtml(item.notes)}</div></div>` : ""}
+      ${item.labels?.length ? `<div class="tracker-detail-section">${item.labels.map(l => `<span class="tracker-label">${escapeHtml(l)}</span>`).join(" ")}</div>` : ""}
       <div class="tracker-detail-meta">
-        <span>Opened by <strong>${item.opened_by || item.github_author || item.created_by || "?"}</strong></span>
-        ${item.github_last_commenter ? `<span>Last reply: <strong>${item.github_last_commenter}</strong></span>` : ""}
+        <span>Opened by <strong>${escapeHtml(item.opened_by || item.github_author || item.created_by || "?")}</strong></span>
+        ${item.github_last_commenter ? `<span>Last reply: <strong>${escapeHtml(item.github_last_commenter)}</strong></span>` : ""}
         <span>${new Date(item.created_at).toLocaleString()}</span>
         <span>Updated ${new Date(item.updated_at).toLocaleString()}</span>
-        <span>Status: ${item.status}</span>
+        <span>Status: ${escapeHtml(item.status)}</span>
       </div>
     </div>`;
 
@@ -3099,19 +3100,19 @@ function loadTrackerHistory(el, itemId) {
       const entries = history.map(h => {
         let what = "";
         if (h.field === "status") {
-          what = `<span class="tl-arrow">\u2192</span> ${h.new_value}`;
+          what = `<span class="tl-arrow">\u2192</span> ${escapeHtml(h.new_value)}`;
         } else if (h.field === "assigned_to") {
-          what = `assigned \u2192 ${h.new_value || "unassigned"}`;
+          what = `assigned \u2192 ${escapeHtml(h.new_value || "unassigned")}`;
         } else if (h.field === "blocker") {
-          what = h.new_value ? `blocker: ${h.new_value}` : "blocker cleared";
+          what = h.new_value ? `blocker: ${escapeHtml(h.new_value)}` : "blocker cleared";
         } else {
-          what = `${h.field}: ${h.new_value || "(cleared)"}`;
+          what = `${escapeHtml(h.field)}: ${escapeHtml(h.new_value || "(cleared)")}`;
         }
-        if (h.comment) what += ` <span class="tl-comment">${h.comment}</span>`;
+        if (h.comment) what += ` <span class="tl-comment">${escapeHtml(h.comment)}</span>`;
 
         return `<div class="tracker-timeline-entry">
           <span class="tracker-timeline-date">${fmtTs(h.changed_at)}</span>
-          <span class="tracker-timeline-who">[${h.changed_by}]</span>
+          <span class="tracker-timeline-who">[${escapeHtml(h.changed_by)}]</span>
           <span class="tracker-timeline-what">${what}</span>
         </div>`;
       }).join("");
@@ -3705,7 +3706,7 @@ window.addEventListener("load", () => {
         let emails;
         try { emails = JSON.parse(text); } catch { emails = { error: "parse error" }; }
         if (!Array.isArray(emails)) {
-          body.innerHTML = `<div class="feed-empty">// ${(emails.error || "UNAVAILABLE").toUpperCase()}</div>`;
+          body.innerHTML = `<div class="feed-empty">// ${escapeHtml((emails.error || "UNAVAILABLE").toUpperCase())}</div>`;
           updateUnreadBadge(0);
           return;
         }
