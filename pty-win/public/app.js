@@ -77,8 +77,11 @@ import {
   resolveFolderSessions,
 } from "./lib/folder-tree.js";
 
+/** @type {string | null} */
 let dragSrcWsId = null;
+/** @type {ReturnType<typeof setInterval> | null} */
 let diagPollTimer = null;
+/** @type {ReturnType<typeof setInterval> | null} */
 let trackerPollTimer = null;
 
 function rebuildPaneGroups() {
@@ -1290,6 +1293,7 @@ function renderQuickOpenResults(query) {
   container.innerHTML = "";
 
   const q = query.toLowerCase();
+  /** @type {any[]} */
   const matches = state.visitedFolders
     .filter((f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
     .slice(0, 20);
@@ -1583,7 +1587,8 @@ function renderTabs() {
       const rect = tab.getBoundingClientRect();
       const isLeft = e.clientX < rect.left + rect.width / 2;
       const srcIdx = state.workspaces.findIndex((w) => w.id === dragSrcWsId);
-      const [removed] = state.workspaces.splice(srcIdx, 1);
+      /** @type {any} */
+      const removed = state.workspaces.splice(srcIdx, 1)[0];
       const tgtIdx = state.workspaces.findIndex((w) => w.id === ws.id);
       state.workspaces.splice(isLeft ? tgtIdx : tgtIdx + 1, 0, removed);
       dragSrcWsId = null;
@@ -1591,6 +1596,7 @@ function renderTabs() {
     });
 
     // Single-click delayed to allow double-click to cancel it
+    /** @type {ReturnType<typeof setTimeout> | null} */
     let clickTimer = null;
     tab.onclick = () => {
       if (clickTimer) return; // already pending
@@ -2989,6 +2995,7 @@ function initTrackerColumnResize(container) {
   const ths = [...thead.querySelectorAll(".tracker-th")];
 
   // Load saved widths (reset if column count changed)
+  /** @type {number[]} */
   let colWidths;
   try {
     const saved = localStorage.getItem("pty-win-tracker-col-widths");
