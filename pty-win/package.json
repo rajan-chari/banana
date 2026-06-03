@@ -21,7 +21,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check:public": "tsc -p tsconfig.public.json",
-    "check": "npm run build -- --noEmit && npm run check:public"
+    "check:deps": "madge --circular public/ && madge --circular --extensions ts src/",
+    "check": "npm run build -- --noEmit && npm run check:public && npm run check:deps"
   },
   "dependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
@@ -34,6 +35,7 @@
     "@types/ws": "^8.5.0",
     "@vitest/coverage-v8": "^4.1.2",
     "happy-dom": "^20.9.0",
+    "madge": "^8.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.2"
   }

@@ -98,15 +98,16 @@ export function classifyOrphanGroups(orphanGroups, sessionMeta) {
  * included in the result — caller need only apply returned updates.
  *
  * @template TLayout
- * @param {Array<{ id: string, layout?: TLayout | null }>} workspaces
+ * @template {{ id: string, layout?: TLayout | null }} TWorkspace
+ * @param {TWorkspace[]} workspaces
  * @param {Iterable<string>} deadLeaves
  * @param {(layout: TLayout) => string[]} getLeafListFn
  * @param {(leaves: string[]) => TLayout} buildBalancedTreeFn
- * @returns {Array<{ workspace: { id: string, layout?: TLayout | null }, newLayout: TLayout }>}
+ * @returns {Array<{ workspace: TWorkspace, newLayout: TLayout }>}
  */
 export function rebalanceLayoutsWithoutLeaves(workspaces, deadLeaves, getLeafListFn, buildBalancedTreeFn) {
   const deadSet = deadLeaves instanceof Set ? deadLeaves : new Set(deadLeaves);
-  /** @type {Array<{ workspace: { id: string, layout?: TLayout | null }, newLayout: TLayout }>} */
+  /** @type {Array<{ workspace: TWorkspace, newLayout: TLayout }>} */
   const updates = [];
   for (const ws of workspaces) {
     if (!ws.layout) continue;

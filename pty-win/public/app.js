@@ -110,6 +110,46 @@ function byId(id) {
   return el;
 }
 
+/**
+ * Get an element by id, asserting it is an HTMLInputElement at runtime.
+ * Prefer over compile-time type-casts of byId(...): the cast only asserts
+ * existence, not tag type — a future markup change (input -> textarea) would
+ * silently break .value access. This throws on mismatch.
+ * @param {string} id
+ * @returns {HTMLInputElement}
+ */
+function inputById(id) {
+  const el = byId(id);
+  if (!(el instanceof HTMLInputElement)) {
+    throw new Error(`Element #${id} is not an HTMLInputElement (got ${el.tagName})`);
+  }
+  return el;
+}
+
+/**
+ * @param {string} id
+ * @returns {HTMLSelectElement}
+ */
+function selectById(id) {
+  const el = byId(id);
+  if (!(el instanceof HTMLSelectElement)) {
+    throw new Error(`Element #${id} is not an HTMLSelectElement (got ${el.tagName})`);
+  }
+  return el;
+}
+
+/**
+ * @param {string} id
+ * @returns {HTMLButtonElement}
+ */
+function buttonById(id) {
+  const el = byId(id);
+  if (!(el instanceof HTMLButtonElement)) {
+    throw new Error(`Element #${id} is not an HTMLButtonElement (got ${el.tagName})`);
+  }
+  return el;
+}
+
 function rebuildPaneGroups() {
   state.paneGroups = _rebuildPaneGroups(state.sessions, state.paneGroups);
 }
@@ -165,7 +205,7 @@ function connect() {
           const updates = rebalanceLayoutsWithoutLeaves(state.workspaces, unrecoverable, getLeafList, buildBalancedTree);
           for (const { workspace, newLayout } of updates) {
             workspace.layout = newLayout;
-            updateWorkspaceTabName(/** @type {import('./lib/state.js').Workspace} */ (workspace));
+            updateWorkspaceTabName(workspace);
           }
         }
 
@@ -1362,7 +1402,7 @@ byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ asyn
 
 function openQuickOpen() {
   const overlay = byId("quick-open");
-  const input = /** @type {HTMLInputElement} */ (byId("quick-open-input"));
+  const input = inputById("quick-open-input");
   overlay.classList.remove("hidden");
   input.value = "";
   input.focus();
@@ -2212,13 +2252,14 @@ function createPane(groupName) {
   });
 
   const identityEl = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-identity"));
-  if (identityEl && info) {
+  if (identityEl && info && info.emcomIdentity) {
+    const identity = info.emcomIdentity;
     identityEl.style.cursor = "pointer";
-    identityEl.title = `Switch feed to ${info.emcomIdentity}`;
+    identityEl.title = `Switch feed to ${identity}`;
     identityEl.onclick = /** @param {MouseEvent} e */ (e) => {
       e.stopPropagation();
-      localStorage.setItem("pty-win-feed-identity", info.emcomIdentity);
-      window.dispatchEvent(new CustomEvent("feed-identity-change", { detail: info.emcomIdentity }));
+      localStorage.setItem("pty-win-feed-identity", identity);
+      window.dispatchEvent(new CustomEvent("feed-identity-change", { detail: identity }));
     };
   }
 
@@ -2557,12 +2598,14 @@ function showPaneContextMenu(e, groupName) {
   const isNoAi = !claudeSession || claudeSession.status === "dead";
   if (isDeadAi || isNoAi) {
     const resumeItem = document.createElement("div");
-    resumeItem.className = `ctx-item ${isDeadAi ? "" : "ctx-disabled"}`;
+    const canResume = isDeadAi && !!claudeSession?.workingDir;
+    resumeItem.className = `ctx-item ${canResume ? "" : "ctx-disabled"}`;
     resumeItem.textContent = "\u25b6 Resume Claude session";
-    if (isDeadAi) {
+    if (canResume && claudeSession?.workingDir) {
+      const wd = claudeSession.workingDir;
       resumeItem.onclick = () => {
         menu.classList.add("hidden");
-        openFolder(claudeSession.workingDir, groupName, "claude", false, ["--resume"]);
+        openFolder(wd, groupName, "claude", false, ["--resume"]);
       };
     }
     menu.appendChild(resumeItem);
@@ -2658,8 +2701,8 @@ function updatePaneStatus(sessionName) {
     if (dot) dot.className = `status-dot ${dotClass}`;
     if (label) label.textContent = info.pendingPermission ? "permission" : info.status;
     if (unread) {
-      unread.textContent = String(info.unreadCount);
-      unread.classList.toggle("show", info.unreadCount > 0);
+      unread.textContent = String(info.unreadCount ?? 0);
+      unread.classList.toggle("show", (info.unreadCount ?? 0) > 0);
     }
     pane.classList.toggle("dead", info.status === "dead");
     pane.classList.toggle("pending-permission", !!info.pendingPermission);
@@ -3024,7 +3067,7 @@ function patchDashboard(dash) {
       const badgeEl = card.querySelector(".dashboard-card-badge");
       const unread = info.unreadCount || 0;
       if (badgeEl) {
-        badgeEl.textContent = unread;
+        badgeEl.textContent = String(unread);
         badgeEl.className = `dashboard-card-badge ${unread > 0 ? "show" : ""}`;
       }
     }
@@ -3257,7 +3300,14 @@ function patchTrackerItem(el, item) {
 const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = flex; first col is row #
 
 /**
- * @param {HTMLElement} container
+ * Tracker container element with expandos for column-resize state.
+ * The expandos are attached by initTrackerColumnResize() and re-read on
+ * subsequent renderTracker() calls to apply widths to newly-appended rows.
+ * @typedef {HTMLElement & { _applyColWidths?: () => void, _colWidths?: number[] }} TrackerContainer
+ */
+
+/**
+ * @param {TrackerContainer} container
  */
 function initTrackerColumnResize(container) {
   const thead = /** @type {HTMLElement | null} */ (container.querySelector(".tracker-thead"));
@@ -3285,8 +3335,8 @@ function initTrackerColumnResize(container) {
   applyWidths();
 
   // Store applyWidths so new rows can pick it up
-  /** @type {any} */ (container)._applyColWidths = applyWidths;
-  /** @type {any} */ (container)._colWidths = colWidths;
+  container._applyColWidths = applyWidths;
+  container._colWidths = colWidths;
 
   // Add resize handles to all but last header
   for (let i = 0; i < ths.length - 1; i++) {
@@ -3361,7 +3411,7 @@ function renderTracker() {
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
 
   // Ensure container + chrome exist (build once)
-  let container = /** @type {HTMLElement | null} */ (area.querySelector(".tracker-view"));
+  let container = /** @type {TrackerContainer | null} */ (area.querySelector(".tracker-view"));
   if (!container) {
     area.innerHTML = "";
     container = document.createElement("div");
@@ -3518,7 +3568,7 @@ function renderTracker() {
 }
 
 /**
- * @param {HTMLElement} container
+ * @param {TrackerContainer} container
  * @param {any[]} items
  */
 function renderTrackerBody(container, items) {
@@ -3613,16 +3663,15 @@ function renderTrackerBody(container, items) {
   trackerPrevItems = newItemMap;
 
   // Apply column widths to any new rows
-  const containerAny = /** @type {any} */ (container);
-  if (containerAny._applyColWidths) containerAny._applyColWidths();
+  if (container._applyColWidths) container._applyColWidths();
 }
 
 // ===== Modal =====
 
 function openModal() {
   byId("modal-overlay").classList.remove("hidden");
-  /** @type {HTMLInputElement} */ (byId("m-path")).value = "";
-  /** @type {HTMLInputElement} */ (byId("m-cmd")).value = "claude";
+  inputById("m-path").value = "";
+  inputById("m-cmd").value = "claude";
   byId("m-path").focus();
 }
 
@@ -3632,8 +3681,8 @@ function closeModal() {
 
 byId("m-cancel").onclick = closeModal;
 byId("m-create").onclick = () => {
-  const path = /** @type {HTMLInputElement} */ (byId("m-path")).value.trim();
-  const cmd = /** @type {HTMLInputElement} */ (byId("m-cmd")).value.trim() || undefined;
+  const path = inputById("m-path").value.trim();
+  const cmd = inputById("m-cmd").value.trim() || undefined;
   if (!path) { alert("Path is required."); return; }
   closeModal();
   openFolder(path, "", cmd);
@@ -3912,8 +3961,8 @@ window.addEventListener("load", () => {
   let filterText = "";
 
   // --- Toolbar controls ---
-  const searchInput = /** @type {HTMLInputElement} */ (byId("feed-search"));
-  const senderSelect = /** @type {HTMLSelectElement} */ (byId("feed-sender-filter"));
+  const searchInput = inputById("feed-search");
+  const senderSelect = selectById("feed-sender-filter");
   const sortBtn = byId("feed-sort-btn");
   const threadsBtn = byId("feed-threads-btn");
 
@@ -4150,21 +4199,20 @@ function renderAgentsPanel() {
     const statsMap = new Map(stats.map(s => [s.name, s]));
 
     // Patch summary
-    const blocked = allSessions.filter(([, i]) => i.status === "waiting").length;
     const busy = allSessions.filter(([, i]) => i.status === "busy").length;
     const idle = allSessions.filter(([, i]) => i.status === "idle").length;
     const needsInputCount = allSessions.filter(([name, i]) => {
       const st = statsMap.get(name);
       const cbs = st ? st.busy.callbacksPerSec : 0;
-      return i.status !== "dead" && i.status !== "waiting" && (
-        i.hookNotificationType === "permission_prompt" ||
+      return i.status !== "dead" && (
+        i.pendingPermission ||
         (i.status === "busy" && cbs === 0)
       );
     }).length;
     const totalCost = allSessions.reduce((s, [, i]) => s + (i.costUsd || 0), 0);
     const summaryEl = panel.querySelector(".agents-summary");
     if (summaryEl) {
-      summaryEl.innerHTML = `${busy} busy · ${idle} idle${needsInputCount > 0 ? ` · <span class="agents-needs-input-count">${needsInputCount} need input</span>` : ""}${blocked > 0 ? ` · <span class="agents-blocked-count">${blocked} blocked</span>` : ""} · $${totalCost.toFixed(2)}`;
+      summaryEl.innerHTML = `${busy} busy · ${idle} idle${needsInputCount > 0 ? ` · <span class="agents-needs-input-count">${needsInputCount} need input</span>` : ""} · $${totalCost.toFixed(2)}`;
     }
 
     const tbody = panel.querySelector("tbody");
@@ -4193,13 +4241,12 @@ function renderAgentsPanel() {
       }
 
       const cbs = s ? s.busy.callbacksPerSec : 0;
-      const isBlocked = info.status === "waiting";
       // permission_prompt hook = definite needs input; busy + 0 cb/s = probable needs input
-      const needsInput = !isBlocked && info.status !== "dead" && (
-        info.hookNotificationType === "permission_prompt" ||
+      const needsInput = info.status !== "dead" && (
+        info.pendingPermission ||
         (info.status === "busy" && cbs === 0)
       );
-      row.className = `agents-row ${isBlocked ? "agents-blocked" : ""} ${needsInput ? "agents-needs-input" : ""}`;
+      row.className = `agents-row ${needsInput ? "agents-needs-input" : ""}`;
 
       const cells = row.children;
       const nameText = name;
@@ -4385,7 +4432,7 @@ function drawSparkline(canvas, data) {
   const backdrop = byId("settings-modal-backdrop");
   const closeBtn = byId("settings-modal-close");
   const cancelBtn = byId("settings-modal-cancel");
-  const saveBtn = /** @type {HTMLButtonElement} */ (byId("settings-modal-save"));
+  const saveBtn = buttonById("settings-modal-save");
   const body = byId("settings-modal-body");
   const status = byId("settings-modal-status");
 

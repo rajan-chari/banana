@@ -14,7 +14,26 @@
 /** @typedef {{ name: string, command: string, icon: string }} AiPreset */
 /** @typedef {{ claude?: string, pwsh?: string, activeType: "claude"|"pwsh", [key: string]: any }} PaneGroup */
 /** @typedef {{ term: any, fitAddon: any, opened: boolean, wrapperEl: HTMLElement, resizeObserver?: ResizeObserver, [key: string]: any }} TerminalEntry */
-/** @typedef {{ name: string, group: string, command: string, status: string, [key: string]: any }} SessionInfo */
+/** @typedef {"starting" | "busy" | "idle" | "dead"} SessionStatus */
+/**
+ * Mirrors the server's SessionInfo (src/session.ts). Index signature dropped
+ * intentionally — every field accessed in browser code must be declared here
+ * so typos and stale field names (like hookNotificationType, which is never
+ * set server-side) are caught at type-check time.
+ * @typedef {{
+ *   name: string,
+ *   group: string,
+ *   command: string,
+ *   workingDir?: string,
+ *   pid?: number,
+ *   status: SessionStatus,
+ *   emcomIdentity?: string | null,
+ *   unreadCount?: number,
+ *   dirtyOnExit?: boolean,
+ *   costUsd?: number,
+ *   lastActiveMs?: number,
+ *   pendingPermission?: boolean
+ * }} SessionInfo */
 /** @typedef {{ isClaudeReady: boolean, hasIdentity: boolean, identityName?: string | null }} FolderInfo */
 /** @typedef {{ workingDir?: string, command?: string | null, [key: string]: any }} SessionMeta */
 /** @typedef {Record<string, any>} TrackerItem */
