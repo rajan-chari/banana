@@ -561,7 +561,7 @@ function renderQuickAccess() {
   if (state.pinnedFolders.length === 0) return;
 
   for (const folderPath of state.pinnedFolders) {
-    const name = folderPath.split(/[/\\]/).filter(Boolean).pop();
+    const name = folderPath.split(/[/\\]/).filter(Boolean).pop() || folderPath;
     const np = normPath(folderPath);
 
     const row = document.createElement("div");
@@ -1243,12 +1243,12 @@ function showContextMenu(e, path) {
   const menu = byId("context-menu");
   const isFav = state.favorites.includes(path);
 
-  menu.querySelector('[data-action="fav-add"]').classList.toggle("ctx-disabled", isFav);
-  menu.querySelector('[data-action="fav-remove"]').classList.toggle("ctx-disabled", !isFav);
+  menu.querySelector('[data-action="fav-add"]')?.classList.toggle("ctx-disabled", isFav);
+  menu.querySelector('[data-action="fav-remove"]')?.classList.toggle("ctx-disabled", !isFav);
 
   const isPinned = state.pinnedFolders.includes(path);
-  menu.querySelector('[data-action="pin-add"]').classList.toggle("ctx-disabled", isPinned);
-  menu.querySelector('[data-action="pin-remove"]').classList.toggle("ctx-disabled", !isPinned);
+  menu.querySelector('[data-action="pin-add"]')?.classList.toggle("ctx-disabled", isPinned);
+  menu.querySelector('[data-action="pin-remove"]')?.classList.toggle("ctx-disabled", !isPinned);
 
   // Hide separator only when both pin items are disabled (nothing meaningful to show)
   const pinSep = /** @type {HTMLElement | null} */ (menu.querySelector(".ctx-sep-pin"));
@@ -1318,7 +1318,7 @@ byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ asyn
         state.folderCache.delete(path);
         state.expandedPaths.add(path);
         renderTree();
-      } catch (err) { alert("Failed to create folder: " + err.message); }
+      } catch (err) { alert("Failed to create folder: " + (err instanceof Error ? err.message : String(err))); }
       break;
     }
     case "fav-add":
@@ -1411,8 +1411,9 @@ function renderQuickOpenResults(query) {
   }
 }
 
-byId("quick-open-input").addEventListener("input", /** @param {InputEvent & { target: HTMLInputElement }} e */ (e) => {
-  renderQuickOpenResults(e.target.value);
+byId("quick-open-input").addEventListener("input", /** @param {Event} e */ (e) => {
+  const t = e.target;
+  if (t instanceof HTMLInputElement) renderQuickOpenResults(t.value);
 });
 
 byId("quick-open-input").addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
@@ -1987,7 +1988,7 @@ function applyLayoutPreset(ws, idx) {
   const preset = LAYOUT_PRESETS[idx];
   const sessions = getLeafList(ws.layout);
   if (!preset || sessions.length < preset.min) return;
-  ws.layout = preset.build(sessions);
+  ws.layout = /** @type {import('./lib/state.js').TileNode} */ (preset.build(sessions));
   saveWorkspaces(); renderActiveWorkspace();
 }
 
@@ -2177,11 +2178,11 @@ function createPane(groupName) {
 
   // Toggle button handlers
   if (hasBoth) {
-    topbar.querySelector(".toggle-claude")?.addEventListener("click", /** @param {MouseEvent} e */ (e) => {
+    topbar.querySelector(".toggle-claude")?.addEventListener("click", (e) => {
       e.stopPropagation();
       switchPaneType(groupName, "claude");
     });
-    topbar.querySelector(".toggle-pwsh")?.addEventListener("click", /** @param {MouseEvent} e */ (e) => {
+    topbar.querySelector(".toggle-pwsh")?.addEventListener("click", (e) => {
       e.stopPropagation();
       switchPaneType(groupName, "pwsh");
     });
@@ -2211,7 +2212,7 @@ function createPane(groupName) {
   });
 
   const identityEl = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-identity"));
-  if (identityEl) {
+  if (identityEl && info) {
     identityEl.style.cursor = "pointer";
     identityEl.title = `Switch feed to ${info.emcomIdentity}`;
     identityEl.onclick = /** @param {MouseEvent} e */ (e) => {
@@ -2221,8 +2222,9 @@ function createPane(groupName) {
     };
   }
 
-  topbar.addEventListener("mousedown", /** @param {MouseEvent & { target: HTMLElement }} e */ (e) => {
-    if (e.target.closest("button, .pane-close, .pane-action, .pane-identity, .toggle-btn")) return;
+  topbar.addEventListener("mousedown", (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && t.closest("button, .pane-close, .pane-action, .pane-identity, .toggle-btn")) return;
     if (e.button !== 0) return;
     startPaneDrag(e, groupName);
   });
@@ -2396,7 +2398,7 @@ function ensureTerminal(sessionName) {
 
 /**
  * @param {string} groupName
- * @param {string} type
+ * @param {"claude" | "pwsh"} type
  */
 function switchPaneType(groupName, type) {
   const pg = state.paneGroups.get(groupName);
@@ -2469,8 +2471,9 @@ function showAiTagContextMenu(e, folderPath, folderName) {
 
   render();
 
-  const close = /** @param {MouseEvent & { target: Node }} ev */ (ev) => {
-    if (!menu.contains(ev.target)) {
+  const close = (/** @type {MouseEvent} */ ev) => {
+    const t = ev.target instanceof Node ? ev.target : null;
+    if (!menu.contains(t)) {
       menu.classList.add("hidden");
       document.removeEventListener("mousedown", close);
     }
@@ -2523,8 +2526,9 @@ function showAiPicker(e, folderPath, folderName) {
   };
   menu.appendChild(customItem);
 
-  const close = /** @param {MouseEvent & { target: Node }} ev */ (ev) => {
-    if (!menu.contains(ev.target)) {
+  const close = (/** @type {MouseEvent} */ ev) => {
+    const t = ev.target instanceof Node ? ev.target : null;
+    if (!menu.contains(t)) {
       menu.classList.add("hidden");
       document.removeEventListener("mousedown", close);
     }
@@ -2603,8 +2607,9 @@ function showPaneContextMenu(e, groupName) {
   menu.appendChild(newItem);
 
   // Close on click outside
-  const close = /** @param {MouseEvent & { target: Node }} ev */ (ev) => {
-    if (!menu.contains(ev.target)) {
+  const close = (/** @type {MouseEvent} */ ev) => {
+    const t = ev.target instanceof Node ? ev.target : null;
+    if (!menu.contains(t)) {
       menu.classList.add("hidden");
       document.removeEventListener("mousedown", close);
     }
@@ -2740,7 +2745,7 @@ async function killSession(sessionName) {
   // Determine group — only remove tiling leaf if no sibling alive
   const groupName = sessionName.replace(/~pwsh$/, "");
   const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
-  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName).status !== "dead";
+  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
 
   if (!siblingAlive) {
     // No sibling — remove pane from all workspaces
@@ -2778,8 +2783,8 @@ async function killSession(sessionName) {
  * @param {string} workingDir
  */
 function showDirtyWarning(sessionName, workingDir) {
-  const folderName = workingDir.split(/[/\\]/).filter(Boolean).pop();
-  log(`[dirty] ${sessionName} exited with uncommitted changes in ${folderName}`);
+  const folderName = workingDir.split(/[/\\]/).filter(Boolean).pop() || workingDir;
+  console.warn(`[dirty] ${sessionName} exited with uncommitted changes in ${folderName}`);
   const toast = document.createElement("div");
   toast.className = "dirty-toast";
   toast.innerHTML = `<strong>⚠ ${escapeHtml(folderName)}</strong> has uncommitted changes (session ${escapeHtml(sessionName)} exited)`;
@@ -2802,7 +2807,7 @@ function autoRemoveDeadSession(sessionName) {
 
   const groupName = sessionName.replace(/~pwsh$/, "");
   const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
-  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName).status !== "dead";
+  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
 
   if (!siblingAlive) {
     // No sibling — remove pane from all workspaces
@@ -3137,6 +3142,7 @@ function renderDashboardStats() {
 const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred", "merged", "closed", "ready-to-merge", "testing", "pr-up"];
 /** @type {import('./lib/tracker-filters.js').TrackerSortField} */
 let trackerSortField = "status"; // default: grouped by status
+/** @type {import('./lib/tracker-filters.js').TrackerSortDir} */
 let trackerSortDir = "asc";
 let trackerPrevItems = new Map();
 
@@ -3355,7 +3361,6 @@ function renderTracker() {
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
 
   // Ensure container + chrome exist (build once)
-  /** @type {HTMLElement} */
   let container = /** @type {HTMLElement | null} */ (area.querySelector(".tracker-view"));
   if (!container) {
     area.innerHTML = "";
@@ -3394,9 +3399,13 @@ function renderTracker() {
       </div>
       <div class="tracker-body"></div>`;
     area.appendChild(container);
+  }
+  const c = container;
+  if (!c.dataset.wired) {
+    c.dataset.wired = "1";
 
     // Wire sortable headers
-    container.querySelectorAll(".tracker-th").forEach(th => {
+    c.querySelectorAll(".tracker-th").forEach(th => {
       if (!(th instanceof HTMLElement)) return;
       th.onclick = () => {
         const field = /** @type {import('./lib/tracker-filters.js').TrackerSortField} */ (th.dataset.sort || "status");
@@ -3407,22 +3416,22 @@ function renderTracker() {
           trackerSortDir = "asc";
         }
         // Update sort indicators
-        container.querySelectorAll(".tracker-th").forEach(h => {
+        c.querySelectorAll(".tracker-th").forEach(h => {
           if (!(h instanceof HTMLElement)) return;
           h.classList.toggle("sort-active", h.dataset.sort === trackerSortField);
           const arrow = h.querySelector(".sort-arrow");
           if (arrow) arrow.textContent = h.dataset.sort === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
         });
-        renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
+        renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
       };
     });
 
     // Wire refresh button
-    const refreshBtn = /** @type {HTMLElement | null} */ (container.querySelector("#tracker-refresh-btn"));
+    const refreshBtn = /** @type {HTMLElement | null} */ (c.querySelector("#tracker-refresh-btn"));
     if (refreshBtn) refreshBtn.onclick = () => renderTracker();
 
     // Wire closed toggle
-    const closedToggle = /** @type {HTMLInputElement | null} */ (container.querySelector("#tracker-closed-toggle"));
+    const closedToggle = /** @type {HTMLInputElement | null} */ (c.querySelector("#tracker-closed-toggle"));
     if (closedToggle) {
       closedToggle.checked = localStorage.getItem("pty-win-tracker-show-closed") === "true";
       closedToggle.onchange = () => {
@@ -3432,7 +3441,7 @@ function renderTracker() {
     }
 
     // Wire column resize handles
-    initTrackerColumnResize(container);
+    initTrackerColumnResize(c);
 
     // Wire filter dropdowns
     const wireFilter = /**
@@ -3440,13 +3449,13 @@ function renderTracker() {
      * @param {string} _key reserved for future use; currently the localStorage key derives from id
      */
     (id, _key) => {
-      const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (container.querySelector(`#${id}`));
+      const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (c.querySelector(`#${id}`));
       if (!el) return;
       const saved = localStorage.getItem(`pty-win-${id}`);
       if (saved) el.value = saved;
       el.onchange = () => {
         localStorage.setItem(`pty-win-${id}`, el.value);
-        renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
+        renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
       };
     };
     wireFilter("tracker-filter-repo", "repo");
@@ -3455,17 +3464,17 @@ function renderTracker() {
 
     // Wire category toggle buttons
     const savedCat = localStorage.getItem("pty-win-tracker-cat") || "";
-    container.querySelectorAll(".tracker-cat-btn").forEach(btn => {
+    c.querySelectorAll(".tracker-cat-btn").forEach(btn => {
       if (!(btn instanceof HTMLElement)) return;
       if (btn.dataset.cat === savedCat) {
-        container.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
+        c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
       }
       btn.onclick = () => {
-        container.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
+        c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         localStorage.setItem("pty-win-tracker-cat", btn.dataset.cat ?? "");
-        renderTrackerBody(container, filterTrackerItems(state.trackerItems || []));
+        renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
       };
     });
   }
@@ -3487,7 +3496,7 @@ function renderTracker() {
       }
 
       // Update chrome stats
-      const statsEl = container.querySelector(".tracker-chrome-stats");
+      const statsEl = c.querySelector(".tracker-chrome-stats");
       if (statsEl) {
         const dec = items.filter(i => i.status === "decision-pending").length;
         const inv = items.filter(i => i.status === "investigating").length;
@@ -3500,10 +3509,10 @@ function renderTracker() {
       }
 
       populateTrackerFilters(items);
-      renderTrackerBody(container, filterTrackerItems(items));
+      renderTrackerBody(c, filterTrackerItems(items));
     })
     .catch(() => {
-      const body = container.querySelector(".tracker-body");
+      const body = c.querySelector(".tracker-body");
       if (body) body.innerHTML = `<div class="tracker-error">// CONNECTION FAILED</div>`;
     });
 }
@@ -3839,8 +3848,8 @@ window.addEventListener("load", () => {
    */
   function updateUnreadBadge(count) {
     if (count > 0) {
-      unreadBadge.textContent = count; unreadBadge.classList.remove("hidden");
-      stripBadge.textContent = count; stripBadge.classList.remove("hidden");
+      unreadBadge.textContent = String(count); unreadBadge.classList.remove("hidden");
+      stripBadge.textContent = String(count); stripBadge.classList.remove("hidden");
     } else {
       unreadBadge.classList.add("hidden");
       stripBadge.classList.add("hidden");
@@ -3975,8 +3984,8 @@ window.addEventListener("load", () => {
          * @param {any} b
          */
         (a, b) => sortNewest
-          ? new Date(b.created_at) - new Date(a.created_at)
-          : new Date(a.created_at) - new Date(b.created_at));
+          ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          : new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
         // Populate sender dropdown (preserve current selection)
         const senders = [...new Set(emails.map(/** @param {any} e */ e => e.sender))].sort();
@@ -4041,8 +4050,9 @@ window.addEventListener("load", () => {
             <div class="feed-subject">${escHtml(root.subject)}${replies.length > 0 ? `<span class="feed-thread-count">[${replies.length + 1}]</span>` : ""}</div>
             <div class="feed-preview">${escHtml((root.body || "").slice(0, 100))}</div>
             <div class="feed-body-text">${escHtml(root.body || "")}</div>`;
-          div.onclick = /** @param {MouseEvent & { target: HTMLElement }} e */ (e) => {
-            if (e.target.closest(".feed-body-text")) return;
+          div.onclick = (e) => {
+            const t = e.target instanceof Element ? e.target : null;
+            if (t && t.closest(".feed-body-text")) return;
             if (expandedItems.has(root.id)) expandedItems.delete(root.id);
             else expandedItems.add(root.id);
             div.classList.toggle("expanded");
@@ -4065,8 +4075,9 @@ window.addEventListener("load", () => {
               </div>
               <div class="feed-preview">${escHtml((reply.body || "").slice(0, 100))}</div>
               <div class="feed-body-text">${escHtml(reply.body || "")}</div>`;
-            rdiv.onclick = /** @param {MouseEvent & { target: HTMLElement }} e */ (e) => {
-              if (e.target.closest(".feed-body-text")) return;
+            rdiv.onclick = (e) => {
+              const t = e.target instanceof Element ? e.target : null;
+              if (t && t.closest(".feed-body-text")) return;
               if (expandedItems.has(reply.id)) expandedItems.delete(reply.id);
               else expandedItems.add(reply.id);
               rdiv.classList.toggle("expanded");
@@ -4094,8 +4105,8 @@ window.addEventListener("load", () => {
   setInterval(() => { if (feedIdentity) renderFeed(); }, FEED_POLL_MS);
 
   // Listen for identity changes from pane topbar clicks
-  window.addEventListener("feed-identity-change", /** @param {CustomEvent} e */ (e) => {
-    feedIdentity = e.detail;
+  window.addEventListener("feed-identity-change", (e) => {
+    feedIdentity = /** @type {CustomEvent} */ (e).detail;
     pickerOpen = false;
     lastFeedJson = "";
     updateTitle();
@@ -4117,7 +4128,7 @@ function renderAgentsPanel() {
   }
 
   // Build table structure once, then patch. If empty state was showing, rebuild.
-  let panel = area.querySelector(".agents-panel");
+  let panel = /** @type {HTMLElement | null} */ (area.querySelector(".agents-panel"));
   if (!panel || !panel.querySelector(".agents-table")) {
     area.innerHTML = "";
     panel = document.createElement("div");
@@ -4211,7 +4222,7 @@ function renderAgentsPanel() {
     }
 
     // Patch or create total row
-    let totalRow = tbody.querySelector(".agents-total-row");
+    let totalRow = /** @type {HTMLElement | null} */ (tbody.querySelector(".agents-total-row"));
     if (totalCost > 0) {
       if (!totalRow) {
         totalRow = document.createElement("tr");
@@ -4418,7 +4429,7 @@ function drawSparkline(canvas, data) {
       setStatus(prefs.source === "first-found" ? "Default detected from PATH (no preference saved yet)" : "");
       saveBtn.disabled = false;
     } catch (e) {
-      setStatus(`Failed to load: ${e.message}`, "error");
+      setStatus(`Failed to load: ${e instanceof Error ? e.message : String(e)}`, "error");
     }
   }
 
@@ -4597,7 +4608,7 @@ function drawSparkline(canvas, data) {
       initialState = { ...formState };
       setTimeout(closeModal, 600);
     } catch (e) {
-      setStatus(`Save failed: ${e.message}`, "error");
+      setStatus(`Save failed: ${e instanceof Error ? e.message : String(e)}`, "error");
       saveBtn.disabled = false;
     }
   }

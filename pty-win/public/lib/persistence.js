@@ -47,6 +47,7 @@ export function loadSidebarWidth() {
   } catch { return 220; }
 }
 
+/** @param {number} w */
 export function saveSidebarWidth(w) {
   localStorage.setItem("pty-win-sidebar-width", String(w));
 }
@@ -84,6 +85,7 @@ export function loadSessionMeta() {
 }
 
 export function saveSessionMeta() {
+  /** @type {Record<string, any>} */
   const obj = {};
   for (const [name, meta] of state.sessionMeta) obj[name] = meta;
   localStorage.setItem("pty-win-session-meta", JSON.stringify(obj));

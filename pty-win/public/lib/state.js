@@ -73,10 +73,15 @@ export function getDefaultAiCommand() {
   return state.aiPresets[state.aiDefaultIndex]?.command || "claude";
 }
 
+/** @param {string} cmd */
 export function getAiPresetForCommand(cmd) {
   return state.aiPresets.find((p) => p.command === cmd) || { name: cmd, command: cmd, icon: "?" };
 }
 
+/**
+ * @param {number} index
+ * @param {string} [updatedBy]
+ */
 export function setAiDefault(index, updatedBy = "pty-win-play") {
   state.aiDefaultIndex = index;
   localStorage.setItem("pty-win-ai-default", String(index));
