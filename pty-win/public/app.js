@@ -2364,11 +2364,16 @@ function showAiTagContextMenu(e, folderPath, folderName) {
 }
 
 /**
+ * Pop the AI preset picker context menu. Currently unused — kept for
+ * a future re-wire (right-click an AI tag to launch with a non-default
+ * preset). Prefix with `_` so eslint's no-unused-vars accepts the
+ * intentional-unused state without us having to delete the helper.
+ *
  * @param {MouseEvent} e
  * @param {string} folderPath
  * @param {string} folderName
  */
-function showAiPicker(e, folderPath, folderName) {
+function _showAiPicker(e, folderPath, folderName) {
   const menu = byId("pane-context-menu");
   menu.innerHTML = "";
   menu.classList.remove("hidden");
@@ -2388,7 +2393,7 @@ function showAiPicker(e, folderPath, folderName) {
     item.oncontextmenu = /** @param {MouseEvent} ev */ (ev) => {
       ev.preventDefault();
       setAiDefault(i);
-      showAiPicker(e, folderPath, folderName); // re-render to update star
+      _showAiPicker(e, folderPath, folderName); // re-render to update star
     };
     item.title = isDefault ? `${preset.name} (default) — right-click to change` : `Launch ${preset.name} — right-click to set as default`;
     menu.appendChild(item);
