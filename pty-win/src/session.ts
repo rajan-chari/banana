@@ -89,32 +89,6 @@ function fmtNow(): string {
 
 export { makeCheckpointLightPrompt, makeCheckpointFullPrompt };
 
-// Commands whose TUIs use the alternate screen buffer + mouse tracking,
-// which suppresses xterm.js scrollback. We strip those sequences so the app
-// renders into the normal buffer and scrollback grows naturally. Empirically
-// validated against copilot v1.0.59: uses mostly newlines + erase-line, a few
-// full clears may leave minor artifacts but the UI remains usable and scroll
-// works. String constant (not computed) so future regressions are grep-able.
-export const STRIP_ALT_SCREEN_COMMANDS: readonly string[] = ["agency cp", "copilot"];
-
-// Sequences stripped:
-//   ESC[?1049h / ?1049l  alt-screen enter/exit (DECSET 1049)
-//   ESC[?47h   / ?47l    legacy alt-screen
-//   ESC[?1047h / ?1047l  alt-screen without cursor-save
-//   ESC[?1048h / ?1048l  cursor save/restore (paired with alt)
-//   ESC[?1000h / ?1000l  X10 mouse tracking
-//   ESC[?1002h / ?1002l  button-event mouse tracking
-//   ESC[?1003h / ?1003l  any-event mouse tracking
-//   ESC[?1006h / ?1006l  SGR mouse mode
-//   ESC[?1015h / ?1015l  urxvt mouse mode
-// When mouse tracking is off, xterm.js wheel events scroll the viewport.
-// eslint-disable-next-line no-control-regex
-const ALT_AND_MOUSE_RE = /\x1b\[\?(?:1049|1047|1048|47|1000|1002|1003|1006|1015)[hl]/g;
-
-export function stripTuiOwnership(data: string): string {
-  return data.replace(ALT_AND_MOUSE_RE, "");
-}
-
 export class PtySession extends EventEmitter {
   private ptyProcess: pty.IPty;
   private poller: EmcomPoller | null = null;
@@ -236,10 +210,7 @@ export class PtySession extends EventEmitter {
     const HOOKS_WORKING_COMMANDS = ["claude", "agency cc"];
     const hasWorkingHooks = HOOKS_WORKING_COMMANDS.includes(this.config.command);
     const isClaudeCmd = hasWorkingHooks;
-    const stripAltScreen = STRIP_ALT_SCREEN_COMMANDS.includes(this.config.command);
-
-    this.ptyProcess.onData((rawData) => {
-      const data = stripAltScreen ? stripTuiOwnership(rawData) : rawData;
+    this.ptyProcess.onData((data) => {
       const now = Date.now();
       this.lastOutputTime = now;
       this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
@@ -742,9 +713,7 @@ export class PtySession extends EventEmitter {
 
   private checkDirtyState(): Promise<void> {
     return new Promise((resolve) => {
-      // Scope to the session's workingDir (-- .) so that a monorepo's
-      // unrelated dirty files in sibling subtrees don't trigger the warning.
-      execFile("git", ["status", "--porcelain", "--", "."], { cwd: this.workingDir, timeout: 5000 }, (err, stdout) => {
+      execFile("git", ["status", "--porcelain"], { cwd: this.workingDir, timeout: 5000 }, (err, stdout) => {
         if (!err && stdout.trim().length > 0) {
           this.dirtyOnExit = true;
           log(`[${this.name}] Dirty workspace on exit (${stdout.trim().split("\n").length} changed files)`);
