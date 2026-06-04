@@ -15,6 +15,84 @@ import { escapeHtml, fmtAge, fmtDate, staleClass } from "./format.js";
 /** @typedef {import('./state.js').TrackerHistoryEntry} TrackerHistoryEntry */
 
 /**
+ * Returns the inner HTML of the tracker view chrome (header, filters, thead).
+ * Pure — caller assigns into a freshly created `.tracker-view` element. Markup
+ * matches what `renderTracker` previously inlined in app.js.
+ *
+ * @returns {string}
+ */
+export function buildTrackerChromeHtml() {
+  return `
+      <div class="tracker-chrome">
+        <span class="tracker-chrome-title">Work Tracker</span>
+        <div class="tracker-chrome-stats"></div>
+        <label class="tracker-show-closed"><input type="checkbox" id="tracker-closed-toggle"> closed</label>
+        <button class="tracker-refresh-btn" id="tracker-refresh-btn" title="Refresh now">&#x21bb;</button>
+      </div>
+      <div class="tracker-filters">
+        <div class="tracker-category-btns">
+          <button class="tracker-cat-btn active" data-cat="">All</button>
+          <button class="tracker-cat-btn" data-cat="sdk">SDK</button>
+          <button class="tracker-cat-btn" data-cat="infra">Infra</button>
+          <button class="tracker-cat-btn" data-cat="ops">Ops</button>
+          <button class="tracker-cat-btn" data-cat="reminder">Reminders</button>
+        </div>
+        <select class="tracker-filter" id="tracker-filter-repo"><option value="">all repos</option></select>
+        <select class="tracker-filter" id="tracker-filter-sev"><option value="">all sev</option><option value="critical">critical</option><option value="high">high</option><option value="normal">normal</option></select>
+        <select class="tracker-filter" id="tracker-filter-assignee"><option value="">all assignees</option></select>
+      </div>
+      <div class="tracker-thead">
+        <div class="tracker-th tracker-th-num">#</div>
+        <div class="tracker-th" data-sort="ref">Ref <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="opened_by">Opened By <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="responders">Responders <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="severity">Sev <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="age" style="text-align:center;justify-content:center">Age <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="last_github_activity" style="text-align:center;justify-content:center">Active <span class="sort-arrow"></span></div>
+        <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
+      </div>
+      <div class="tracker-body"></div>`;
+}
+
+/**
+ * Count items by their workflow status. Used to populate the chrome stats
+ * row and the tracker tab badge. Items with statuses not in the recognized
+ * set are still counted in `total` but contribute to no category bucket.
+ *
+ * @param {Array<{status?: string} | null | undefined>} items
+ * @returns {{decisionPending: number, investigating: number, blocked: number, total: number}}
+ */
+export function computeTrackerStats(items) {
+  const stats = { decisionPending: 0, investigating: 0, blocked: 0, total: items.length };
+  for (const it of items) {
+    if (!it || typeof it.status !== "string") continue;
+    if (it.status === "decision-pending") stats.decisionPending++;
+    else if (it.status === "investigating") stats.investigating++;
+    else if (it.status === "blocked") stats.blocked++;
+  }
+  return stats;
+}
+
+/**
+ * Render the chrome stats row (pending/investigating/blocked/total badges).
+ * Operates directly on the existing `.tracker-chrome-stats` element so
+ * callers don't have to rebuild the wrapper.
+ *
+ * @param {Element | null | undefined} statsEl
+ * @param {{decisionPending: number, investigating: number, blocked: number, total: number}} stats
+ */
+export function renderTrackerChromeStats(statsEl, stats) {
+  if (!statsEl) return;
+  statsEl.innerHTML = `
+          <span class="tracker-chrome-stat decision"><span class="val">${stats.decisionPending}</span> pending</span>
+          <span class="tracker-chrome-stat"><span class="val">${stats.investigating}</span> investigating</span>
+          <span class="tracker-chrome-stat"><span class="val">${stats.blocked}</span> blocked</span>
+          <span class="tracker-chrome-stat"><span class="val">${stats.total}</span> total</span>`;
+}
+
+/**
  * Build the GitHub URL fragment "org/name" for a tracker item.
  * Tracker items historically store either the bare repo name
  * (e.g. "teams.net") or the fully-qualified "org/name"

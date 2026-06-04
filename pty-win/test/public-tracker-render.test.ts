@@ -24,6 +24,9 @@ import {
   ensureTrackerGroup,
   renderTrackerGroupItems,
   renderGroupedTrackerItems,
+  buildTrackerChromeHtml,
+  computeTrackerStats,
+  renderTrackerChromeStats,
 } from "../public/lib/tracker-render.js";
 
 const XSS = "<script>alert(1)</script>";
@@ -534,5 +537,148 @@ describe("renderGroupedTrackerItems", () => {
     expect((groups[1] as HTMLElement).dataset["status"]).toBe("second");
     expect(groups[0].querySelectorAll(".tracker-item").length).toBe(2);
     expect(groups[1].querySelectorAll(".tracker-item").length).toBe(1);
+  });
+});
+
+describe("buildTrackerChromeHtml", () => {
+  it("includes all key elements (header, filters, thead)", () => {
+    const html = buildTrackerChromeHtml();
+    const wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    expect(wrap.querySelector(".tracker-chrome-title")).not.toBeNull();
+    expect(wrap.querySelector(".tracker-chrome-stats")).not.toBeNull();
+    expect(wrap.querySelector("#tracker-closed-toggle")).not.toBeNull();
+    expect(wrap.querySelector("#tracker-refresh-btn")).not.toBeNull();
+    expect(wrap.querySelector("#tracker-filter-repo")).not.toBeNull();
+    expect(wrap.querySelector("#tracker-filter-sev")).not.toBeNull();
+    expect(wrap.querySelector("#tracker-filter-assignee")).not.toBeNull();
+    expect(wrap.querySelector(".tracker-body")).not.toBeNull();
+    expect(wrap.querySelectorAll(".tracker-cat-btn").length).toBe(5);
+    expect(wrap.querySelectorAll(".tracker-th").length).toBe(10);
+  });
+
+  it("default category active class is on 'All'", () => {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = buildTrackerChromeHtml();
+    const active = wrap.querySelectorAll(".tracker-cat-btn.active");
+    expect(active.length).toBe(1);
+    expect((active[0] as HTMLElement).dataset["cat"]).toBe("");
+  });
+
+  it("emits sortable headers with data-sort attributes", () => {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = buildTrackerChromeHtml();
+    const fields = Array.from(wrap.querySelectorAll(".tracker-th[data-sort]")).map(
+      (el) => (el as HTMLElement).dataset["sort"],
+    );
+    expect(fields).toEqual([
+      "ref",
+      "title",
+      "assignee",
+      "opened_by",
+      "responders",
+      "severity",
+      "age",
+      "last_github_activity",
+      "updated",
+    ]);
+  });
+});
+
+describe("computeTrackerStats", () => {
+  it("returns all zeros and total=0 for empty input", () => {
+    expect(computeTrackerStats([])).toEqual({
+      decisionPending: 0,
+      investigating: 0,
+      blocked: 0,
+      total: 0,
+    });
+  });
+
+  it("counts each status bucket independently", () => {
+    const items = [
+      { status: "decision-pending" },
+      { status: "decision-pending" },
+      { status: "investigating" },
+      { status: "blocked" },
+      { status: "blocked" },
+      { status: "blocked" },
+    ];
+    expect(computeTrackerStats(items)).toEqual({
+      decisionPending: 2,
+      investigating: 1,
+      blocked: 3,
+      total: 6,
+    });
+  });
+
+  it("total counts all items, including unrecognized statuses", () => {
+    const items = [
+      { status: "decision-pending" },
+      { status: "open" },
+      { status: "merged" },
+      { status: "closed" },
+    ];
+    expect(computeTrackerStats(items)).toEqual({
+      decisionPending: 1,
+      investigating: 0,
+      blocked: 0,
+      total: 4,
+    });
+  });
+
+  it("tolerates missing/null items and missing status field", () => {
+    const items = [
+      null,
+      undefined,
+      { status: "decision-pending" },
+      { status: undefined } as { status: undefined },
+      {} as { status?: string },
+    ];
+    const stats = computeTrackerStats(items);
+    expect(stats.decisionPending).toBe(1);
+    expect(stats.total).toBe(5);
+  });
+
+  it("does not count non-string status values", () => {
+    const items = [
+      { status: 0 } as unknown as { status?: string },
+      { status: "decision-pending" },
+    ];
+    const stats = computeTrackerStats(items);
+    expect(stats.decisionPending).toBe(1);
+    expect(stats.total).toBe(2);
+  });
+});
+
+describe("renderTrackerChromeStats", () => {
+  it("renders all four numbered badges", () => {
+    const el = document.createElement("div");
+    renderTrackerChromeStats(el, { decisionPending: 5, investigating: 2, blocked: 1, total: 12 });
+    const vals = Array.from(el.querySelectorAll(".tracker-chrome-stat .val")).map((v) => v.textContent);
+    expect(vals).toEqual(["5", "2", "1", "12"]);
+  });
+
+  it("marks the pending badge with the .decision modifier", () => {
+    const el = document.createElement("div");
+    renderTrackerChromeStats(el, { decisionPending: 1, investigating: 0, blocked: 0, total: 1 });
+    expect(el.querySelector(".tracker-chrome-stat.decision")).not.toBeNull();
+  });
+
+  it("is a no-op when target is null/undefined", () => {
+    expect(() =>
+      renderTrackerChromeStats(null, { decisionPending: 0, investigating: 0, blocked: 0, total: 0 }),
+    ).not.toThrow();
+    expect(() =>
+      renderTrackerChromeStats(undefined, { decisionPending: 0, investigating: 0, blocked: 0, total: 0 }),
+    ).not.toThrow();
+  });
+
+  it("replaces previous content on re-render", () => {
+    const el = document.createElement("div");
+    renderTrackerChromeStats(el, { decisionPending: 1, investigating: 0, blocked: 0, total: 1 });
+    renderTrackerChromeStats(el, { decisionPending: 9, investigating: 0, blocked: 0, total: 9 });
+    const vals = Array.from(el.querySelectorAll(".tracker-chrome-stat .val")).map((v) => v.textContent);
+    expect(vals).toEqual(["9", "0", "0", "9"]);
   });
 });

@@ -58,6 +58,9 @@ import {
   removeAllTrackerGroups,
   renderFlatTrackerItems,
   renderGroupedTrackerItems,
+  buildTrackerChromeHtml,
+  computeTrackerStats,
+  renderTrackerChromeStats,
 } from "./lib/tracker-render.js";
 import { initFeedPanel } from "./lib/feed-panel.js";
 import { initSettingsModal } from "./lib/settings-modal.js";
@@ -3226,123 +3229,18 @@ function renderTracker() {
   if (!area) return;
   const identity = localStorage.getItem("pty-win-feed-identity") || "";
 
-  // Ensure container + chrome exist (build once)
   let container = /** @type {TrackerContainer | null} */ (area.querySelector(".tracker-view"));
   if (!container) {
     area.innerHTML = "";
     container = document.createElement("div");
     container.className = "tracker-view";
-    container.innerHTML = `
-      <div class="tracker-chrome">
-        <span class="tracker-chrome-title">Work Tracker</span>
-        <div class="tracker-chrome-stats"></div>
-        <label class="tracker-show-closed"><input type="checkbox" id="tracker-closed-toggle"> closed</label>
-        <button class="tracker-refresh-btn" id="tracker-refresh-btn" title="Refresh now">&#x21bb;</button>
-      </div>
-      <div class="tracker-filters">
-        <div class="tracker-category-btns">
-          <button class="tracker-cat-btn active" data-cat="">All</button>
-          <button class="tracker-cat-btn" data-cat="sdk">SDK</button>
-          <button class="tracker-cat-btn" data-cat="infra">Infra</button>
-          <button class="tracker-cat-btn" data-cat="ops">Ops</button>
-          <button class="tracker-cat-btn" data-cat="reminder">Reminders</button>
-        </div>
-        <select class="tracker-filter" id="tracker-filter-repo"><option value="">all repos</option></select>
-        <select class="tracker-filter" id="tracker-filter-sev"><option value="">all sev</option><option value="critical">critical</option><option value="high">high</option><option value="normal">normal</option></select>
-        <select class="tracker-filter" id="tracker-filter-assignee"><option value="">all assignees</option></select>
-      </div>
-      <div class="tracker-thead">
-        <div class="tracker-th tracker-th-num">#</div>
-        <div class="tracker-th" data-sort="ref">Ref <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="title">Title <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="assignee">Assignee <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="opened_by">Opened By <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="responders">Responders <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="severity">Sev <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="age" style="text-align:center;justify-content:center">Age <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="last_github_activity" style="text-align:center;justify-content:center">Active <span class="sort-arrow"></span></div>
-        <div class="tracker-th" data-sort="updated">Updated <span class="sort-arrow"></span></div>
-      </div>
-      <div class="tracker-body"></div>`;
+    container.innerHTML = buildTrackerChromeHtml();
     area.appendChild(container);
   }
   const c = container;
   if (!c.dataset["wired"]) {
     c.dataset["wired"] = "1";
-
-    // Wire sortable headers
-    c.querySelectorAll(".tracker-th").forEach(th => {
-      if (!(th instanceof HTMLElement)) return;
-      th.onclick = () => {
-        const field = /** @type {import('./lib/tracker-filters.js').TrackerSortField} */ (th.dataset["sort"] || "status");
-        if (trackerSortField === field) {
-          trackerSortDir = trackerSortDir === "asc" ? "desc" : "asc";
-        } else {
-          trackerSortField = field;
-          trackerSortDir = "asc";
-        }
-        // Update sort indicators
-        c.querySelectorAll(".tracker-th").forEach(h => {
-          if (!(h instanceof HTMLElement)) return;
-          h.classList.toggle("sort-active", h.dataset["sort"] === trackerSortField);
-          const arrow = h.querySelector(".sort-arrow");
-          if (arrow) arrow.textContent = h.dataset["sort"] === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
-        });
-        renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
-      };
-    });
-
-    // Wire refresh button
-    const refreshBtn = /** @type {HTMLElement | null} */ (c.querySelector("#tracker-refresh-btn"));
-    if (refreshBtn) refreshBtn.onclick = () => renderTracker();
-
-    // Wire closed toggle
-    const closedToggle = /** @type {HTMLInputElement | null} */ (c.querySelector("#tracker-closed-toggle"));
-    if (closedToggle) {
-      closedToggle.checked = localStorage.getItem("pty-win-tracker-show-closed") === "true";
-      closedToggle.onchange = () => {
-        localStorage.setItem("pty-win-tracker-show-closed", String(closedToggle.checked));
-        renderTracker();
-      };
-    }
-
-    // Wire column resize handles
-    initTrackerColumnResize(c);
-
-    // Wire filter dropdowns
-    const wireFilter = /**
-     * @param {string} id
-     * @param {string} _key reserved for future use; currently the localStorage key derives from id
-     */
-    (id, _key) => {
-      const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (c.querySelector(`#${id}`));
-      if (!el) return;
-      const saved = localStorage.getItem(`pty-win-${id}`);
-      if (saved) el.value = saved;
-      el.onchange = () => {
-        localStorage.setItem(`pty-win-${id}`, el.value);
-        renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
-      };
-    };
-    wireFilter("tracker-filter-repo", "repo");
-    wireFilter("tracker-filter-sev", "severity");
-    wireFilter("tracker-filter-assignee", "assigned_to");
-
-    // Wire category toggle buttons
-    const savedCat = localStorage.getItem("pty-win-tracker-cat") || "";
-    c.querySelectorAll(".tracker-cat-btn").forEach(btn => {
-      if (!(btn instanceof HTMLElement)) return;
-      if (btn.dataset["cat"] === savedCat) {
-        c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-      }
-      btn.onclick = () => {
-        c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        localStorage.setItem("pty-win-tracker-cat", btn.dataset["cat"] ?? "");
-        renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
-      };
-    });
+    wireTrackerControls(c);
   }
 
   const showClosed = localStorage.getItem("pty-win-tracker-show-closed") === "true";
@@ -3352,27 +3250,16 @@ function renderTracker() {
     .then(r => r.json())
     .then(/** @param {any[]} items */ items => {
       state.trackerItems = items;
-      state.trackerDecisionCount = items.filter(i => i.status === "decision-pending").length;
+      const stats = computeTrackerStats(items);
+      state.trackerDecisionCount = stats.decisionPending;
 
-      // Update right panel tracker tab badge
       const badge = byId("tracker-tab-badge");
       if (badge) {
-        badge.textContent = state.trackerDecisionCount > 0 ? ` (${state.trackerDecisionCount})` : "";
-        badge.classList.toggle("hidden", state.trackerDecisionCount === 0);
+        badge.textContent = stats.decisionPending > 0 ? ` (${stats.decisionPending})` : "";
+        badge.classList.toggle("hidden", stats.decisionPending === 0);
       }
 
-      // Update chrome stats
-      const statsEl = c.querySelector(".tracker-chrome-stats");
-      if (statsEl) {
-        const dec = items.filter(i => i.status === "decision-pending").length;
-        const inv = items.filter(i => i.status === "investigating").length;
-        const blk = items.filter(i => i.status === "blocked").length;
-        statsEl.innerHTML = `
-          <span class="tracker-chrome-stat decision"><span class="val">${dec}</span> pending</span>
-          <span class="tracker-chrome-stat"><span class="val">${inv}</span> investigating</span>
-          <span class="tracker-chrome-stat"><span class="val">${blk}</span> blocked</span>
-          <span class="tracker-chrome-stat"><span class="val">${items.length}</span> total</span>`;
-      }
+      renderTrackerChromeStats(c.querySelector(".tracker-chrome-stats"), stats);
 
       populateTrackerFilters(items);
       renderTrackerBody(c, filterTrackerItems(items));
@@ -3381,6 +3268,82 @@ function renderTracker() {
       const body = c.querySelector(".tracker-body");
       if (body) body.innerHTML = `<div class="tracker-error">// CONNECTION FAILED</div>`;
     });
+}
+
+/**
+ * Wire all once-only event handlers on the tracker chrome: sortable headers,
+ * refresh button, closed toggle, column resize, filter dropdowns, and
+ * category buttons. Idempotent guard lives in the caller (data-wired sentinel).
+ *
+ * @param {TrackerContainer} c
+ */
+function wireTrackerControls(c) {
+  c.querySelectorAll(".tracker-th").forEach(th => {
+    if (!(th instanceof HTMLElement)) return;
+    th.onclick = () => {
+      const field = /** @type {import('./lib/tracker-filters.js').TrackerSortField} */ (th.dataset["sort"] || "status");
+      if (trackerSortField === field) {
+        trackerSortDir = trackerSortDir === "asc" ? "desc" : "asc";
+      } else {
+        trackerSortField = field;
+        trackerSortDir = "asc";
+      }
+      c.querySelectorAll(".tracker-th").forEach(h => {
+        if (!(h instanceof HTMLElement)) return;
+        h.classList.toggle("sort-active", h.dataset["sort"] === trackerSortField);
+        const arrow = h.querySelector(".sort-arrow");
+        if (arrow) arrow.textContent = h.dataset["sort"] === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
+      });
+      renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
+    };
+  });
+
+  const refreshBtn = /** @type {HTMLElement | null} */ (c.querySelector("#tracker-refresh-btn"));
+  if (refreshBtn) refreshBtn.onclick = () => renderTracker();
+
+  const closedToggle = /** @type {HTMLInputElement | null} */ (c.querySelector("#tracker-closed-toggle"));
+  if (closedToggle) {
+    closedToggle.checked = localStorage.getItem("pty-win-tracker-show-closed") === "true";
+    closedToggle.onchange = () => {
+      localStorage.setItem("pty-win-tracker-show-closed", String(closedToggle.checked));
+      renderTracker();
+    };
+  }
+
+  initTrackerColumnResize(c);
+
+  const wireFilter = /**
+   * @param {string} id
+   * @param {string} _key reserved for future use; currently the localStorage key derives from id
+   */
+  (id, _key) => {
+    const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (c.querySelector(`#${id}`));
+    if (!el) return;
+    const saved = localStorage.getItem(`pty-win-${id}`);
+    if (saved) el.value = saved;
+    el.onchange = () => {
+      localStorage.setItem(`pty-win-${id}`, el.value);
+      renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
+    };
+  };
+  wireFilter("tracker-filter-repo", "repo");
+  wireFilter("tracker-filter-sev", "severity");
+  wireFilter("tracker-filter-assignee", "assigned_to");
+
+  const savedCat = localStorage.getItem("pty-win-tracker-cat") || "";
+  c.querySelectorAll(".tracker-cat-btn").forEach(btn => {
+    if (!(btn instanceof HTMLElement)) return;
+    if (btn.dataset["cat"] === savedCat) {
+      c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+    btn.onclick = () => {
+      c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      localStorage.setItem("pty-win-tracker-cat", btn.dataset["cat"] ?? "");
+      renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
+    };
+  });
 }
 
 /**
