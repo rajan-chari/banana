@@ -51,6 +51,13 @@ import {
   renderTrackerItemHtml,
   renderTrackerHistoryEntries,
   patchTrackerItem,
+  renderTrackerEmpty,
+  removeTrackerEmpty,
+  removeStaleTrackerItems,
+  removeEmptyTrackerGroups,
+  removeAllTrackerGroups,
+  renderFlatTrackerItems,
+  renderGroupedTrackerItems,
 } from "./lib/tracker-render.js";
 import { initFeedPanel } from "./lib/feed-panel.js";
 import { initSettingsModal } from "./lib/settings-modal.js";
@@ -3446,97 +3453,35 @@ function renderTracker() {
  * @param {any[]} items
  */
 function renderTrackerBody(container, items) {
-  const body = container.querySelector(".tracker-body");
+  const body = /** @type {HTMLElement | null} */ (container.querySelector(".tracker-body"));
   if (!body) return;
   resetTrackerRowNum();
 
-  // Always remove stale empty state before rendering
-  const existingEmpty = body.querySelector(".tracker-empty");
-  if (existingEmpty) existingEmpty.remove();
+  removeTrackerEmpty(body);
 
   if (items.length === 0) {
-    // Clear all groups and items, show empty state
-    body.innerHTML = `<div class="tracker-empty">// NO OPEN ITEMS</div>`;
+    renderTrackerEmpty(body);
     trackerPrevItems.clear();
     return;
   }
 
-  const currentIds = new Set(items.map(i => i.id));
-  const newItemMap = new Map(items.map(i => [i.id, i]));
+  const currentIds = new Set(items.map((i) => i.id));
+  const newItemMap = new Map(items.map((i) => [i.id, i]));
 
-  // Remove items that no longer exist
-  for (const el of [...body.querySelectorAll(".tracker-item[data-id]")]) {
-    if (!(el instanceof HTMLElement)) continue;
-    if (!currentIds.has(el.dataset["id"] ?? "")) el.remove();
-  }
+  removeStaleTrackerItems(body, currentIds);
+  removeEmptyTrackerGroups(body);
 
-  // Remove empty groups
-  for (const g of [...body.querySelectorAll(".tracker-group")]) {
-    if (g.querySelectorAll(".tracker-item").length === 0) g.remove();
-  }
+  const ops = { buildItem: buildTrackerItem, patchItem: patchTrackerItem };
 
   if (trackerSortField !== "status") {
-    // Flat sorted view — no groups
-    for (const g of [...body.querySelectorAll(".tracker-group")]) g.remove();
-    const sorted = sortTrackerItems(items);
-    for (const item of sorted) {
-      let el = /** @type {HTMLElement | null} */ (body.querySelector(`.tracker-item[data-id="${item.id}"]`));
-      if (!el) {
-        el = buildTrackerItem(item);
-        body.appendChild(el);
-      } else {
-        patchTrackerItem(el, item);
-        body.appendChild(el); // re-append to maintain sort order
-      }
-    }
+    removeAllTrackerGroups(body);
+    renderFlatTrackerItems(body, sortTrackerItems(items), ops);
   } else {
-    // Grouped by status
-    for (const status of TRACKER_STATUS_ORDER) {
-      const groupItems = items.filter(i => i.status === status);
-      if (groupItems.length === 0) {
-        const existing = body.querySelector(`.tracker-group[data-status="${status}"]`);
-        if (existing) existing.remove();
-        continue;
-      }
-
-      let groupEl = /** @type {HTMLElement | null} */ (body.querySelector(`.tracker-group[data-status="${status}"]`));
-      if (!groupEl) {
-        groupEl = document.createElement("div");
-        groupEl.className = "tracker-group";
-        groupEl.dataset["status"] = status;
-        groupEl.innerHTML = `<div class="tracker-group-bar">
-          <span class="tracker-group-dot"></span>
-          <span class="tracker-group-name">${status.replace(/-/g, " ")}</span>
-          <span class="tracker-group-count">(${groupItems.length})</span>
-        </div>`;
-        body.appendChild(groupEl);
-      } else {
-        const countEl = groupEl.querySelector(".tracker-group-count");
-        if (countEl) countEl.textContent = `(${groupItems.length})`;
-      }
-
-      for (const item of groupItems) {
-        let el = /** @type {HTMLElement | null} */ (groupEl.querySelector(`.tracker-item[data-id="${item.id}"]`));
-        if (!el) {
-          el = buildTrackerItem(item);
-          groupEl.appendChild(el);
-        } else {
-          patchTrackerItem(el, item);
-        }
-      }
-
-      // Remove items that moved to a different status
-      for (const el of [...groupEl.querySelectorAll(".tracker-item[data-id]")]) {
-        if (!(el instanceof HTMLElement)) continue;
-        const item = newItemMap.get(el.dataset["id"] ?? "");
-        if (!item || item.status !== status) el.remove();
-      }
-    }
+    renderGroupedTrackerItems(body, items, TRACKER_STATUS_ORDER, newItemMap, ops);
   }
 
   trackerPrevItems = newItemMap;
 
-  // Apply column widths to any new rows
   if (container._applyColWidths) container._applyColWidths();
 }
 

@@ -8,13 +8,22 @@
 // DOM node and assert no <script> tag escapes into the document, plus
 // that payload text round-trips as visible text content.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   renderTrackerItemHtml,
   renderTrackerHistoryEntries,
   severityClass,
   githubOrgRepo,
   patchTrackerItem,
+  renderTrackerEmpty,
+  removeTrackerEmpty,
+  removeStaleTrackerItems,
+  removeEmptyTrackerGroups,
+  removeAllTrackerGroups,
+  renderFlatTrackerItems,
+  ensureTrackerGroup,
+  renderTrackerGroupItems,
+  renderGroupedTrackerItems,
 } from "../public/lib/tracker-render.js";
 
 const XSS = "<script>alert(1)</script>";
@@ -328,5 +337,202 @@ describe("patchTrackerItem", () => {
     expect(row.querySelector(".tracker-responders")?.textContent).toBe("a, b, c");
     patchTrackerItem(row, { ...baseItem, responders: [] });
     expect(row.querySelector(".tracker-responders")?.textContent).toBe("");
+  });
+});
+
+
+// ===== Round 20 body-render helpers =====
+
+function mkItem(overrides: any = {}) {
+  return { ...baseItem, ...overrides };
+}
+
+describe("renderTrackerEmpty / removeTrackerEmpty", () => {
+  it("renderTrackerEmpty sets the placeholder", () => {
+    const body = document.createElement("div");
+    renderTrackerEmpty(body);
+    expect(body.querySelector(".tracker-empty")?.textContent).toBe("// NO OPEN ITEMS");
+  });
+  it("removeTrackerEmpty removes it if present", () => {
+    const body = document.createElement("div");
+    body.innerHTML = `<div class="tracker-empty">// NO OPEN ITEMS</div>`;
+    removeTrackerEmpty(body);
+    expect(body.querySelector(".tracker-empty")).toBeNull();
+  });
+  it("removeTrackerEmpty no-ops if absent", () => {
+    const body = document.createElement("div");
+    expect(() => removeTrackerEmpty(body)).not.toThrow();
+  });
+});
+
+describe("removeStaleTrackerItems", () => {
+  it("removes rows whose id is not in the current set", () => {
+    const body = document.createElement("div");
+    body.innerHTML = `
+      <div class="tracker-item" data-id="a"></div>
+      <div class="tracker-item" data-id="b"></div>
+      <div class="tracker-item" data-id="c"></div>
+    `;
+    removeStaleTrackerItems(body, new Set(["a", "c"]));
+    expect(body.querySelectorAll(".tracker-item").length).toBe(2);
+    expect(body.querySelector(`[data-id="b"]`)).toBeNull();
+  });
+  it("removes items missing data-id", () => {
+    const body = document.createElement("div");
+    body.innerHTML = `<div class="tracker-item" data-id=""></div>`;
+    removeStaleTrackerItems(body, new Set(["a"]));
+    expect(body.querySelector(".tracker-item")).toBeNull();
+  });
+});
+
+describe("removeEmptyTrackerGroups / removeAllTrackerGroups", () => {
+  it("removeEmptyTrackerGroups keeps non-empty groups", () => {
+    const body = document.createElement("div");
+    body.innerHTML = `
+      <div class="tracker-group" data-status="x"></div>
+      <div class="tracker-group" data-status="y"><div class="tracker-item"></div></div>
+    `;
+    removeEmptyTrackerGroups(body);
+    expect(body.querySelectorAll(".tracker-group").length).toBe(1);
+    expect(body.querySelector(`[data-status="y"]`)).not.toBeNull();
+  });
+  it("removeAllTrackerGroups removes every group", () => {
+    const body = document.createElement("div");
+    body.innerHTML = `
+      <div class="tracker-group"></div>
+      <div class="tracker-group"><div class="tracker-item"></div></div>
+    `;
+    removeAllTrackerGroups(body);
+    expect(body.querySelectorAll(".tracker-group").length).toBe(0);
+  });
+});
+
+describe("renderFlatTrackerItems", () => {
+  it("appends new items via buildItem", () => {
+    const body = document.createElement("div");
+    const buildItem = vi.fn((i: any) => {
+      const el = document.createElement("div");
+      el.className = "tracker-item";
+      el.dataset["id"] = i.id;
+      return el;
+    });
+    const patchItem = vi.fn();
+    renderFlatTrackerItems(body, [mkItem({ id: "a" }), mkItem({ id: "b" })], { buildItem, patchItem });
+    expect(buildItem).toHaveBeenCalledTimes(2);
+    expect(patchItem).not.toHaveBeenCalled();
+    expect(body.querySelectorAll(".tracker-item").length).toBe(2);
+  });
+  it("re-uses existing items via patchItem and re-appends for sort order", () => {
+    const body = document.createElement("div");
+    body.innerHTML = `
+      <div class="tracker-item" data-id="a">A</div>
+      <div class="tracker-item" data-id="b">B</div>
+    `;
+    const buildItem = vi.fn();
+    const patchItem = vi.fn();
+    // request order [b, a] -> expect b to be moved before a
+    renderFlatTrackerItems(body, [mkItem({ id: "b" }), mkItem({ id: "a" })], { buildItem, patchItem });
+    expect(buildItem).not.toHaveBeenCalled();
+    expect(patchItem).toHaveBeenCalledTimes(2);
+    const ids = [...body.querySelectorAll(".tracker-item")].map((el) => (el as HTMLElement).dataset["id"]);
+    expect(ids).toEqual(["b", "a"]);
+  });
+});
+
+describe("ensureTrackerGroup", () => {
+  it("builds a new group with the count badge", () => {
+    const body = document.createElement("div");
+    const g = ensureTrackerGroup(body, "decision-pending", 3);
+    expect(g.classList.contains("tracker-group")).toBe(true);
+    expect(g.dataset["status"]).toBe("decision-pending");
+    expect(g.querySelector(".tracker-group-count")?.textContent).toBe("(3)");
+    expect(g.querySelector(".tracker-group-name")?.textContent).toBe("decision pending");
+  });
+  it("returns existing group and updates count", () => {
+    const body = document.createElement("div");
+    const first = ensureTrackerGroup(body, "monitoring", 1);
+    const second = ensureTrackerGroup(body, "monitoring", 7);
+    expect(second).toBe(first);
+    expect(body.querySelectorAll(".tracker-group").length).toBe(1);
+    expect(second.querySelector(".tracker-group-count")?.textContent).toBe("(7)");
+  });
+  it("escapes status name in display (defense in depth)", () => {
+    const body = document.createElement("div");
+    const g = ensureTrackerGroup(body, "<svg>", 1);
+    // textContent recovers the literal characters; no element injected
+    expect(g.querySelector(".tracker-group-name")?.textContent).toBe("<svg>");
+    expect(g.querySelector("svg")).toBeNull();
+  });
+});
+
+describe("renderTrackerGroupItems", () => {
+  it("builds new and patches existing items", () => {
+    const groupEl = document.createElement("div");
+    groupEl.innerHTML = `<div class="tracker-item" data-id="a"></div>`;
+    const buildItem = vi.fn((i: any) => {
+      const el = document.createElement("div");
+      el.className = "tracker-item";
+      el.dataset["id"] = i.id;
+      return el;
+    });
+    const patchItem = vi.fn();
+    const items = [mkItem({ id: "a", status: "x" }), mkItem({ id: "b", status: "x" })];
+    const newItemMap = new Map(items.map((i) => [i.id, i]));
+    renderTrackerGroupItems(groupEl, items, "x", newItemMap, { buildItem, patchItem });
+    expect(buildItem).toHaveBeenCalledWith(items[1]);
+    expect(patchItem).toHaveBeenCalledTimes(1);
+    expect(groupEl.querySelectorAll(".tracker-item").length).toBe(2);
+  });
+  it("removes items whose status changed", () => {
+    const groupEl = document.createElement("div");
+    groupEl.innerHTML = `
+      <div class="tracker-item" data-id="a"></div>
+      <div class="tracker-item" data-id="b"></div>
+    `;
+    const buildItem = vi.fn();
+    const patchItem = vi.fn();
+    // Only 'a' stays in this group ("x"); 'b' moved to "y" (different status)
+    const items = [mkItem({ id: "a", status: "x" })];
+    const newItemMap = new Map([
+      ["a", mkItem({ id: "a", status: "x" })],
+      ["b", mkItem({ id: "b", status: "y" })],
+    ]);
+    renderTrackerGroupItems(groupEl, items, "x", newItemMap, { buildItem, patchItem });
+    expect(groupEl.querySelector(`[data-id="b"]`)).toBeNull();
+    expect(groupEl.querySelector(`[data-id="a"]`)).not.toBeNull();
+  });
+});
+
+describe("renderGroupedTrackerItems", () => {
+  it("removes empty groups for statuses with no items", () => {
+    const body = document.createElement("div");
+    body.innerHTML = `<div class="tracker-group" data-status="testing"></div>`;
+    const buildItem = vi.fn();
+    const patchItem = vi.fn();
+    renderGroupedTrackerItems(body, [], ["testing"], new Map(), { buildItem, patchItem });
+    expect(body.querySelector(`[data-status="testing"]`)).toBeNull();
+  });
+  it("creates groups in given order and populates them", () => {
+    const body = document.createElement("div");
+    const items = [
+      mkItem({ id: "a", status: "first" }),
+      mkItem({ id: "b", status: "second" }),
+      mkItem({ id: "c", status: "first" }),
+    ];
+    const newItemMap = new Map(items.map((i) => [i.id, i]));
+    const buildItem = vi.fn((i: any) => {
+      const el = document.createElement("div");
+      el.className = "tracker-item";
+      el.dataset["id"] = i.id;
+      return el;
+    });
+    const patchItem = vi.fn();
+    renderGroupedTrackerItems(body, items, ["first", "second"], newItemMap, { buildItem, patchItem });
+    const groups = body.querySelectorAll(".tracker-group");
+    expect(groups.length).toBe(2);
+    expect((groups[0] as HTMLElement).dataset["status"]).toBe("first");
+    expect((groups[1] as HTMLElement).dataset["status"]).toBe("second");
+    expect(groups[0].querySelectorAll(".tracker-item").length).toBe(2);
+    expect(groups[1].querySelectorAll(".tracker-item").length).toBe(1);
   });
 });

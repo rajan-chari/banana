@@ -222,3 +222,169 @@ export function patchTrackerItem(el, item) {
   patchAgeFields(el, item);
   patchRowClasses(el, item);
 }
+
+// ===== Body-render helpers (Round 20) ============================
+//
+// These are DOM-mutator helpers extracted from renderTrackerBody in app.js.
+// The orchestrator still lives in app.js because it owns mutable state
+// (trackerPrevItems, _trackerRowNum, sort field) and references the
+// app-level buildTrackerItem closure. These helpers take dependency
+// callbacks so they remain free of app coupling.
+
+/**
+ * Render the placeholder when there are no items.
+ *
+ * @param {HTMLElement} body
+ */
+export function renderTrackerEmpty(body) {
+  body.innerHTML = `<div class="tracker-empty">// NO OPEN ITEMS</div>`;
+}
+
+/**
+ * Remove the stale "no open items" placeholder if present.
+ *
+ * @param {ParentNode} body
+ */
+export function removeTrackerEmpty(body) {
+  const existing = body.querySelector(".tracker-empty");
+  if (existing) existing.remove();
+}
+
+/**
+ * Remove rendered items whose ids are not in the current set.
+ *
+ * @param {ParentNode} parent
+ * @param {Set<string>} currentIds
+ */
+export function removeStaleTrackerItems(parent, currentIds) {
+  for (const el of [...parent.querySelectorAll(".tracker-item[data-id]")]) {
+    if (!(el instanceof HTMLElement)) continue;
+    if (!currentIds.has(el.dataset["id"] ?? "")) el.remove();
+  }
+}
+
+/**
+ * Remove any tracker group containers with no items inside.
+ *
+ * @param {ParentNode} body
+ */
+export function removeEmptyTrackerGroups(body) {
+  for (const g of [...body.querySelectorAll(".tracker-group")]) {
+    if (g.querySelectorAll(".tracker-item").length === 0) g.remove();
+  }
+}
+
+/**
+ * Remove all tracker group containers (used when switching to flat view).
+ *
+ * @param {ParentNode} body
+ */
+export function removeAllTrackerGroups(body) {
+  for (const g of [...body.querySelectorAll(".tracker-group")]) g.remove();
+}
+
+/**
+ * Render the flat (un-grouped) view by reusing existing item elements
+ * where possible and appending new ones.
+ *
+ * @param {HTMLElement} body
+ * @param {TrackerItem[]} sortedItems          already sorted
+ * @param {{ buildItem: (i: TrackerItem) => HTMLElement, patchItem: (el: HTMLElement, i: TrackerItem) => void }} ops
+ */
+export function renderFlatTrackerItems(body, sortedItems, ops) {
+  for (const item of sortedItems) {
+    let el = /** @type {HTMLElement | null} */ (
+      body.querySelector(`.tracker-item[data-id="${item.id}"]`)
+    );
+    if (!el) {
+      el = ops.buildItem(item);
+      body.appendChild(el);
+    } else {
+      ops.patchItem(el, item);
+      body.appendChild(el); // re-append to maintain sort order
+    }
+  }
+}
+
+/**
+ * Find or build a group container for `status`. Updates the count badge
+ * when the container already exists.
+ *
+ * @param {HTMLElement} body
+ * @param {string} status
+ * @param {number} itemCount
+ * @returns {HTMLElement}
+ */
+export function ensureTrackerGroup(body, status, itemCount) {
+  let groupEl = /** @type {HTMLElement | null} */ (
+    body.querySelector(`.tracker-group[data-status="${status}"]`)
+  );
+  if (groupEl) {
+    const countEl = groupEl.querySelector(".tracker-group-count");
+    if (countEl) countEl.textContent = `(${itemCount})`;
+    return groupEl;
+  }
+  groupEl = document.createElement("div");
+  groupEl.className = "tracker-group";
+  groupEl.dataset["status"] = status;
+  groupEl.innerHTML = `<div class="tracker-group-bar">
+          <span class="tracker-group-dot"></span>
+          <span class="tracker-group-name">${escapeHtml(status.replace(/-/g, " "))}</span>
+          <span class="tracker-group-count">(${itemCount})</span>
+        </div>`;
+  body.appendChild(groupEl);
+  return groupEl;
+}
+
+/**
+ * Render one status group: build/patch its items, then remove rows whose
+ * status has changed (they will be re-built in the correct group on the
+ * next pass).
+ *
+ * @param {HTMLElement} groupEl
+ * @param {TrackerItem[]} groupItems
+ * @param {string} status
+ * @param {Map<string, TrackerItem>} newItemMap
+ * @param {{ buildItem: (i: TrackerItem) => HTMLElement, patchItem: (el: HTMLElement, i: TrackerItem) => void }} ops
+ */
+export function renderTrackerGroupItems(groupEl, groupItems, status, newItemMap, ops) {
+  for (const item of groupItems) {
+    let el = /** @type {HTMLElement | null} */ (
+      groupEl.querySelector(`.tracker-item[data-id="${item.id}"]`)
+    );
+    if (!el) {
+      el = ops.buildItem(item);
+      groupEl.appendChild(el);
+    } else {
+      ops.patchItem(el, item);
+    }
+  }
+  for (const el of [...groupEl.querySelectorAll(".tracker-item[data-id]")]) {
+    if (!(el instanceof HTMLElement)) continue;
+    const item = newItemMap.get(el.dataset["id"] ?? "");
+    if (!item || item.status !== status) el.remove();
+  }
+}
+
+/**
+ * Render the grouped-by-status view. Removes empty groups, builds new ones,
+ * and dispatches items to the correct group.
+ *
+ * @param {HTMLElement} body
+ * @param {TrackerItem[]} items
+ * @param {string[]} statusOrder
+ * @param {Map<string, TrackerItem>} newItemMap
+ * @param {{ buildItem: (i: TrackerItem) => HTMLElement, patchItem: (el: HTMLElement, i: TrackerItem) => void }} ops
+ */
+export function renderGroupedTrackerItems(body, items, statusOrder, newItemMap, ops) {
+  for (const status of statusOrder) {
+    const groupItems = items.filter((i) => i.status === status);
+    if (groupItems.length === 0) {
+      const existing = body.querySelector(`.tracker-group[data-status="${status}"]`);
+      if (existing) existing.remove();
+      continue;
+    }
+    const groupEl = ensureTrackerGroup(body, status, groupItems.length);
+    renderTrackerGroupItems(groupEl, groupItems, status, newItemMap, ops);
+  }
+}
