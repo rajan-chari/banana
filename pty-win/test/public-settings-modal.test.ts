@@ -20,6 +20,8 @@ import {
   computeChangedPrefs,
   buildInitialFormState,
   findAiPresetIndexByCommand,
+  persistChangedPrefs,
+  applyAiDefaultFromCli,
 } from "../public/lib/settings-modal.js";
 
 type AnyDef = {
@@ -636,5 +638,79 @@ describe("findAiPresetIndexByCommand", () => {
   it("tolerates entries without a command field", () => {
     const mixed = [{ other: 1 }, { command: "x" }] as Array<{ command?: string }>;
     expect(findAiPresetIndexByCommand(mixed, "x")).toBe(1);
+  });
+});
+
+describe("persistChangedPrefs", () => {
+  it("POSTs each changed cliPreference and resolves on success", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    await persistChangedPrefs([["cliPreference", "claude"]], fetchFn);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    const [url, opts] = fetchFn.mock.calls[0];
+    expect(url).toBe("/api/preferences");
+    expect(opts.method).toBe("POST");
+    const body = JSON.parse(opts.body);
+    expect(body.cliPreference).toBe("claude");
+    expect(body.updatedBy).toBe("pty-win-settings");
+  });
+
+  it("warns and skips unsupported keys without POSTing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true });
+    await persistChangedPrefs([["mystery", 1]], fetchFn);
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("mystery"));
+    warn.mockRestore();
+  });
+
+  it("throws with API error message when response is not ok", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "boom" }),
+    });
+    await expect(persistChangedPrefs([["cliPreference", "x"]], fetchFn)).rejects.toThrow("boom");
+  });
+
+  it("throws with HTTP status when error JSON is missing", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 418,
+      json: async () => { throw new Error("not json"); },
+    });
+    await expect(persistChangedPrefs([["cliPreference", "x"]], fetchFn)).rejects.toThrow("HTTP 418");
+  });
+
+  it("stops on first failure (does not POST remaining entries)", async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: "no" }) });
+    await expect(
+      persistChangedPrefs([["cliPreference", "a"], ["cliPreference", "b"]], fetchFn),
+    ).rejects.toThrow("no");
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("applyAiDefaultFromCli", () => {
+  beforeEach(() => { localStorage.clear(); });
+
+  it("updates state.aiDefaultIndex and localStorage when a preset matches", () => {
+    const state = { aiPresets: [{ command: "claude" }, { command: "gemini" }], aiDefaultIndex: 0 };
+    applyAiDefaultFromCli(state, "gemini");
+    expect(state.aiDefaultIndex).toBe(1);
+    expect(localStorage.getItem("pty-win-ai-default")).toBe("1");
+  });
+
+  it("does nothing when no preset matches", () => {
+    const state = { aiPresets: [{ command: "claude" }], aiDefaultIndex: 5 };
+    applyAiDefaultFromCli(state, "unknown");
+    expect(state.aiDefaultIndex).toBe(5);
+    expect(localStorage.getItem("pty-win-ai-default")).toBeNull();
+  });
+
+  it("handles missing presets array gracefully", () => {
+    const state = { aiDefaultIndex: 2 } as { aiPresets?: { command: string }[]; aiDefaultIndex: number };
+    expect(() => applyAiDefaultFromCli(state, "anything")).not.toThrow();
+    expect(state.aiDefaultIndex).toBe(2);
   });
 });

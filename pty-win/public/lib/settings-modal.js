@@ -296,6 +296,51 @@ export function findAiPresetIndexByCommand(presets, cliValue) {
 }
 
 /**
+ * POST each changed preference to /api/preferences. Throws on the first
+ * non-OK response with a message suitable for surfacing in the modal.
+ * Currently only `cliPreference` is wired through; other keys are warned
+ * and skipped (matching the original inline switch).
+ *
+ * @param {Array<[string, any]>} changed
+ * @param {typeof fetch} [fetchFn]
+ * @returns {Promise<void>}
+ */
+export async function persistChangedPrefs(changed, fetchFn) {
+  const fetcher = fetchFn || fetch.bind(window);
+  for (const [key, value] of changed) {
+    if (key !== "cliPreference") {
+      console.warn(`[settings] unsupported key in POST: ${key}`);
+      continue;
+    }
+    const resp = await fetcher("/api/preferences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cliPreference: String(value), updatedBy: "pty-win-settings" }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+  }
+}
+
+/**
+ * After a successful save, update the local AI-default selection (both
+ * in-memory `state.aiDefaultIndex` and the persisted localStorage key)
+ * to match the chosen cliPreference command. No-op if no preset matches.
+ *
+ * @param {{aiPresets?: ReadonlyArray<{command?: string}>, aiDefaultIndex?: number}} state
+ * @param {any} cliValue
+ */
+export function applyAiDefaultFromCli(state, cliValue) {
+  const idx = findAiPresetIndexByCommand(state.aiPresets, cliValue);
+  if (idx >= 0) {
+    state.aiDefaultIndex = idx;
+    localStorage.setItem("pty-win-ai-default", String(idx));
+  }
+}
+
+/**
  * Wire up the settings modal. Captures private state (formState,
  * initialState, schema) in closure. Init-pattern; same rationale as
  * initFeedPanel — splitting would force private mutables into module
@@ -393,26 +438,8 @@ export function initSettingsModal(deps) {
     }
 
     try {
-      for (const [key, value] of changed) {
-        if (key !== "cliPreference") {
-          console.warn(`[settings] unsupported key in POST: ${key}`);
-          continue;
-        }
-        const resp = await fetch("/api/preferences", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cliPreference: String(value), updatedBy: "pty-win-settings" }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${resp.status}`);
-        }
-      }
-      const idx = findAiPresetIndexByCommand(state.aiPresets, formState["cliPreference"]);
-      if (idx >= 0) {
-        state.aiDefaultIndex = idx;
-        localStorage.setItem("pty-win-ai-default", String(idx));
-      }
+      await persistChangedPrefs(changed);
+      applyAiDefaultFromCli(state, formState["cliPreference"]);
       setStatus("Saved", "ok");
       initialState = { ...formState };
       setTimeout(closeModal, 600);

@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import {
   broadcastToClients,
+  buildSessionListMessage,
   createBatchedSender,
   dispatchClientMessage,
+  heartbeatTick,
   type BatchedSenderSession,
   type WsSessionLike,
 } from "../src/server/ws-helpers.js";
@@ -234,5 +236,99 @@ describe("createBatchedSender", () => {
     const session = new FakeBatchSession("s1");
     const handle = createBatchedSender(session, ws as unknown as WebSocket, 16);
     expect(() => { handle.cleanup(); handle.cleanup(); }).not.toThrow();
+  });
+});
+
+class FakeHeartbeatWs {
+  public terminated = 0;
+  public pinged = 0;
+  terminate(): void { this.terminated++; }
+  ping(): void { this.pinged++; }
+}
+
+describe("heartbeatTick", () => {
+  it("terminates clients marked alive=false and removes them from tracking", () => {
+    const dead = new FakeHeartbeatWs();
+    const alive = new FakeHeartbeatWs();
+    const clients = new Set<FakeHeartbeatWs>([dead, alive]);
+    const liveness = new Map<FakeHeartbeatWs, boolean>([[dead, false], [alive, true]]);
+
+    heartbeatTick(clients, liveness);
+
+    expect(dead.terminated).toBe(1);
+    expect(dead.pinged).toBe(0);
+    expect(clients.has(dead)).toBe(false);
+    expect(liveness.has(dead)).toBe(false);
+    expect(clients.has(alive)).toBe(true);
+  });
+
+  it("marks survivors alive=false and pings them", () => {
+    const a = new FakeHeartbeatWs();
+    const b = new FakeHeartbeatWs();
+    const clients = new Set<FakeHeartbeatWs>([a, b]);
+    const liveness = new Map<FakeHeartbeatWs, boolean>([[a, true], [b, true]]);
+
+    heartbeatTick(clients, liveness);
+
+    expect(a.pinged).toBe(1);
+    expect(b.pinged).toBe(1);
+    expect(liveness.get(a)).toBe(false);
+    expect(liveness.get(b)).toBe(false);
+  });
+
+  it("treats missing liveness entry as 'not false' (pings, does not terminate)", () => {
+    const ws = new FakeHeartbeatWs();
+    const clients = new Set<FakeHeartbeatWs>([ws]);
+    const liveness = new Map<FakeHeartbeatWs, boolean>();
+
+    heartbeatTick(clients, liveness);
+
+    expect(ws.terminated).toBe(0);
+    expect(ws.pinged).toBe(1);
+    expect(liveness.get(ws)).toBe(false);
+  });
+
+  it("is a no-op when clients set is empty", () => {
+    const clients = new Set<FakeHeartbeatWs>();
+    const liveness = new Map<FakeHeartbeatWs, boolean>();
+    expect(() => heartbeatTick(clients, liveness)).not.toThrow();
+  });
+});
+
+class FakeInfoSession {
+  constructor(public name: string, public extra: Record<string, unknown> = {}) {}
+  getInfo(): unknown {
+    return { name: this.name, ...this.extra };
+  }
+}
+
+describe("buildSessionListMessage", () => {
+  it("wraps getInfo() results in the {type:'sessions', payload:[...]} envelope", () => {
+    const sessions = new Map<string, FakeInfoSession>();
+    sessions.set("a", new FakeInfoSession("a", { status: "idle" }));
+    sessions.set("b", new FakeInfoSession("b", { status: "busy" }));
+
+    const json = buildSessionListMessage(sessions);
+    expect(JSON.parse(json)).toEqual({
+      type: "sessions",
+      payload: [
+        { name: "a", status: "idle" },
+        { name: "b", status: "busy" },
+      ],
+    });
+  });
+
+  it("produces an empty payload array for an empty sessions map", () => {
+    const json = buildSessionListMessage(new Map());
+    expect(JSON.parse(json)).toEqual({ type: "sessions", payload: [] });
+  });
+
+  it("preserves insertion order of map entries", () => {
+    const sessions = new Map<string, FakeInfoSession>();
+    sessions.set("z", new FakeInfoSession("z"));
+    sessions.set("a", new FakeInfoSession("a"));
+    sessions.set("m", new FakeInfoSession("m"));
+    const out = JSON.parse(buildSessionListMessage(sessions)) as { payload: { name: string }[] };
+    expect(out.payload.map((s) => s.name)).toEqual(["z", "a", "m"]);
   });
 });

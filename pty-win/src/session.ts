@@ -19,6 +19,14 @@ import {
   type CheckpointType,
 } from "./session-checkpoint.js";
 import type { SessionStatus } from "./session-state.js";
+import {
+  appendRawBuffer,
+  buildSpawnPlan,
+  extractCost,
+  trackModeEscapes,
+  AI_COMMANDS,
+  HOOKS_WORKING_COMMANDS,
+} from "./session-spawn-helpers.js";
 export type { SessionStatus } from "./session-state.js";
 
 interface DataEvent { t: number; bytes: number; isBusy: boolean; }
@@ -172,36 +180,13 @@ export class PtySession extends EventEmitter {
     });
 
     // Spawn process in PTY
-    const AI_COMMANDS = ["claude", "agency cc", "agency cp", "copilot", "pi"];
-    // CLIs that accept --append-system-prompt for the emcom preamble. Claude
-    // Code has it natively. `agency cc` is a Claude wrapper that passes args
-    // through. `pi` has the same flag. `agency cp` and `copilot` are Copilot
-    // CLI which does NOT support --append-system-prompt (preamble must come
-    // via a different path — likely SessionStart hook returning
-    // additionalContext).
-    const PREAMBLE_FLAG_COMMANDS = ["claude", "agency cc", "pi"];
-    const isClaude = AI_COMMANDS.includes(config.command);
-    const supportsPreamble = PREAMBLE_FLAG_COMMANDS.includes(config.command);
-    const hasEmcom = !!(config.emcomIdentity && config.emcomServer);
-    const preambleArgs = supportsPreamble && hasEmcom
-      ? ["--append-system-prompt", EMCOM_PREAMBLE]
-      : [];
-    const allArgs = [...preambleArgs, ...config.args];
+    const isClaude = (AI_COMMANDS as readonly string[]).includes(config.command);
+    const plan = buildSpawnPlan(config, EMCOM_PREAMBLE);
 
-    const isWin = process.platform === "win32";
-    const shell = isWin ? "cmd.exe" : "/bin/sh";
-    const commandParts = config.command.split(/\s+/);
-    const shellArgs = isWin
-      ? ["/c", ...commandParts, ...allArgs]
-      : ["-c", `${config.command} ${allArgs.map((a) => `'${a}'`).join(" ")}`];
-
-    const cols = config.cols || 120;
-    const rows = config.rows || 40;
-
-    this.ptyProcess = pty.spawn(shell, shellArgs, {
+    this.ptyProcess = pty.spawn(plan.shell, plan.shellArgs, {
       name: "xterm-256color",
-      cols,
-      rows,
+      cols: plan.cols,
+      rows: plan.rows,
       cwd: config.workingDir,
       env: process.env as Record<string, string>,
     });
@@ -213,37 +198,15 @@ export class PtySession extends EventEmitter {
       this.poller = this.buildEmcomPoller(config.emcomIdentity, config.emcomServer);
     }
 
-    // Wire PTY output
-    const costRegexLive = /\$(\d+\.\d+)\s+\d+m\d*s/;      // live status bar ($9.97 2m34s or $0.50 553ms)
-    const costRegexExit = /Total cost:\s+\$(\d+\.\d+)/;  // exit summary
-
-    // Commands whose hooks reliably fire (proven via testing): Claude Code
-    // and the agency cc wrapper. Copilot, agency cp, and pi don't fire hooks
-    // — their idle detection has to fall back to the quiet-threshold heuristic.
-    const HOOKS_WORKING_COMMANDS = ["claude", "agency cc"];
-    const hasWorkingHooks = HOOKS_WORKING_COMMANDS.includes(this.config.command);
-    const isClaudeCmd = hasWorkingHooks;
+    const isClaudeCmd = (HOOKS_WORKING_COMMANDS as readonly string[]).includes(this.config.command);
     this.ptyProcess.onData((data) => {
       const now = Date.now();
       this.lastOutputTime = now;
       this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
-      // Append to capped raw buffer (replaces server-side xterm-headless).
-      this.rawBuffer += data;
-      if (this.rawBuffer.length > PtySession.RAW_BUF_MAX_BYTES) {
-        this.rawBuffer = this.rawBuffer.slice(-PtySession.RAW_BUF_MAX_BYTES);
-      }
-      // Track mode-set escapes so they can be replayed to late-connecting WS
-      // clients. These get rotated out of rawBuffer once conversation streams,
-      // so we keep a separate state map.
-      PtySession.TRACKED_MODE_RE.lastIndex = 0;
-      let modeMatch: RegExpExecArray | null;
-      while ((modeMatch = PtySession.TRACKED_MODE_RE.exec(data)) !== null) {
-        const mode = modeMatch[1];
-        const state = modeMatch[2];
-        if (mode && state) this.modeState.set(mode, state as "h" | "l");
-      }
-      const costMatch = costRegexExit.exec(data) || costRegexLive.exec(data);
-      if (costMatch && costMatch[1]) this.costUsd = parseFloat(costMatch[1]);
+      this.rawBuffer = appendRawBuffer(this.rawBuffer, data, PtySession.RAW_BUF_MAX_BYTES);
+      trackModeEscapes(data, this.modeState, PtySession.TRACKED_MODE_RE);
+      const cost = extractCost(data);
+      if (cost !== null) this.costUsd = cost;
       this.emit("data", data);
       // Status transitions on PTY data:
       //   - For Claude sessions: don't flip to busy on bytes. Hooks own the

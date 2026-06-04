@@ -111,3 +111,47 @@ export function createBatchedSender(
     },
   };
 }
+
+/** Subset of ws WebSocket needed for heartbeat liveness checks. */
+export interface HeartbeatWs {
+  terminate(): void;
+  ping(): void;
+}
+
+/**
+ * Run one heartbeat tick: terminate any ws marked dead (alive=false),
+ * remove it from tracking, then mark the survivors dead pending the
+ * next pong, and ping them.
+ *
+ * Designed to be called by setInterval; pure aside from the side
+ * effects on the passed-in collections and ws.terminate/ping.
+ */
+export function heartbeatTick<W extends HeartbeatWs>(
+  wsClients: Set<W>,
+  wsAlive: Map<W, boolean>,
+): void {
+  for (const ws of wsClients) {
+    if (wsAlive.get(ws) === false) {
+      ws.terminate();
+      wsClients.delete(ws);
+      wsAlive.delete(ws);
+      continue;
+    }
+    wsAlive.set(ws, false);
+    ws.ping();
+  }
+}
+
+/**
+ * Build a session-list snapshot message payload (the same shape sent on
+ * connect and on every broadcastSessionList call). Pure.
+ */
+export function buildSessionListMessage<S extends { getInfo(): unknown }>(
+  sessions: Map<string, S>,
+): string {
+  return JSON.stringify({
+    type: "sessions",
+    payload: [...sessions.values()].map((s) => s.getInfo()),
+  });
+}
+

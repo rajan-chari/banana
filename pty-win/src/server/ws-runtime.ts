@@ -3,8 +3,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import { PtySession } from "../session.js";
 import {
   broadcastToClients,
+  buildSessionListMessage,
   createBatchedSender,
   dispatchClientMessage,
+  heartbeatTick,
   type BatchedSenderHandle,
 } from "./ws-helpers.js";
 
@@ -77,12 +79,7 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
     wsClients.add(ws);
     wsAlive.set(ws, true);
     ws.on("pong", () => wsAlive.set(ws, true));
-
-    ws.send(JSON.stringify({
-      type: "sessions",
-      payload: [...sessions.values()].map((s) => s.getInfo()),
-    }));
-
+    ws.send(buildSessionListMessage(sessions));
     ws.on("message", (raw) => {
       try {
         dispatchClientMessage(JSON.parse(raw.toString()), sessions);
@@ -90,39 +87,22 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
         // Ignore malformed messages.
       }
     });
-
     ws.on("close", () => {
       wsClients.delete(ws);
       wsAlive.delete(ws);
     });
-
     for (const [, session] of sessions) attachSessionToWs(session, ws);
   }
 
   wss.on("connection", handleConnection);
 
-  const heartbeatInterval = setInterval(() => {
-    for (const ws of wsClients) {
-      if (wsAlive.get(ws) === false) {
-        ws.terminate();
-        wsClients.delete(ws);
-        wsAlive.delete(ws);
-        continue;
-      }
-      wsAlive.set(ws, false);
-      ws.ping();
-    }
-  }, HEARTBEAT_MS);
+  const heartbeatInterval = setInterval(() => heartbeatTick(wsClients, wsAlive), HEARTBEAT_MS);
   heartbeatInterval.unref();
 
   function shutdown(): void {
     clearInterval(heartbeatInterval);
     for (const ws of wsClients) {
-      try {
-        ws.terminate();
-      } catch {
-        // Ignore teardown race conditions.
-      }
+      try { ws.terminate(); } catch { /* ignore teardown race */ }
     }
     wsClients.clear();
     wsAlive.clear();
@@ -140,3 +120,4 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
     shutdown,
   };
 }
+
