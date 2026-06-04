@@ -102,6 +102,9 @@ import {
   isFolderRunning,
   buildRunningUnreadSets,
   resolveFolderSessions,
+  folderCountText,
+  buildTreeRowActionsOpts,
+  applyFolderInfoToTreeLabel,
 } from "./lib/folder-tree.js";
 
 /** @type {string | null} */
@@ -410,7 +413,7 @@ function renderTree() {
   tree.innerHTML = "";
 
   const folderCountEl = document.querySelector(".folder-count");
-  if (folderCountEl) folderCountEl.textContent = state.favorites.length > 0 ? `(${state.favorites.length})` : "";
+  if (folderCountEl) folderCountEl.textContent = folderCountText(state.favorites);
 
   for (const rootPath of state.favorites) {
     const rootName = rootPath.split(/[/\\]/).filter(Boolean).pop() || rootPath;
@@ -422,60 +425,37 @@ function renderTree() {
     label.dataset["path"] = normPath(rootPath);
     const expanded = state.expandedPaths.has(rootPath);
 
-    // Arrow
     const arrow = document.createElement("span");
     arrow.className = `arrow ${expanded ? "expanded" : ""}`;
     label.appendChild(arrow);
 
-    // Root name
     const nameSpan = document.createElement("span");
     nameSpan.className = "root-name";
     nameSpan.textContent = rootName;
     label.appendChild(nameSpan);
 
-    // Green name for running sessions
     if (isFolderRunning(state.sessions, rootPath, normPath)) {
       nameSpan.classList.add("running");
     }
 
-    // Shared right-side section (uses cached folder info, fetches async if needed)
     const rootResolved = resolveFolderSessions(state.sessions, rootName, rootPath, normPath);
-    const rootSessionInfo = rootResolved.sessionInfo;
-    const rootMatchesPath = rootResolved.sessionMatchesPath;
-    const rootPwshInfo = rootResolved.pwshInfo;
-    const rootPwshMatches = rootResolved.pwshMatchesPath;
     const rootCacheKey = normPath(rootPath);
     const rootCached = state.folderInfoCache.get(rootCacheKey);
-    appendRowActions(label, {
-      identityName: rootCached?.identityName || (rootMatchesPath ? rootSessionInfo?.emcomIdentity : null) || null,
-      unreadCount: rootMatchesPath ? (rootSessionInfo?.unreadCount || 0) : 0,
+    appendRowActions(label, buildTreeRowActionsOpts({
       workingDir: rootPath,
       folderName: rootName,
-      claudeAlive: !!(rootMatchesPath && rootSessionInfo?.status !== "dead"),
-      pwshAlive: !!(rootPwshMatches && rootPwshInfo?.status !== "dead"),
-      claudeCommand: rootMatchesPath ? rootSessionInfo?.command : null,
-      isClaudeReady: rootCached?.isClaudeReady || false,
-      hasIdentity: rootCached?.hasIdentity || false,
-    });
+      cached: rootCached,
+      sessionInfo: rootResolved.sessionInfo,
+      sessionMatchesPath: rootResolved.sessionMatchesPath,
+      pwshInfo: rootResolved.pwshInfo,
+      pwshMatchesPath: rootResolved.pwshMatchesPath,
+    }));
     if (!rootCached) {
       fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
         .then((r) => r.json())
-        .then(/** @param {import('./lib/state.js').FolderInfo} info */ (info) => {
+        .then((info) => {
           state.folderInfoCache.set(rootCacheKey, info);
-          // Update indicators in-place once folder info arrives
-          const slot = label.querySelector(".indicator-slot");
-          if (slot) {
-            const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
-            const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
-            if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
-            if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
-          }
-          // Update identity tag
-          const idTag = label.querySelector(".identity-tag");
-          if (idTag && info.identityName) {
-            idTag.textContent = info.identityName;
-            idTag.classList.remove("hidden-placeholder");
-          }
+          applyFolderInfoToTreeLabel(label, info);
         })
         .catch(() => {});
     }

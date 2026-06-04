@@ -89,3 +89,77 @@ export function resolveFolderSessions(sessions, folderName, folderPath, normPath
     !!pwshInfo && !!pwshInfo.workingDir && normPathFn(pwshInfo.workingDir) === target;
   return { sessionInfo, sessionMatchesPath, pwshInfo, pwshMatchesPath };
 }
+
+// ===== Round 23 renderTree helpers ==============================
+
+/**
+ * Compute the folder-count badge text. Empty string when no favorites.
+ *
+ * @param {string[]} favorites
+ * @returns {string}
+ */
+export function folderCountText(favorites) {
+  return favorites.length > 0 ? `(${favorites.length})` : "";
+}
+
+/**
+ * Build the opts object for appendRowActions on a tree-root label,
+ * collapsing the alive/identity/unread compute chain into a single
+ * call site.
+ *
+ * @param {{
+ *   workingDir: string,
+ *   folderName: string,
+ *   cached: { isClaudeReady?: boolean, hasIdentity?: boolean, identityName?: string|null } | null | undefined,
+ *   sessionInfo: SessionInfo | null | undefined,
+ *   sessionMatchesPath: boolean,
+ *   pwshInfo: SessionInfo | null | undefined,
+ *   pwshMatchesPath: boolean
+ * }} args
+ */
+export function buildTreeRowActionsOpts(args) {
+  const { workingDir, folderName, cached, sessionInfo, sessionMatchesPath, pwshInfo, pwshMatchesPath } = args;
+  const matched = sessionMatchesPath ? sessionInfo : null;
+  const pwshMatched = pwshMatchesPath ? pwshInfo : null;
+  const cachedIdentity = cached ? cached.identityName : null;
+  const sessionIdentity = matched ? matched.emcomIdentity : null;
+  return {
+    identityName: cachedIdentity || sessionIdentity || null,
+    unreadCount: matched ? (matched.unreadCount || 0) : 0,
+    workingDir,
+    folderName,
+    claudeAlive: !!(matched && matched.status !== "dead"),
+    pwshAlive: !!(pwshMatched && pwshMatched.status !== "dead"),
+    claudeCommand: matched ? (matched.command ?? null) : null,
+    isClaudeReady: !!(cached && cached.isClaudeReady),
+    hasIdentity: !!(cached && cached.hasIdentity),
+  };
+}
+
+/**
+ * Refresh the indicators + identity tag on a tree label once folder
+ * info arrives from the server.
+ *
+ * @param {ParentNode} label
+ * @param {{ isClaudeReady?: boolean, hasIdentity?: boolean, identityName?: string|null }} info
+ */
+export function applyFolderInfoToTreeLabel(label, info) {
+  const slot = label.querySelector(".indicator-slot");
+  if (slot) {
+    const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
+    const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
+    if (indC) {
+      indC.classList.toggle("hidden-placeholder", !info.isClaudeReady);
+      if (info.isClaudeReady) indC.title = "Has CLAUDE.md";
+    }
+    if (indI) {
+      indI.classList.toggle("hidden-placeholder", !info.hasIdentity);
+      if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`;
+    }
+  }
+  const idTag = label.querySelector(".identity-tag");
+  if (idTag && info.identityName) {
+    idTag.textContent = info.identityName;
+    idTag.classList.remove("hidden-placeholder");
+  }
+}
