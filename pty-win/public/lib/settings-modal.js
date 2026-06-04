@@ -247,6 +247,55 @@ export function renderAboutSection(container) {
  */
 
 /**
+ * Compute which form entries changed from their initial values AND are
+ * non-empty. Treats empty string and null/undefined as "not present" — these
+ * are not sent to the server, matching the historical behavior of save().
+ * Pure: inputs are not mutated.
+ *
+ * @param {Record<string, any>} formState
+ * @param {Record<string, any>} initialState
+ * @returns {Array<[string, any]>}
+ */
+export function computeChangedPrefs(formState, initialState) {
+  return Object.entries(formState).filter(
+    ([k, v]) => v !== initialState[k] && v !== "" && v != null,
+  );
+}
+
+/**
+ * Build the initial form state from the current preferences file and CLI
+ * fallback, keyed by the schema. Each entry resolves to:
+ *   file[key] ?? prefs.cliPreference ?? ""
+ * matching openModal's existing logic. Pure.
+ *
+ * @param {Record<string, PrefDef>} schema
+ * @param {{file?: Record<string, any> | null, cliPreference?: any}} prefs
+ * @returns {Record<string, any>}
+ */
+export function buildInitialFormState(schema, prefs) {
+  /** @type {Record<string, any>} */
+  const initial = {};
+  const file = (prefs && prefs.file) || {};
+  for (const key of Object.keys(schema)) {
+    initial[key] = file[key] ?? prefs.cliPreference ?? "";
+  }
+  return initial;
+}
+
+/**
+ * Locate the AI preset whose `command` matches `cliValue` and return its
+ * index. Returns -1 when there's no match or no presets array. Pure.
+ *
+ * @param {ReadonlyArray<{command?: string}> | null | undefined} presets
+ * @param {any} cliValue
+ * @returns {number}
+ */
+export function findAiPresetIndexByCommand(presets, cliValue) {
+  if (!Array.isArray(presets)) return -1;
+  return presets.findIndex((p) => p && p.command === cliValue);
+}
+
+/**
  * Wire up the settings modal. Captures private state (formState,
  * initialState, schema) in closure. Init-pattern; same rationale as
  * initFeedPanel — splitting would force private mutables into module
@@ -289,11 +338,7 @@ export function initSettingsModal(deps) {
       schema = schemaPayload.keys || {};
 
       const prefs = prefsResp.ok ? await prefsResp.json() : {};
-      const file = prefs.file || {};
-      initialState = {};
-      for (const key of Object.keys(schema)) {
-        initialState[key] = file[key] ?? prefs.cliPreference ?? "";
-      }
+      initialState = buildInitialFormState(schema, prefs);
       formState = { ...initialState };
       render();
       setStatus(prefs.source === "first-found" ? "Default detected from PATH (no preference saved yet)" : "");
@@ -340,10 +385,7 @@ export function initSettingsModal(deps) {
     setStatus("saving\u2026");
     saveBtn.disabled = true;
 
-    // For now, the only key the server-side POST endpoint accepts is
-    // cliPreference. If we add more keys later, expand to POST each that
-    // changed.
-    const changed = Object.entries(formState).filter(([k, v]) => v !== initialState[k] && v !== "" && v != null);
+    const changed = computeChangedPrefs(formState, initialState);
     if (changed.length === 0) {
       setStatus("No changes", "ok");
       saveBtn.disabled = false;
@@ -366,14 +408,10 @@ export function initSettingsModal(deps) {
           throw new Error(err.error || `HTTP ${resp.status}`);
         }
       }
-      // Update local AI default index to match the saved value.
-      if (state.aiPresets) {
-        const cli = formState["cliPreference"];
-        const idx = state.aiPresets.findIndex((p) => p.command === cli);
-        if (idx >= 0) {
-          state.aiDefaultIndex = idx;
-          localStorage.setItem("pty-win-ai-default", String(idx));
-        }
+      const idx = findAiPresetIndexByCommand(state.aiPresets, formState["cliPreference"]);
+      if (idx >= 0) {
+        state.aiDefaultIndex = idx;
+        localStorage.setItem("pty-win-ai-default", String(idx));
       }
       setStatus("Saved", "ok");
       initialState = { ...formState };

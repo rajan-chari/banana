@@ -17,6 +17,9 @@ import {
   buildStringRow,
   renderSettingsRow,
   initSettingsModal,
+  computeChangedPrefs,
+  buildInitialFormState,
+  findAiPresetIndexByCommand,
 } from "../public/lib/settings-modal.js";
 
 type AnyDef = {
@@ -541,5 +544,97 @@ describe("initSettingsModal (integration: open + edit + save)", () => {
       (call[1] as RequestInit | undefined)?.method === "POST");
     expect(postCalls).toHaveLength(0);
     expect(document.getElementById("settings-modal-status")!.textContent).toBe("No changes");
+  });
+});
+
+describe("computeChangedPrefs", () => {
+  it("returns empty when nothing differs", () => {
+    expect(computeChangedPrefs({ a: "x", b: 1 }, { a: "x", b: 1 })).toEqual([]);
+  });
+
+  it("includes only changed entries", () => {
+    expect(computeChangedPrefs({ a: "x", b: 2 }, { a: "x", b: 1 })).toEqual([["b", 2]]);
+  });
+
+  it("excludes entries where new value is empty string", () => {
+    expect(computeChangedPrefs({ a: "" }, { a: "old" })).toEqual([]);
+  });
+
+  it("excludes entries where new value is null or undefined", () => {
+    expect(computeChangedPrefs({ a: null, b: undefined }, { a: "x", b: "y" })).toEqual([]);
+  });
+
+  it("includes entries newly set from absent initial", () => {
+    expect(computeChangedPrefs({ a: "new" }, {})).toEqual([["a", "new"]]);
+  });
+
+  it("includes numeric 0 (treated as changed even though falsy)", () => {
+    expect(computeChangedPrefs({ a: 0 }, { a: 1 })).toEqual([["a", 0]]);
+  });
+
+  it("includes boolean false (truthy/falsy distinction not used)", () => {
+    expect(computeChangedPrefs({ a: false }, { a: true })).toEqual([["a", false]]);
+  });
+});
+
+describe("buildInitialFormState", () => {
+  it("uses file values when present", () => {
+    const schema = { a: { type: "string" }, b: { type: "string" } } as Record<string, AnyDef>;
+    const prefs = { file: { a: "fileA", b: "fileB" }, cliPreference: "fallback" };
+    expect(buildInitialFormState(schema, prefs)).toEqual({ a: "fileA", b: "fileB" });
+  });
+
+  it("falls back to cliPreference when file lacks the key", () => {
+    const schema = { a: { type: "string" } } as Record<string, AnyDef>;
+    expect(buildInitialFormState(schema, { cliPreference: "fb" })).toEqual({ a: "fb" });
+  });
+
+  it("falls back to empty string when neither file nor cliPreference set", () => {
+    const schema = { a: { type: "string" }, b: { type: "string" } } as Record<string, AnyDef>;
+    expect(buildInitialFormState(schema, {})).toEqual({ a: "", b: "" });
+  });
+
+  it("only includes keys present in the schema", () => {
+    const schema = { a: { type: "string" } } as Record<string, AnyDef>;
+    const out = buildInitialFormState(schema, { file: { a: "x", extra: "y" } });
+    expect(out).toEqual({ a: "x" });
+    expect("extra" in out).toBe(false);
+  });
+
+  it("handles file === null", () => {
+    const schema = { a: { type: "string" } } as Record<string, AnyDef>;
+    expect(buildInitialFormState(schema, { file: null, cliPreference: "cli" })).toEqual({ a: "cli" });
+  });
+});
+
+describe("findAiPresetIndexByCommand", () => {
+  const presets = [{ command: "claude" }, { command: "gemini" }, { command: "codex" }];
+
+  it("returns the index of the matching preset", () => {
+    expect(findAiPresetIndexByCommand(presets, "gemini")).toBe(1);
+  });
+
+  it("returns -1 when no match", () => {
+    expect(findAiPresetIndexByCommand(presets, "unknown")).toBe(-1);
+  });
+
+  it("returns -1 for null/undefined presets", () => {
+    expect(findAiPresetIndexByCommand(null, "claude")).toBe(-1);
+    expect(findAiPresetIndexByCommand(undefined, "claude")).toBe(-1);
+  });
+
+  it("returns -1 for empty presets", () => {
+    expect(findAiPresetIndexByCommand([], "claude")).toBe(-1);
+  });
+
+  it("returns -1 when cliValue is empty or null", () => {
+    // Even with a falsy cliValue, no preset has command === "" so -1 is correct
+    expect(findAiPresetIndexByCommand(presets, "")).toBe(-1);
+    expect(findAiPresetIndexByCommand(presets, null)).toBe(-1);
+  });
+
+  it("tolerates entries without a command field", () => {
+    const mixed = [{ other: 1 }, { command: "x" }] as Array<{ command?: string }>;
+    expect(findAiPresetIndexByCommand(mixed, "x")).toBe(1);
   });
 });
