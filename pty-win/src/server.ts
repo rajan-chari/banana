@@ -15,6 +15,8 @@ import { registerSessionRoutes } from "./server/routes/sessions.js";
 import { createWsRuntime } from "./server/ws-runtime.js";
 import { startBackgroundTasks, stopBackgroundTasks } from "./server/background-tasks.js";
 import { createShutdownHandler } from "./server/shutdown.js";
+import { loadCostHistory, loadSavedCosts } from "./server/persistence.js";
+import { createAddSession } from "./server/session-wiring.js";
 import type { CostSample } from "./server/cost-history.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -70,38 +72,23 @@ const { injectionSender, injectWrite } = createInjectionRelay(sessions);
 const CHECKPOINT_STAGGER_MS = 10_000; // 10s between sessions on same repo
 
 export async function startServer(config: ServerConfig): Promise<void> {
-  // Resolve the log file path based on the listening port. Must come before
-  // the first clog() so the logger picks up the port-keyed filename.
   setLogPort(config.port);
   clog(`log file: ${getLogPathInfo()}`);
 
-  // Load saved costs from previous run
   const costsPath = join(__dirname, "..", "costs.json");
-  try {
-    if (existsSync(costsPath)) {
-      const data = JSON.parse(readFileSync(costsPath, "utf-8"));
-      if (data.sessions) {
-        for (const [name, cost] of Object.entries(data.sessions)) {
-          savedCosts.set(name, cost as number);
-        }
-        clog(`Loaded costs for ${savedCosts.size} session(s) from costs.json`);
-      }
-    }
-  } catch { /* ignore corrupt file */ }
+  for (const [name, cost] of loadSavedCosts(costsPath)) {
+    savedCosts.set(name, cost);
+  }
+  if (savedCosts.size > 0) {
+    clog(`Loaded costs for ${savedCosts.size} session(s) from costs.json`);
+  }
 
-  // Load cost history from previous run
-  const costHistory: CostSample[] = [];
+  const COST_HISTORY_MAX = 1440;
   const costHistoryPath = join(__dirname, "..", "cost-history.json");
-  const COST_HISTORY_MAX = 1440; // 24h at 60s intervals
-  try {
-    if (existsSync(costHistoryPath)) {
-      const data = JSON.parse(readFileSync(costHistoryPath, "utf-8"));
-      if (Array.isArray(data)) {
-        costHistory.push(...data.slice(-COST_HISTORY_MAX));
-        clog(`Loaded ${costHistory.length} cost history sample(s)`);
-      }
-    }
-  } catch { /* ignore */ }
+  const costHistory: CostSample[] = loadCostHistory(costHistoryPath, COST_HISTORY_MAX);
+  if (costHistory.length > 0) {
+    clog(`Loaded ${costHistory.length} cost history sample(s)`);
+  }
 
   const app = express();
   app.use(express.json());
@@ -113,6 +100,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
   const wsRuntime = createWsRuntime(httpServer, sessions);
 
   // --- REST API ---
+
+  const addSession = createAddSession(sessions, wsRuntime);
 
   registerAdminRoutes({
     app,
@@ -137,27 +126,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
   });
 
   registerEmcomRoutes({ app, config });
-
-  // --- Helpers ---
-
-  function addSession(session: PtySession): void {
-    sessions.set(session.name, session);
-
-    session.on("exit", () => {
-      wsRuntime.broadcastSessionList();
-    });
-
-    session.on("status-change", () => {
-      wsRuntime.broadcastStatus(session);
-    });
-
-    session.on("notification", (count: number, from: string[]) => {
-      wsRuntime.broadcastNotification(session.name, count, from);
-    });
-
-    wsRuntime.attachSession(session);
-    wsRuntime.broadcastSessionList();
-  }
 
   // --- Debug routes (conditional) ---
 
