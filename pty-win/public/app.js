@@ -366,8 +366,10 @@ function applyInstanceName(name) {
 
 /**
  * Display the server's build info (version + commit + startedAt) in the
- * version badge. Click-to-copy puts the full JSON onto the clipboard so
- * the user can verify exactly what server build is running.
+ * version badge. Click opens the Settings modal scrolled to the About
+ * section so the user can see fuller info and a Reload button. Shift+
+ * Click bypasses the modal and copies the version line to clipboard
+ * (handy when the gear button isn't on screen).
  *
  * @param {{ version?: string, commit?: string, startedAt?: string } | undefined} build
  */
@@ -377,21 +379,23 @@ function applyBuildInfo(build) {
   const shortSha = (build.commit || "").slice(0, 7);
   el.textContent = shortSha ? `v${build.version}@${shortSha}` : `v${build.version}`;
   const fullText = `pty-win v${build.version}\ncommit ${build.commit || "unknown"}\nstarted ${build.startedAt || "unknown"}`;
-  el.title = fullText + "\n\nClick to copy";
-  el.onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(fullText);
-      el.classList.add("copied");
-      const orig = el.textContent;
-      el.textContent = "copied!";
-      setTimeout(() => {
-        el.classList.remove("copied");
-        el.textContent = orig;
-      }, 1200);
-    } catch {
-      // Clipboard write can fail in non-secure contexts; fall back to alert.
-      alert(fullText);
+  el.title = fullText + "\n\nClick: open About in Settings\nShift+Click: copy to clipboard";
+  el.onclick = async (e) => {
+    if (e.shiftKey) {
+      try {
+        await navigator.clipboard.writeText(fullText);
+        el.classList.add("copied");
+        const orig = el.textContent;
+        el.textContent = "copied!";
+        setTimeout(() => { el.classList.remove("copied"); el.textContent = orig; }, 1200);
+      } catch {
+        alert(fullText);
+      }
+      return;
     }
+    // Default click: open Settings modal -- About section is at the bottom.
+    const btn = /** @type {HTMLButtonElement | null} */ (byId("settings-btn"));
+    if (btn) btn.click();
   };
 }
 

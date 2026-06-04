@@ -2318,3 +2318,49 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
 #settings-modal-save.primary { background: #d4882a; color: #1e1e1e; border-color: #d4882a; font-weight: 600; }
 #settings-modal-save.primary:hover { background: #e09b3a; }
 #settings-modal-save.primary:disabled { background: #6a4a1a; cursor: not-allowed; }
+
+.settings-about-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #2a2a2a;
+}
+.settings-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin: 0 0 8px 0;
+}
+.settings-about-body {
+  font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 11px;
+}
+.settings-about-row {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+}
+.settings-about-row .lbl {
+  color: #888;
+  min-width: 70px;
+}
+.settings-about-row .val {
+  color: #ddd;
+  word-break: break-all;
+}
+.settings-about-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+.settings-about-actions button {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  background: #2a2a2a;
+  color: #ddd;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.settings-about-actions button:hover { background: #333; }

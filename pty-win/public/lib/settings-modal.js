@@ -178,6 +178,65 @@ export function renderSettingsRow(key, def, current, setValue) {
 }
 
 /**
+ * Append an About section (version + commit + startedAt + platform + reload
+ * button) to the given container. Fetches /api/config asynchronously and
+ * fills in placeholder values once it resolves. Exposed at module scope so
+ * the settings modal can stay under the eslint max-lines-per-function cap.
+ *
+ * @param {HTMLElement} container
+ */
+export function renderAboutSection(container) {
+  const section = document.createElement("div");
+  section.className = "settings-about-section";
+  section.innerHTML = `
+    <h3 class="settings-section-title">About</h3>
+    <div class="settings-about-body">
+      <div class="settings-about-row"><span class="lbl">Version</span><span class="val" id="about-version">\u2026</span></div>
+      <div class="settings-about-row"><span class="lbl">Commit</span><span class="val" id="about-commit">\u2026</span></div>
+      <div class="settings-about-row"><span class="lbl">Started</span><span class="val" id="about-started">\u2026</span></div>
+      <div class="settings-about-row"><span class="lbl">Platform</span><span class="val" id="about-platform">\u2026</span></div>
+      <div class="settings-about-actions">
+        <button id="about-copy" type="button">Copy</button>
+        <button id="about-reload" type="button" title="Hard reload to pick up new frontend assets">Reload Page</button>
+      </div>
+    </div>`;
+  container.appendChild(section);
+
+  const fetcher = typeof fetch === "function" ? fetch.bind(globalThis) : null;
+  if (fetcher) {
+    fetcher("/api/config").then((r) => r.json()).then((cfg) => {
+      const b = cfg.build || {};
+      const ver = section.querySelector("#about-version");
+      const com = section.querySelector("#about-commit");
+      const sta = section.querySelector("#about-started");
+      const pla = section.querySelector("#about-platform");
+      if (ver) ver.textContent = b.version || "unknown";
+      if (com) com.textContent = b.commit || "unknown";
+      if (sta) sta.textContent = b.startedAt ? new Date(b.startedAt).toLocaleString() : "unknown";
+      if (pla) pla.textContent = `${cfg.platform || "?"} \u00b7 ${cfg.defaultShell || "?"}`;
+
+      const copyBtn = /** @type {HTMLButtonElement | null} */ (section.querySelector("#about-copy"));
+      if (copyBtn) {
+        copyBtn.onclick = async () => {
+          const txt = `pty-win v${b.version || "?"}\ncommit ${b.commit || "?"}\nstarted ${b.startedAt || "?"}\nplatform ${cfg.platform || "?"} (${cfg.defaultShell || "?"})`;
+          try {
+            await navigator.clipboard.writeText(txt);
+            copyBtn.textContent = "Copied";
+            setTimeout(() => { copyBtn.textContent = "Copy"; }, 1200);
+          } catch { alert(txt); }
+        };
+      }
+    }).catch(() => {
+      const ver = section.querySelector("#about-version");
+      if (ver) ver.textContent = "(failed to load /api/config)";
+    });
+  }
+
+  const reload = /** @type {HTMLButtonElement | null} */ (section.querySelector("#about-reload"));
+  if (reload) reload.onclick = () => { location.reload(); };
+}
+
+/**
  * @typedef {object} SettingsModalDeps
  * @property {(id: string) => HTMLElement} byId
  * @property {(id: string) => HTMLButtonElement} buttonById
@@ -271,6 +330,7 @@ export function initSettingsModal(deps) {
       const setValue = (/** @type {any} */ v) => { formState[key] = v; };
       body.appendChild(renderSettingsRow(key, def, formState[key] ?? "", setValue));
     }
+    renderAboutSection(body);
   }
 
   async function save() {
