@@ -26,7 +26,12 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
     // the one-time mode switches and ends up in the wrong xterm.js state —
     // notably, copilot/agency-cp's mouse-mode wheel events get eaten locally
     // instead of being forwarded back to the app as escape sequences.
-    let buf = session.getRawTail();
+    //
+    // getModeReplay() comes FIRST: mode-set escapes (alt-screen, mouse
+    // tracking) are emitted once at startup and rotate out of rawBuffer once
+    // conversation streams past the 32KB cap. Tracking their state separately
+    // ensures they're always replayed.
+    let buf = session.getModeReplay() + session.getRawTail();
     let flushTimer: ReturnType<typeof setTimeout> | null = buf
       ? setTimeout(flush, BATCH_MS)
       : null;

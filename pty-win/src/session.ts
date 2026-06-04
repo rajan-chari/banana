@@ -112,6 +112,19 @@ export class PtySession extends EventEmitter {
   // server-side inspection/debugging.
   private rawBuffer = "";
   private static readonly RAW_BUF_MAX_BYTES = 32 * 1024;
+  // Track current state of mode-set escapes so we can replay them to
+  // late-connecting WS clients. These get emitted once at startup by apps like
+  // copilot (alt-screen + SGR mouse mode), then rotate out of rawBuffer as
+  // conversation streams. Without re-sending them on connect, xterm.js stays
+  // in the wrong mode and wheel events never reach the app.
+  // Keyed by mode number (e.g. "1049"), value is the last-seen 'h'/'l' state.
+  private modeState = new Map<string, "h" | "l">();
+  // Modes we care about: alt-screen variants, mouse tracking, bracketed-paste,
+  // focus reporting. Cursor blink/visibility (?25) is intentionally excluded —
+  // it flips constantly and would generate spurious replay churn.
+  private static readonly TRACKED_MODE_RE =
+    // eslint-disable-next-line no-control-regex
+    /\x1b\[\?(1049|1047|1048|47|1002|1003|1006|1015|1000|1004|2004)([hl])/g;
   private injectionHistory: Array<{ time: number; type: string; prompt: string; statusBefore: string }> = [];
   private detectionHistory: Array<{ time: number; quietMs: number; promptType: string; mlResult: string | null; statusBefore: string; statusAfter: string; action: string; reason: string }> = [];
   // Retained for debug-endpoint compatibility; no longer written to since
@@ -218,6 +231,16 @@ export class PtySession extends EventEmitter {
       this.rawBuffer += data;
       if (this.rawBuffer.length > PtySession.RAW_BUF_MAX_BYTES) {
         this.rawBuffer = this.rawBuffer.slice(-PtySession.RAW_BUF_MAX_BYTES);
+      }
+      // Track mode-set escapes so they can be replayed to late-connecting WS
+      // clients. These get rotated out of rawBuffer once conversation streams,
+      // so we keep a separate state map.
+      PtySession.TRACKED_MODE_RE.lastIndex = 0;
+      let modeMatch: RegExpExecArray | null;
+      while ((modeMatch = PtySession.TRACKED_MODE_RE.exec(data)) !== null) {
+        const mode = modeMatch[1];
+        const state = modeMatch[2];
+        if (mode && state) this.modeState.set(mode, state as "h" | "l");
       }
       const costMatch = costRegexExit.exec(data) || costRegexLive.exec(data);
       if (costMatch && costMatch[1]) this.costUsd = parseFloat(costMatch[1]);
@@ -422,6 +445,20 @@ export class PtySession extends EventEmitter {
   getRawTail(maxBytes: number = PtySession.RAW_BUF_MAX_BYTES): string {
     if (this.rawBuffer.length <= maxBytes) return this.rawBuffer;
     return this.rawBuffer.slice(-maxBytes);
+  }
+
+  /**
+   * Returns escape sequences that re-establish all currently-active terminal
+   * modes (alt-screen, mouse tracking, etc.) on a late-connecting xterm.js.
+   * Prepended to the raw tail in WS replay so wheel events get forwarded to
+   * apps like copilot that depend on mouse mode being on.
+   */
+  getModeReplay(): string {
+    let out = "";
+    for (const [mode, state] of this.modeState) {
+      out += `\x1b[?${mode}${state}`;
+    }
+    return out;
   }
 
   // --- Debug instrumentation ---

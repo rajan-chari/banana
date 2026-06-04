@@ -38,6 +38,7 @@ class FakeSession extends EventEmitter {
 
   getInfo() { return this.info; }
   getRawTail() { return this.rawTail; }
+  getModeReplay() { return ""; }
   markUserInput(data: string) { this.marks.push(data); }
   write(data: string) { this.writes.push(data); }
   resize(cols: number, rows: number) { this.resizes.push({ cols, rows }); }
