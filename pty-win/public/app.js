@@ -54,6 +54,7 @@ import {
 } from "./lib/tracker-render.js";
 import { initFeedPanel } from "./lib/feed-panel.js";
 import { initSettingsModal } from "./lib/settings-modal.js";
+import { renderQuickAccess as _renderQuickAccess } from "./lib/quick-access.js";
 import {
   normPath,
   cssId,
@@ -595,101 +596,15 @@ function refreshTreeRunningState() {
 // ===== Quick Access Panel =====
 
 function renderQuickAccess() {
-  const panel = byId("quick-access-panel");
-  if (!panel) return;
-  panel.innerHTML = "";
-
-  if (state.pinnedFolders.length === 0) return;
-
-  for (const folderPath of state.pinnedFolders) {
-    const name = folderPath.split(/[/\\]/).filter(Boolean).pop() || folderPath;
-    const np = normPath(folderPath);
-
-    const row = document.createElement("div");
-    row.className = "quick-access-row";
-
-    // Status dot (mirrors Sessions panel)
-    const claudeStatusSession = [...state.sessions.values()].find(
-      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command !== "pwsh"
-    );
-    const pwshStatusSession = [...state.sessions.values()].find(
-      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command === "pwsh"
-    );
-    const qaStatus = claudeStatusSession?.status === "busy" || pwshStatusSession?.status === "busy"
-      ? "busy" : claudeStatusSession?.status === "starting" || pwshStatusSession?.status === "starting"
-      ? "starting" : claudeStatusSession || pwshStatusSession ? "idle" : "dead";
-    const qaPerm = claudeStatusSession?.pendingPermission || pwshStatusSession?.pendingPermission;
-    const dot = document.createElement("span");
-    dot.className = `status-dot ${qaPerm ? "permission" : qaStatus}`;
-    row.appendChild(dot);
-
-    // Name — click to focus/open
-    const label = document.createElement("span");
-    label.className = "quick-access-name";
-    label.textContent = name;
-    label.onclick = () => {
-      const existing = [...state.sessions.values()].find(
-        (s) => normPath(s.workingDir) === np && s.status !== "dead"
-      );
-      if (existing) focusExistingSession(existing.name);
-      else openFolder(folderPath, name);
-    };
-    row.appendChild(label);
-
-    // Action pills — same as sessions/folders panels
-    const claudeSession = [...state.sessions.values()].find(
-      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command !== "pwsh"
-    );
-    const pwshSession = [...state.sessions.values()].find(
-      (s) => normPath(s.workingDir) === np && s.status !== "dead" && s.command === "pwsh"
-    );
-    const cached = state.folderInfoCache.get(np);
-
-    appendRowActions(row, {
-      identityName: claudeSession?.emcomIdentity || cached?.identityName || null,
-      unreadCount: claudeSession?.unreadCount || 0,
-      workingDir: folderPath,
-      folderName: name,
-      claudeAlive: !!claudeSession,
-      pwshAlive: !!pwshSession,
-      claudeCommand: claudeSession?.command || null,
-      isClaudeReady: cached?.isClaudeReady || false,
-      hasIdentity: cached?.hasIdentity || false,
-      onKill: (claudeSession || pwshSession) ? () => {
-        if (claudeSession) killSession(claudeSession.name);
-        if (pwshSession) killSession(pwshSession.name);
-      } : null,
-    });
-
-    // Fetch folder info if not cached
-    if (!cached) {
-      fetch(`/api/folder-info?path=${encodeURIComponent(folderPath)}`)
-        .then((r) => r.json())
-        .then((info) => {
-          state.folderInfoCache.set(np, info);
-          const slot = row.querySelector(".indicator-slot");
-          if (slot) {
-            const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
-            const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
-            if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
-            if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
-          }
-        })
-        .catch(() => {});
-    }
-
-    // Right-click → context menu
-    row.addEventListener("contextmenu", (e) => showContextMenu(e, folderPath));
-    // Drag to workspace tab
-    row.draggable = true;
-    row.addEventListener("dragstart", (e) => {
-      if (!e.dataTransfer) return;
-      e.dataTransfer.setData("pty-win/folder", JSON.stringify({ workingDir: folderPath, folderName: name }));
-      e.dataTransfer.effectAllowed = "copy";
-    });
-
-    panel.appendChild(row);
-  }
+  _renderQuickAccess({
+    byId,
+    state,
+    focusExistingSession,
+    openFolder,
+    appendRowActions,
+    killSession,
+    showContextMenu,
+  });
 }
 
 // ===== Sessions Panel =====
