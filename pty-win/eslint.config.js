@@ -154,8 +154,8 @@ export default tseslint.config(
       complexity: ["error", { max: 16 }],
 
       // Mega-function ceiling — same ratchet pattern as complexity above.
-      // Current top offenders: renderTabs 123, initSettingsModal 114,
-      // registerInspectionRoutes 108, createWsRuntime 102, startServer 100
+      // Current top offenders: initSettingsModal 114, registerInspectionRoutes 108,
+      // createWsRuntime 102, startServer 100, showQuickMessageInput 70
       // (counts use skipBlankLines + skipComments).
       // IIFEs excluded because they're init-time scaffolding that captures
       // private state in a closure — forcing decomposition would just move
@@ -163,7 +163,7 @@ export default tseslint.config(
       // improvement).
       "max-lines-per-function": [
         "error",
-        { max: 123, skipBlankLines: true, skipComments: true, IIFEs: false },
+        { max: 114, skipBlankLines: true, skipComments: true, IIFEs: false },
       ],
 
       // TS's noFallthroughCasesInSwitch covers the bug case; eslint version is

@@ -47,6 +47,7 @@ import {
   findParentSplit,
 } from "./lib/tiling.js";
 import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
+import { reorderWorkspaces, tabDropSide } from "./lib/workspace-tabs.js";
 import {
   renderTrackerItemHtml,
   renderTrackerHistoryEntries,
@@ -1464,127 +1465,142 @@ function renderTabs() {
   tabsEl.appendChild(dashTab);
 
   for (const ws of state.workspaces) {
-    const tab = document.createElement("div");
-    tab.className = `tab ${ws.id === state.activeWorkspaceId ? "active" : ""}`;
-
-    const label = document.createElement("span");
-    label.className = "tab-label";
-    label.textContent = ws.name;
-    tab.appendChild(label);
-
-    const close = document.createElement("span");
-    close.className = "tab-close";
-    close.textContent = "\u00d7";
-    close.onclick = /** @param {MouseEvent} e */ (e) => { e.stopPropagation(); removeWorkspace(ws.id); };
-    tab.appendChild(close);
-
-    // Layout preset button (active tab with 2+ panes only)
-    if (ws.id === state.activeWorkspaceId && ws.layout && getLeafList(ws.layout).length >= 2) {
-      const layoutBtn = document.createElement("span");
-      layoutBtn.className = "tab-layout-btn";
-      layoutBtn.title = "Layout presets";
-      layoutBtn.textContent = "\u229e"; // ⊞
-      layoutBtn.onclick = /** @param {MouseEvent} e */ (e) => showLayoutPresetsMenu(e, ws);
-      tab.appendChild(layoutBtn);
-    }
-
-    // Drag-to-reorder
-    tab.draggable = true;
-    tab.addEventListener("dragstart", /** @param {DragEvent} e */ (e) => {
-      if (!e.dataTransfer) return;
-      dragSrcWsId = ws.id;
-      tab.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
-    });
-    tab.addEventListener("dragend", () => {
-      dragSrcWsId = null;
-      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("drag-over-left", "drag-over-right", "dragging"));
-    });
-    tab.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
-      if (!e.dataTransfer) return;
-      // Session/folder drop onto tab
-      if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
-        e.preventDefault(); e.dataTransfer.dropEffect = "copy"; tab.classList.add("drop-target"); return;
-      }
-      if (!dragSrcWsId || dragSrcWsId === ws.id) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      const rect = tab.getBoundingClientRect();
-      const isLeft = e.clientX < rect.left + rect.width / 2;
-      tab.classList.toggle("drag-over-left", isLeft);
-      tab.classList.toggle("drag-over-right", !isLeft);
-    });
-    tab.addEventListener("dragleave", () => {
-      tab.classList.remove("drag-over-left", "drag-over-right", "drop-target");
-    });
-    tab.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
-      if (!e.dataTransfer) return;
-      tab.classList.remove("drop-target");
-      // Session/folder drop
-      if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
-        e.preventDefault(); handleSessionDrop(e, ws.id); return;
-      }
-      if (!dragSrcWsId || dragSrcWsId === ws.id) return;
-      e.preventDefault();
-      const rect = tab.getBoundingClientRect();
-      const isLeft = e.clientX < rect.left + rect.width / 2;
-      const srcIdx = state.workspaces.findIndex((w) => w.id === dragSrcWsId);
-      /** @type {any} */
-      const removed = state.workspaces.splice(srcIdx, 1)[0];
-      const tgtIdx = state.workspaces.findIndex((w) => w.id === ws.id);
-      state.workspaces.splice(isLeft ? tgtIdx : tgtIdx + 1, 0, removed);
-      dragSrcWsId = null;
-      renderTabs();
-    });
-
-    // Single-click delayed to allow double-click to cancel it
-    /** @type {ReturnType<typeof setTimeout> | null} */
-    let clickTimer = null;
-    tab.onclick = () => {
-      if (clickTimer) return; // already pending
-      clickTimer = setTimeout(() => {
-        clickTimer = null;
-        switchToWorkspace(ws.id);
-      }, 250);
-    };
-
-    // Double-click to rename
-    label.ondblclick = /** @param {MouseEvent} e */ (e) => {
-      e.stopPropagation();
-      // Cancel the pending single-click
-      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-
-      const input = document.createElement("input");
-      input.className = "tab-rename";
-      input.value = ws.name;
-      input.style.width = `${Math.max(60, ws.name.length * 8)}px`;
-      label.replaceWith(input);
-      input.focus();
-      input.select();
-
-      const finish = () => {
-        const newName = input.value.trim() || ws.name;
-        ws.name = newName;
-        ws.customName = true;
-        renderTabs();
-      };
-      input.onblur = finish;
-      input.onkeydown = /** @param {KeyboardEvent} ev */ (ev) => {
-        if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
-        if (ev.key === "Escape") { input.value = ws.name; input.blur(); }
-      };
-    };
-
-    tabsEl.appendChild(tab);
+    tabsEl.appendChild(buildWorkspaceTab(ws));
   }
 
-  // New workspace button — inline after last tab
+  tabsEl.appendChild(buildAddWorkspaceButton());
+}
+
+/**
+ * Build a single workspace tab element with all wiring (close, layout-presets
+ * button, drag-to-reorder, click, double-click rename).
+ * @param {import('./lib/state.js').Workspace} ws
+ * @returns {HTMLElement}
+ */
+function buildWorkspaceTab(ws) {
+  const tab = document.createElement("div");
+  tab.className = `tab ${ws.id === state.activeWorkspaceId ? "active" : ""}`;
+
+  const label = document.createElement("span");
+  label.className = "tab-label";
+  label.textContent = ws.name;
+  tab.appendChild(label);
+
+  const close = document.createElement("span");
+  close.className = "tab-close";
+  close.textContent = "\u00d7";
+  close.onclick = (e) => { e.stopPropagation(); removeWorkspace(ws.id); };
+  tab.appendChild(close);
+
+  if (ws.id === state.activeWorkspaceId && ws.layout && getLeafList(ws.layout).length >= 2) {
+    const layoutBtn = document.createElement("span");
+    layoutBtn.className = "tab-layout-btn";
+    layoutBtn.title = "Layout presets";
+    layoutBtn.textContent = "\u229e";
+    layoutBtn.onclick = (e) => showLayoutPresetsMenu(e, ws);
+    tab.appendChild(layoutBtn);
+  }
+
+  wireTabDragReorder(tab, ws);
+  wireTabClickAndRename(tab, label, ws);
+  return tab;
+}
+
+/**
+ * @param {HTMLElement} tab
+ * @param {import('./lib/state.js').Workspace} ws
+ */
+function wireTabDragReorder(tab, ws) {
+  tab.draggable = true;
+  tab.addEventListener("dragstart", /** @param {DragEvent} e */ (e) => {
+    if (!e.dataTransfer) return;
+    dragSrcWsId = ws.id;
+    tab.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+  });
+  tab.addEventListener("dragend", () => {
+    dragSrcWsId = null;
+    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("drag-over-left", "drag-over-right", "dragging"));
+  });
+  tab.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
+    if (!e.dataTransfer) return;
+    if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
+      e.preventDefault(); e.dataTransfer.dropEffect = "copy"; tab.classList.add("drop-target"); return;
+    }
+    if (!dragSrcWsId || dragSrcWsId === ws.id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const side = tabDropSide(tab.getBoundingClientRect(), e.clientX);
+    tab.classList.toggle("drag-over-left", side === "left");
+    tab.classList.toggle("drag-over-right", side === "right");
+  });
+  tab.addEventListener("dragleave", () => {
+    tab.classList.remove("drag-over-left", "drag-over-right", "drop-target");
+  });
+  tab.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
+    if (!e.dataTransfer) return;
+    tab.classList.remove("drop-target");
+    if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
+      e.preventDefault(); handleSessionDrop(e, ws.id); return;
+    }
+    if (!dragSrcWsId || dragSrcWsId === ws.id) return;
+    e.preventDefault();
+    const side = tabDropSide(tab.getBoundingClientRect(), e.clientX);
+    state.workspaces = reorderWorkspaces(state.workspaces, dragSrcWsId, ws.id, side);
+    dragSrcWsId = null;
+    renderTabs();
+  });
+}
+
+/**
+ * @param {HTMLElement} tab
+ * @param {HTMLElement} label
+ * @param {import('./lib/state.js').Workspace} ws
+ */
+function wireTabClickAndRename(tab, label, ws) {
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let clickTimer = null;
+  tab.onclick = () => {
+    if (clickTimer) return;
+    clickTimer = setTimeout(() => {
+      clickTimer = null;
+      switchToWorkspace(ws.id);
+    }, 250);
+  };
+
+  label.ondblclick = /** @param {MouseEvent} e */ (e) => {
+    e.stopPropagation();
+    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+
+    const input = document.createElement("input");
+    input.className = "tab-rename";
+    input.value = ws.name;
+    input.style.width = `${Math.max(60, ws.name.length * 8)}px`;
+    label.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const finish = () => {
+      const newName = input.value.trim() || ws.name;
+      ws.name = newName;
+      ws.customName = true;
+      renderTabs();
+    };
+    input.onblur = finish;
+    input.onkeydown = /** @param {KeyboardEvent} ev */ (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
+      if (ev.key === "Escape") { input.value = ws.name; input.blur(); }
+    };
+  };
+}
+
+/** @returns {HTMLElement} */
+function buildAddWorkspaceButton() {
   const addBtn = document.createElement("button");
   addBtn.id = "btn-new-workspace";
   addBtn.title = "New workspace";
   addBtn.textContent = "+";
   addBtn.onclick = () => { const ws = createWorkspace(null); switchToWorkspace(ws.id); };
-  // Drop on + creates new workspace with dragged session
   addBtn.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
     if (!e.dataTransfer) return;
     if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
@@ -1594,9 +1610,9 @@ function renderTabs() {
   addBtn.addEventListener("dragleave", () => addBtn.classList.remove("drop-target"));
   addBtn.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
     addBtn.classList.remove("drop-target");
-    handleSessionDrop(e, null); // null = new workspace
+    handleSessionDrop(e, null);
   });
-  tabsEl.appendChild(addBtn);
+  return addBtn;
 }
 
 // ===== Session/Folder Drop Handler =====
