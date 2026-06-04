@@ -21,7 +21,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 let gitCommit = "unknown";
-try { gitCommit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: __dirname, encoding: "utf-8" }).trim(); } catch { /* not in git */ }
+// Primary source: dist/build-info.json written by scripts/write-build-info.mjs
+// at build time. This survives packaging (the released zip has no .git).
+try {
+  const buildInfoPath = join(__dirname, "build-info.json");
+  if (existsSync(buildInfoPath)) {
+    const info = JSON.parse(readFileSync(buildInfoPath, "utf-8"));
+    if (typeof info.commit === "string" && info.commit) gitCommit = info.commit;
+  }
+} catch { /* fall through to git */ }
+// Fallback: ask git directly (useful in dev when build-info.json may be stale).
+if (gitCommit === "unknown") {
+  try { gitCommit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: __dirname, encoding: "utf-8" }).trim(); } catch { /* not in git */ }
+}
 const buildInfo = { version: pkg.version as string, commit: gitCommit, startedAt: new Date().toISOString() };
 
 const sessions = new Map<string, PtySession>();

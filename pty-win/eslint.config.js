@@ -65,6 +65,18 @@ export default tseslint.config(
     },
   },
 
+  // Node build scripts (scripts/*.mjs).
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      parserOptions: { sourceType: "module", ecmaVersion: 2022 },
+      globals: {
+        process: "readonly",
+        console: "readonly",
+      },
+    },
+  },
+
   // Browser JS: public/app.js + public/lib/*.js.
   {
     files: ["public/**/*.js"],

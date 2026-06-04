@@ -1,6 +1,6 @@
 {
   "name": "pty-win",
-  "version": "0.1.44",
+  "version": "0.1.45",
   "description": "Browser-based terminal multiplexer with emcom integration",
   "type": "module",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/write-build-info.mjs",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
     "test": "vitest run",
@@ -24,7 +24,7 @@
     "check:test": "tsc -p tsconfig.test.json",
     "check:deps": "madge --circular public/ && madge --circular --extensions ts src/",
     "lint": "eslint .",
-    "check": "npm run build -- --noEmit && npm run check:public && npm run check:test && npm run check:deps && npm run lint"
+    "check": "tsc --noEmit && npm run check:public && npm run check:test && npm run check:deps && npm run lint"
   },
   "dependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",

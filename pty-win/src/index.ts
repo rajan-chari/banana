@@ -2,7 +2,7 @@
 
 import { startServer } from "./server.js";
 import { DEFAULTS } from "./config.js";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
@@ -10,10 +10,23 @@ import { execFileSync } from "child_process";
 const args = process.argv.slice(2);
 
 if (args.includes("--version") || args.includes("-V")) {
-  const pkgPath = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkgPath = join(here, "..", "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
   let commit = "unknown";
-  try { commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: dirname(pkgPath), encoding: "utf-8" }).trim(); } catch { /* not in git */ }
+  // Primary: dist/build-info.json (written by scripts/write-build-info.mjs
+  // at build time, survives release packaging).
+  try {
+    const buildInfoPath = join(here, "build-info.json");
+    if (existsSync(buildInfoPath)) {
+      const info = JSON.parse(readFileSync(buildInfoPath, "utf-8"));
+      if (typeof info.commit === "string" && info.commit) commit = info.commit;
+    }
+  } catch { /* fall through to git */ }
+  // Fallback: ask git directly (dev mode where build-info.json may be stale).
+  if (commit === "unknown") {
+    try { commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: dirname(pkgPath), encoding: "utf-8" }).trim(); } catch { /* not in git */ }
+  }
   console.log(`pty-win v${pkg.version} (commit ${commit})`);
   process.exit(0);
 }
