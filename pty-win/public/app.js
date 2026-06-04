@@ -1971,6 +1971,70 @@ function fitAllTerminals(node) {
 
 // ===== Panes =====
 
+// Module-scoped paste guard: short (50ms) window during Ctrl+V handling
+// that prevents onData from re-emitting the pasted text. Only one pane
+// has focus at any time, so a singleton is sufficient.
+let _pasteGuard = false;
+
+/**
+ * Handle Ctrl+Shift+<key> shortcuts inside an xterm pane.
+ *
+ * @param {KeyboardEvent} e
+ * @param {string} sessionName
+ * @returns {boolean} false if handled (suppress default), true otherwise
+ */
+function handleCtrlShiftKey(e, sessionName) {
+  if (e.key === " ") {
+    state.ws?.send(JSON.stringify({ type: "clear-input-dirty", session: sessionName }));
+    return false;
+  }
+  switch (e.key) {
+    case "D": case "d": switchToDashboard(); return false;
+    case "H": case "h": return false;
+    case "V": case "v": return false;
+    case "W": case "w": closeFocusedPane(); return false;
+    case "B": case "b": toggleSidebar(); return false;
+  }
+  if (e.key >= "1" && e.key <= "9") {
+    const idx = parseInt(e.key) - 1;
+    if (state.workspaces[idx]) switchToWorkspace(state.workspaces[idx].id);
+    return false;
+  }
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+    resizeFocused(e.key);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Handle Ctrl+<key> (no shift) shortcuts inside an xterm pane.
+ *
+ * @param {KeyboardEvent} e
+ * @param {string} sessionName
+ * @returns {boolean} false if handled (suppress default), true otherwise
+ */
+function handleCtrlOnlyKey(e, sessionName) {
+  if (e.key === "p") {
+    openQuickOpen();
+    return false;
+  }
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+    navigatePanes(e.key);
+    return false;
+  }
+  if (e.key === "v") {
+    _pasteGuard = true;
+    navigator.clipboard.readText().then((text) => {
+      if (text) state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
+    }).catch(() => {}).finally(() => {
+      setTimeout(() => { _pasteGuard = false; }, 50);
+    });
+    return false;
+  }
+  return true;
+}
+
 /**
  * @param {string} groupName
  */
@@ -2176,7 +2240,6 @@ function ensureTerminal(sessionName) {
   term.loadAddon(fitAddon);
   term.loadAddon(new xtermWebLinksAddon.WebLinksAddon());
 
-  let _pasteGuard = false;
   term.onData(/** @param {string} data */ (data) => {
     if (_pasteGuard) return; // skip — already sent by Ctrl+V handler
     state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
@@ -2188,42 +2251,8 @@ function ensureTerminal(sessionName) {
 
   term.attachCustomKeyEventHandler(/** @param {KeyboardEvent} e */ (e) => {
     if (e.type !== "keydown") return true;
-    if (e.ctrlKey && e.shiftKey) {
-      if (e.key === " ") {
-        state.ws?.send(JSON.stringify({ type: "clear-input-dirty", session: sessionName }));
-        return false;
-      }
-      switch (e.key) {
-        case "D": case "d": switchToDashboard(); return false;
-        case "H": case "h": return false;
-        case "V": case "v": return false;
-        case "W": case "w": closeFocusedPane(); return false;
-        case "B": case "b": toggleSidebar(); return false;
-      }
-      if (e.key >= "1" && e.key <= "9") {
-        const idx = parseInt(e.key) - 1;
-        if (state.workspaces[idx]) switchToWorkspace(state.workspaces[idx].id);
-        return false;
-      }
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-        resizeFocused(e.key); return false;
-      }
-    }
-    if (e.ctrlKey && !e.shiftKey) {
-      if (e.key === "p") { openQuickOpen(); return false; }
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-        navigatePanes(e.key); return false;
-      }
-      if (e.key === "v") {
-        _pasteGuard = true;
-        navigator.clipboard.readText().then((text) => {
-          if (text) state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
-        }).catch(() => {}).finally(() => {
-          setTimeout(() => { _pasteGuard = false; }, 50);
-        });
-        return false;
-      }
-    }
+    if (e.ctrlKey && e.shiftKey) return handleCtrlShiftKey(e, sessionName);
+    if (e.ctrlKey && !e.shiftKey) return handleCtrlOnlyKey(e, sessionName);
     return true;
   });
 
