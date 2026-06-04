@@ -160,7 +160,9 @@ export function removePin(path, state, deps) {
  * @returns {Record<string, (path: string, name: string) => unknown>}
  */
 export function buildContextMenuActions(deps) {
-  const fetcher = deps.fetchFn || fetch;
+  // Bind to window so callers can invoke as `deps.fetcher(...)` without
+  // tripping "Illegal invocation" -- bare fetch requires window receiver.
+  const fetcher = deps.fetchFn || fetch.bind(window);
   const promptF = deps.promptFn || ((m, i) => prompt(m, i));
   const alertF = deps.alertFn || ((m) => alert(m));
   const favDeps = { saveFavorites: deps.saveFavorites, renderTree: deps.renderTree };

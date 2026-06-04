@@ -157,7 +157,7 @@ export function findActiveSessionForFolder(sessions, normalizedPath) {
  */
 export function buildQuickAccessRow(folderPath, deps) {
   const { state, focusExistingSession, openFolder, appendRowActions, killSession, showContextMenu } = deps;
-  const fetcher = deps.fetchFn || fetch;
+  const fetcher = deps.fetchFn || fetch.bind(window);
   const name = folderPath.split(/[/\\]/).filter(Boolean).pop() || folderPath;
   const np = normPath(folderPath);
   const { claude, pwsh } = pickActiveFolderSessions(state.sessions, np);

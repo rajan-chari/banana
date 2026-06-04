@@ -82,7 +82,7 @@ export function buildCreateSessionRequest(args) {
  * }} deps
  */
 export async function cleanupDeadSession(sessionName, deps) {
-  const fetcher = deps.fetchFn || fetch;
+  const fetcher = deps.fetchFn || fetch.bind(window);
   await fetcher(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" }).catch(() => {});
   deps.state.sessions.delete(sessionName);
   const entry = deps.state.terminals.get(sessionName);

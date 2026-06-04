@@ -355,4 +355,32 @@ describe("buildContextMenuActions dispatcher", () => {
       "open", "open-cmd", "open-new-ws", "pin-add", "pin-remove",
     ]);
   });
+
+  it("falls back to window.fetch with correct receiver (regression: 'Illegal invocation')", async () => {
+    // When deps.fetchFn is undefined, buildContextMenuActions should use the
+    // real window.fetch and call it with `window` as receiver. Calling fetch
+    // with the wrong `this` throws "Illegal invocation" in real browsers.
+    // We simulate that here by replacing global fetch with a function that
+    // throws if invoked with the wrong this.
+    const originalFetch = globalThis.fetch;
+    const strictFetch = function (this: unknown, ..._args: unknown[]) {
+      if (this !== globalThis && this !== undefined) {
+        throw new TypeError("Illegal invocation");
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    };
+    Object.defineProperty(globalThis, "fetch", { value: strictFetch, configurable: true, writable: true });
+    try {
+      const depsNoFetch = { ...deps };
+      delete depsNoFetch.fetchFn;
+      promptFn.mockReturnValue("newdir");
+      // If fetch is invoked with `deps` as receiver, this throws and the
+      // alertFn is invoked instead -- the test should fail.
+      await buildContextMenuActions(depsNoFetch)["new-folder"]("C:\\foo", "foo");
+      expect(alertFn).not.toHaveBeenCalledWith(expect.stringContaining("Illegal"));
+      expect(renderTree).toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, "fetch", { value: originalFetch, configurable: true, writable: true });
+    }
+  });
 });
