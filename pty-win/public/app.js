@@ -81,6 +81,12 @@ import {
   upsertAgentTotalRow,
 } from "./lib/agents-panel.js";
 import {
+  computeDiagTotalCost,
+  removeStaleDiagRows,
+  upsertDiagRow,
+  upsertDiagTotalRow,
+} from "./lib/diag-panel.js";
+import {
   normPath,
   cssId,
   truncatePath,
@@ -2938,8 +2944,8 @@ function renderDashboardStats() {
     if (!state.isDashboard) return;
 
     const statsMap = new Map(stats.map((s) => [s.name, s]));
-    const allSessions = [...state.sessions.entries()];
-    const totalCostVal = allSessions.reduce((sum, [, s]) => sum + (s.costUsd || 0), 0);
+    const sessions = [...state.sessions.entries()];
+    const totalCostVal = computeDiagTotalCost(sessions);
 
     // Build table structure once, then patch rows
     let table = container.querySelector(".diag-table");
@@ -2957,61 +2963,18 @@ function renderDashboardStats() {
 
     const tbody = table?.querySelector("tbody");
     if (!tbody) return;
-    const currentNames = new Set(state.sessions.keys());
+    const currentNames = new Set(sessions.map(([n]) => n));
 
-    // Remove rows for sessions that no longer exist
-    for (const row of [...tbody.querySelectorAll(".diag-row")]) {
-      if (!(row instanceof HTMLElement)) continue;
-      if (!currentNames.has(row.dataset["session"] ?? "")) row.remove();
+    removeStaleDiagRows(tbody, currentNames);
+
+    for (const [name, info] of sessions) {
+      upsertDiagRow(tbody, name, info, statsMap.get(name), {
+        onFocusSession: focusExistingSession,
+        fmtAgo,
+      });
     }
 
-    // Add or patch rows
-    for (const [name, info] of allSessions) {
-      const s = statsMap.get(name);
-      const hot = s && s.busy.callbacksPerSec > 100;
-      let row = /** @type {HTMLTableRowElement | null} */ (tbody.querySelector(`.diag-row[data-session="${CSS.escape(name)}"]`));
-
-      if (!row) {
-        row = document.createElement("tr");
-        row.className = "diag-row";
-        row.dataset["session"] = name;
-        row.style.cursor = "pointer";
-        row.onclick = () => focusExistingSession(name);
-        row.innerHTML = `<td class="diag-name"></td><td class="diag-status"></td><td class="diag-ago"></td><td class="diag-cbs"></td><td class="diag-kbs"></td><td class="diag-cost"></td>`;
-        // Insert before total row if it exists
-        const totalRow = tbody.querySelector(".diag-cost-total");
-        tbody.insertBefore(row, totalRow);
-      }
-
-      row.className = `diag-row ${hot ? "diag-hot" : ""}`;
-      const cells = row.children;
-      if (cells[0].textContent !== name) cells[0].textContent = name;
-      if (cells[1].textContent !== info.status) { cells[1].textContent = info.status; cells[1].className = `diag-status ${info.status}`; }
-      const agoText = fmtAgo(info.lastActiveMs);
-      if (cells[2].textContent !== agoText) cells[2].textContent = agoText;
-      const cbsText = s ? String(s.busy.callbacksPerSec) : "0";
-      if (cells[3].textContent !== cbsText) { cells[3].textContent = cbsText; cells[3].className = hot ? "diag-hot-val" : ""; }
-      const kbsText = s ? (s.busy.bytesPerSec / 1024).toFixed(1) : "0.0";
-      if (cells[4].textContent !== kbsText) cells[4].textContent = kbsText;
-      const costText = `$${(info.costUsd || 0).toFixed(2)}`;
-      if (cells[5].textContent !== costText) cells[5].textContent = costText;
-    }
-
-    // Patch or create total row
-    let totalRow = tbody.querySelector(".diag-cost-total");
-    if (totalCostVal > 0) {
-      if (!totalRow) {
-        totalRow = document.createElement("tr");
-        totalRow.className = "diag-cost-total";
-        totalRow.innerHTML = `<td colspan="5">Total</td><td class="diag-cost"></td>`;
-        tbody.appendChild(totalRow);
-      }
-      const totalCell = totalRow.querySelector(".diag-cost");
-      const totalText = `$${totalCostVal.toFixed(2)}`;
-      if (totalCell && totalCell.textContent !== totalText) totalCell.textContent = totalText;
-    } else if (totalRow) {
-      totalRow.remove();
-    }
+    upsertDiagTotalRow(tbody, totalCostVal);
   }).catch(() => {});
 }
 
