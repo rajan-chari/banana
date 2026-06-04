@@ -6,6 +6,7 @@ import {
   buildCreateSessionRequest,
   cleanupDeadSession,
   attachToSiblingWorkspace,
+  tileNewSessionIntoWorkspace,
 } from "../public/lib/open-folder.js";
 
 describe("computeSessionNames", () => {
@@ -240,5 +241,61 @@ describe("attachToSiblingWorkspace", () => {
     expect(args.switchToWorkspace).toHaveBeenCalledWith("ws-1");
     expect(args.renderActiveWorkspace).toHaveBeenCalledTimes(1);
     expect(args.focusPane).toHaveBeenCalledWith("foo");
+  });
+});
+
+describe("tileNewSessionIntoWorkspace", () => {
+  type Ws = { id: string };
+
+  function mkArgs(overrides: Partial<Parameters<typeof tileNewSessionIntoWorkspace>[0]> = {}) {
+    const ws: Ws = { id: "ws-active" };
+    const created: Ws = { id: "ws-new" };
+    return {
+      newWorkspace: false,
+      baseName: "foo",
+      createWorkspace: vi.fn((_name: string) => created),
+      getOrCreateActiveWorkspace: vi.fn(() => ws),
+      addSessionToWorkspace: vi.fn(),
+      switchToWorkspace: vi.fn(),
+      renderActiveWorkspace: vi.fn(),
+      focusPane: vi.fn(),
+      updateWorkspaceTabName: vi.fn(),
+      ...overrides,
+    };
+  }
+
+  it("appends to the active workspace when newWorkspace is false", () => {
+    const args = mkArgs();
+    tileNewSessionIntoWorkspace(args);
+    expect(args.getOrCreateActiveWorkspace).toHaveBeenCalledTimes(1);
+    expect(args.createWorkspace).not.toHaveBeenCalled();
+    expect(args.addSessionToWorkspace).toHaveBeenCalledWith("ws-active", "foo");
+    expect(args.switchToWorkspace).toHaveBeenCalledWith("ws-active");
+  });
+
+  it("creates a new workspace named after baseName when newWorkspace is true", () => {
+    const args = mkArgs({ newWorkspace: true });
+    tileNewSessionIntoWorkspace(args);
+    expect(args.createWorkspace).toHaveBeenCalledWith("foo");
+    expect(args.getOrCreateActiveWorkspace).not.toHaveBeenCalled();
+    expect(args.addSessionToWorkspace).toHaveBeenCalledWith("ws-new", "foo");
+    expect(args.switchToWorkspace).toHaveBeenCalledWith("ws-new");
+  });
+
+  it("re-renders and focuses the new pane", () => {
+    const args = mkArgs();
+    tileNewSessionIntoWorkspace(args);
+    expect(args.renderActiveWorkspace).toHaveBeenCalledTimes(1);
+    expect(args.focusPane).toHaveBeenCalledWith("foo");
+  });
+
+  it("calls updateWorkspaceTabName with the receiving workspace", () => {
+    const newArgs = mkArgs({ newWorkspace: true });
+    tileNewSessionIntoWorkspace(newArgs);
+    expect(newArgs.updateWorkspaceTabName).toHaveBeenCalledWith({ id: "ws-new" });
+
+    const activeArgs = mkArgs();
+    tileNewSessionIntoWorkspace(activeArgs);
+    expect(activeArgs.updateWorkspaceTabName).toHaveBeenCalledWith({ id: "ws-active" });
   });
 });

@@ -1,0 +1,198 @@
+// @ts-check
+//
+// Sessions-panel row helpers — pure-ish DOM constructors and a data shaper
+// for the per-row opts that renderSessionsPanel feeds into appendRowActions.
+//
+// Extracted from app.js renderSessionsPanel (originally Cx 19). Async
+// handlers + global state access stay in app.js; this file owns the
+// deterministic DOM construction + data shaping.
+
+import { computeGroupStatus, computeGroupUnread, getActiveSessionName } from "./session-groups.js";
+
+/** @typedef {import('./state.js').FolderInfo} FolderInfo */
+/** @typedef {import('./session-groups.js').ActiveSessionGroup} ActiveSessionGroup */
+
+/**
+ * Create the empty-state element shown when no sessions exist.
+ * @returns {HTMLDivElement}
+ */
+export function createEmptyRow() {
+  const empty = document.createElement("div");
+  empty.className = "sessions-empty";
+  empty.textContent = "No sessions";
+  return empty;
+}
+
+/**
+ * Create the base row element (without actions) for an active session group.
+ * Includes the status-dot + session-name and `data-group` attribute. Caller
+ * is expected to append the right-side actions via appendRowActions.
+ *
+ * @param {ActiveSessionGroup} g
+ * @param {string | null} focusedPane  current state.focusedPane
+ * @returns {HTMLDivElement}
+ */
+export function createSessionRow(g, focusedPane) {
+  const row = document.createElement("div");
+  row.className = `session-row ${g.group === focusedPane ? "active" : ""}`;
+  row.dataset["group"] = g.group;
+
+  const dotClass = computeGroupStatus(g.claudeInfo, g.pwshInfo, g.claudeAlive, g.pwshAlive);
+  const dot = document.createElement("span");
+  dot.className = `status-dot ${dotClass}`;
+  row.appendChild(dot);
+
+  const name = document.createElement("span");
+  name.className = "session-name";
+  name.textContent = g.group;
+  row.appendChild(name);
+
+  return row;
+}
+
+/**
+ * Build the opts object passed to appendRowActions. Pure data shaping;
+ * caller supplies the onKill callback so the helper stays state-free.
+ *
+ * @param {ActiveSessionGroup} g
+ * @param {FolderInfo | undefined} cached  result of state.folderInfoCache.get(...)
+ * @param {() => void} onKill
+ * @returns {{
+ *   identityName: string | null,
+ *   unreadCount: number,
+ *   workingDir: string | undefined,
+ *   folderName: string,
+ *   claudeAlive: boolean,
+ *   pwshAlive: boolean,
+ *   claudeCommand: string | null,
+ *   isClaudeReady: boolean,
+ *   hasIdentity: boolean,
+ *   onKill: () => void,
+ * }}
+ */
+export function buildSessionRowActionsOpts(g, cached, onKill) {
+  return {
+    identityName: (g.claudeInfo || g.pwshInfo)?.emcomIdentity || null,
+    unreadCount: computeGroupUnread(g.claudeInfo, g.pwshInfo, g.claudeAlive, g.pwshAlive),
+    workingDir: g.workingDir,
+    folderName: g.group,
+    claudeAlive: g.claudeAlive,
+    pwshAlive: g.pwshAlive,
+    claudeCommand: g.claudeAlive ? g.claudeInfo?.command ?? null : null,
+    isClaudeReady: cached?.isClaudeReady || false,
+    hasIdentity: cached?.hasIdentity || false,
+    onKill,
+  };
+}
+
+/**
+ * Patch the CLAUDE.md + identity indicator dots inside a session row after
+ * an async folder-info fetch resolves. No-op if the slot is gone (row was
+ * removed mid-fetch).
+ *
+ * @param {HTMLElement} row
+ * @param {FolderInfo} info
+ */
+export function patchSessionRowIndicators(row, info) {
+  const slot = row.querySelector(".indicator-slot");
+  if (!slot) return;
+  const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
+  const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
+  if (indC) {
+    indC.classList.toggle("hidden-placeholder", !info.isClaudeReady);
+    if (info.isClaudeReady) indC.title = "Has CLAUDE.md";
+  }
+  if (indI) {
+    indI.classList.toggle("hidden-placeholder", !info.hasIdentity);
+    if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`;
+  }
+}
+
+/**
+ * Resolve the active session name for click-to-focus. Thin re-export of
+ * getActiveSessionName so renderSessionsPanel can import everything it
+ * needs from this module.
+ *
+ * @param {ActiveSessionGroup} g
+ * @returns {string | null}
+ */
+export function activeNameForRow(g) {
+  return getActiveSessionName(g.pg, g.claudeAlive, g.pwshAlive);
+}
+
+// =====================================================================
+// Pure row-action element builders. Used inside appendRowActions
+// (which still owns the three AI/pwsh/VS-Code tags that touch
+// app-level state). These mirror the original inline DOM in app.js
+// but are extracted so they can be unit-tested.
+// =====================================================================
+
+/**
+ * Identity chip ("@name" or hidden placeholder). Always rendered to keep
+ * column alignment across rows.
+ * @param {string | null | undefined} identityName
+ * @returns {HTMLSpanElement}
+ */
+export function buildIdentityTag(identityName) {
+  const el = document.createElement("span");
+  el.className = `identity-tag ${identityName ? "" : "hidden-placeholder"}`;
+  el.textContent = identityName ? identityName : "@";
+  return el;
+}
+
+/**
+ * Unread-message badge ("(N)" or hidden placeholder).
+ * @param {number} unreadCount
+ * @returns {HTMLSpanElement}
+ */
+export function buildUnreadBadge(unreadCount) {
+  const el = document.createElement("span");
+  el.className = `unread-badge ${unreadCount > 0 ? "" : "hidden-placeholder"}`;
+  el.textContent = unreadCount > 0 ? `(${unreadCount})` : "(0)";
+  return el;
+}
+
+/**
+ * Indicator-slot span containing the CLAUDE.md ◆ and identity ● dots.
+ * Both dots are always present; visibility is via .hidden-placeholder.
+ * @param {{ isClaudeReady: boolean, hasIdentity: boolean, identityName?: string | null }} opts
+ * @returns {HTMLSpanElement}
+ */
+export function buildIndicatorSlot({ isClaudeReady, hasIdentity, identityName }) {
+  const slot = document.createElement("span");
+  slot.className = "indicator-slot";
+
+  const indClaude = document.createElement("span");
+  indClaude.className = `indicator claude-ready ${isClaudeReady ? "" : "hidden-placeholder"}`;
+  indClaude.textContent = "\u25c6";
+  if (isClaudeReady) indClaude.title = "Has CLAUDE.md";
+  slot.appendChild(indClaude);
+
+  const indIdentity = document.createElement("span");
+  indIdentity.className = `indicator identity ${hasIdentity ? "" : "hidden-placeholder"}`;
+  indIdentity.textContent = "\u25cf";
+  if (hasIdentity) indIdentity.title = `Identity: ${identityName || "yes"}`;
+  slot.appendChild(indIdentity);
+
+  return slot;
+}
+
+/**
+ * Kill button. When onKill is provided, wires the click handler with
+ * stopPropagation. When omitted, the button still renders (column
+ * alignment) but is non-interactive.
+ * @param {(() => void) | null | undefined} onKill
+ * @returns {HTMLButtonElement}
+ */
+export function buildKillButton(onKill) {
+  const btn = document.createElement("button");
+  btn.className = "kill-btn";
+  btn.textContent = "\u00d7";
+  if (onKill) {
+    btn.title = "Kill session";
+    btn.onclick = (e) => { e.stopPropagation(); onKill(); };
+  } else {
+    btn.style.pointerEvents = "none";
+  }
+  return btn;
+}

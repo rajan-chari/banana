@@ -52,6 +52,20 @@ export function buildSessionGroups(paneGroups, sessions) {
 }
 
 /**
+ * Predicate against a live group member. Returns true only when the
+ * member is alive, present, and the predicate matches. Centralizes the
+ * `alive && info?.X` pattern that drove computeGroupStatus's complexity.
+ *
+ * @param {boolean} alive
+ * @param {SessionInfo | null} info
+ * @param {(i: SessionInfo) => boolean} predicate
+ * @returns {boolean}
+ */
+function liveMatch(alive, info, predicate) {
+  return !!(alive && info && predicate(info));
+}
+
+/**
  * Worst-of-pair status for a group, with pendingPermission overriding
  * everything else. Mirrors the original inline logic in renderSessionsPanel
  * lines 643-648: busy > starting > idle, with "permission" trumping all.
@@ -64,18 +78,13 @@ export function buildSessionGroups(paneGroups, sessions) {
  * @returns {"permission" | "busy" | "starting" | "idle"}
  */
 export function computeGroupStatus(claudeInfo, pwshInfo, claudeAlive, pwshAlive) {
-  const perm =
-    (claudeAlive && claudeInfo?.pendingPermission) ||
-    (pwshAlive && pwshInfo?.pendingPermission);
-  if (perm) return "permission";
-  const busy =
-    (claudeAlive && claudeInfo?.status === "busy") ||
-    (pwshAlive && pwshInfo?.status === "busy");
-  if (busy) return "busy";
-  const starting =
-    (claudeAlive && claudeInfo?.status === "starting") ||
-    (pwshAlive && pwshInfo?.status === "starting");
-  if (starting) return "starting";
+  /** @param {(i: SessionInfo) => boolean} predicate */
+  const anyLive = (predicate) =>
+    liveMatch(claudeAlive, claudeInfo, predicate) ||
+    liveMatch(pwshAlive, pwshInfo, predicate);
+  if (anyLive((i) => !!i.pendingPermission)) return "permission";
+  if (anyLive((i) => i.status === "busy")) return "busy";
+  if (anyLive((i) => i.status === "starting")) return "starting";
   return "idle";
 }
 

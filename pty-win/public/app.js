@@ -68,6 +68,7 @@ import {
   buildCreateSessionRequest,
   cleanupDeadSession,
   attachToSiblingWorkspace,
+  tileNewSessionIntoWorkspace,
 } from "./lib/open-folder.js";
 import {
   buildContextMenuActions,
@@ -101,9 +102,6 @@ import {
 } from "./lib/tracker-filters.js";
 import {
   buildSessionGroups,
-  computeGroupStatus,
-  computeGroupUnread,
-  getActiveSessionName,
 } from "./lib/session-groups.js";
 import {
   hasSessionNameSetChanged,
@@ -117,8 +115,33 @@ import {
   resolveFolderSessions,
   folderCountText,
   buildTreeRowActionsOpts,
+  buildChildRowActionsOpts,
+  buildChildTreeRow,
   applyFolderInfoToTreeLabel,
 } from "./lib/folder-tree.js";
+import {
+  EMPTY_DASHBOARD_HTML,
+  patchCardFields,
+  removeStaleCards,
+} from "./lib/dashboard-patch.js";
+import {
+  createEmptyRow,
+  createSessionRow,
+  buildSessionRowActionsOpts,
+  patchSessionRowIndicators,
+  activeNameForRow,
+  buildIdentityTag,
+  buildUnreadBadge,
+  buildIndicatorSlot,
+  buildKillButton,
+} from "./lib/session-row.js";
+import { resolveCtrlShiftKeyAction } from "./lib/key-shortcuts.js";
+import {
+  resolveResumeMenuState,
+  makeCtxItem,
+  makeCtxSeparator,
+  makeCtxHeader,
+} from "./lib/pane-context-menu.js";
 
 /** @type {string | null} */
 let dragSrcWsId = null;
@@ -551,55 +574,15 @@ async function loadAndRenderChildren(parentPath, container, depth) {
     if (!entry.isDir) continue;
 
     const node = document.createElement("div");
-
-    // The clickable row
-    const row = document.createElement("div");
-    row.className = "tree-node";
-    row.dataset["path"] = normPath(entry.path);
-    if (isFolderRunning(state.sessions, entry.path, normPath)) {
-      row.classList.add("running");
-    }
-
-    // Indent
-    const indent = document.createElement("span");
-    indent.className = "indent";
-    indent.style.width = `${depth * 8}px`;
-    row.appendChild(indent);
-
-    // Arrow
-    const arrow = document.createElement("span");
     const isExpanded = state.expandedPaths.has(entry.path);
-    arrow.className = `arrow ${isExpanded ? "expanded" : ""}`;
-    row.appendChild(arrow);
+    const isRunning = isFolderRunning(state.sessions, entry.path, normPath);
+    const row = buildChildTreeRow(entry, depth, isExpanded, isRunning, normPath);
 
-    // Folder name
-    const name = document.createElement("span");
-    name.className = "folder-name";
-    name.textContent = entry.name;
-    row.appendChild(name);
+    const resolution = resolveFolderSessions(state.sessions, entry.name, entry.path, normPath);
+    appendRowActions(row, buildChildRowActionsOpts(entry, resolution));
 
-    // Shared right-side section (matches sessions panel layout)
-    const childResolved = resolveFolderSessions(state.sessions, entry.name, entry.path, normPath);
-    const sessionInfo = childResolved.sessionInfo;
-    const sessionMatchesPath = childResolved.sessionMatchesPath;
-    const pwshInfo = childResolved.pwshInfo;
-    const pwshMatchesPath = childResolved.pwshMatchesPath;
-    appendRowActions(row, {
-      identityName: entry.hasIdentity ? (entry.identityName || null) : null,
-      unreadCount: sessionMatchesPath ? (sessionInfo?.unreadCount || 0) : 0,
-      workingDir: entry.path,
-      folderName: entry.name,
-      claudeAlive: !!(sessionMatchesPath && sessionInfo && sessionInfo.status !== "dead"),
-      pwshAlive: !!(pwshMatchesPath && pwshInfo && pwshInfo.status !== "dead"),
-      claudeCommand: sessionMatchesPath ? sessionInfo?.command : null,
-      isClaudeReady: entry.isClaudeReady,
-      hasIdentity: entry.hasIdentity,
-    });
-
-    // Row click = expand/collapse
     row.onclick = () => toggleExpand(entry.path);
     row.addEventListener("contextmenu", (e) => showContextMenu(e, entry.path));
-    // Drag to workspace tab
     row.draggable = true;
     row.addEventListener("dragstart", (e) => {
       if (!e.dataTransfer) return;
@@ -609,7 +592,6 @@ async function loadAndRenderChildren(parentPath, container, depth) {
 
     node.appendChild(row);
 
-    // Children container
     const childContainer = document.createElement("div");
     childContainer.className = `tree-children ${isExpanded ? "expanded" : ""}`;
     node.appendChild(childContainer);
@@ -662,79 +644,38 @@ function renderSessionsPanel() {
   const countEl = document.querySelector(".session-count");
   if (!list) return;
 
-  // Build list of active groups
   const groups = buildSessionGroups(state.paneGroups, state.sessions);
-
   if (countEl) countEl.textContent = groups.length > 0 ? `(${groups.length})` : "";
 
   list.innerHTML = "";
   if (groups.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "sessions-empty";
-    empty.textContent = "No sessions";
-    list.appendChild(empty);
+    list.appendChild(createEmptyRow());
     return;
   }
 
   for (const g of groups) {
-    const row = document.createElement("div");
-    row.className = `session-row ${g.group === state.focusedPane ? "active" : ""}`;
-    row.dataset["group"] = g.group;
-
-    // Status dot — worst-of status across group; pendingPermission overrides
-    const dotClass = computeGroupStatus(g.claudeInfo, g.pwshInfo, g.claudeAlive, g.pwshAlive);
-    const dot = document.createElement("span");
-    dot.className = `status-dot ${dotClass}`;
-    row.appendChild(dot);
-
-    // Name
-    const name = document.createElement("span");
-    name.className = "session-name";
-    name.textContent = g.group;
-    row.appendChild(name);
-
-    // Shared right-side section
-    const totalUnread = computeGroupUnread(g.claudeInfo, g.pwshInfo, g.claudeAlive, g.pwshAlive);
+    const row = createSessionRow(g, state.focusedPane);
     const cacheKey = normPath(g.workingDir);
     const cached = state.folderInfoCache.get(cacheKey);
-    appendRowActions(row, {
-      identityName: (g.claudeInfo || g.pwshInfo)?.emcomIdentity || null,
-      unreadCount: totalUnread,
-      workingDir: g.workingDir,
-      folderName: g.group,
-      claudeAlive: g.claudeAlive,
-      pwshAlive: g.pwshAlive,
-      claudeCommand: g.claudeAlive ? g.claudeInfo?.command : null,
-      isClaudeReady: cached?.isClaudeReady || false,
-      hasIdentity: cached?.hasIdentity || false,
-      onKill: () => {
-        if (g.claudeAlive && g.pg.claude) killSession(g.pg.claude);
-        if (g.pwshAlive && g.pg.pwsh) killSession(g.pg.pwsh);
-      },
-    });
-    // Fetch folder info if not cached (for indicator dots)
+
+    appendRowActions(row, buildSessionRowActionsOpts(g, cached, () => {
+      if (g.claudeAlive && g.pg.claude) killSession(g.pg.claude);
+      if (g.pwshAlive && g.pg.pwsh) killSession(g.pg.pwsh);
+    }));
+
     if (!cached && g.workingDir) {
       fetch(`/api/folder-info?path=${encodeURIComponent(g.workingDir)}`)
         .then((r) => r.json())
         .then((info) => {
           state.folderInfoCache.set(cacheKey, info);
-          // Update indicators in-place once folder info arrives
-          const slot = row.querySelector(".indicator-slot");
-          if (slot) {
-            const indC = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.claude-ready"));
-            const indI = /** @type {HTMLElement | null} */ (slot.querySelector(".indicator.identity"));
-            if (indC) { indC.classList.toggle("hidden-placeholder", !info.isClaudeReady); if (info.isClaudeReady) indC.title = "Has CLAUDE.md"; }
-            if (indI) { indI.classList.toggle("hidden-placeholder", !info.hasIdentity); if (info.hasIdentity) indI.title = `Identity: ${info.identityName || "yes"}`; }
-          }
+          patchSessionRowIndicators(row, info);
         })
         .catch(() => {});
     }
 
-    // Click row → focus active session
-    const activeName = getActiveSessionName(g.pg, g.claudeAlive, g.pwshAlive);
+    const activeName = activeNameForRow(g);
     if (activeName) row.onclick = () => focusExistingSession(activeName);
     row.addEventListener("contextmenu", (e) => { if (g.workingDir) showContextMenu(e, g.workingDir); });
-    // Drag to workspace tab
     row.draggable = true;
     row.addEventListener("dragstart", (e) => {
       if (!e.dataTransfer) return;
@@ -746,58 +687,65 @@ function renderSessionsPanel() {
 }
 
 /**
- * @param {HTMLElement} container
+ * AI command tag (Claude / agency cc / etc). Uses the running command's
+ * preset when alive, falls back to the user's default-AI when absent.
+ * Live: click sends a quick message. Absent: click launches the default,
+ * right-click shows the AI-picker context menu.
+ *
  * @param {any} opts
+ * @returns {HTMLSpanElement}
  */
-function appendRowActions(container, opts) {
-  const { identityName, unreadCount, workingDir, folderName,
-    claudeAlive, pwshAlive, claudeCommand, isClaudeReady, hasIdentity, onKill } = opts;
-
-  // Identity tag (always rendered for column alignment)
-  const idTag = document.createElement("span");
-  idTag.className = `identity-tag ${identityName ? "" : "hidden-placeholder"}`;
-  idTag.textContent = identityName ? identityName : "@";
-  container.appendChild(idTag);
-
-  // Unread badge (always rendered)
-  const badge = document.createElement("span");
-  badge.className = `unread-badge ${unreadCount > 0 ? "" : "hidden-placeholder"}`;
-  badge.textContent = unreadCount > 0 ? `(${unreadCount})` : "(0)";
-  container.appendChild(badge);
-
-  // AI tag
-  const aiPreset = claudeAlive && claudeCommand ? getAiPresetForCommand(claudeCommand) : state.aiPresets[state.aiDefaultIndex];
-  const cTag = document.createElement("span");
-  cTag.className = `cmd-tag ${claudeAlive ? "alive" : "absent"}`;
-  cTag.textContent = aiPreset.icon;
-  if (claudeAlive) {
-    cTag.title = `${aiPreset.name}: running — click to send message`;
-    cTag.onclick = (e) => { e.stopPropagation(); showQuickMessageInput(folderName, cTag); };
+function buildAiTag(opts) {
+  const aiPreset = opts.claudeAlive && opts.claudeCommand
+    ? getAiPresetForCommand(opts.claudeCommand)
+    : state.aiPresets[state.aiDefaultIndex];
+  const tag = document.createElement("span");
+  tag.className = `cmd-tag ${opts.claudeAlive ? "alive" : "absent"}`;
+  tag.textContent = aiPreset.icon;
+  if (opts.claudeAlive) {
+    tag.title = `${aiPreset.name}: running — click to send message`;
+    tag.onclick = (e) => { e.stopPropagation(); showQuickMessageInput(opts.folderName, tag); };
   } else {
-    cTag.title = `Start ${aiPreset.name} (right-click for options)`;
-    cTag.onclick = (e) => { e.stopPropagation(); openFolder(workingDir, folderName, getDefaultAiCommand()); };
-    cTag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiTagContextMenu(e, workingDir, folderName); };
+    tag.title = `Start ${aiPreset.name} (right-click for options)`;
+    tag.onclick = (e) => { e.stopPropagation(); openFolder(opts.workingDir, opts.folderName, getDefaultAiCommand()); };
+    tag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiTagContextMenu(e, opts.workingDir, opts.folderName); };
   }
-  container.appendChild(cTag);
+  return tag;
+}
 
-  // PowerShell tag
-  const pTag = document.createElement("span");
-  pTag.className = `cmd-tag pwsh ${pwshAlive ? "alive" : "absent"}`;
-  pTag.textContent = ">_";
-  pTag.title = pwshAlive ? "PowerShell: running" : "Start PowerShell";
-  if (!pwshAlive) {
-    pTag.onclick = (e) => { e.stopPropagation(); openFolder(workingDir, folderName, "pwsh"); };
+/**
+ * PowerShell tag — click launches pwsh in the folder when absent;
+ * non-interactive when alive (other UI surfaces handle pwsh focus).
+ *
+ * @param {any} opts
+ * @returns {HTMLSpanElement}
+ */
+function buildPwshTag(opts) {
+  const tag = document.createElement("span");
+  tag.className = `cmd-tag pwsh ${opts.pwshAlive ? "alive" : "absent"}`;
+  tag.textContent = ">_";
+  tag.title = opts.pwshAlive ? "PowerShell: running" : "Start PowerShell";
+  if (!opts.pwshAlive) {
+    tag.onclick = (e) => { e.stopPropagation(); openFolder(opts.workingDir, opts.folderName, "pwsh"); };
   }
-  container.appendChild(pTag);
+  return tag;
+}
 
-  // VS Code tag
-  const codeTag = document.createElement("span");
-  codeTag.className = "cmd-tag code";
-  codeTag.textContent = "\u003c/\u003e";
-  codeTag.title = "Open in VS Code (click to launch)";
-  codeTag.onclick = (e) => {
+/**
+ * VS Code launcher tag — fires POST /api/open-editor with the folder path.
+ * Exits Fullscreen API mode first so the editor steals focus cleanly
+ * (server handles F11/minimize via Win32).
+ *
+ * @param {any} workingDir
+ * @returns {HTMLSpanElement}
+ */
+function buildVsCodeTag(workingDir) {
+  const tag = document.createElement("span");
+  tag.className = "cmd-tag code";
+  tag.textContent = "\u003c/\u003e";
+  tag.title = "Open in VS Code (click to launch)";
+  tag.onclick = (e) => {
     e.stopPropagation();
-    // Exit Fullscreen API mode (server handles F11/minimize via Win32)
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     fetch("/api/open-editor", {
       method: "POST",
@@ -805,36 +753,21 @@ function appendRowActions(container, opts) {
       body: JSON.stringify({ path: workingDir }),
     });
   };
-  container.appendChild(codeTag);
+  return tag;
+}
 
-  // Indicator slot (always render both dots)
-  const indicatorSlot = document.createElement("span");
-  indicatorSlot.className = "indicator-slot";
-  container.appendChild(indicatorSlot);
-
-  const indClaude = document.createElement("span");
-  indClaude.className = `indicator claude-ready ${isClaudeReady ? "" : "hidden-placeholder"}`;
-  indClaude.textContent = "\u25c6";
-  if (isClaudeReady) indClaude.title = "Has CLAUDE.md";
-  indicatorSlot.appendChild(indClaude);
-
-  const indIdentity = document.createElement("span");
-  indIdentity.className = `indicator identity ${hasIdentity ? "" : "hidden-placeholder"}`;
-  indIdentity.textContent = "\u25cf";
-  if (hasIdentity) indIdentity.title = `Identity: ${identityName || "yes"}`;
-  indicatorSlot.appendChild(indIdentity);
-
-  // Kill button — always render as spacer to keep column alignment
-  const killBtn = document.createElement("button");
-  killBtn.className = "kill-btn";
-  killBtn.textContent = "\u00d7";
-  if (onKill) {
-    killBtn.title = "Kill session";
-    killBtn.onclick = (e) => { e.stopPropagation(); onKill(); };
-  } else {
-    killBtn.style.pointerEvents = "none";
-  }
-  container.appendChild(killBtn);
+/**
+ * @param {HTMLElement} container
+ * @param {any} opts
+ */
+function appendRowActions(container, opts) {
+  container.appendChild(buildIdentityTag(opts.identityName));
+  container.appendChild(buildUnreadBadge(opts.unreadCount));
+  container.appendChild(buildAiTag(opts));
+  container.appendChild(buildPwshTag(opts));
+  container.appendChild(buildVsCodeTag(opts.workingDir));
+  container.appendChild(buildIndicatorSlot(opts));
+  container.appendChild(buildKillButton(opts.onKill));
 }
 
 // Sessions panel collapse toggle
@@ -991,62 +924,72 @@ function getOrCreateActiveWorkspace() {
 async function openFolder(folderPath, folderName, command, newWorkspace = false, args = []) {
   const { baseName, sessionName, isPwsh } = computeSessionNames(folderPath, folderName, command);
 
-  // If this exact session exists and alive, just focus it
   const existing = state.sessions.get(sessionName);
   if (existing && existing.status !== "dead") {
-    const pg = state.paneGroups.get(baseName);
-    if (pg) pg.activeType = isPwsh ? "pwsh" : "claude";
-    focusExistingSession(baseName);
-    renderActiveWorkspace();
+    focusAliveSession(baseName, isPwsh);
     return;
   }
-
-  // If dead session with same name exists, clean it up first
   if (existing && existing.status === "dead") {
     await cleanupDeadSession(sessionName, { state });
   }
 
   try {
-    const mainEl = byId("main");
-    const { cols, rows } = estimatePtyDims(mainEl?.clientWidth || 800, mainEl?.clientHeight || 600);
-    const body = buildCreateSessionRequest({
-      folderPath, cols, rows, command, args,
-      getDefaultAiCommand,
-    });
-
+    const body = buildOpenFolderBody({ folderPath, command, args });
     const res = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-
     if (!res.ok) {
       const err = await res.json();
       alert(err.error || "Failed to create session");
       return;
     }
-
     await res.json();
-
-    const siblingWs = findWorkspaceContaining(baseName);
-    if (siblingWs) {
-      attachToSiblingWorkspace({
-        siblingWs, baseName, sessionName, isPwsh,
-        state, switchToWorkspace, renderActiveWorkspace, focusPane,
-      });
-      return;
-    }
-
-    // No existing pane — tile into workspace using the group name (baseName)
-    const ws = newWorkspace ? createWorkspace(baseName) : getOrCreateActiveWorkspace();
-    addSessionToWorkspace(ws.id, baseName);
-    switchToWorkspace(ws.id);
-    renderActiveWorkspace();
-    focusPane(baseName);
-    updateWorkspaceTabName(ws);
+    placeNewSession({ baseName, sessionName, isPwsh, newWorkspace });
   } catch {
     alert("Failed to create session");
   }
+}
+
+/** Already-alive session: just switch the pane toggle and focus.
+ * @param {string} baseName
+ * @param {boolean} isPwsh
+ */
+function focusAliveSession(baseName, isPwsh) {
+  const pg = state.paneGroups.get(baseName);
+  if (pg) pg.activeType = isPwsh ? "pwsh" : "claude";
+  focusExistingSession(baseName);
+  renderActiveWorkspace();
+}
+
+/** Compose the POST /api/sessions body from estimated dims + caller args.
+ * @param {{ folderPath: string, command?: string, args?: string[] }} args
+ */
+function buildOpenFolderBody({ folderPath, command, args }) {
+  const mainEl = byId("main");
+  const { cols, rows } = estimatePtyDims(mainEl?.clientWidth || 800, mainEl?.clientHeight || 600);
+  return buildCreateSessionRequest({ folderPath, cols, rows, command, args, getDefaultAiCommand });
+}
+
+/** Attach to sibling workspace if one exists, else tile into a workspace.
+ * @param {{ baseName: string, sessionName: string, isPwsh: boolean, newWorkspace: boolean }} args
+ */
+function placeNewSession({ baseName, sessionName, isPwsh, newWorkspace }) {
+  const siblingWs = findWorkspaceContaining(baseName);
+  if (siblingWs) {
+    attachToSiblingWorkspace({
+      siblingWs, baseName, sessionName, isPwsh,
+      state, switchToWorkspace, renderActiveWorkspace, focusPane,
+    });
+    return;
+  }
+  tileNewSessionIntoWorkspace({
+    newWorkspace, baseName,
+    createWorkspace, getOrCreateActiveWorkspace,
+    addSessionToWorkspace, switchToWorkspace, renderActiveWorkspace, focusPane,
+    updateWorkspaceTabName,
+  });
 }
 
 /**
@@ -2038,25 +1981,20 @@ const _pasteGuards = new Set();
  * @returns {boolean} false if handled (suppress default), true otherwise
  */
 function handleCtrlShiftKey(e, sessionName) {
-  if (e.key === " ") {
-    state.ws?.send(JSON.stringify({ type: "clear-input-dirty", session: sessionName }));
-    return false;
-  }
-  switch (e.key) {
-    case "D": case "d": switchToDashboard(); return false;
-    case "H": case "h": return false;
-    case "V": case "v": return false;
-    case "W": case "w": closeFocusedPane(); return false;
-    case "B": case "b": toggleSidebar(); return false;
-  }
-  if (e.key >= "1" && e.key <= "9") {
-    const idx = parseInt(e.key) - 1;
-    if (state.workspaces[idx]) switchToWorkspace(state.workspaces[idx].id);
-    return false;
-  }
-  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-    resizeFocused(e.key);
-    return false;
+  const action = resolveCtrlShiftKeyAction(e.key);
+  switch (action.type) {
+    case "clearInputDirty":
+      state.ws?.send(JSON.stringify({ type: "clear-input-dirty", session: sessionName }));
+      return false;
+    case "switchToDashboard": switchToDashboard(); return false;
+    case "closeFocusedPane": closeFocusedPane(); return false;
+    case "toggleSidebar": toggleSidebar(); return false;
+    case "switchWorkspace":
+      if (state.workspaces[action.index]) switchToWorkspace(state.workspaces[action.index].id);
+      return false;
+    case "resize": resizeFocused(action.direction); return false;
+    case "noop": return false;
+    case "passthrough": return true;
   }
   return true;
 }
@@ -2551,68 +2489,57 @@ function showPaneContextMenu(e, groupName) {
   menu.style.top = `${e.clientY}px`;
 
   const currentWs = findWorkspaceContaining(groupName);
+  appendResumeSection(menu, groupName);
+  appendMoveToSection(menu, groupName, currentWs);
+  appendNewWorkspaceItem(menu, groupName, currentWs);
+  attachCloseOnClickOutside(menu);
+}
 
-  // Resume Claude session (only for dead AI sessions)
+/** @param {any} menu @param {string} groupName */
+function appendResumeSection(menu, groupName) {
   const pg = state.paneGroups.get(groupName);
   const claudeSession = pg?.claude ? state.sessions.get(pg.claude) : null;
-  const aiCommands = new Set(state.aiPresets.map((p) => p.command));
-  const isDeadAi = claudeSession?.status === "dead" && aiCommands.has(claudeSession.command);
-  const isNoAi = !claudeSession || claudeSession.status === "dead";
-  if (isDeadAi || isNoAi) {
-    const resumeItem = document.createElement("div");
-    const canResume = isDeadAi && !!claudeSession?.workingDir;
-    resumeItem.className = `ctx-item ${canResume ? "" : "ctx-disabled"}`;
-    resumeItem.textContent = "\u25b6 Resume Claude session";
-    if (canResume && claudeSession?.workingDir) {
-      const wd = claudeSession.workingDir;
-      resumeItem.onclick = () => {
+  const aiCommands = state.aiPresets.map((p) => p.command);
+  const { show, canResume, workingDir } = resolveResumeMenuState(claudeSession, aiCommands);
+  if (!show) return;
+
+  const onResume = canResume && workingDir
+    ? () => {
         menu.classList.add("hidden");
-        openFolder(wd, groupName, "claude", false, ["--resume"]);
-      };
-    }
-    menu.appendChild(resumeItem);
+        openFolder(workingDir, groupName, "claude", false, ["--resume"]);
+      }
+    : null;
+  menu.appendChild(makeCtxItem("\u25b6 Resume Claude session", onResume, canResume ? "" : "ctx-disabled"));
+  menu.appendChild(makeCtxSeparator());
+}
 
-    const resumeSep = document.createElement("div");
-    resumeSep.className = "ctx-sep";
-    menu.appendChild(resumeSep);
-  }
-
-  // Move to existing workspaces
-  const header = document.createElement("div");
-  header.className = "ctx-header";
-  header.textContent = "Move to";
-  menu.appendChild(header);
-
+/** @param {any} menu @param {string} groupName @param {any} currentWs */
+function appendMoveToSection(menu, groupName, currentWs) {
+  menu.appendChild(makeCtxHeader("Move to"));
   for (const ws of state.workspaces) {
     if (ws === currentWs) continue;
-    const item = document.createElement("div");
-    item.className = "ctx-item";
-    item.textContent = ws.name;
-    item.onclick = () => {
+    menu.appendChild(makeCtxItem(ws.name, () => {
       movePaneToWorkspace(groupName, currentWs, ws);
       menu.classList.add("hidden");
-    };
-    menu.appendChild(item);
+    }));
   }
+}
 
-  // Move to new workspace
-  const sep = document.createElement("div");
-  sep.className = "ctx-sep";
-  menu.appendChild(sep);
-
-  const newItem = document.createElement("div");
-  newItem.className = "ctx-item";
-  newItem.textContent = "+ New workspace";
-  newItem.onclick = () => {
+/** @param {any} menu @param {string} groupName @param {any} currentWs */
+function appendNewWorkspaceItem(menu, groupName, currentWs) {
+  menu.appendChild(makeCtxSeparator());
+  menu.appendChild(makeCtxItem("+ New workspace", () => {
     const newWs = createWorkspace(groupName);
     movePaneToWorkspace(groupName, currentWs, newWs);
     switchToWorkspace(newWs.id);
     menu.classList.add("hidden");
-  };
-  menu.appendChild(newItem);
+  }));
+}
 
-  // Close on click outside
-  const close = (/** @type {MouseEvent} */ ev) => {
+/** @param {any} menu */
+function attachCloseOnClickOutside(menu) {
+  /** @param {MouseEvent} ev */
+  const close = (ev) => {
     const t = ev.target instanceof Node ? ev.target : null;
     if (!menu.contains(t)) {
       menu.classList.add("hidden");
@@ -3004,12 +2931,7 @@ function createDashboardCard(name, info) {
  */
 function patchDashboard(dash) {
   if (state.sessions.size === 0) {
-    dash.innerHTML = `
-      <div class="dashboard-empty">
-        // NO ACTIVE SESSIONS<br><br>
-        Open a folder from the sidebar or press <kbd>Ctrl+P</kbd>
-      </div>
-    `;
+    dash.innerHTML = EMPTY_DASHBOARD_HTML;
     return;
   }
 
@@ -3025,47 +2947,20 @@ function patchDashboard(dash) {
   const countEl = dash.querySelector(".dash-cards-count");
   if (countEl) countEl.textContent = `(${state.sessions.size})`;
 
-  // Patch cards
+  // Patch cards grid
   const cardsGrid = dash.querySelector(".dash-cards");
   if (!cardsGrid) return;
 
-  const currentNames = new Set(state.sessions.keys());
-  const existingCards = cardsGrid.querySelectorAll(".dashboard-card[data-session]");
+  removeStaleCards(cardsGrid, new Set(state.sessions.keys()));
 
-  // Remove cards for sessions that no longer exist
-  for (const card of existingCards) {
-    if (!(card instanceof HTMLElement)) continue;
-    if (!currentNames.has(card.dataset["session"] ?? "")) {
-      card.remove();
-    }
-  }
-
-  // Add or patch cards
   for (const [name, info] of state.sessions) {
     const card = cardsGrid.querySelector(`.dashboard-card[data-session="${CSS.escape(name)}"]`);
     if (!card) {
-      // New session — add card
       cardsGrid.appendChild(createDashboardCard(name, info));
     } else {
-      // Existing — patch fields
-      const statusEl = card.querySelector(".dashboard-card-status");
-      if (statusEl && statusEl.textContent !== info.status) {
-        statusEl.textContent = info.status;
-        statusEl.className = `dashboard-card-status ${info.status}`;
-        card.className = `dashboard-card status-${info.status}`;
-      }
-      const costEl = card.querySelector(".dashboard-card-cost");
-      const costText = `$${(info.costUsd || 0).toFixed(2)}`;
-      if (costEl && costEl.textContent !== costText) costEl.textContent = costText;
-      const badgeEl = card.querySelector(".dashboard-card-badge");
-      const unread = info.unreadCount || 0;
-      if (badgeEl) {
-        badgeEl.textContent = String(unread);
-        badgeEl.className = `dashboard-card-badge ${unread > 0 ? "show" : ""}`;
-      }
+      patchCardFields(/** @type {HTMLElement} */ (card), info);
     }
   }
-
 }
 
 /**

@@ -137,6 +137,70 @@ export function buildTreeRowActionsOpts(args) {
 }
 
 /**
+ * Build opts for appendRowActions on a child entry (loadAndRenderChildren).
+ * The child path uses entry-side identity/claude-ready flags directly
+ * (no separate cache lookup) and is otherwise identical in shape to the
+ * tree-root variant. Splitting the ternary/!! chain out of the inline
+ * call site cuts ~10 from loadAndRenderChildren's cyclomatic count.
+ *
+ * @param {{ name: string, path: string, hasIdentity?: boolean,
+ *           identityName?: string|null, isClaudeReady?: boolean }} entry
+ * @param {FolderSessionResolution} resolution
+ */
+export function buildChildRowActionsOpts(entry, resolution) {
+  const { sessionInfo, sessionMatchesPath, pwshInfo, pwshMatchesPath } = resolution;
+  const matched = sessionMatchesPath ? sessionInfo : null;
+  const pwshMatched = pwshMatchesPath ? pwshInfo : null;
+  return {
+    identityName: entry.hasIdentity ? (entry.identityName || null) : null,
+    unreadCount: matched ? (matched.unreadCount || 0) : 0,
+    workingDir: entry.path,
+    folderName: entry.name,
+    claudeAlive: !!(matched && matched.status !== "dead"),
+    pwshAlive: !!(pwshMatched && pwshMatched.status !== "dead"),
+    claudeCommand: matched ? (matched.command ?? null) : null,
+    isClaudeReady: !!entry.isClaudeReady,
+    hasIdentity: !!entry.hasIdentity,
+  };
+}
+
+/**
+ * Build the indent + arrow + folder-name row for a child tree entry.
+ * Returns the row element with dataset.path set and the "running"
+ * class applied. The caller appends actions, wires interactions, and
+ * places the node in the tree.
+ *
+ * @param {{ name: string, path: string }} entry
+ * @param {number} depth
+ * @param {boolean} isExpanded
+ * @param {boolean} isRunning
+ * @param {(p: string|undefined|null) => string} normPathFn
+ * @returns {HTMLDivElement}
+ */
+export function buildChildTreeRow(entry, depth, isExpanded, isRunning, normPathFn) {
+  const row = document.createElement("div");
+  row.className = "tree-node";
+  row.dataset["path"] = normPathFn(entry.path);
+  if (isRunning) row.classList.add("running");
+
+  const indent = document.createElement("span");
+  indent.className = "indent";
+  indent.style.width = `${depth * 8}px`;
+  row.appendChild(indent);
+
+  const arrow = document.createElement("span");
+  arrow.className = `arrow ${isExpanded ? "expanded" : ""}`;
+  row.appendChild(arrow);
+
+  const name = document.createElement("span");
+  name.className = "folder-name";
+  name.textContent = entry.name;
+  row.appendChild(name);
+
+  return row;
+}
+
+/**
  * Refresh the indicators + identity tag on a tree label once folder
  * info arrives from the server.
  *

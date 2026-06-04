@@ -11,6 +11,8 @@ import {
   resolveFolderSessions,
   folderCountText,
   buildTreeRowActionsOpts,
+  buildChildRowActionsOpts,
+  buildChildTreeRow,
   applyFolderInfoToTreeLabel,
 } from "../public/lib/folder-tree.js";
 import type { SessionInfo } from "../public/lib/folder-tree.js";
@@ -383,5 +385,121 @@ describe("applyFolderInfoToTreeLabel", () => {
   it("is a no-op when label has no indicator-slot or identity-tag", () => {
     const label = document.createElement("div");
     expect(() => applyFolderInfoToTreeLabel(label, { isClaudeReady: true, hasIdentity: true, identityName: "x" })).not.toThrow();
+  });
+});
+
+describe("buildChildRowActionsOpts", () => {
+  const entry = { name: "alice", path: "C:/repo/alice", hasIdentity: true, identityName: "Alice", isClaudeReady: true };
+
+  it("uses entry-side identity/claude-ready flags directly", () => {
+    const opts = buildChildRowActionsOpts(entry, {
+      sessionInfo: null, sessionMatchesPath: false, pwshInfo: null, pwshMatchesPath: false,
+    });
+    expect(opts.identityName).toBe("Alice");
+    expect(opts.isClaudeReady).toBe(true);
+    expect(opts.hasIdentity).toBe(true);
+    expect(opts.workingDir).toBe("C:/repo/alice");
+    expect(opts.folderName).toBe("alice");
+  });
+
+  it("returns null identityName when entry.hasIdentity is false", () => {
+    const opts = buildChildRowActionsOpts(
+      { ...entry, hasIdentity: false },
+      { sessionInfo: null, sessionMatchesPath: false, pwshInfo: null, pwshMatchesPath: false },
+    );
+    expect(opts.identityName).toBeNull();
+  });
+
+  it("returns null identityName when hasIdentity is true but identityName is empty", () => {
+    const opts = buildChildRowActionsOpts(
+      { ...entry, hasIdentity: true, identityName: "" },
+      { sessionInfo: null, sessionMatchesPath: false, pwshInfo: null, pwshMatchesPath: false },
+    );
+    expect(opts.identityName).toBeNull();
+  });
+
+  it("reports claudeAlive + unread/command only when sessionMatchesPath is true", () => {
+    const info = s({ name: "alice", status: "idle", workingDir: "C:/repo/alice", unreadCount: 4, command: "claude" });
+    const matched = buildChildRowActionsOpts(entry, {
+      sessionInfo: info, sessionMatchesPath: true, pwshInfo: null, pwshMatchesPath: false,
+    });
+    expect(matched.claudeAlive).toBe(true);
+    expect(matched.unreadCount).toBe(4);
+    expect(matched.claudeCommand).toBe("claude");
+
+    const unmatched = buildChildRowActionsOpts(entry, {
+      sessionInfo: info, sessionMatchesPath: false, pwshInfo: null, pwshMatchesPath: false,
+    });
+    expect(unmatched.claudeAlive).toBe(false);
+    expect(unmatched.unreadCount).toBe(0);
+    expect(unmatched.claudeCommand).toBeNull();
+  });
+
+  it("claudeAlive is false when matched session is dead", () => {
+    const dead = s({ name: "alice", status: "dead", workingDir: "C:/repo/alice" });
+    const opts = buildChildRowActionsOpts(entry, {
+      sessionInfo: dead, sessionMatchesPath: true, pwshInfo: null, pwshMatchesPath: false,
+    });
+    expect(opts.claudeAlive).toBe(false);
+  });
+
+  it("pwshAlive mirrors claude path-match + alive rules", () => {
+    const pwsh = s({ name: "alice~pwsh", status: "busy", workingDir: "C:/repo/alice" });
+    const opts = buildChildRowActionsOpts(entry, {
+      sessionInfo: null, sessionMatchesPath: false, pwshInfo: pwsh, pwshMatchesPath: true,
+    });
+    expect(opts.pwshAlive).toBe(true);
+  });
+
+  it("undefined unreadCount on matched info falls back to 0", () => {
+    const info = s({ name: "alice", workingDir: "C:/repo/alice" });
+    const opts = buildChildRowActionsOpts(entry, {
+      sessionInfo: info, sessionMatchesPath: true, pwshInfo: null, pwshMatchesPath: false,
+    });
+    expect(opts.unreadCount).toBe(0);
+  });
+});
+
+describe("buildChildTreeRow", () => {
+  const entry = { name: "alice", path: "C:\\Repo\\Alice" };
+  const norm = (p: string | undefined | null): string => {
+    if (!p) return "";
+    return p.replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
+  };
+
+  it("creates a tree-node div with normalized data-path", () => {
+    const row = buildChildTreeRow(entry, 0, false, false, norm);
+    expect(row.className).toBe("tree-node");
+    expect(row.dataset["path"]).toBe("c:/repo/alice");
+  });
+
+  it("adds the running class only when isRunning is true", () => {
+    expect(buildChildTreeRow(entry, 0, false, false, norm).classList.contains("running")).toBe(false);
+    expect(buildChildTreeRow(entry, 0, false, true, norm).classList.contains("running")).toBe(true);
+  });
+
+  it("sets indent width to depth * 8 px", () => {
+    const row = buildChildTreeRow(entry, 3, false, false, norm);
+    const indent = row.querySelector(".indent") as HTMLElement | null;
+    expect(indent).not.toBeNull();
+    expect(indent!.style.width).toBe("24px");
+  });
+
+  it("marks the arrow as expanded only when isExpanded is true", () => {
+    const collapsed = buildChildTreeRow(entry, 0, false, false, norm);
+    expect(collapsed.querySelector(".arrow")?.className).toBe("arrow ");
+    const expanded = buildChildTreeRow(entry, 0, true, false, norm);
+    expect(expanded.querySelector(".arrow")?.className).toBe("arrow expanded");
+  });
+
+  it("sets folder-name textContent from entry.name", () => {
+    const row = buildChildTreeRow(entry, 0, false, false, norm);
+    expect(row.querySelector(".folder-name")?.textContent).toBe("alice");
+  });
+
+  it("appends indent, arrow, name in that order", () => {
+    const row = buildChildTreeRow(entry, 0, false, false, norm);
+    const classes = Array.from(row.children).map((c) => c.className.split(" ")[0]);
+    expect(classes).toEqual(["indent", "arrow", "folder-name"]);
   });
 });

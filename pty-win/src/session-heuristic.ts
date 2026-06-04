@@ -9,6 +9,26 @@ const AI_NO_HOOKS_IDLE_QUIET_MS = 5_000;
 const GENERIC_IDLE_QUIET_MS = 3_000;
 const PROMPT_GLYPH = "❯";
 
+/**
+ * True iff `quietMs` has just crossed a one-minute boundary (e.g. went
+ * from 119_999 → 120_001 within the previous QUIET_CHECK_INTERVAL_MS
+ * tick). Used to throttle the "still waiting for startup kick" log to
+ * once per minute instead of every tick.
+ */
+export function shouldLogStartupProgress(quietMs: number): boolean {
+  return quietMs > 0 && Math.floor(quietMs / 60_000) > Math.floor((quietMs - 1000) / 60_000);
+}
+
+/** Format the "still waiting for startup kick" log line. */
+export function formatStartupKickLog(
+  sessionName: string,
+  quietMs: number,
+  promptVisible: boolean,
+  bufLen: number,
+): string {
+  return `[${sessionName}] waiting for startup kick: glyph=${promptVisible}, quiet=${quietMs}ms, bufLen=${bufLen}`;
+}
+
 interface SessionHeuristicControllerOptions {
   command: string;
   sessionName: string;
@@ -33,51 +53,58 @@ export class SessionHeuristicController {
     const isAI = AI_CMDS.includes(this.options.command);
     const hasWorkingHooks = HOOKS_WORKING_COMMANDS.includes(this.options.command);
 
-    this.timer = setInterval(() => {
-      if (this.options.getStatus() === "dead") return;
+    this.timer = setInterval(() => this.onTick(isAI, hasWorkingHooks), QUIET_CHECK_INTERVAL_MS);
+  }
 
-      const quietMs = Date.now() - this.options.getLastOutputTime();
+  private onTick(isAI: boolean, hasWorkingHooks: boolean): void {
+    if (this.options.getStatus() === "dead") return;
+    const quietMs = Date.now() - this.options.getLastOutputTime();
+    if (!isAI) {
+      this.evaluateGeneric(quietMs);
+      return;
+    }
+    if (this.options.getNeedsStartupKick()) {
+      this.evaluateAiStartupKick(quietMs);
+    } else {
+      this.evaluateAiNoStartupKick(quietMs, hasWorkingHooks);
+    }
+  }
 
-      if (isAI) {
-        if (!this.options.getNeedsStartupKick()) {
-          if (hasWorkingHooks) return;
-          if (this.options.getInputBoxDirty()) return;
-          if (this.options.getStatus() === "busy" && quietMs >= AI_NO_HOOKS_IDLE_QUIET_MS) {
-            this.options.setIdle();
-            this.options.maybeFireOnIdle(`no-hooks-quiet (${quietMs}ms)`);
-          }
-          return;
-        }
+  private evaluateGeneric(quietMs: number): void {
+    if (this.options.getStatus() === "busy" && quietMs >= GENERIC_IDLE_QUIET_MS) {
+      this.options.setIdle();
+    }
+  }
 
-        if (this.options.getInputBoxDirty()) return;
+  private evaluateAiNoStartupKick(quietMs: number, hasWorkingHooks: boolean): void {
+    if (hasWorkingHooks) return;
+    if (this.options.getInputBoxDirty()) return;
+    if (this.options.getStatus() === "busy" && quietMs >= AI_NO_HOOKS_IDLE_QUIET_MS) {
+      this.options.setIdle();
+      this.options.maybeFireOnIdle(`no-hooks-quiet (${quietMs}ms)`);
+    }
+  }
 
-        const rawBuffer = this.options.getRawBuffer();
-        const promptVisible = rawBuffer.includes(PROMPT_GLYPH);
+  private evaluateAiStartupKick(quietMs: number): void {
+    if (this.options.getInputBoxDirty()) return;
 
-        if (promptVisible && quietMs >= STARTUP_PROMPT_QUIET_MS) {
-          if (this.options.getStatus() === "busy") this.options.setIdle();
-          this.options.maybeFireOnIdle(`startup-kick(prompt-visible, quiet ${quietMs}ms)`);
-          return;
-        }
+    const rawBuffer = this.options.getRawBuffer();
+    const promptVisible = rawBuffer.includes(PROMPT_GLYPH);
 
-        if (quietMs > 0 && Math.floor(quietMs / 60_000) > Math.floor((quietMs - 1000) / 60_000)) {
-          this.options.log(
-            `[${this.options.sessionName}] waiting for startup kick: glyph=${promptVisible}, quiet=${quietMs}ms, bufLen=${rawBuffer.length}`,
-          );
-        }
+    if (promptVisible && quietMs >= STARTUP_PROMPT_QUIET_MS) {
+      if (this.options.getStatus() === "busy") this.options.setIdle();
+      this.options.maybeFireOnIdle(`startup-kick(prompt-visible, quiet ${quietMs}ms)`);
+      return;
+    }
 
-        if (quietMs >= STARTUP_FALLBACK_QUIET_MS) {
-          if (this.options.getStatus() === "busy") this.options.setIdle();
-          this.options.maybeFireOnIdle(`startup-kick(fallback, quiet ${quietMs}ms, no glyph seen)`);
-        }
+    if (shouldLogStartupProgress(quietMs)) {
+      this.options.log(formatStartupKickLog(this.options.sessionName, quietMs, promptVisible, rawBuffer.length));
+    }
 
-        return;
-      }
-
-      if (this.options.getStatus() === "busy" && quietMs >= GENERIC_IDLE_QUIET_MS) {
-        this.options.setIdle();
-      }
-    }, QUIET_CHECK_INTERVAL_MS);
+    if (quietMs >= STARTUP_FALLBACK_QUIET_MS) {
+      if (this.options.getStatus() === "busy") this.options.setIdle();
+      this.options.maybeFireOnIdle(`startup-kick(fallback, quiet ${quietMs}ms, no glyph seen)`);
+    }
   }
 
   stop(): void {

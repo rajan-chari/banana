@@ -95,6 +95,34 @@ export async function cleanupDeadSession(sessionName, deps) {
 }
 
 /**
+ * Place a freshly-created session into a workspace when no sibling
+ * workspace exists yet. Either creates a new workspace named after the
+ * base name or appends to the active workspace, then switches focus.
+ *
+ * Mirrors the no-sibling branch of openFolder.
+ *
+ * @param {{
+ *   newWorkspace: boolean,
+ *   baseName: string,
+ *   createWorkspace: (name: string) => any,
+ *   getOrCreateActiveWorkspace: () => any,
+ *   addSessionToWorkspace: (wsId: string, name: string) => void,
+ *   switchToWorkspace: (id: string) => void,
+ *   renderActiveWorkspace: () => void,
+ *   focusPane: (name: string) => void,
+ *   updateWorkspaceTabName: (ws: any) => void
+ * }} args
+ */
+export function tileNewSessionIntoWorkspace(args) {
+  const ws = args.newWorkspace ? args.createWorkspace(args.baseName) : args.getOrCreateActiveWorkspace();
+  args.addSessionToWorkspace(ws.id, args.baseName);
+  args.switchToWorkspace(ws.id);
+  args.renderActiveWorkspace();
+  args.focusPane(args.baseName);
+  args.updateWorkspaceTabName(ws);
+}
+
+/**
  * Attach a freshly-created session to a workspace that already contains
  * its sibling (the other of the claude/pwsh pair). Mutates the pane
  * group, switches the workspace, and re-renders.
