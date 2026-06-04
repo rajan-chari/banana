@@ -147,18 +147,23 @@ export default tseslint.config(
   {
     files: ["src/**/*.ts", "public/**/*.js", "test/**/*.ts"],
     rules: {
-      // Surface refactor candidates. Threshold is intentionally LENIENT (current
-      // baseline has many >15 functions in app.js). Tighten over time.
-      complexity: ["warn", { max: 20 }],
+      // Surface refactor candidates. Threshold is the campaign ratchet: set
+      // to "where we are today" as an ERROR so pre-push gates regression.
+      // Lower each value as functions are reduced. Update both here and in
+      // the campaign briefing when ratcheting.
+      complexity: ["error", { max: 16 }],
 
-      // app.js has 4700+ lines; large functions are a known smell. Lenient
-      // baseline so it's a backlog generator, not a blocker. IIFEs excluded
-      // because they're init-time scaffolding that captures private state in
-      // a closure — forcing decomposition would just move that state to
-      // module scope (loss of encapsulation, not a real improvement).
+      // Mega-function ceiling — same ratchet pattern as complexity above.
+      // Current top offenders: createWsRuntime 148, renderTracker 137,
+      // registerAdminRoutes 132, renderTabs 123, initSettingsModal 114
+      // (counts use skipBlankLines + skipComments).
+      // IIFEs excluded because they're init-time scaffolding that captures
+      // private state in a closure — forcing decomposition would just move
+      // that state to module scope (loss of encapsulation, not a real
+      // improvement).
       "max-lines-per-function": [
-        "warn",
-        { max: 150, skipBlankLines: true, skipComments: true, IIFEs: false },
+        "error",
+        { max: 148, skipBlankLines: true, skipComments: true, IIFEs: false },
       ],
 
       // TS's noFallthroughCasesInSwitch covers the bug case; eslint version is
