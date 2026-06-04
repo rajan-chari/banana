@@ -2,10 +2,11 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import type { Express, Request, Response } from "express";
 import type { ServerConfig } from "./config.js";
-import { PtySession, SUBMIT, INJECTION_PROMPT, STARTUP_KICK, RESUME_KICK, makeCheckpointLightPrompt, makeCheckpointFullPrompt } from "./session.js";
+import { PtySession, SUBMIT, STARTUP_KICK, RESUME_KICK } from "./session.js";
 import { setDebugLog, getDebugLogState, addDebugLogListener } from "./log.js";
 import { checkReadiness, checkStuckInput } from "./llm-detector.js";
 import { recentForFewShot } from "./llm-corrections.js";
+import { buildPromptsResponse, buildServerDebugInfo, buildTimersInfo } from "./debug-routes-helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,18 +32,13 @@ function registerInspectionRoutes(
   getSession: GetSession,
 ): void {
   app.get("/api/debug/server", (_req, res) => {
-    const repoGroups: Record<string, string[]> = {};
-    for (const [name, root] of sessionRepoRoots) {
-      (repoGroups[root] ||= []).push(name);
-    }
-    res.json({
-      serverTime: Date.now(),
-      config: { port: config.port, host: config.host, debug: config.debug, emcomServer: config.emcomServer, rootDirs: config.rootDirs },
-      sessionCount: sessions.size,
-      wsClientCount: wsClientCount(),
-      repoGroups,
+    res.json(buildServerDebugInfo({
+      sessions,
+      sessionRepoRoots,
+      config,
       costHistoryLength: costHistory.length,
-    });
+      wsClientCount: wsClientCount(),
+    }));
   });
 
   app.get("/api/debug/sessions", (_req, res) => {
@@ -106,36 +102,11 @@ function registerInspectionRoutes(
   app.get("/api/debug/sessions/:name/prompts", (req, res) => {
     const session = getSession(req, res);
     if (!session) return;
-    res.json({
-      session: req.params.name,
-      emcom: INJECTION_PROMPT(),
-      startupKick: STARTUP_KICK(),
-      resumeKick: RESUME_KICK(),
-      checkpointLight: makeCheckpointLightPrompt("HH:MM"),
-      checkpointFull: makeCheckpointFullPrompt("HH:MM"),
-      submitChar: SUBMIT === "\r" ? "\\r" : "\\n",
-      submitCharCode: SUBMIT.charCodeAt(0),
-    });
+    res.json(buildPromptsResponse(req.params.name));
   });
 
   app.get("/api/debug/timers", (_req, res) => {
-    const result: Record<string, unknown> = {};
-    for (const [name, session] of sessions) {
-      const state = session.getDebugState();
-      result[name] = {
-        repoRoot: sessionRepoRoots.get(name) || null,
-        status: state["status"],
-        quietMs: state["quietMs"],
-        pendingCheckpoint: state["pendingCheckpoint"],
-        checkpointInFlight: state["checkpointInFlight"],
-        lastCheckpointTime: state["lastCheckpointTime"],
-        lastCheckpointAgoMs: state["lastCheckpointAgoMs"],
-        checkpointLightTimerActive: state["checkpointLightTimerActive"],
-        checkpointFullTimerActive: state["checkpointFullTimerActive"],
-        heuristicTimerActive: state["heuristicTimerActive"],
-      };
-    }
-    res.json({ serverTime: Date.now(), sessions: result });
+    res.json(buildTimersInfo({ sessions, sessionRepoRoots }));
   });
 }
 
