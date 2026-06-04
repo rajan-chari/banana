@@ -135,6 +135,19 @@ html, body {
 #instance-name-badge:hover { opacity: 1; }
 #instance-name-badge:empty { display: none; }
 
+#version-badge {
+  color: var(--text-secondary, #888);
+  font-size: 9px;
+  font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  margin-left: 6px;
+  opacity: 0.55;
+  cursor: pointer;
+  user-select: none;
+}
+#version-badge:hover { opacity: 1; }
+#version-badge:empty { display: none; }
+#version-badge.copied { color: var(--instance-accent); opacity: 1; }
+
 #folder-tree {
   overflow-x: hidden;
   padding: 4px 0;

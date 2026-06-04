@@ -364,6 +364,37 @@ function applyInstanceName(name) {
   if (badge) badge.textContent = name || "";
 }
 
+/**
+ * Display the server's build info (version + commit + startedAt) in the
+ * version badge. Click-to-copy puts the full JSON onto the clipboard so
+ * the user can verify exactly what server build is running.
+ *
+ * @param {{ version?: string, commit?: string, startedAt?: string } | undefined} build
+ */
+function applyBuildInfo(build) {
+  const el = byId("version-badge");
+  if (!el || !build || !build.version) return;
+  const shortSha = (build.commit || "").slice(0, 7);
+  el.textContent = shortSha ? `v${build.version}@${shortSha}` : `v${build.version}`;
+  const fullText = `pty-win v${build.version}\ncommit ${build.commit || "unknown"}\nstarted ${build.startedAt || "unknown"}`;
+  el.title = fullText + "\n\nClick to copy";
+  el.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(fullText);
+      el.classList.add("copied");
+      const orig = el.textContent;
+      el.textContent = "copied!";
+      setTimeout(() => {
+        el.classList.remove("copied");
+        el.textContent = orig;
+      }, 1200);
+    } catch {
+      // Clipboard write can fail in non-secure contexts; fall back to alert.
+      alert(fullText);
+    }
+  };
+}
+
 async function initApp() {
   // Load server config for initial roots
   try {
@@ -377,6 +408,7 @@ async function initApp() {
     saveFavorites();
 
     if (config.name) applyInstanceName(config.name);
+    applyBuildInfo(config.build);
   } catch {}
 
   // Instance name badge — click to change

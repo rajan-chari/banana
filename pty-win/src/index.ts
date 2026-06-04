@@ -2,8 +2,21 @@
 
 import { startServer } from "./server.js";
 import { DEFAULTS } from "./config.js";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { execFileSync } from "child_process";
 
 const args = process.argv.slice(2);
+
+if (args.includes("--version") || args.includes("-V")) {
+  const pkgPath = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+  let commit = "unknown";
+  try { commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: dirname(pkgPath), encoding: "utf-8" }).trim(); } catch { /* not in git */ }
+  console.log(`pty-win v${pkg.version} (commit ${commit})`);
+  process.exit(0);
+}
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`pty-win — browser-based terminal multiplexer
@@ -17,6 +30,7 @@ Options:
   --root <path>            Add a folder root to the sidebar (repeatable)
   --emcom <url>            Emcom server URL (default: ${DEFAULTS.emcomServer})
   --debug                  Enable /api/debug/* endpoints and /debug dashboard
+  -V, --version            Print version and exit
   -h, --help               Show this help message
 
 Examples:
