@@ -63,6 +63,13 @@ import { initFeedPanel } from "./lib/feed-panel.js";
 import { initSettingsModal } from "./lib/settings-modal.js";
 import { renderQuickAccess as _renderQuickAccess } from "./lib/quick-access.js";
 import {
+  computeSessionNames,
+  estimatePtyDims,
+  buildCreateSessionRequest,
+  cleanupDeadSession,
+  attachToSiblingWorkspace,
+} from "./lib/open-folder.js";
+import {
   normPath,
   cssId,
   truncatePath,
@@ -948,14 +955,11 @@ function getOrCreateActiveWorkspace() {
  * @param {string[]} [args]
  */
 async function openFolder(folderPath, folderName, command, newWorkspace = false, args = []) {
-  const baseName = folderName || folderPath.split(/[/\\]/).filter(Boolean).pop() || folderPath;
-  const isPwsh = command === "pwsh";
-  const sessionName = isPwsh ? baseName + "~pwsh" : baseName;
+  const { baseName, sessionName, isPwsh } = computeSessionNames(folderPath, folderName, command);
 
   // If this exact session exists and alive, just focus it
   const existing = state.sessions.get(sessionName);
   if (existing && existing.status !== "dead") {
-    // Switch the pane group to show this type
     const pg = state.paneGroups.get(baseName);
     if (pg) pg.activeType = isPwsh ? "pwsh" : "claude";
     focusExistingSession(baseName);
@@ -965,32 +969,16 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
 
   // If dead session with same name exists, clean it up first
   if (existing && existing.status === "dead") {
-    await fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" }).catch(() => {});
-    state.sessions.delete(sessionName);
-    const entry = state.terminals.get(sessionName);
-    if (entry) {
-      entry.resizeObserver?.disconnect();
-      entry.term.dispose();
-      entry.wrapperEl?.remove();
-      state.terminals.delete(sessionName);
-    }
+    await cleanupDeadSession(sessionName, { state });
   }
 
-  // Create session
   try {
-    // Estimate initial terminal size from the workspace area
     const mainEl = byId("main");
-    const charW = 7.6, charH = 18; // approximate character dimensions for Consolas 13px
-    const availW = (mainEl?.clientWidth || 800) - 4; // minus pane borders
-    const availH = (mainEl?.clientHeight || 600) - 35 - 26 - 22 - 4; // minus tabbar, topbar, statusbar, borders
-    const cols = Math.max(80, Math.floor(availW / charW));
-    const rows = Math.max(24, Math.floor(availH / charH));
-
-    /** @type {{workingDir: string, cols: number, rows: number, command?: string, args?: string[]}} */
-    const body = { workingDir: folderPath, cols, rows };
-    if (command) body.command = command;
-    else body.command = getDefaultAiCommand();
-    if (args.length) body.args = args;
+    const { cols, rows } = estimatePtyDims(mainEl?.clientWidth || 800, mainEl?.clientHeight || 600);
+    const body = buildCreateSessionRequest({
+      folderPath, cols, rows, command, args,
+      getDefaultAiCommand,
+    });
 
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -1006,28 +994,12 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
 
     await res.json();
 
-    // Check if a sibling session already has a pane in a workspace
     const siblingWs = findWorkspaceContaining(baseName);
-    if (siblingWs && isPwsh) {
-      // Sibling claude session already has a pane — just switch toggle to pwsh
-      const pg = state.paneGroups.get(baseName) || { activeType: "pwsh" };
-      pg.pwsh = sessionName;
-      pg.activeType = "pwsh";
-      state.paneGroups.set(baseName, pg);
-      switchToWorkspace(siblingWs.id);
-      renderActiveWorkspace();
-      focusPane(baseName);
-      return;
-    }
-    if (siblingWs && !isPwsh) {
-      // Sibling pwsh session already has a pane — switch toggle to claude
-      const pg = state.paneGroups.get(baseName) || { activeType: "claude" };
-      pg.claude = sessionName;
-      pg.activeType = "claude";
-      state.paneGroups.set(baseName, pg);
-      switchToWorkspace(siblingWs.id);
-      renderActiveWorkspace();
-      focusPane(baseName);
+    if (siblingWs) {
+      attachToSiblingWorkspace({
+        siblingWs, baseName, sessionName, isPwsh,
+        state, switchToWorkspace, renderActiveWorkspace, focusPane,
+      });
       return;
     }
 
