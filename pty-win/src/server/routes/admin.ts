@@ -1,13 +1,13 @@
 import express from "express";
 import type { Express } from "express";
-import { basename, join, resolve } from "path";
-import { existsSync, readFileSync } from "fs";
-import { spawn } from "child_process";
+import { basename, resolve } from "path";
+import { existsSync } from "fs";
+import { join } from "path";
 import { createDir, listDir } from "../../folders.js";
 import { DEFAULTS } from "../../config.js";
 import type { ServerConfig } from "../../config.js";
-import { clog } from "../../log.js";
 import { KEY_SCHEMAS, readPreferences, resolveCliPreference, writePreferences } from "../../preferences.js";
+import { launchVscode, readIdentityInfo } from "./admin-helpers.js";
 
 interface BuildInfo {
   version: string;
@@ -22,7 +22,7 @@ interface AdminRoutesOptions {
   onNameChange: () => void;
 }
 
-export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: AdminRoutesOptions): void {
+function registerFolderRoutes(app: Express): void {
   app.get("/api/folders", (req, res) => {
     const dirPath = req.query["path"] as string;
     if (!dirPath) {
@@ -39,18 +39,7 @@ export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: Ad
     try {
       const isClaudeReady = existsSync(join(resolved, "CLAUDE.md"));
       const hasClaudeDir = existsSync(join(resolved, ".claude"));
-      let hasIdentity = false;
-      let identityName: string | undefined;
-      const identityPath = join(resolved, "identity.json");
-      if (existsSync(identityPath)) {
-        hasIdentity = true;
-        try {
-          const raw = JSON.parse(readFileSync(identityPath, "utf-8"));
-          if (typeof raw.name === "string" && raw.name.trim()) identityName = raw.name;
-        } catch {
-          // Best-effort metadata endpoint.
-        }
-      }
+      const { hasIdentity, identityName } = readIdentityInfo(resolved);
       res.json({ name, path: resolved, isDir: true, isClaudeReady, hasIdentity, identityName, hasClaudeDir });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -67,7 +56,14 @@ export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: Ad
       res.status(409).json({ error: String(err) });
     }
   });
+}
 
+function registerConfigRoutes(
+  app: Express,
+  config: ServerConfig,
+  buildInfo: BuildInfo,
+  onNameChange: () => void,
+): void {
   app.get("/api/config", (_req, res) => {
     res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name, build: buildInfo });
   });
@@ -117,51 +113,20 @@ export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: Ad
     onNameChange();
     res.json({ name: config.name });
   });
+}
 
+function registerOpenEditorRoute(app: Express): void {
   app.post("/api/open-editor", (req, res) => {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path is required" });
     const resolved = resolve(path);
-    clog(`vscode: opening ${resolved}`);
     res.json({ ok: true });
-
-    if (process.platform === "win32") {
-      const psScript = `
-        Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class Win32Focus {
-    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-}
-"@
-        $hwnd = [Win32Focus]::GetForegroundWindow()
-        [Win32Focus]::ShowWindow($hwnd, 6)  # SW_MINIMIZE
-        Start-Process code -ArgumentList '${resolved.replace(/'/g, "''")}' -WindowStyle Hidden
-      `;
-      clog("vscode: launching via PowerShell (minimize + Start-Process)");
-      const ps = spawn("powershell", ["-NoProfile", "-Command", psScript], {
-        stdio: ["ignore", "pipe", "pipe"],
-        windowsHide: true,
-      });
-      ps.stdout?.on("data", (data: Buffer) => {
-        clog(`vscode: stdout: ${data.toString().trim()}`);
-      });
-      ps.stderr?.on("data", (data: Buffer) => {
-        clog(`vscode: stderr: ${data.toString().trim()}`);
-      });
-      ps.on("exit", (code) => {
-        clog(`vscode: PowerShell exited (code ${code})`);
-      });
-      ps.unref();
-      return;
-    }
-
-    const child = spawn("code", [resolved], {
-      shell: true,
-      stdio: "ignore",
-    });
-    child.unref();
-    clog("vscode: launched via shell");
+    launchVscode(resolved);
   });
+}
+
+export function registerAdminRoutes({ app, config, buildInfo, onNameChange }: AdminRoutesOptions): void {
+  registerFolderRoutes(app);
+  registerConfigRoutes(app, config, buildInfo, onNameChange);
+  registerOpenEditorRoute(app);
 }
