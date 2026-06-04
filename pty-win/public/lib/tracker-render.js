@@ -43,15 +43,14 @@ export function severityClass(severity) {
 }
 
 /**
- * Render the inner HTML for a single tracker item row + detail panel.
- * Every user-controlled field is escaped via escapeHtml; the caller
- * may assign the result directly to el.innerHTML.
+ * Render the row portion of a tracker item (the visible summary
+ * line). Every user-controlled field is escaped via escapeHtml.
  *
- * @param {TrackerItem} item   tracker item from the API
- * @param {number} rowNum      the 1-based row number to display
+ * @param {TrackerItem} item
+ * @param {number} rowNum
  * @returns {string}
  */
-export function renderTrackerItemHtml(item, rowNum) {
+function renderTrackerRowHtml(item, rowNum) {
   const sevClass = severityClass(item.severity);
   const ageDate = item.date_found || item.created_at;
   const ageStale = staleClass(ageDate);
@@ -62,11 +61,18 @@ export function renderTrackerItemHtml(item, rowNum) {
     ? `<span class="tracker-ref-repo">${escapeHtml(item.repo)}</span><span class="tracker-ref-num">#${escapeHtml(item.number)}</span>`
     : `<span class="tracker-ref-repo">${escapeHtml(item.repo)}</span>`;
 
+  const authorTag = item.github_author
+    ? `<span class="tracker-author-tag">by ${escapeHtml(item.github_author)}</span>`
+    : "";
+  const closedBadge = isClosedLike
+    ? `<span class="tracker-closed-badge badge-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>`
+    : "";
+
   return `
     <div class="tracker-item-row">
       <span class="tracker-row-num">${rowNum}</span>
       <span class="tracker-ref">${refHtml}</span>
-      <span class="tracker-item-title">${escapeHtml(item.title)}${item.github_author ? `<span class="tracker-author-tag">by ${escapeHtml(item.github_author)}</span>` : ""}${isClosedLike ? `<span class="tracker-closed-badge badge-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>` : ""}</span>
+      <span class="tracker-item-title">${escapeHtml(item.title)}${authorTag}${closedBadge}</span>
       <span class="tracker-assignee">${item.assigned_to ? "@" + escapeHtml(item.assigned_to) : ""}</span>
       <span class="tracker-opened-by">${escapeHtml(item.opened_by || "")}</span>
       <span class="tracker-responders">${Array.isArray(item.responders) && item.responders.length ? escapeHtml(item.responders.join(", ")) : ""}</span>
@@ -74,23 +80,95 @@ export function renderTrackerItemHtml(item, rowNum) {
       <span class="tracker-age ${ageStale}">${fmtAge(ageDate)}</span>
       <span class="tracker-activity ${activeStale}">${item.last_github_activity ? fmtAge(item.last_github_activity) : "-"}</span>
       <span class="tracker-updated">${fmtDate(item.updated_at)}</span>
-    </div>
-    <div class="tracker-item-detail">
-      ${item.number ? `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/${escapeHtml(githubOrgRepo(item.repo))}/issues/${escapeHtml(item.number)}" target="_blank">${escapeHtml(item.repo)}#${escapeHtml(item.number)} on GitHub &#x2197;</a></div>` : ""}
-      ${item.blocker ? `<div class="tracker-blocker-badge">${escapeHtml(item.blocker)}</div>` : ""}
-      ${item.findings ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Findings</div><div class="tracker-detail-value">${escapeHtml(item.findings)}</div></div>` : ""}
-      ${item.decision ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Decision</div><div class="tracker-detail-value">${escapeHtml(item.decision)}</div></div>` : ""}
-      ${item.decision_rationale ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Rationale</div><div class="tracker-detail-value">${escapeHtml(item.decision_rationale)}</div></div>` : ""}
-      ${item.notes ? `<div class="tracker-detail-section"><div class="tracker-detail-label">Notes</div><div class="tracker-detail-value">${escapeHtml(item.notes)}</div></div>` : ""}
-      ${item.labels?.length ? `<div class="tracker-detail-section">${item.labels.map(/** @param {string} l */ (l) => `<span class="tracker-label">${escapeHtml(l)}</span>`).join(" ")}</div>` : ""}
-      <div class="tracker-detail-meta">
-        <span>Opened by <strong>${escapeHtml(item.opened_by || item.github_author || item.created_by || "?")}</strong></span>
-        ${item.github_last_commenter ? `<span>Last reply: <strong>${escapeHtml(item.github_last_commenter)}</strong></span>` : ""}
-        <span>${item.created_at ? new Date(item.created_at).toLocaleString() : ""}</span>
-        <span>Updated ${item.updated_at ? new Date(item.updated_at).toLocaleString() : ""}</span>
-        <span>Status: ${escapeHtml(item.status)}</span>
-      </div>
     </div>`;
+}
+
+/**
+ * @param {string | undefined} repo
+ * @param {string | number | null | undefined} number
+ * @returns {string}
+ */
+function renderGithubLink(repo, number) {
+  if (!number || !repo) return "";
+  return `<div class="tracker-detail-section"><a class="tracker-gh-link" href="https://github.com/${escapeHtml(githubOrgRepo(repo))}/issues/${escapeHtml(number)}" target="_blank">${escapeHtml(repo)}#${escapeHtml(number)} on GitHub &#x2197;</a></div>`;
+}
+
+/**
+ * Render one labelled detail section (e.g. "Findings"), or empty
+ * string when the value is missing.
+ *
+ * @param {string} label
+ * @param {string | null | undefined} value
+ * @returns {string}
+ */
+function renderDetailSection(label, value) {
+  if (!value) return "";
+  return `<div class="tracker-detail-section"><div class="tracker-detail-label">${escapeHtml(label)}</div><div class="tracker-detail-value">${escapeHtml(value)}</div></div>`;
+}
+
+/**
+ * @param {TrackerItem} item
+ * @returns {string}
+ */
+function renderTrackerMetaLine(item) {
+  const opener = escapeHtml(item.opened_by || item.github_author || item.created_by || "?");
+  const lastReply = item.github_last_commenter
+    ? `<span>Last reply: <strong>${escapeHtml(item.github_last_commenter)}</strong></span>`
+    : "";
+  const created = item.created_at ? new Date(item.created_at).toLocaleString() : "";
+  const updated = item.updated_at ? new Date(item.updated_at).toLocaleString() : "";
+  return `<div class="tracker-detail-meta">
+        <span>Opened by <strong>${opener}</strong></span>
+        ${lastReply}
+        <span>${escapeHtml(created)}</span>
+        <span>Updated ${escapeHtml(updated)}</span>
+        <span>Status: ${escapeHtml(item.status)}</span>
+      </div>`;
+}
+
+/**
+ * Render the expandable detail panel for a tracker item.
+ *
+ * @param {TrackerItem} item
+ * @returns {string}
+ */
+function renderTrackerDetailHtml(item) {
+  const githubLink = renderGithubLink(item.repo, item.number);
+  const blockerBadge = item.blocker
+    ? `<div class="tracker-blocker-badge">${escapeHtml(item.blocker)}</div>`
+    : "";
+  const findings = renderDetailSection("Findings", item.findings);
+  const decision = renderDetailSection("Decision", item.decision);
+  const rationale = renderDetailSection("Rationale", item.decision_rationale);
+  const notes = renderDetailSection("Notes", item.notes);
+  const labels = item.labels?.length
+    ? `<div class="tracker-detail-section">${item.labels.map(/** @param {string} l */ (l) => `<span class="tracker-label">${escapeHtml(l)}</span>`).join(" ")}</div>`
+    : "";
+
+  return `
+    <div class="tracker-item-detail">
+      ${githubLink}
+      ${blockerBadge}
+      ${findings}
+      ${decision}
+      ${rationale}
+      ${notes}
+      ${labels}
+      ${renderTrackerMetaLine(item)}
+    </div>`;
+}
+
+/**
+ * Render the inner HTML for a single tracker item row + detail panel.
+ * Every user-controlled field is escaped via escapeHtml; the caller
+ * may assign the result directly to el.innerHTML.
+ *
+ * @param {TrackerItem} item   tracker item from the API
+ * @param {number} rowNum      the 1-based row number to display
+ * @returns {string}
+ */
+export function renderTrackerItemHtml(item, rowNum) {
+  return renderTrackerRowHtml(item, rowNum) + renderTrackerDetailHtml(item);
 }
 
 /**
