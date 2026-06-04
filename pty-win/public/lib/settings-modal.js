@@ -191,8 +191,9 @@ export function renderAboutSection(container) {
   section.innerHTML = `
     <h3 class="settings-section-title">About</h3>
     <div class="settings-about-body">
-      <div class="settings-about-row"><span class="lbl">Version</span><span class="val" id="about-version">\u2026</span></div>
-      <div class="settings-about-row"><span class="lbl">Commit</span><span class="val" id="about-commit">\u2026</span></div>
+      <div class="settings-about-row"><span class="lbl">pty-win</span><span class="val" id="about-version">\u2026</span></div>
+      <div class="settings-about-row"><span class="lbl">Commit</span><span class="val" id="about-commit" title="Short SHA from the banana repo (github.com/rajan-chari/banana)">\u2026</span></div>
+      <div class="settings-about-row"><span class="lbl">fellow-agents</span><span class="val" id="about-fellow" title="GitHub release tag of the fellow-agents distribution that built this pty-win.zip ('dev' if running outside a release context)">\u2026</span></div>
       <div class="settings-about-row"><span class="lbl">Started</span><span class="val" id="about-started">\u2026</span></div>
       <div class="settings-about-row"><span class="lbl">Platform</span><span class="val" id="about-platform">\u2026</span></div>
       <div class="settings-about-actions">
@@ -208,17 +209,19 @@ export function renderAboutSection(container) {
       const b = cfg.build || {};
       const ver = section.querySelector("#about-version");
       const com = section.querySelector("#about-commit");
+      const fel = section.querySelector("#about-fellow");
       const sta = section.querySelector("#about-started");
       const pla = section.querySelector("#about-platform");
-      if (ver) ver.textContent = b.version || "unknown";
+      if (ver) ver.textContent = b.version ? `v${b.version}` : "unknown";
       if (com) com.textContent = b.commit || "unknown";
+      if (fel) fel.textContent = b.fellowAgentsRelease || "dev";
       if (sta) sta.textContent = b.startedAt ? new Date(b.startedAt).toLocaleString() : "unknown";
       if (pla) pla.textContent = `${cfg.platform || "?"} \u00b7 ${cfg.defaultShell || "?"}`;
 
       const copyBtn = /** @type {HTMLButtonElement | null} */ (section.querySelector("#about-copy"));
       if (copyBtn) {
         copyBtn.onclick = async () => {
-          const txt = `pty-win v${b.version || "?"}\ncommit ${b.commit || "?"}\nstarted ${b.startedAt || "?"}\nplatform ${cfg.platform || "?"} (${cfg.defaultShell || "?"})`;
+          const txt = `pty-win v${b.version || "?"} (commit ${b.commit || "?"})\nfellow-agents ${b.fellowAgentsRelease || "dev"}\nstarted ${b.startedAt || "?"}\nplatform ${cfg.platform || "?"} (${cfg.defaultShell || "?"})`;
           try {
             await navigator.clipboard.writeText(txt);
             copyBtn.textContent = "Copied";

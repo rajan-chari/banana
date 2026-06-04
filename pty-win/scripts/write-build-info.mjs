@@ -32,6 +32,11 @@ const out = {
   version: pkg.version,
   commit,
   builtAt: new Date().toISOString(),
+  // forge writes FELLOW_AGENTS_RELEASE in the release.yml workflow at build
+  // time; baking it here gives pty-win a stable, drift-free source for the
+  // value displayed in Settings > About. Null when building outside a
+  // release context (dev) -- server.ts coerces that to "dev".
+  fellowAgentsRelease: process.env.FELLOW_AGENTS_RELEASE || null,
 };
 writeFileSync(join(distDir, "build-info.json"), JSON.stringify(out, null, 2) + "\n");
 console.log(`build-info: v${out.version} commit=${out.commit}`);

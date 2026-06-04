@@ -21,20 +21,45 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 let gitCommit = "unknown";
+let bakedFellowAgentsRelease: string | undefined;
 // Primary source: dist/build-info.json written by scripts/write-build-info.mjs
 // at build time. This survives packaging (the released zip has no .git).
+// Forge writes fellowAgentsRelease into this file at release time via the
+// FELLOW_AGENTS_RELEASE env var in .github/workflows/release.yml -- this is
+// the GitHub release tag bound to this exact pty-win.zip, not the npm
+// package version (which can drift -- npm publishes are manual and lag
+// behind release dispatches).
 try {
   const buildInfoPath = join(__dirname, "build-info.json");
   if (existsSync(buildInfoPath)) {
     const info = JSON.parse(readFileSync(buildInfoPath, "utf-8"));
     if (typeof info.commit === "string" && info.commit) gitCommit = info.commit;
+    if (typeof info.fellowAgentsRelease === "string" && info.fellowAgentsRelease) bakedFellowAgentsRelease = info.fellowAgentsRelease;
   }
 } catch { /* fall through to git */ }
 // Fallback: ask git directly (useful in dev when build-info.json may be stale).
 if (gitCommit === "unknown") {
   try { gitCommit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: __dirname, encoding: "utf-8" }).trim(); } catch { /* not in git */ }
 }
-const buildInfo = { version: pkg.version as string, commit: gitCommit, startedAt: new Date().toISOString() };
+
+// Fellow-agents release-tag discovery. The build-time bake is the canonical
+// source (single source of truth, no fs race, no drift); env var is only
+// honored as a dev-test override so you can simulate the release context
+// locally (`FELLOW_AGENTS_RELEASE=v0.0.33 npm start`). If neither is set,
+// we're running outside a release context -- report "dev".
+function detectFellowAgentsRelease(): string {
+  if (bakedFellowAgentsRelease) return bakedFellowAgentsRelease;
+  const env = process.env["FELLOW_AGENTS_RELEASE"];
+  if (env && env.trim()) return env.trim();
+  return "dev";
+}
+
+const buildInfo = {
+  version: pkg.version as string,
+  commit: gitCommit,
+  startedAt: new Date().toISOString(),
+  fellowAgentsRelease: detectFellowAgentsRelease(),
+};
 
 const sessions = new Map<string, PtySession>();
 const sessionRepoRoots = new Map<string, string>(); // session name → normalized repo root
