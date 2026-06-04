@@ -1,6 +1,12 @@
 import type { Server as HttpServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { PtySession } from "../session.js";
+import {
+  broadcastToClients,
+  createBatchedSender,
+  dispatchClientMessage,
+  type BatchedSenderHandle,
+} from "./ws-helpers.js";
 
 export interface WsRuntime {
   attachSession(session: PtySession): void;
@@ -12,72 +18,37 @@ export interface WsRuntime {
   shutdown(): void;
 }
 
+const BATCH_MS = 16;
+const HEARTBEAT_MS = 30_000;
+
 export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, PtySession>): WsRuntime {
   const wss = new WebSocketServer({ server: httpServer });
   const wsClients = new Set<WebSocket>();
   const wsAlive = new Map<WebSocket, boolean>();
-  const wsSessionCleanups = new Map<WebSocket, Array<() => void>>();
+  const wsSessionCleanups = new Map<WebSocket, BatchedSenderHandle[]>();
 
   function attachSessionToWs(session: PtySession, ws: WebSocket): void {
-    const BATCH_MS = 16;
-    // Pre-seed buf with the session's recent byte history so xterm.js can
-    // replay startup escapes (alt-screen, mouse tracking, cursor visibility,
-    // saved colors). Without this, a browser that connects mid-session misses
-    // the one-time mode switches and ends up in the wrong xterm.js state —
-    // notably, copilot/agency-cp's mouse-mode wheel events get eaten locally
-    // instead of being forwarded back to the app as escape sequences.
-    //
-    // getModeReplay() comes FIRST: mode-set escapes (alt-screen, mouse
-    // tracking) are emitted once at startup and rotate out of rawBuffer once
-    // conversation streams past the 32KB cap. Tracking their state separately
-    // ensures they're always replayed.
-    let buf = session.getModeReplay() + session.getRawTail();
-    let flushTimer: ReturnType<typeof setTimeout> | null = buf
-      ? setTimeout(flush, BATCH_MS)
-      : null;
-
-    function flush() {
-      flushTimer = null;
-      if (buf && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "data", session: session.name, payload: buf }));
-        buf = "";
-      }
-    }
-
-    const onData = (data: string) => {
-      buf += data;
-      if (!flushTimer) flushTimer = setTimeout(flush, BATCH_MS);
-    };
-    session.on("data", onData);
-
+    const handle = createBatchedSender(session, ws, BATCH_MS);
     if (!wsSessionCleanups.has(ws)) {
       wsSessionCleanups.set(ws, []);
       ws.on("close", () => {
-        for (const fn of wsSessionCleanups.get(ws) || []) fn();
+        for (const h of wsSessionCleanups.get(ws) || []) h.cleanup();
         wsSessionCleanups.delete(ws);
       });
     }
-
-    wsSessionCleanups.get(ws)!.push(() => {
-      session.off("data", onData);
-      if (flushTimer) {
-        clearTimeout(flushTimer);
-        flushTimer = null;
-      }
-    });
+    wsSessionCleanups.get(ws)!.push(handle);
   }
 
   function broadcastSessionList(): void {
-    const list = [...sessions.values()].map((s) => s.getInfo());
-    const msg = JSON.stringify({ type: "sessions", payload: list });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
+    broadcastToClients(wsClients, {
+      type: "sessions",
+      payload: [...sessions.values()].map((s) => s.getInfo()),
+    });
   }
 
   function broadcastStatus(session: PtySession): void {
     const info = session.getInfo();
-    const msg = JSON.stringify({
+    broadcastToClients(wsClients, {
       type: "status",
       session: session.name,
       payload: {
@@ -88,57 +59,33 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
         pendingPermission: info.pendingPermission,
       },
     });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
   }
 
   function broadcastNotification(name: string, count: number, from: string[]): void {
-    const msg = JSON.stringify({ type: "notification", session: name, payload: { count, from } });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
+    broadcastToClients(wsClients, { type: "notification", session: name, payload: { count, from } });
   }
 
   function broadcastName(name: string): void {
-    const msg = JSON.stringify({ type: "config", name });
-    for (const ws of wsClients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-    }
+    broadcastToClients(wsClients, { type: "config", name });
   }
 
   function attachSession(session: PtySession): void {
-    for (const ws of wsClients) {
-      attachSessionToWs(session, ws);
-    }
+    for (const ws of wsClients) attachSessionToWs(session, ws);
   }
 
-  wss.on("connection", (ws) => {
+  function handleConnection(ws: WebSocket): void {
     wsClients.add(ws);
     wsAlive.set(ws, true);
-
     ws.on("pong", () => wsAlive.set(ws, true));
 
-    const list = [...sessions.values()].map((s) => s.getInfo());
-    ws.send(JSON.stringify({ type: "sessions", payload: list }));
+    ws.send(JSON.stringify({
+      type: "sessions",
+      payload: [...sessions.values()].map((s) => s.getInfo()),
+    }));
 
     ws.on("message", (raw) => {
       try {
-        const msg = JSON.parse(raw.toString());
-        const session = msg.session ? sessions.get(msg.session) : null;
-
-        switch (msg.type) {
-          case "input":
-            session?.markUserInput(msg.payload);
-            session?.write(msg.payload);
-            break;
-          case "clear-input-dirty":
-            session?.clearInputDirty();
-            break;
-          case "resize":
-            session?.resize(msg.payload.cols, msg.payload.rows);
-            break;
-        }
+        dispatchClientMessage(JSON.parse(raw.toString()), sessions);
       } catch {
         // Ignore malformed messages.
       }
@@ -149,10 +96,10 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
       wsAlive.delete(ws);
     });
 
-    for (const [, session] of sessions) {
-      attachSessionToWs(session, ws);
-    }
-  });
+    for (const [, session] of sessions) attachSessionToWs(session, ws);
+  }
+
+  wss.on("connection", handleConnection);
 
   const heartbeatInterval = setInterval(() => {
     for (const ws of wsClients) {
@@ -165,7 +112,7 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
       wsAlive.set(ws, false);
       ws.ping();
     }
-  }, 30_000);
+  }, HEARTBEAT_MS);
   heartbeatInterval.unref();
 
   function shutdown(): void {
