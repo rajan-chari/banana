@@ -70,6 +70,10 @@ import {
   attachToSiblingWorkspace,
 } from "./lib/open-folder.js";
 import {
+  buildContextMenuActions,
+  resolveContextAction,
+} from "./lib/context-menu.js";
+import {
   normPath,
   cssId,
   truncatePath,
@@ -1207,90 +1211,22 @@ document.addEventListener("click", () => {
   byId("context-menu").classList.add("hidden");
 });
 
-byId("context-menu").addEventListener("click", /** @param {MouseEvent} e */ async (e) => {
-  const item = e.target instanceof Element ? /** @type {HTMLElement | null} */ (e.target.closest(".ctx-item")) : null;
-  const action = item?.dataset["action"];
-  if (!action || !state.ctxTarget || item?.classList.contains("ctx-disabled")) return;
-
-  const path = state.ctxTarget;
-  const name = path.split(/[/\\]/).filter(Boolean).pop() || path;
-
-  switch (action) {
-    case "open":
-      openFolder(path, name);
-      break;
-    case "open-new-ws": {
-      openFolder(path, name, undefined, true);
-      break;
-    }
-    case "open-cmd": {
-      const cmd = prompt("Command to run:", "cmd.exe");
-      if (cmd) openFolder(path, name, cmd);
-      break;
-    }
-    case "force-idle": {
-      const fnp = normPath(path);
-      const aiCmds = new Set(state.aiPresets.map((p) => p.command));
-      for (const [sName, s] of state.sessions) {
-        if (aiCmds.has(s.command) && s.status === "busy" && normPath(s.workingDir) === fnp) {
-          fetch(`/api/sessions/${encodeURIComponent(sName)}/force-idle`, { method: "POST" });
-        }
-      }
-      break;
-    }
-    case "new-folder": {
-      const folderName = prompt("New folder name:");
-      if (!folderName?.trim()) break;
-      const trimmed = folderName.trim();
-      if (/[/\\:*?"<>|]/.test(trimmed)) { alert("Invalid folder name. Avoid: / \\ : * ? \" < > |"); break; }
-      try {
-        const res = await fetch("/api/folders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ parentPath: path, name: trimmed }),
-        });
-        if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to create folder"); break; }
-        state.folderCache.delete(path);
-        state.expandedPaths.add(path);
-        renderTree();
-      } catch (err) { alert("Failed to create folder: " + (err instanceof Error ? err.message : String(err))); }
-      break;
-    }
-    case "fav-add":
-      if (!state.favorites.includes(path)) {
-        state.favorites.push(path);
-        saveFavorites();
-        renderTree();
-      }
-      break;
-    case "fav-remove": {
-      const idx = state.favorites.indexOf(path);
-      if (idx !== -1) {
-        state.favorites.splice(idx, 1);
-        saveFavorites();
-        renderTree();
-      }
-      break;
-    }
-    case "pin-add":
-      if (!state.pinnedFolders.includes(path)) {
-        state.pinnedFolders.push(path);
-        savePinnedFolders();
-        renderQuickAccess();
-      }
-      break;
-    case "pin-remove": {
-      const pidx = state.pinnedFolders.indexOf(path);
-      if (pidx !== -1) {
-        state.pinnedFolders.splice(pidx, 1);
-        savePinnedFolders();
-        renderQuickAccess();
-      }
-      break;
-    }
-  }
-
+byId("context-menu").addEventListener("click", async (e) => {
+  const resolved = resolveContextAction(e.target, state.ctxTarget);
+  if (!resolved) return;
+  const handler = contextMenuActions[resolved.action];
+  if (handler) await handler(resolved.path, resolved.name);
   byId("context-menu").classList.add("hidden");
+});
+
+const contextMenuActions = buildContextMenuActions({
+  state,
+  openFolder,
+  renderTree,
+  renderQuickAccess,
+  saveFavorites,
+  savePinnedFolders,
+  normPath,
 });
 
 // ===== Quick-Open (Ctrl+P) =====
