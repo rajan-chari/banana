@@ -2048,64 +2048,105 @@ function handleCtrlOnlyKey(e, sessionName) {
   return true;
 }
 
+const ALLOWED_STATUS_DOT = new Set(["starting", "busy", "idle", "dead"]);
+
 /**
- * @param {string} groupName
+ * Normalise a server-supplied status string to one of the known
+ * dot-color classes; unknown values fall back to "starting".
+ *
+ * @param {string | undefined} status
+ * @returns {string}
  */
-function createPane(groupName) {
-  // Resolve which session to show via pane group
-  const pg = state.paneGroups.get(groupName);
-  const activeType = pg?.activeType || "claude";
-  const activeSessionName = activeType === "pwsh" ? (pg?.pwsh || groupName) : (pg?.claude || groupName);
-  const info = state.sessions.get(activeSessionName);
-  const hasBoth = pg?.claude && pg?.pwsh;
+function normaliseStatusDot(status) {
+  return status && ALLOWED_STATUS_DOT.has(status) ? status : "starting";
+}
 
-  const pane = document.createElement("div");
-  pane.className = `pane ${groupName === state.focusedPane ? "focused" : ""} ${info?.status === "dead" ? "dead" : ""}`;
-  pane.dataset["session"] = groupName;
-  pane.addEventListener("mousedown", () => focusPane(groupName));
-
-  // Top bar
+/**
+ * Build the top bar of a pane, including all event handlers
+ * (toggle, code button, close button, identity click, context menu,
+ * topbar drag). All dynamic strings interpolated into innerHTML are
+ * routed through escapeHtml() — defense in depth, since values like
+ * info.emcomIdentity and info.workingDir can flow from disk-side
+ * config files (identity.json, presets).
+ *
+ * @param {{ activeType?: string, claude?: string, pwsh?: string } | undefined} pg
+ * @param {"claude" | "pwsh"} activeType
+ * @param {import('./lib/state.js').SessionInfo | undefined} info
+ * @param {string} groupName
+ * @param {boolean} hasBoth
+ * @param {string} activeSessionName
+ * @returns {HTMLElement}
+ */
+function buildPaneTopbar(pg, activeType, info, groupName, hasBoth, activeSessionName) {
   const topbar = document.createElement("div");
   topbar.className = "pane-topbar";
 
-  // Toggle buttons (only when both session types exist)
-  let toggleHtml = "";
-  if (hasBoth) {
-    const claudeActive = activeType === "claude" ? "active" : "";
-    const pwshActive = activeType === "pwsh" ? "active" : "";
-    toggleHtml = `<span class="pane-toggle">
-      <button class="toggle-btn toggle-claude ${claudeActive}" title="Claude">C</button>
-      <button class="toggle-btn toggle-pwsh ${pwshActive}" title="PowerShell">&gt;_</button>
-    </span>`;
-  }
-
-  const identity = info?.emcomIdentity ? `<span class="pane-identity">${info.emcomIdentity}</span>` : "";
-  const aiPreset = (activeType !== "pwsh" && info?.command) ? getAiPresetForCommand(info.command) : null;
-  const presetBadge = aiPreset ? `<span class="pane-ai-preset" title="${aiPreset.name}">${aiPreset.icon} ${aiPreset.name}</span>` : "";
+  const toggleHtml = hasBoth ? buildPaneToggleHtml(activeType) : "";
+  const identityHtml = info?.emcomIdentity
+    ? `<span class="pane-identity">${escapeHtml(info.emcomIdentity)}</span>`
+    : "";
+  const aiPreset = (activeType !== "pwsh" && info?.command)
+    ? getAiPresetForCommand(info.command)
+    : null;
+  const presetBadge = aiPreset
+    ? `<span class="pane-ai-preset" title="${escapeHtml(aiPreset.name)}">${escapeHtml(aiPreset.icon)} ${escapeHtml(aiPreset.name)}</span>`
+    : "";
+  const wd = info?.workingDir || "";
   topbar.innerHTML = `
-    <span class="pane-name">${groupName}</span>
+    <span class="pane-name">${escapeHtml(groupName)}</span>
     ${toggleHtml}
     ${presetBadge}
     <span class="pane-action cmd-tag code" title="Open in VS Code">&lt;/&gt;</span>
-    ${identity}
-    <span class="pane-cwd" title="${info?.workingDir || ""}">${truncatePath(info?.workingDir || "")}</span>
+    ${identityHtml}
+    <span class="pane-cwd" title="${escapeHtml(wd)}">${escapeHtml(truncatePath(wd))}</span>
     <span class="pane-close" title="Kill session">&times;</span>
   `;
 
-  // Toggle button handlers
-  if (hasBoth) {
-    topbar.querySelector(".toggle-claude")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      switchPaneType(groupName, "claude");
-    });
-    topbar.querySelector(".toggle-pwsh")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      switchPaneType(groupName, "pwsh");
-    });
-  }
+  if (hasBoth) attachPaneToggleHandlers(topbar, groupName);
+  attachPaneTopbarActions(topbar, groupName, info, activeSessionName);
+  return topbar;
+}
 
+/**
+ * @param {"claude" | "pwsh"} activeType
+ * @returns {string}
+ */
+function buildPaneToggleHtml(activeType) {
+  const claudeActive = activeType === "claude" ? "active" : "";
+  const pwshActive = activeType === "pwsh" ? "active" : "";
+  return `<span class="pane-toggle">
+      <button class="toggle-btn toggle-claude ${claudeActive}" title="Claude">C</button>
+      <button class="toggle-btn toggle-pwsh ${pwshActive}" title="PowerShell">&gt;_</button>
+    </span>`;
+}
+
+/**
+ * @param {HTMLElement} topbar
+ * @param {string} groupName
+ */
+function attachPaneToggleHandlers(topbar, groupName) {
+  topbar.querySelector(".toggle-claude")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    switchPaneType(groupName, "claude");
+  });
+  topbar.querySelector(".toggle-pwsh")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    switchPaneType(groupName, "pwsh");
+  });
+}
+
+/**
+ * Wire the code button, close button, identity click, right-click
+ * context menu and topbar drag handler.
+ *
+ * @param {HTMLElement} topbar
+ * @param {string} groupName
+ * @param {import('./lib/state.js').SessionInfo | undefined} info
+ * @param {string} activeSessionName
+ */
+function attachPaneTopbarActions(topbar, groupName, info, activeSessionName) {
   const codeBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-action.code"));
-  if (codeBtn) codeBtn.onclick = /** @param {MouseEvent} e */ (e) => {
+  if (codeBtn) codeBtn.onclick = (e) => {
     e.stopPropagation();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     fetch("/api/open-editor", {
@@ -2116,23 +2157,23 @@ function createPane(groupName) {
   };
 
   const closeBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-close"));
-  if (closeBtn) closeBtn.onclick = /** @param {MouseEvent} e */ (e) => {
+  if (closeBtn) closeBtn.onclick = (e) => {
     e.stopPropagation();
     killSession(activeSessionName);
   };
 
-  topbar.addEventListener("contextmenu", /** @param {MouseEvent} e */ (e) => {
+  topbar.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     e.stopPropagation();
     showPaneContextMenu(e, groupName);
   });
 
   const identityEl = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-identity"));
-  if (identityEl && info && info.emcomIdentity) {
+  if (identityEl && info?.emcomIdentity) {
     const identity = info.emcomIdentity;
     identityEl.style.cursor = "pointer";
     identityEl.title = `Switch feed to ${identity}`;
-    identityEl.onclick = /** @param {MouseEvent} e */ (e) => {
+    identityEl.onclick = (e) => {
       e.stopPropagation();
       localStorage.setItem("pty-win-feed-identity", identity);
       window.dispatchEvent(new CustomEvent("feed-identity-change", { detail: identity }));
@@ -2145,53 +2186,60 @@ function createPane(groupName) {
     if (e.button !== 0) return;
     startPaneDrag(e, groupName);
   });
+}
 
-  pane.appendChild(topbar);
-
-  // Terminal
-  const termArea = document.createElement("div");
-  termArea.className = "pane-terminal";
-  pane.appendChild(termArea);
-
-  // Status bar
+/**
+ * Build the bottom status bar for a pane (status dot, label, unread
+ * pill). Values are coerced/whitelisted defensively.
+ *
+ * @param {import('./lib/state.js').SessionInfo | undefined} info
+ * @returns {HTMLElement}
+ */
+function buildPaneStatusbar(info) {
   const statusbar = document.createElement("div");
   statusbar.className = "pane-statusbar";
-  const status = info?.status || "starting";
-  const unread = info?.unreadCount || 0;
+  const status = normaliseStatusDot(info?.status);
+  const unread = Number(info?.unreadCount) || 0;
   const dotClass = info?.pendingPermission ? "permission" : status;
   const label = info?.pendingPermission ? "permission" : status;
   statusbar.innerHTML = `
-    <span class="status-dot ${dotClass}"></span>
-    <span class="pane-status-label">${label}</span>
+    <span class="status-dot ${escapeHtml(dotClass)}"></span>
+    <span class="pane-status-label">${escapeHtml(label)}</span>
     <span class="pane-unread ${unread > 0 ? "show" : ""}">${unread}</span>
   `;
-  pane.appendChild(statusbar);
+  return statusbar;
+}
 
-  // Create or reattach xterm for the active session
-  const entry = ensureTerminal(activeSessionName);
-
-  // Fit terminal and explicitly notify server of new dimensions
-  // Guards against unnecessary fit() calls that reset xterm scroll position
+/**
+ * Set up the xterm fit/resize lifecycle for the terminal entry inside
+ * the pane's terminal area. Performs the persistent-wrapper attach,
+ * retry-fit loop (waits for flex layout to resolve), and the
+ * ResizeObserver. A fresh observer is created per render so its
+ * closure doesn't hold stale `termArea`/`fitAndSync` references after
+ * re-render.
+ *
+ * @param {{ term: any, fitAddon: any, opened: boolean, wrapperEl: HTMLElement, resizeObserver?: ResizeObserver }} entry
+ * @param {HTMLElement} termArea
+ * @param {string} activeSessionName
+ */
+function setupPaneFitLifecycle(entry, termArea, activeSessionName) {
   const fitAndSync = () => {
     try {
-      // Skip fit if container has no usable height yet (flex not resolved)
+      if (!termArea.isConnected) return; // pane was detached before delayed fit
       const h = termArea.offsetHeight;
       if (h < 50) return;
-      // Compute what fit() would set without actually calling it
-      // FitAddon uses core._renderService.dimensions to calculate
       const prevCols = entry.term.cols;
       const prevRows = entry.term.rows;
       entry.fitAddon.fit();
       const { cols, rows } = entry.term;
-      // Only notify server if dimensions actually changed
       if (cols !== prevCols || rows !== prevRows) {
         state.ws?.send(JSON.stringify({ type: "resize", session: activeSessionName, payload: { cols, rows } }));
       }
     } catch {}
   };
 
-  // xterm.js can only open() once. Move the persistent wrapper on re-renders.
   requestAnimationFrame(() => {
+    if (!termArea.isConnected) return;
     if (!entry.opened) {
       termArea.appendChild(entry.wrapperEl);
       entry.term.open(entry.wrapperEl);
@@ -2199,9 +2247,10 @@ function createPane(groupName) {
     } else {
       termArea.appendChild(entry.wrapperEl);
     }
-    // Retry fit until container has usable height (flex layout resolved)
+
     let fitRetries = 0;
     const retryFit = () => {
+      if (!termArea.isConnected) return;
       fitAndSync();
       if (termArea.offsetHeight < 50 && fitRetries < 20) {
         fitRetries++;
@@ -2212,23 +2261,49 @@ function createPane(groupName) {
     setTimeout(fitAndSync, 300);
     setTimeout(fitAndSync, 1000);
 
-    if (!entry.resizeObserver) {
-      let lastW = 0, lastH = 0;
-      entry.resizeObserver = new ResizeObserver(/** @param {ResizeObserverEntry[]} entries */ (entries) => {
-        const rect = entries[0]?.contentRect;
-        if (!rect || rect.height < 50) return;
-        // Skip if dimensions haven't actually changed (prevents spurious scroll resets)
-        const w = Math.round(rect.width), h = Math.round(rect.height);
-        if (w === lastW && h === lastH) return;
-        lastW = w; lastH = h;
-        fitAndSync();
-      });
-      entry.resizeObserver.observe(termArea);
-    } else {
-      entry.resizeObserver.disconnect();
-      entry.resizeObserver.observe(termArea);
-    }
+    // Always create a fresh ResizeObserver per render so its callback
+    // closes over the *current* termArea/fitAndSync. Disconnect any
+    // stale observer left over from a previous render of the same
+    // terminal entry.
+    entry.resizeObserver?.disconnect();
+    let lastW = 0, lastH = 0;
+    entry.resizeObserver = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect || rect.height < 50) return;
+      const w = Math.round(rect.width), h = Math.round(rect.height);
+      if (w === lastW && h === lastH) return;
+      lastW = w; lastH = h;
+      fitAndSync();
+    });
+    entry.resizeObserver.observe(termArea);
   });
+}
+
+/**
+ * @param {string} groupName
+ */
+function createPane(groupName) {
+  const pg = state.paneGroups.get(groupName);
+  const activeType = pg?.activeType || "claude";
+  const activeSessionName = activeType === "pwsh" ? (pg?.pwsh || groupName) : (pg?.claude || groupName);
+  const info = state.sessions.get(activeSessionName);
+  const hasBoth = !!(pg?.claude && pg?.pwsh);
+
+  const pane = document.createElement("div");
+  pane.className = `pane ${groupName === state.focusedPane ? "focused" : ""} ${info?.status === "dead" ? "dead" : ""}`;
+  pane.dataset["session"] = groupName;
+  pane.addEventListener("mousedown", () => focusPane(groupName));
+
+  pane.appendChild(buildPaneTopbar(pg, activeType, info, groupName, hasBoth, activeSessionName));
+
+  const termArea = document.createElement("div");
+  termArea.className = "pane-terminal";
+  pane.appendChild(termArea);
+
+  pane.appendChild(buildPaneStatusbar(info));
+
+  const entry = ensureTerminal(activeSessionName);
+  setupPaneFitLifecycle(entry, termArea, activeSessionName);
 
   return pane;
 }
