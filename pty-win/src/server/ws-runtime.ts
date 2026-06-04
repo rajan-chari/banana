@@ -20,16 +20,24 @@ export function createWsRuntime(httpServer: HttpServer, sessions: Map<string, Pt
 
   function attachSessionToWs(session: PtySession, ws: WebSocket): void {
     const BATCH_MS = 16;
-    let buf = "";
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    // Pre-seed buf with the session's recent byte history so xterm.js can
+    // replay startup escapes (alt-screen, mouse tracking, cursor visibility,
+    // saved colors). Without this, a browser that connects mid-session misses
+    // the one-time mode switches and ends up in the wrong xterm.js state —
+    // notably, copilot/agency-cp's mouse-mode wheel events get eaten locally
+    // instead of being forwarded back to the app as escape sequences.
+    let buf = session.getRawTail();
+    let flushTimer: ReturnType<typeof setTimeout> | null = buf
+      ? setTimeout(flush, BATCH_MS)
+      : null;
 
-    const flush = () => {
+    function flush() {
       flushTimer = null;
       if (buf && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "data", session: session.name, payload: buf }));
         buf = "";
       }
-    };
+    }
 
     const onData = (data: string) => {
       buf += data;

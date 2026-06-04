@@ -13,11 +13,13 @@ class FakeSession extends EventEmitter {
   public writes: string[] = [];
   public resizes: Array<{ cols: number; rows: number }> = [];
   public cleared = 0;
+  public rawTail = "";
   private info: Record<string, unknown>;
 
-  constructor(name: string, info: Partial<Record<string, unknown>> = {}) {
+  constructor(name: string, info: Partial<Record<string, unknown>> = {}, rawTail = "") {
     super();
     this.name = name;
+    this.rawTail = rawTail;
     this.info = {
       name,
       group: name,
@@ -35,6 +37,7 @@ class FakeSession extends EventEmitter {
   }
 
   getInfo() { return this.info; }
+  getRawTail() { return this.rawTail; }
   markUserInput(data: string) { this.marks.push(data); }
   write(data: string) { this.writes.push(data); }
   resize(cols: number, rows: number) { this.resizes.push({ cols, rows }); }
@@ -259,6 +262,56 @@ describe("createWsRuntime", () => {
 
     expect(m.type).toBe("config");
     expect(m["name"]).toBe("preview");
+
+    c.close();
+  });
+
+  it("replays the session's raw byte tail to a new client on connect", async () => {
+    // Late-connecting browsers need the recent byte history (alt-screen,
+    // mouse-mode escapes, etc.) so xterm.js can restore terminal state.
+    const fake = new FakeSession(
+      "alpha",
+      {},
+      "\x1b[?1049h\x1b[?1002hRESTORED-STATE",
+    );
+    sessions.set("alpha", fake as unknown as PtySession);
+
+    const c = await connect(port);
+    // The first message is `sessions` (sent on connection). Then the replayed
+    // tail arrives as a `data` message after the batch flush.
+    const msgs = await c.drainFor(80);
+    const dataMsgs = msgs.filter((m) => m.type === "data");
+    expect(dataMsgs).toHaveLength(1);
+    expect(dataMsgs[0]["session"]).toBe("alpha");
+    expect(dataMsgs[0]["payload"]).toBe("\x1b[?1049h\x1b[?1002hRESTORED-STATE");
+
+    c.close();
+  });
+
+  it("does not send a data message when the raw tail is empty", async () => {
+    const fake = new FakeSession("alpha");  // rawTail defaults to ""
+    sessions.set("alpha", fake as unknown as PtySession);
+
+    const c = await connect(port);
+    const msgs = await c.drainFor(80);
+    const dataMsgs = msgs.filter((m) => m.type === "data");
+    expect(dataMsgs).toHaveLength(0);
+
+    c.close();
+  });
+
+  it("merges replayed tail with new live data in the first flush", async () => {
+    const fake = new FakeSession("alpha", {}, "OLD-");
+    sessions.set("alpha", fake as unknown as PtySession);
+
+    const c = await connect(port);
+    // Emit live data before the 16ms batch flushes
+    fake.emitData("NEW");
+
+    const msgs = await c.drainFor(80);
+    const dataMsgs = msgs.filter((m) => m.type === "data");
+    expect(dataMsgs).toHaveLength(1);
+    expect(dataMsgs[0]["payload"]).toBe("OLD-NEW");
 
     c.close();
   });
