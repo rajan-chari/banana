@@ -2679,6 +2679,53 @@ function showDirtyWarning(sessionName, workingDir) {
 }
 
 /**
+ * Remove a no-longer-existent pane group from all workspaces by
+ * rebuilding any workspace that contained it as a balanced tree of
+ * the remaining leaves.
+ *
+ * @param {string} groupName
+ */
+function removeGroupFromAllWorkspaces(groupName) {
+  for (const ws of state.workspaces) {
+    if (ws.layout && treeContains(ws.layout, groupName)) {
+      const leaves = getLeafList(ws.layout).filter((n) => n !== groupName);
+      ws.layout = buildBalancedTree(leaves);
+      updateWorkspaceTabName(ws);
+    }
+  }
+}
+
+/**
+ * Tear down the terminal entry for a session (xterm dispose,
+ * resize-observer disconnect, wrapper element removal).
+ *
+ * @param {string} sessionName
+ */
+function disposeTerminalEntry(sessionName) {
+  const entry = state.terminals.get(sessionName);
+  if (!entry) return;
+  entry.resizeObserver?.disconnect();
+  entry.term.dispose();
+  entry.wrapperEl?.remove();
+  state.terminals.delete(sessionName);
+}
+
+/**
+ * After a pane is removed and no sibling remains, pick a new focused
+ * pane from the active workspace (or null if it's now empty).
+ *
+ * @param {string} groupName - the just-removed group
+ * @param {boolean} siblingAlive
+ */
+function refocusAfterPaneRemoval(groupName, siblingAlive) {
+  if (state.focusedPane !== groupName || siblingAlive) return;
+  state.focusedPane = null;
+  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+  const leaves = ws?.layout ? getLeafList(ws.layout) : [];
+  if (leaves.length > 0) state.focusedPane = leaves[0];
+}
+
+/**
  * @param {string} sessionName
  */
 function autoRemoveDeadSession(sessionName) {
@@ -2694,40 +2741,20 @@ function autoRemoveDeadSession(sessionName) {
   const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
 
   if (!siblingAlive) {
-    // No sibling — remove pane from all workspaces
-    for (const ws of state.workspaces) {
-      if (ws.layout && treeContains(ws.layout, groupName)) {
-        const leaves = getLeafList(ws.layout).filter((n) => n !== groupName);
-        ws.layout = buildBalancedTree(leaves);
-        updateWorkspaceTabName(ws);
-      }
-    }
+    removeGroupFromAllWorkspaces(groupName);
   } else {
-    // Sibling alive — switch toggle
     const pg = state.paneGroups.get(groupName);
     if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
   }
 
-  // Destroy terminal
-  const entry = state.terminals.get(sessionName);
-  if (entry) {
-    entry.resizeObserver?.disconnect();
-    entry.term.dispose();
-    entry.wrapperEl?.remove();
-    state.terminals.delete(sessionName);
-  }
+  disposeTerminalEntry(sessionName);
 
   state.sessions.delete(sessionName);
   state.sessionMeta.delete(sessionName);
   saveSessionMeta();
   rebuildPaneGroups();
 
-  if (state.focusedPane === groupName && !siblingAlive) {
-    state.focusedPane = null;
-    const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-    const leaves = ws?.layout ? getLeafList(ws.layout) : [];
-    if (leaves.length > 0) state.focusedPane = leaves[0];
-  }
+  refocusAfterPaneRemoval(groupName, siblingAlive);
 
   refreshTreeRunningState();
   if (state.isDashboard) renderDashboard();
