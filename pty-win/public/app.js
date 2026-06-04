@@ -1987,7 +1987,12 @@ function fitAllTerminals(node) {
 // Module-scoped paste guard: short (50ms) window during Ctrl+V handling
 // that prevents onData from re-emitting the pasted text. Only one pane
 // has focus at any time, so a singleton is sufficient.
-let _pasteGuard = false;
+// Per-session paste guard: when the Ctrl+V handler reads the clipboard and
+// sends the payload via WS, the terminal's own onData also fires for the
+// pasted text — set the guard while the clipboard read is in flight so we
+// don't double-send. Module-scope but keyed BY session so a paste in pane
+// A never suppresses data from pane B.
+const _pasteGuards = new Set();
 
 /**
  * Handle Ctrl+Shift+<key> shortcuts inside an xterm pane.
@@ -2037,11 +2042,11 @@ function handleCtrlOnlyKey(e, sessionName) {
     return false;
   }
   if (e.key === "v") {
-    _pasteGuard = true;
+    _pasteGuards.add(sessionName);
     navigator.clipboard.readText().then((text) => {
       if (text) state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
     }).catch(() => {}).finally(() => {
-      setTimeout(() => { _pasteGuard = false; }, 50);
+      setTimeout(() => { _pasteGuards.delete(sessionName); }, 50);
     });
     return false;
   }
@@ -2329,7 +2334,7 @@ function ensureTerminal(sessionName) {
   term.loadAddon(new xtermWebLinksAddon.WebLinksAddon());
 
   term.onData(/** @param {string} data */ (data) => {
-    if (_pasteGuard) return; // skip — already sent by Ctrl+V handler
+    if (_pasteGuards.has(sessionName)) return; // skip — already sent by Ctrl+V handler
     state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
   });
 
@@ -2617,13 +2622,17 @@ function updatePaneStatus(sessionName) {
     const label = pane.querySelector(".pane-status-label");
     const unread = pane.querySelector(".pane-unread");
     // pendingPermission overrides the status dot — it's the highest-priority
-    // signal since the user needs to act before Claude proceeds.
-    const dotClass = info.pendingPermission ? "permission" : info.status;
+    // signal since the user needs to act before Claude proceeds. Otherwise
+    // funnel through normaliseStatusDot so updates honor the same whitelist
+    // (starting | busy | idle | dead) used at initial render.
+    const dotClass = info.pendingPermission ? "permission" : normaliseStatusDot(info.status);
+    const labelText = info.pendingPermission ? "permission" : dotClass;
     if (dot) dot.className = `status-dot ${dotClass}`;
-    if (label) label.textContent = info.pendingPermission ? "permission" : info.status;
+    if (label) label.textContent = labelText;
     if (unread) {
-      unread.textContent = String(info.unreadCount ?? 0);
-      unread.classList.toggle("show", (info.unreadCount ?? 0) > 0);
+      const unreadN = Number(info.unreadCount) || 0;
+      unread.textContent = String(unreadN);
+      unread.classList.toggle("show", unreadN > 0);
     }
     pane.classList.toggle("dead", info.status === "dead");
     pane.classList.toggle("pending-permission", !!info.pendingPermission);
