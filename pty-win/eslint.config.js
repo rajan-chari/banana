@@ -92,6 +92,8 @@ export default tseslint.config(
         HTMLInputElement: "readonly",
         HTMLSelectElement: "readonly",
         HTMLButtonElement: "readonly",
+        HTMLTableRowElement: "readonly",
+        HTMLCanvasElement: "readonly",
         Node: "readonly",
         Element: "readonly",
         DOMParser: "readonly",

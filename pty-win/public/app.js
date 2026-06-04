@@ -74,6 +74,13 @@ import {
   resolveContextAction,
 } from "./lib/context-menu.js";
 import {
+  computeAgentsCounters,
+  formatAgentsSummaryHtml,
+  removeStaleAgentRows,
+  upsertAgentRow,
+  upsertAgentTotalRow,
+} from "./lib/agents-panel.js";
+import {
   normPath,
   cssId,
   truncatePath,
@@ -3543,94 +3550,31 @@ function renderAgentsPanel() {
 
   // Fetch stats for cb/s data
   fetch("/api/stats").then(r => r.json()).then(/** @param {any[]} stats */ stats => {
+    // Re-snapshot sessions inside the handler so the panel reflects
+    // the freshest state, not the snapshot from before the fetch.
+    const sessions = [...state.sessions.entries()];
+    const currentNames = new Set(sessions.map(([n]) => n));
     const statsMap = new Map(stats.map(s => [s.name, s]));
 
-    // Patch summary
-    const busy = allSessions.filter(([, i]) => i.status === "busy").length;
-    const idle = allSessions.filter(([, i]) => i.status === "idle").length;
-    const needsInputCount = allSessions.filter(([name, i]) => {
-      const st = statsMap.get(name);
-      const cbs = st ? st.busy.callbacksPerSec : 0;
-      return i.status !== "dead" && (
-        i.pendingPermission ||
-        (i.status === "busy" && cbs === 0)
-      );
-    }).length;
-    const totalCost = allSessions.reduce((s, [, i]) => s + (i.costUsd || 0), 0);
+    const counters = computeAgentsCounters(sessions, statsMap);
     const summaryEl = panel.querySelector(".agents-summary");
     if (summaryEl) {
-      summaryEl.innerHTML = `${busy} busy · ${idle} idle${needsInputCount > 0 ? ` · <span class="agents-needs-input-count">${needsInputCount} need input</span>` : ""} · $${totalCost.toFixed(2)}`;
+      summaryEl.innerHTML = formatAgentsSummaryHtml(counters);
     }
 
     const tbody = panel.querySelector("tbody");
     if (!tbody) return;
-    const currentNames = new Set(state.sessions.keys());
+    removeStaleAgentRows(tbody, currentNames);
 
-    // Remove rows for gone sessions
-    for (const row of [...tbody.querySelectorAll(".agents-row")]) {
-      if (!(row instanceof HTMLElement)) continue;
-      if (!currentNames.has(row.dataset["session"] ?? "")) row.remove();
+    for (const [name, info] of sessions) {
+      upsertAgentRow(tbody, name, info, statsMap.get(name), {
+        onFocusSession: focusExistingSession,
+        fmtAgo,
+      });
     }
 
-    // Add or patch rows
-    for (const [name, info] of allSessions) {
-      const s = statsMap.get(name);
-      let row = /** @type {HTMLTableRowElement | null} */ (tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`));
-      if (!row) {
-        row = document.createElement("tr");
-        row.className = "agents-row";
-        row.dataset["session"] = name;
-        row.style.cursor = "pointer";
-        row.onclick = () => focusExistingSession(name);
-        row.innerHTML = `<td class="agents-name"></td><td class="agents-status"></td><td class="agents-cbs"></td><td class="agents-active"></td><td class="agents-trend"></td><td class="agents-cost"></td>`;
-        const totalRow = tbody.querySelector(".agents-total-row");
-        tbody.insertBefore(row, totalRow);
-      }
+    upsertAgentTotalRow(tbody, counters.totalCost);
 
-      const cbs = s ? s.busy.callbacksPerSec : 0;
-      // permission_prompt hook = definite needs input; busy + 0 cb/s = probable needs input
-      const needsInput = info.status !== "dead" && (
-        info.pendingPermission ||
-        (info.status === "busy" && cbs === 0)
-      );
-      row.className = `agents-row ${needsInput ? "agents-needs-input" : ""}`;
-
-      const cells = row.children;
-      const nameText = name;
-      if (cells[0].textContent !== nameText) cells[0].textContent = nameText;
-
-      const statusText = needsInput ? "needs input" : (info.status || "unknown");
-      if (cells[1].textContent !== statusText) {
-        cells[1].textContent = statusText;
-        cells[1].className = `agents-status ${needsInput ? "status-needs-input" : `status-${info.status}`}`;
-      }
-
-      const cbsText = s ? String(s.busy.callbacksPerSec) : "0";
-      if (cells[2].textContent !== cbsText) cells[2].textContent = cbsText;
-
-      const agoText = fmtAgo(info.lastActiveMs);
-      if (cells[3].textContent !== agoText) cells[3].textContent = agoText;
-
-      const costText = `$${(info.costUsd || 0).toFixed(2)}`;
-      if (cells[5].textContent !== costText) cells[5].textContent = costText;
-    }
-
-    // Patch or create total row
-    let totalRow = /** @type {HTMLElement | null} */ (tbody.querySelector(".agents-total-row"));
-    if (totalCost > 0) {
-      if (!totalRow) {
-        totalRow = document.createElement("tr");
-        totalRow.className = "agents-total-row";
-        totalRow.innerHTML = `<td colspan="4">Total</td><td class="agents-trend"></td><td class="agents-cost"></td>`;
-        tbody.appendChild(totalRow);
-      }
-      const totalCell = totalRow.querySelector(".agents-cost");
-      const totalText = `$${totalCost.toFixed(2)}`;
-      if (totalCell && totalCell.textContent !== totalText) totalCell.textContent = totalText;
-    } else if (totalRow) {
-      totalRow.remove();
-    }
-    // Fetch and render sparklines into trend column
     fetchCostHistory(panel);
   }).catch(() => {});
 }
