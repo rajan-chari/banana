@@ -109,10 +109,7 @@ import {
   buildKillButton,
 } from "./lib/session-row.js";
 import {
-  resolveResumeMenuState,
-  makeCtxItem,
-  makeCtxSeparator,
-  makeCtxHeader,
+  createPaneContextMenu,
 } from "./lib/pane-context-menu.js";
 
 /** @type {string | null} */
@@ -269,6 +266,22 @@ const paneNav = createPaneNav({
 });
 const navigatePanes = paneNav.navigatePanes;
 const resizeFocused = paneNav.resizeFocused;
+
+const paneCtxMenu = createPaneContextMenu({
+  state,
+  byId,
+  layout: { removeSessionFromLayout, getLeafList, buildBalancedTree },
+  helpers: { updateWorkspaceTabName, saveWorkspaces },
+  actions: {
+    findWorkspaceContaining: (n) => findWorkspaceContaining(n),
+    createWorkspace: (n) => createWorkspace(n),
+    switchToWorkspace: (id) => switchToWorkspace(id),
+    openFolder: (p, g, t, f, args) => openFolder(p, g, t, f, args),
+    renderActiveWorkspace: () => renderActiveWorkspace(),
+    renderTabs: () => renderTabs(),
+  },
+});
+const showPaneContextMenu = paneCtxMenu.showPaneContextMenu;
 
 const wsDispatcher = createWsDispatcher({
   state,
@@ -1831,96 +1844,8 @@ function _showAiPicker(e, folderPath, folderName) {
   setTimeout(() => document.addEventListener("mousedown", close), 0);
 }
 
-/**
- * @param {MouseEvent} e
- * @param {string} groupName
- */
-function showPaneContextMenu(e, groupName) {
-  const menu = byId("pane-context-menu");
-  menu.innerHTML = "";
-  menu.classList.remove("hidden");
-  menu.style.left = `${e.clientX}px`;
-  menu.style.top = `${e.clientY}px`;
 
-  const currentWs = findWorkspaceContaining(groupName);
-  appendResumeSection(menu, groupName);
-  appendMoveToSection(menu, groupName, currentWs);
-  appendNewWorkspaceItem(menu, groupName, currentWs);
-  attachCloseOnClickOutside(menu);
-}
-
-/** @param {any} menu @param {string} groupName */
-function appendResumeSection(menu, groupName) {
-  const pg = state.paneGroups.get(groupName);
-  const claudeSession = pg?.claude ? state.sessions.get(pg.claude) : null;
-  const aiCommands = state.aiPresets.map((p) => p.command);
-  const { show, canResume, workingDir } = resolveResumeMenuState(claudeSession, aiCommands);
-  if (!show) return;
-
-  const onResume = canResume && workingDir
-    ? () => {
-        menu.classList.add("hidden");
-        openFolder(workingDir, groupName, "claude", false, ["--resume"]);
-      }
-    : null;
-  menu.appendChild(makeCtxItem("\u25b6 Resume Claude session", onResume, canResume ? "" : "ctx-disabled"));
-  menu.appendChild(makeCtxSeparator());
-}
-
-/** @param {any} menu @param {string} groupName @param {any} currentWs */
-function appendMoveToSection(menu, groupName, currentWs) {
-  menu.appendChild(makeCtxHeader("Move to"));
-  for (const ws of state.workspaces) {
-    if (ws === currentWs) continue;
-    menu.appendChild(makeCtxItem(ws.name, () => {
-      movePaneToWorkspace(groupName, currentWs, ws);
-      menu.classList.add("hidden");
-    }));
-  }
-}
-
-/** @param {any} menu @param {string} groupName @param {any} currentWs */
-function appendNewWorkspaceItem(menu, groupName, currentWs) {
-  menu.appendChild(makeCtxSeparator());
-  menu.appendChild(makeCtxItem("+ New workspace", () => {
-    const newWs = createWorkspace(groupName);
-    movePaneToWorkspace(groupName, currentWs, newWs);
-    switchToWorkspace(newWs.id);
-    menu.classList.add("hidden");
-  }));
-}
-
-/** @param {any} menu */
-function attachCloseOnClickOutside(menu) {
-  /** @param {MouseEvent} ev */
-  const close = (ev) => {
-    const t = ev.target instanceof Node ? ev.target : null;
-    if (!menu.contains(t)) {
-      menu.classList.add("hidden");
-      document.removeEventListener("mousedown", close);
-    }
-  };
-  setTimeout(() => document.addEventListener("mousedown", close), 0);
-}
-
-/**
- * @param {string} groupName
- * @param {import('./lib/state.js').Workspace | null} fromWs
- * @param {import('./lib/state.js').Workspace} toWs
- */
-function movePaneToWorkspace(groupName, fromWs, toWs) {
-  if (fromWs) {
-    fromWs.layout = removeSessionFromLayout(fromWs.layout, groupName);
-    updateWorkspaceTabName(fromWs);
-  }
-  const existing = toWs.layout ? getLeafList(toWs.layout) : [];
-  existing.push(groupName);
-  toWs.layout = buildBalancedTree(existing);
-  updateWorkspaceTabName(toWs);
-  saveWorkspaces();
-  renderTabs();
-  renderActiveWorkspace();
-}
+// ===== Pane context menu (extracted to lib/pane-context-menu.js) =====
 
 /**
  * @param {string} sessionName

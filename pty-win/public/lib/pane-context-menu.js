@@ -71,3 +71,146 @@ export function makeCtxHeader(text) {
   header.textContent = text;
   return header;
 }
+
+// ===== Pane context menu orchestrator (Phase 4f) =====
+//
+// The orchestrator (formerly inline in app.js) — Move to <workspace>,
+// + New workspace, Resume Claude session. Internally calls the pure
+// helpers above. AI tag menu and AI picker stay in app.js.
+
+/**
+ * @typedef {Object} PaneCtxState
+ * @property {Map<string, any>} paneGroups
+ * @property {Map<string, any>} sessions
+ * @property {Array<{ id: string, name?: string, layout: any }>} workspaces
+ * @property {Array<{ command: string }>} aiPresets
+ *
+ * @typedef {Object} PaneCtxDeps
+ * @property {PaneCtxState} state
+ * @property {(id: string) => HTMLElement} byId
+ * @property {Document} [doc]
+ * @property {{
+ *   removeSessionFromLayout: (layout: any, name: string) => any,
+ *   getLeafList: (layout: any) => string[],
+ *   buildBalancedTree: (leaves: string[]) => any
+ * }} layout
+ * @property {{
+ *   updateWorkspaceTabName: (ws: any) => void,
+ *   saveWorkspaces: () => void
+ * }} helpers
+ * @property {{
+ *   findWorkspaceContaining: (name: string) => any,
+ *   createWorkspace: (name: string) => any,
+ *   switchToWorkspace: (id: string) => void,
+ *   openFolder: (path: string, group: string, type: string, focus: boolean, args?: string[]) => void,
+ *   renderActiveWorkspace: () => void,
+ *   renderTabs: () => void
+ * }} actions
+ */
+
+/**
+ * @param {PaneCtxDeps} deps
+ */
+export function createPaneContextMenu(deps) {
+  const { state, byId, layout, helpers, actions } = deps;
+  const doc = deps.doc || document;
+
+  /**
+   * @param {string} groupName
+   * @param {any} fromWs
+   * @param {any} toWs
+   */
+  function movePaneToWorkspace(groupName, fromWs, toWs) {
+    if (fromWs) {
+      fromWs.layout = layout.removeSessionFromLayout(fromWs.layout, groupName);
+      helpers.updateWorkspaceTabName(fromWs);
+    }
+    const existing = toWs.layout ? layout.getLeafList(toWs.layout) : [];
+    existing.push(groupName);
+    toWs.layout = layout.buildBalancedTree(existing);
+    helpers.updateWorkspaceTabName(toWs);
+    helpers.saveWorkspaces();
+    actions.renderTabs();
+    actions.renderActiveWorkspace();
+  }
+
+  /** @param {HTMLElement} menu @param {string} groupName */
+  function appendResumeSection(menu, groupName) {
+    const pg = state.paneGroups.get(groupName);
+    const claudeSession = pg?.claude ? state.sessions.get(pg.claude) : null;
+    const aiCommands = state.aiPresets.map((p) => p.command);
+    const { show, canResume, workingDir } = resolveResumeMenuState(claudeSession, aiCommands);
+    if (!show) return;
+
+    const onResume = canResume && workingDir
+      ? () => {
+          menu.classList.add("hidden");
+          actions.openFolder(workingDir, groupName, "claude", false, ["--resume"]);
+        }
+      : null;
+    menu.appendChild(makeCtxItem("\u25b6 Resume Claude session", onResume, canResume ? "" : "ctx-disabled"));
+    menu.appendChild(makeCtxSeparator());
+  }
+
+  /** @param {HTMLElement} menu @param {string} groupName @param {any} currentWs */
+  function appendMoveToSection(menu, groupName, currentWs) {
+    menu.appendChild(makeCtxHeader("Move to"));
+    for (const ws of state.workspaces) {
+      if (ws === currentWs) continue;
+      menu.appendChild(makeCtxItem(ws.name || "(unnamed)", () => {
+        movePaneToWorkspace(groupName, currentWs, ws);
+        menu.classList.add("hidden");
+      }));
+    }
+  }
+
+  /** @param {HTMLElement} menu @param {string} groupName @param {any} currentWs */
+  function appendNewWorkspaceItem(menu, groupName, currentWs) {
+    menu.appendChild(makeCtxSeparator());
+    menu.appendChild(makeCtxItem("+ New workspace", () => {
+      const newWs = actions.createWorkspace(groupName);
+      movePaneToWorkspace(groupName, currentWs, newWs);
+      actions.switchToWorkspace(newWs.id);
+      menu.classList.add("hidden");
+    }));
+  }
+
+  /** @param {HTMLElement} menu */
+  function attachCloseOnClickOutside(menu) {
+    const close = (/** @type {MouseEvent} */ ev) => {
+      const t = ev.target instanceof Node ? ev.target : null;
+      if (!menu.contains(t)) {
+        menu.classList.add("hidden");
+        doc.removeEventListener("mousedown", close);
+      }
+    };
+    setTimeout(() => doc.addEventListener("mousedown", close), 0);
+  }
+
+  /**
+   * @param {MouseEvent} e
+   * @param {string} groupName
+   */
+  function showPaneContextMenu(e, groupName) {
+    const menu = byId("pane-context-menu");
+    menu.innerHTML = "";
+    menu.classList.remove("hidden");
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+
+    const currentWs = actions.findWorkspaceContaining(groupName);
+    appendResumeSection(menu, groupName);
+    appendMoveToSection(menu, groupName, currentWs);
+    appendNewWorkspaceItem(menu, groupName, currentWs);
+    attachCloseOnClickOutside(menu);
+  }
+
+  return {
+    showPaneContextMenu,
+    movePaneToWorkspace,
+    _appendResumeSection: appendResumeSection,
+    _appendMoveToSection: appendMoveToSection,
+    _appendNewWorkspaceItem: appendNewWorkspaceItem,
+    _attachCloseOnClickOutside: attachCloseOnClickOutside,
+  };
+}
