@@ -83,11 +83,11 @@ import {
   buildSessionGroups,
 } from "./lib/session-groups.js";
 import {
-  hasSessionNameSetChanged,
   findOrphanedLeaves,
   classifyOrphanGroups,
   rebalanceLayoutsWithoutLeaves,
 } from "./lib/ws-handlers.js";
+import { createWsDispatcher } from "./lib/ws-dispatcher.js";
 import {
   isFolderRunning,
   buildRunningUnreadSets,
@@ -192,149 +192,38 @@ function rebuildPaneGroups() {
   state.paneGroups = _rebuildPaneGroups(state.sessions, state.paneGroups);
 }
 
-// ===== WebSocket =====
+
+// ===== WebSocket (extracted to lib/ws-dispatcher.js) =====
+
+const wsDispatcher = createWsDispatcher({
+  state,
+  panes: { rebuildPaneGroups, updatePaneStatus },
+  views: { renderSessionsPanel, renderQuickAccess, renderDashboard, renderActiveWorkspace, showDirtyWarning },
+  tree: { refreshTreeRunningState },
+  layouts: {
+    findOrphanedLeaves,
+    classifyOrphanGroups,
+    rebalanceLayoutsWithoutLeaves,
+    getLeafList,
+    buildBalancedTree,
+    updateWorkspaceTabName,
+  },
+  sessions: { recreateOrphanedSessions, autoRemoveDeadSession, saveSessionMeta },
+  appChrome: { applyInstanceName },
+});
 
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   state.ws = new WebSocket(`${proto}//${location.host}`);
-
   state.ws.onopen = () => initApp();
-
   state.ws.onclose = () => setTimeout(connect, 2000);
-
   state.ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-    dispatchWsMessage(msg);
-    restoreTerminalFocusAfterRebuild();
+    wsDispatcher.dispatch(msg);
+    wsDispatcher.restoreTerminalFocusAfterRebuild();
   };
 }
 
-/**
- * @param {{ type: string, [k: string]: any }} msg
- */
-function dispatchWsMessage(msg) {
-  switch (msg.type) {
-    case "data": handleWsData(msg); break;
-    case "sessions": handleWsSessions(msg); break;
-    case "status": handleWsStatus(msg); break;
-    case "config": handleWsConfig(msg); break;
-    case "notification": handleWsNotification(msg); break;
-  }
-}
-
-function handleWsData(/** @type {any} */ msg) {
-  const entry = state.terminals.get(msg.session);
-  if (entry) entry.term.write(msg.payload);
-}
-
-function handleWsSessions(/** @type {any} */ msg) {
-  // Detect if the set of sessions changed (not just status updates)
-  const prevNames = new Set(state.sessions.keys());
-  const serverNames = new Set(msg.payload.map(/** @param {import('./lib/state.js').SessionInfo} s */ (s) => s.name));
-  const layoutChanged = hasSessionNameSetChanged(prevNames, serverNames);
-
-  // Replace full session list (server is authoritative)
-  state.sessions.clear();
-  for (const s of msg.payload) state.sessions.set(s.name, s);
-
-  // Capture session metadata for recreation after restarts
-  for (const s of msg.payload) {
-    state.sessionMeta.set(s.name, { workingDir: s.workingDir, command: s.command });
-  }
-  saveSessionMeta();
-
-  rebuildPaneGroups();
-
-  // Collect orphaned workspace leaves (in layout but not on server)
-  const serverGroups = new Set([...state.sessions.values()].map((s) => s.group || s.name));
-  const orphans = findOrphanedLeaves(state.workspaces, serverGroups, getLeafList);
-
-  const { recreatable, unrecoverable } = classifyOrphanGroups(orphans, state.sessionMeta);
-
-  if (unrecoverable.length > 0) {
-    const updates = rebalanceLayoutsWithoutLeaves(state.workspaces, unrecoverable, getLeafList, buildBalancedTree);
-    for (const { workspace, newLayout } of updates) {
-      workspace.layout = newLayout;
-      updateWorkspaceTabName(workspace);
-    }
-  }
-
-  if (recreatable.length > 0) {
-    recreateOrphanedSessions(recreatable);
-  }
-
-  refreshTreeRunningState();
-  renderSessionsPanel();
-  renderQuickAccess();
-  if (state.isDashboard) {
-    renderDashboard();
-  } else if (layoutChanged) {
-    renderActiveWorkspace();
-    requestAnimationFrame(() => refitAllTerminalsAndResize());
-  } else {
-    for (const s of msg.payload) updatePaneStatus(s.name);
-  }
-}
-
-function refitAllTerminalsAndResize() {
-  for (const [n, e] of state.terminals) {
-    try {
-      e.fitAddon.fit();
-      const { cols, rows } = e.term;
-      state.ws?.send(JSON.stringify({ type: "resize", session: n, payload: { cols, rows } }));
-    } catch {}
-  }
-}
-
-function handleWsStatus(/** @type {any} */ msg) {
-  const s = state.sessions.get(msg.session);
-  if (!s) return;
-  s.status = msg.payload.status;
-  s.unreadCount = msg.payload.unreadCount;
-  s.pendingPermission = !!msg.payload.pendingPermission;
-  rebuildPaneGroups();
-  updatePaneStatus(msg.session);
-  refreshTreeRunningState();
-  renderSessionsPanel();
-  renderQuickAccess();
-
-  if (state.isDashboard) renderDashboard();
-
-  if (msg.payload.status === "dead") {
-    if (msg.payload.dirtyOnExit) {
-      showDirtyWarning(msg.session, msg.payload.workingDir);
-    }
-    setTimeout(() => autoRemoveDeadSession(msg.session), 1500);
-  }
-}
-
-function handleWsConfig(/** @type {any} */ msg) {
-  if (msg.name != null) applyInstanceName(msg.name);
-}
-
-function handleWsNotification(/** @type {any} */ msg) {
-  const s = state.sessions.get(msg.session);
-  if (!s) return;
-  // Don't increment unreadCount here — status-change carries the authoritative count.
-  updatePaneStatus(msg.session);
-  renderSessionsPanel();
-  renderQuickAccess();
-  if (state.isDashboard) renderDashboard();
-}
-
-function restoreTerminalFocusAfterRebuild() {
-  // Restore terminal focus after DOM rebuilds (prevents WS updates from stealing focus).
-  // Check if focus was in a pane OR was lost to <body> (due to DOM rebuild destroying the focused element).
-  if (!state.focusedPane || state.isDashboard) return;
-  const pg = state.paneGroups.get(state.focusedPane);
-  const sessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : state.focusedPane;
-  const entry = state.terminals.get(sessionName || state.focusedPane);
-  const focusInPane = document.activeElement?.closest(".pane");
-  const focusLostToBody = document.activeElement === document.body;
-  if (entry && (focusInPane || focusLostToBody)) {
-    entry.term.focus();
-  }
-}
 
 /**
  * @param {string} name
