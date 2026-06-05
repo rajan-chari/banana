@@ -55,6 +55,13 @@ import { isDashboardMode } from "./navigation.js";
  *   autoRemoveDeadSession: (sessionName: string) => void,
  *   saveSessionMeta: () => void,
  * }} sessions
+ * @property {{
+ *   replaceAll: (list: Iterable<any>) => Set<string>,
+ *   byName: (name: string) => any,
+ *   has: (name: string) => boolean,
+ *   list: () => any[],
+ *   names: () => string[],
+ * }} sessionsStore
  * @property {{ applyInstanceName: (name: string) => void }} appChrome
  * @property {Window} [win]
  */
@@ -90,12 +97,9 @@ export function createWsDispatcher(deps) {
   }
 
   function handleWsSessions(/** @type {any} */ msg) {
-    const prevNames = new Set(deps.state.sessions.keys());
     const serverNames = new Set(msg.payload.map((/** @type {{ name: string }} */ s) => s.name));
+    const prevNames = deps.sessionsStore.replaceAll(msg.payload);
     const layoutChanged = hasSessionNameSetChanged(prevNames, serverNames);
-
-    deps.state.sessions.clear();
-    for (const s of msg.payload) deps.state.sessions.set(s.name, s);
 
     for (const s of msg.payload) {
       deps.state.sessionMeta.set(s.name, { workingDir: s.workingDir, command: s.command });
@@ -104,7 +108,7 @@ export function createWsDispatcher(deps) {
 
     deps.panes.rebuildPaneGroups();
 
-    const serverGroups = new Set([...deps.state.sessions.values()].map((/** @type {any} */ s) => s.group || s.name));
+    const serverGroups = new Set(deps.sessionsStore.list().map((/** @type {any} */ s) => s.group || s.name));
     const orphans = deps.layouts.findOrphanedLeaves(deps.state.workspaces, serverGroups, deps.layouts.getLeafList);
     const { recreatable, unrecoverable } = deps.layouts.classifyOrphanGroups(orphans, deps.state.sessionMeta);
 
@@ -140,7 +144,7 @@ export function createWsDispatcher(deps) {
   }
 
   function handleWsStatus(/** @type {any} */ msg) {
-    const s = deps.state.sessions.get(msg.session);
+    const s = deps.sessionsStore.byName(msg.session);
     if (!s) return;
     s.status = msg.payload.status;
     s.unreadCount = msg.payload.unreadCount;
@@ -165,7 +169,7 @@ export function createWsDispatcher(deps) {
   }
 
   function handleWsNotification(/** @type {any} */ msg) {
-    const s = deps.state.sessions.get(msg.session);
+    const s = deps.sessionsStore.byName(msg.session);
     if (!s) return;
     deps.panes.updatePaneStatus(msg.session);
     deps.views.renderSessionsPanel();

@@ -35,6 +35,7 @@ import { createPinnedFoldersStore } from "./lib/pinned-folders-store.js";
 import { createExpandedPathsStore } from "./lib/expanded-paths-store.js";
 import { createWorkspacesStore } from "./lib/workspaces-store.js";
 import { createFocusStore } from "./lib/focus-store.js";
+import { createSessionsStore } from "./lib/sessions-store.js";
 import {
   buildBalancedTree,
   removeSessionFromLayout,
@@ -242,6 +243,13 @@ const focus = createFocusStore({
   getLeafList,
   treeContains,
 });
+
+// Sessions store (Phase 9e). Owns state.sessions (Map<string,
+// SessionInfo>). Backing field stays on `state` so helpers that take a
+// Map argument keep working without API churn. ws-dispatcher is the
+// canonical caller of replaceAll; later sub-phases add updateStatus
+// (9e-B) and remove (9e-C).
+const sessions = createSessionsStore({ state });
 
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
@@ -508,6 +516,7 @@ const wsDispatcher = createWsDispatcher({
     transactionFn,
   },
   sessions: { recreateOrphanedSessions, autoRemoveDeadSession, saveSessionMeta },
+  sessionsStore: sessions,
   appChrome: { applyInstanceName },
 });
 
@@ -797,7 +806,7 @@ function getOrCreateActiveWorkspace() {
 async function openFolder(folderPath, folderName, command, newWorkspace = false, args = []) {
   const { baseName, sessionName, isPwsh } = computeSessionNames(folderPath, folderName, command);
 
-  const existing = state.sessions.get(sessionName);
+  const existing = sessions.byName(sessionName);
   if (existing && existing.status !== "dead") {
     focusAliveSession(baseName, isPwsh);
     return;
@@ -957,7 +966,7 @@ function renderQuickOpenResults(query) {
     row.className = `qo-result ${i === 0 ? "selected" : ""}`;
     row.dataset["idx"] = String(i);
 
-    const isRunning = state.sessions.has(f.name);
+    const isRunning = sessions.has(f.name);
 
     row.innerHTML = `
       <span class="qo-name">${f.name}</span>
