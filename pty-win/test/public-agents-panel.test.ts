@@ -443,10 +443,14 @@ describe("renderAgentsPanel", () => {
     return area;
   }
 
+  function makePort(map: Map<string, any>) {
+    return { entries: () => [...map.entries()] };
+  }
+
   it("renders empty state when no sessions", async () => {
     const area = makeArea();
     await renderAgentsPanel(area, {
-      state: { sessions: new Map() },
+      sessions: makePort(new Map()),
       fmtAgo: () => "",
       onFocusSession: () => {},
       fetchFn: vi.fn(),
@@ -456,12 +460,10 @@ describe("renderAgentsPanel", () => {
 
   it("populates rows from /api/stats and sparklines from /api/cost-history", async () => {
     const area = makeArea();
-    const state = {
-      sessions: new Map<string, any>([
-        ["alpha", { status: "idle", costUsd: 1.5 }],
-        ["beta", { status: "busy", costUsd: 0.75 }],
-      ]),
-    };
+    const sessionsMap = new Map<string, any>([
+      ["alpha", { status: "idle", costUsd: 1.5 }],
+      ["beta", { status: "busy", costUsd: 0.75 }],
+    ]);
     const fetchFn = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/stats") {
         return Promise.resolve({ json: () => Promise.resolve([
@@ -479,7 +481,7 @@ describe("renderAgentsPanel", () => {
     });
 
     await renderAgentsPanel(area, {
-      state,
+      sessions: makePort(sessionsMap),
       fmtAgo: () => "—",
       onFocusSession: () => {},
       fetchFn: fetchFn as any,
@@ -502,7 +504,7 @@ describe("renderAgentsPanel", () => {
       });
     });
     const p = renderAgentsPanel(area, {
-      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      sessions: makePort(new Map([["a", { status: "idle" }]])),
       fmtAgo: () => "",
       onFocusSession: () => {},
       fetchFn: fetchFn as any,
@@ -523,7 +525,7 @@ describe("createAgentsPanel lifecycle", () => {
     const setIntervalFn = vi.fn().mockReturnValue(123);
     const clearIntervalFn = vi.fn();
     return {
-      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      sessions: { entries: () => [...new Map([["a", { status: "idle" }]]).entries()] },
       byId: (id: string) => (id === "agents-content" ? area : null),
       fmtAgo: () => "",
       onFocusSession: () => {},
@@ -571,7 +573,7 @@ describe("createAgentsPanel lifecycle", () => {
       });
     });
     const panel = createAgentsPanel({
-      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      sessions: { entries: () => [...new Map([["a", { status: "idle" }]]).entries()] },
       byId: (id: string) => (id === "agents-content" ? area : null),
       fmtAgo: () => "",
       onFocusSession: () => {},
@@ -599,7 +601,7 @@ describe("createAgentsPanel lifecycle", () => {
       });
     });
     const panel = createAgentsPanel({
-      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      sessions: { entries: () => [...new Map([["a", { status: "idle" }]]).entries()] },
       byId: (id: string) => (id === "agents-content" ? area : null),
       fmtAgo: () => "",
       onFocusSession: () => {},

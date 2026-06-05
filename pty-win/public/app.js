@@ -1460,6 +1460,7 @@ initFeedPanel({ byId, inputById, selectById, state, fitAllTerminals });
 
 const agentsPanel = createAgentsPanel({
   state,
+  sessions,
   byId,
   fmtAgo,
   onFocusSession: focusExistingSession,

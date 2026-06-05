@@ -345,7 +345,8 @@ function ensureAgentsPanelWrapper(area) {
  *
  * @param {HTMLElement} area
  * @param {{
- *   state: { sessions: Map<string, any> },
+ *   state?: object,
+ *   sessions: { entries: () => Array<[string, any]> },
  *   fmtAgo: (ms: number | undefined) => string,
  *   onFocusSession: (name: string) => void,
  *   fetchFn?: typeof fetch,
@@ -354,7 +355,7 @@ function ensureAgentsPanelWrapper(area) {
  */
 export async function renderAgentsPanel(area, deps) {
   if (!area) return;
-  const sessionsAll = [...deps.state.sessions.entries()];
+  const sessionsAll = deps.sessions.entries();
   if (sessionsAll.length === 0) {
     area.innerHTML = `<div class="agents-panel"><div class="agents-empty">No active sessions</div></div>`;
     return;
@@ -366,7 +367,7 @@ export async function renderAgentsPanel(area, deps) {
   try {
     const statsResp = await fetcher("/api/stats", { signal: deps.signal });
     const stats = await statsResp.json();
-    const sessions = [...deps.state.sessions.entries()];
+    const sessions = deps.sessions.entries();
     const currentNames = new Set(sessions.map(([n]) => n));
     const statsMap = new Map(stats.map((/** @type {any} */ s) => [s.name, s]));
 
@@ -401,7 +402,8 @@ export async function renderAgentsPanel(area, deps) {
  * start/stop/dispose for tests and for the right-panel coordinator.
  *
  * @param {{
- *   state: { sessions: Map<string, any> },
+ *   state?: object,
+ *   sessions: { entries: () => Array<[string, any]> },
  *   byId: (id: string) => HTMLElement | null,
  *   fmtAgo: (ms: number | undefined) => string,
  *   onFocusSession: (name: string) => void,
@@ -428,7 +430,7 @@ export function createAgentsPanel(deps) {
     const myCtl = inflight;
     try {
       await renderAgentsPanel(area, {
-        state: deps.state,
+        sessions: deps.sessions,
         fmtAgo: deps.fmtAgo,
         onFocusSession: deps.onFocusSession,
         fetchFn: deps.fetchFn,
