@@ -24,8 +24,6 @@ import {
   syncAiDefaultFromServer,
 } from "./lib/state.js";
 import {
-  loadExpandedPaths,
-  saveExpandedPaths,
   loadSidebarWidth,
   saveSidebarWidth,
   loadWorkspaces,
@@ -35,6 +33,7 @@ import {
 } from "./lib/persistence.js";
 import { createFavoritesStore } from "./lib/favorites-store.js";
 import { createPinnedFoldersStore } from "./lib/pinned-folders-store.js";
+import { createExpandedPathsStore } from "./lib/expanded-paths-store.js";
 import {
   buildBalancedTree,
   removeSessionFromLayout,
@@ -196,6 +195,11 @@ const pinned = createPinnedFoldersStore({
   state,
   onChange: () => renderQuickAccess(),
 });
+
+// Expanded-paths store: no onChange wired — call sites own renderTree()
+// because mutations happen during high-frequency folder navigation and
+// we want predictable, co-located renders (no surprise re-renders).
+const expanded = createExpandedPathsStore({ state });
 
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
@@ -400,7 +404,7 @@ folderTree = createFolderTree({
     buildChildTreeRow,
     buildChildRowActionsOpts,
     buildRunningUnreadSets,
-    saveExpandedPaths,
+    expanded,
   },
   actions: {
     appendRowActions,
@@ -957,9 +961,7 @@ function refreshTree() { state.folderCache.clear(); renderTree(); }
 byId("btn-refresh").onclick = refreshTree;
 
 byId("btn-collapse-all").onclick = () => {
-  state.expandedPaths.clear();
-  saveExpandedPaths();
-  renderTree();
+  if (expanded.clear({ notify: false })) renderTree();
 };
 
 // Sidebar resize handle
@@ -1000,9 +1002,9 @@ byId("btn-add-root").onclick = () => {
   const path = prompt("Enter folder path to add as root:");
   if (!path) return;
   // Batched: suppress favorites onChange so we don't render the tree
-  // BEFORE expandedPaths.add() — otherwise the new root paints collapsed.
+  // BEFORE expanded.add() — otherwise the new root paints collapsed.
   if (favorites.add(path, { notify: false })) {
-    state.expandedPaths.add(path);
+    expanded.add(path, { notify: false });
     renderTree();
   }
 };
@@ -1348,11 +1350,14 @@ window.addEventListener("resize", () => {
 
 favorites.init();
 pinned.init();
-state.expandedPaths = loadExpandedPaths();
-// Auto-expand favorites that haven't been explicitly collapsed
+expanded.init();
+// Auto-expand favorites on first run when nothing has been explicitly
+// collapsed. NOTE: this preserves a latent quirk of the prior code — the
+// `size === 0` check is re-evaluated after each add(), so only the FIRST
+// favorite ever auto-expands. Fixing this is a separate behavior change.
 for (const f of state.favorites) {
-  if (!state.expandedPaths.has(f) && state.expandedPaths.size === 0) {
-    state.expandedPaths.add(f);
+  if (!expanded.has(f) && expanded.size() === 0) {
+    expanded.add(f, { notify: false });
   }
 }
 

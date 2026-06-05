@@ -367,7 +367,7 @@ function appendChildFolder(entry, depth, container, deps, onToggle, onLoadChildr
  *     buildChildTreeRow: (entry: any, depth: number, isExpanded: boolean, isRunning: boolean, normPathFn: any) => HTMLElement,
  *     buildChildRowActionsOpts: (entry: any, resolution: any) => any,
  *     buildRunningUnreadSets: (sessions: any, normPathFn: any) => { running: Set<string>, unread: Set<string> },
- *     saveExpandedPaths: () => void,
+ *     expanded: { toggle: (p: string, opts?: { notify?: boolean }) => boolean },
  *   },
  *   actions: {
  *     appendRowActions: (container: HTMLElement, opts: any) => void,
@@ -418,9 +418,11 @@ export function createFolderTree(deps) {
 
   /** @param {string} path */
   async function toggleExpand(path) {
-    if (state.expandedPaths.has(path)) state.expandedPaths.delete(path);
-    else state.expandedPaths.add(path);
-    helpers.saveExpandedPaths();
+    // notify:false because we re-render explicitly right after (store's
+    // onChange isn't wired by app.js for this slice — call sites own the
+    // render to avoid surprise double-renders during high-frequency
+    // folder navigation).
+    helpers.expanded.toggle(path, { notify: false });
     renderTree();
   }
 

@@ -549,7 +549,7 @@ function mk(overrides: any = {}) {
     }),
     buildChildRowActionsOpts: vi.fn((entry: any) => ({ workingDir: entry.path, kind: "child" })),
     buildRunningUnreadSets: vi.fn(() => ({ running: new Set<string>(), unread: new Set<string>() })),
-    saveExpandedPaths: vi.fn(),
+    expanded: { toggle: vi.fn((p: string) => { if (state.expandedPaths.has(p)) { state.expandedPaths.delete(p); return false; } state.expandedPaths.add(p); return true; }) },
     ...overrides.helpers,
   };
   const actions = {
@@ -742,7 +742,7 @@ describe("createFolderTree - loadAndRenderChildren stale guard", () => {
       }),
       buildChildRowActionsOpts: () => ({}),
       buildRunningUnreadSets: () => ({ running: new Set<string>(), unread: new Set<string>() }),
-      saveExpandedPaths: vi.fn(),
+      expanded: { toggle: vi.fn() },
     };
     const actions = { appendRowActions: vi.fn(), showContextMenu: vi.fn() };
     const ft = createFolderTree({
@@ -764,7 +764,7 @@ describe("createFolderTree - row wiring", () => {
     const label = document.querySelector(".tree-root-label") as HTMLElement;
     await (label.onclick as any)({} as any);
     expect(state.expandedPaths.has("C:/a")).toBe(true);
-    expect(helpers.saveExpandedPaths).toHaveBeenCalledTimes(1);
+    expect(helpers.expanded.toggle).toHaveBeenCalledWith("C:/a", { notify: false });
     expect(document.querySelector(".tree-root-label .arrow")!.classList.contains("expanded")).toBe(true);
   });
 
