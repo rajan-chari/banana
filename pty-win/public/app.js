@@ -540,6 +540,7 @@ const wsDispatcher = createWsDispatcher({
 
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  // eslint-disable-next-line no-restricted-syntax -- singleton WebSocket lifecycle (connect/reconnect); a wsStore wrapping a single ref adds no abstraction value.
   state.ws = new WebSocket(`${proto}//${location.host}`);
   state.ws.onopen = () => initApp();
   state.ws.onclose = () => setTimeout(connect, 2000);
@@ -1043,6 +1044,7 @@ byId("quick-open").addEventListener("click", /** @param {MouseEvent} e */ (e) =>
 // ===== Sidebar Toggle =====
 
 function toggleSidebar() {
+  // eslint-disable-next-line no-restricted-syntax -- single-call-site UI ephemeral; not worth a uiStore wrapper.
   state.sidebarVisible = !state.sidebarVisible;
   byId("sidebar").classList.toggle("hidden", !state.sidebarVisible);
   byId("sidebar-strip").classList.toggle("hidden", state.sidebarVisible);
@@ -1450,6 +1452,7 @@ byId("sidebar").style.width = `${savedWidth}px`;
 
 // Restore workspaces (layouts referencing sessions — terminals reconnect via WS)
 workspaces.init();
+// eslint-disable-next-line no-restricted-syntax -- boot-time hydration of persisted Map; future Phase 9+ could extract a sessionMetaStore if write paths multiply.
 state.sessionMeta = loadSessionMeta();
 
 renderTabs();

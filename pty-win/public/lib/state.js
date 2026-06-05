@@ -140,12 +140,32 @@ export function getAiPresetForCommand(cmd) {
 }
 
 /**
+ * Local-only primitive: write the AI default to the passed state object and
+ * mirror to localStorage. Does NOT POST to /api/preferences. Used by:
+ *   - `setAiDefault` (user-action wrapper that ALSO POSTs to the server)
+ *   - `syncAiDefaultFromServer` (server is already source of truth — POST
+ *     would round-trip the same value)
+ *   - `applyAiDefaultFromCli` in settings-modal.js (CLI flag already came
+ *     from server-side preferences; no POST needed)
+ *
+ * Takes an explicit `appState` to keep `applyAiDefaultFromCli` testable with
+ * a fake state object (test/public-settings-modal.test.ts asserts on the
+ * passed object's mutation). Production callers pass the singleton.
+ *
+ * @param {{ aiDefaultIndex?: number }} appState
+ * @param {number} index
+ */
+export function setAiDefaultLocal(appState, index) {
+  appState.aiDefaultIndex = index;
+  localStorage.setItem("pty-win-ai-default", String(index));
+}
+
+/**
  * @param {number} index
  * @param {string} [updatedBy]
  */
 export function setAiDefault(index, updatedBy = "pty-win-play") {
-  state.aiDefaultIndex = index;
-  localStorage.setItem("pty-win-ai-default", String(index));
+  setAiDefaultLocal(state, index);
   // Mirror to preferences.json (fire-and-forget). Lets fellow-agents config get/set
   // see the same value the user picked here.
   const preset = state.aiPresets[index];
@@ -170,8 +190,7 @@ export async function syncAiDefaultFromServer() {
     const idx = state.aiPresets.findIndex((p) => p.command === data.cliPreference);
     if (idx < 0) return; // custom path or unknown — leave localStorage value
     if (idx !== state.aiDefaultIndex) {
-      state.aiDefaultIndex = idx;
-      localStorage.setItem("pty-win-ai-default", String(idx));
+      setAiDefaultLocal(state, idx);
     }
   } catch {
     // Server unreachable — keep localStorage default.

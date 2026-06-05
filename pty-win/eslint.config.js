@@ -140,6 +140,55 @@ export default tseslint.config(
       "no-empty": ["warn", { allowEmptyCatch: true }],
       // `let what = ""` defaults before exhaustive if/else are a tolerated pattern.
       "no-useless-assignment": "off",
+
+      // Phase 9f-A ratchet: ban direct writes to the global `state` record
+      // from outside its owning store. After Phase 9 every large mutable
+      // slice has a store in lib/*-store.js; the rule prevents future code
+      // from silently regressing to raw state mutation. This is a
+      // direct-write ratchet, not a full immutability guarantee — alias
+      // mutation (`const ws = workspaces.byId(...); ws.layout = ...`) is
+      // not detected by static selectors and lives outside this rule's
+      // scope. Allow-listed below for `public/lib/*-store.js` (store
+      // backing fields) and inside `public/lib/state.js` itself (already
+      // top-level ignored).
+      //
+      // For genuinely singleton-init / UI-ephemeral fields with no
+      // sensible store wrapper (state.ws, state.sessionMeta hydration,
+      // state.sidebarVisible toggle, state.ctxTarget), use a per-line
+      // `// eslint-disable-next-line no-restricted-syntax -- <reason>`
+      // disable with a clear rationale.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "AssignmentExpression[left.type='MemberExpression'][left.object.type='Identifier'][left.object.name='state']",
+          message:
+            "Mutate `state` via its store (e.g., workspaces.setActive(), focus.set()) — see public/lib/*-store.js. If no store exists for this slice yet, add one or whitelist with `// eslint-disable-next-line no-restricted-syntax -- <reason>`.",
+        },
+        {
+          selector:
+            "UpdateExpression[argument.type='MemberExpression'][argument.object.type='Identifier'][argument.object.name='state']",
+          message:
+            "Mutate `state` via its store — `state.x++/--` bypasses the store layer. See public/lib/*-store.js.",
+        },
+        {
+          selector:
+            "UnaryExpression[operator='delete'][argument.type='MemberExpression'][argument.object.type='Identifier'][argument.object.name='state']",
+          message:
+            "Mutate `state` via its store — `delete state.x` bypasses the store layer. See public/lib/*-store.js.",
+        },
+      ],
+    },
+  },
+
+  // Stores own their backing slice and must be allowed to mutate `state.X`
+  // directly. This override MUST come after the browser block above (flat
+  // config: later block wins). Limited to single-level lib/*-store.js so
+  // any future nested store files would need explicit opt-in.
+  {
+    files: ["public/lib/*-store.js"],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   },
 

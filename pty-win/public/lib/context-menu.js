@@ -203,6 +203,7 @@ export function createContextMenu(deps) {
   function show(e, path) {
     e.preventDefault();
     e.stopPropagation();
+    // eslint-disable-next-line no-restricted-syntax -- single-writer UI ephemeral (which path the context menu is acting on); consumed only by handlers wired in this file.
     state.ctxTarget = path;
 
     const menu = byId("context-menu");

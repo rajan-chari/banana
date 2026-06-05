@@ -8,6 +8,8 @@
 // init wirer captures private form state in closure (formState,
 // initialState, schema) -- same encapsulation pattern as initFeedPanel.
 
+import { setAiDefaultLocal } from "./state.js";
+
 /**
  * @typedef {{type: "select"|"number"|"boolean"|"string", label?: string, description?: string, options?: string[], allowCustom?: boolean, customLabel?: string, min?: number, max?: number}} PrefDef
  */
@@ -335,8 +337,7 @@ export async function persistChangedPrefs(changed, fetchFn) {
 export function applyAiDefaultFromCli(state, cliValue) {
   const idx = findAiPresetIndexByCommand(state.aiPresets, cliValue);
   if (idx >= 0) {
-    state.aiDefaultIndex = idx;
-    localStorage.setItem("pty-win-ai-default", String(idx));
+    setAiDefaultLocal(state, idx);
   }
 }
 
