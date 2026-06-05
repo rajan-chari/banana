@@ -87,7 +87,16 @@ describe("createSubfolderAndRefresh", () => {
   function mkState() {
     return {
       folderCache: new Map([["C:\\foo", { stale: true }]]),
-      expandedPaths: new Set<string>(),
+    };
+  }
+  function mkExpanded() {
+    const added: Array<{ path: string; opts: any }> = [];
+    return {
+      added,
+      add: vi.fn((path: string, opts?: { notify?: boolean }) => {
+        added.push({ path, opts });
+        return true;
+      }),
     };
   }
 
@@ -96,13 +105,14 @@ describe("createSubfolderAndRefresh", () => {
     const alertF = vi.fn();
     const renderTree = vi.fn();
     const state = mkState();
-    await createSubfolderAndRefresh("C:\\foo", "newdir", state as any, { fetcher: fetcher as any, alertF, renderTree });
+    const expanded = mkExpanded();
+    await createSubfolderAndRefresh("C:\\foo", "newdir", state as any, { fetcher: fetcher as any, alertF, renderTree, expanded });
     expect(fetcher).toHaveBeenCalledWith("/api/folders", expect.objectContaining({
       method: "POST",
       body: JSON.stringify({ parentPath: "C:\\foo", name: "newdir" }),
     }));
     expect(state.folderCache.has("C:\\foo")).toBe(false);
-    expect(state.expandedPaths.has("C:\\foo")).toBe(true);
+    expect(expanded.add).toHaveBeenCalledWith("C:\\foo", { notify: false });
     expect(renderTree).toHaveBeenCalledTimes(1);
     expect(alertF).not.toHaveBeenCalled();
   });
@@ -112,23 +122,25 @@ describe("createSubfolderAndRefresh", () => {
     const alertF = vi.fn();
     const renderTree = vi.fn();
     const state = mkState();
-    await createSubfolderAndRefresh("C:\\foo", "newdir", state as any, { fetcher: fetcher as any, alertF, renderTree });
+    const expanded = mkExpanded();
+    await createSubfolderAndRefresh("C:\\foo", "newdir", state as any, { fetcher: fetcher as any, alertF, renderTree, expanded });
     expect(alertF).toHaveBeenCalledWith("exists");
     expect(renderTree).not.toHaveBeenCalled();
+    expect(expanded.add).not.toHaveBeenCalled();
     expect(state.folderCache.has("C:\\foo")).toBe(true);
   });
 
   it("alerts default message on !ok with no error field", async () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) });
     const alertF = vi.fn();
-    await createSubfolderAndRefresh("C:\\foo", "x", mkState() as any, { fetcher: fetcher as any, alertF, renderTree: vi.fn() });
+    await createSubfolderAndRefresh("C:\\foo", "x", mkState() as any, { fetcher: fetcher as any, alertF, renderTree: vi.fn(), expanded: mkExpanded() });
     expect(alertF).toHaveBeenCalledWith("Failed to create folder");
   });
 
   it("alerts on network failure", async () => {
     const fetcher = vi.fn().mockRejectedValue(new Error("offline"));
     const alertF = vi.fn();
-    await createSubfolderAndRefresh("C:\\foo", "x", mkState() as any, { fetcher: fetcher as any, alertF, renderTree: vi.fn() });
+    await createSubfolderAndRefresh("C:\\foo", "x", mkState() as any, { fetcher: fetcher as any, alertF, renderTree: vi.fn(), expanded: mkExpanded() });
     expect(alertF).toHaveBeenCalledWith("Failed to create folder: offline");
   });
 });
@@ -226,6 +238,7 @@ describe("buildContextMenuActions dispatcher", () => {
       state: baseState,
       openFolder, renderTree, renderQuickAccess,
       favorites, pinned, normPath,
+      expanded: { add: vi.fn(() => true) },
       promptFn, alertFn, fetchFn,
     };
   });

@@ -425,6 +425,7 @@ const contextMenuActions = buildContextMenuActions({
   renderQuickAccess: () => renderQuickAccess(),
   favorites,
   pinned,
+  expanded,
   normPath,
 });
 const ctxMenu = createContextMenu({

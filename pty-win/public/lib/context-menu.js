@@ -13,7 +13,6 @@
  *     sessions: Map<string, { command: string, status: string, workingDir?: string }>,
  *     aiPresets: Array<{ command: string }>,
  *     folderCache: Map<string, unknown>,
- *     expandedPaths: Set<string>,
  *     favorites: string[],
  *     pinnedFolders: string[],
  *   },
@@ -22,6 +21,7 @@
  *   renderQuickAccess: () => void,
  *   favorites: { add: (p: string) => boolean, remove: (p: string) => boolean, has: (p: string) => boolean },
  *   pinned: { add: (p: string) => boolean, remove: (p: string) => boolean, has: (p: string) => boolean },
+ *   expanded: { add: (p: string, opts?: { notify?: boolean }) => boolean },
  *   normPath: (p: string) => string,
  *   fetchFn?: typeof fetch,
  *   promptFn?: (msg: string, init?: string) => string|null,
@@ -70,7 +70,7 @@ export function validateSubfolderName(raw) {
  * @param {string} path
  * @param {string} trimmed
  * @param {ContextMenuDeps["state"]} state
- * @param {{ fetcher: typeof fetch, alertF: (m: string) => void, renderTree: () => void }} deps
+ * @param {{ fetcher: typeof fetch, alertF: (m: string) => void, renderTree: () => void, expanded: { add: (p: string, opts?: { notify?: boolean }) => boolean } }} deps
  */
 export async function createSubfolderAndRefresh(path, trimmed, state, deps) {
   try {
@@ -85,7 +85,7 @@ export async function createSubfolderAndRefresh(path, trimmed, state, deps) {
       return;
     }
     state.folderCache.delete(path);
-    state.expandedPaths.add(path);
+    deps.expanded.add(path, { notify: false });
     deps.renderTree();
   } catch (err) {
     deps.alertF("Failed to create folder: " + (err instanceof Error ? err.message : String(err)));
@@ -122,7 +122,7 @@ export function buildContextMenuActions(deps) {
       if (err !== null) { alertF(err); return; }
       const trimmed = (raw || "").trim();
       await createSubfolderAndRefresh(path, trimmed, deps.state, {
-        fetcher, alertF, renderTree: deps.renderTree,
+        fetcher, alertF, renderTree: deps.renderTree, expanded: deps.expanded,
       });
     },
     "fav-add": (path) => { favorites.add(path); },
