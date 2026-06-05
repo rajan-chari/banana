@@ -48,6 +48,7 @@ import {
 import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
 import { createWorkspaceTabs } from "./lib/workspace-tabs.js";
 import { createSessionDrop } from "./lib/session-drop.js";
+import { createLayoutPresets } from "./lib/layout-presets.js";
 import { initFeedPanel } from "./lib/feed-panel.js";
 import { initSettingsModal } from "./lib/settings-modal.js";
 import { renderQuickAccess as _renderQuickAccess } from "./lib/quick-access.js";
@@ -309,6 +310,15 @@ const sessionDrop = createSessionDrop({
 const handleSessionDrop = sessionDrop.handleSessionDrop;
 const addSessionToWorkspace = sessionDrop.addSessionToWorkspace;
 sessionDrop.attachWorkspaceAreaListeners();
+
+const layoutPresets = createLayoutPresets({
+  byId,
+  doc: document,
+  env: { setTimeout: (cb, ms) => setTimeout(cb, ms) },
+  helpers: { getLeafList, saveWorkspaces },
+  actions: { renderActiveWorkspace: () => renderActiveWorkspace() },
+});
+const showLayoutPresetsMenu = layoutPresets.showLayoutPresetsMenu;
 
 const wsDispatcher = createWsDispatcher({
   state,
@@ -1430,54 +1440,7 @@ function removeWorkspace(id) {
 
 // ===== Pane drag-to-reorder (extracted to lib/pane-drag.js) =====
 
-// ===== Layout presets =====
-
-const LAYOUT_PRESETS = [
-  { name: "Auto (balanced)",    min: 1, build: /** @param {string[]} s */ (s) => buildBalancedTree(s) },
-  { name: "2 Columns",          min: 2, build: /** @param {string[]} s */ ([a,b]) => ({ type:"split", direction:"h", ratio:0.5, children:[{type:"leaf",session:a},{type:"leaf",session:b}] }) },
-  { name: "3 Columns",          min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.333, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
-  { name: "2 Top + 1 Bottom",   min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:a},{type:"leaf",session:b}]},{type:"leaf",session:c}] }) },
-  { name: "1 Top + 2 Bottom",   min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"v", ratio:0.5, children:[{type:"leaf",session:a},{type:"split",direction:"h",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
-  { name: "Large Left + Stack", min: 3, build: /** @param {string[]} s */ ([a,b,c]) => ({ type:"split", direction:"h", ratio:0.6, children:[{type:"leaf",session:a},{type:"split",direction:"v",ratio:0.5,children:[{type:"leaf",session:b},{type:"leaf",session:c}]}] }) },
-];
-
-/**
- * @param {import('./lib/state.js').Workspace} ws
- * @param {number} idx
- */
-function applyLayoutPreset(ws, idx) {
-  const preset = LAYOUT_PRESETS[idx];
-  const sessions = getLeafList(ws.layout);
-  if (!preset || sessions.length < preset.min) return;
-  ws.layout = /** @type {import('./lib/state.js').TileNode} */ (preset.build(sessions));
-  saveWorkspaces(); renderActiveWorkspace();
-}
-
-/**
- * @param {MouseEvent} e
- * @param {import('./lib/state.js').Workspace} ws
- */
-function showLayoutPresetsMenu(e, ws) {
-  e.stopPropagation();
-  const menu = byId("pane-context-menu");
-  menu.innerHTML = ""; menu.classList.remove("hidden");
-  const target = e.target instanceof HTMLElement ? e.target : null;
-  const rect = target ? target.getBoundingClientRect() : { left: 0, bottom: 0 };
-  menu.style.left = `${rect.left}px`; menu.style.top = `${rect.bottom + 2}px`;
-  const sessions = ws.layout ? getLeafList(ws.layout) : [];
-  LAYOUT_PRESETS.forEach((p, i) => {
-    const item = document.createElement("div");
-    item.className = `ctx-item${sessions.length < p.min ? " ctx-disabled" : ""}`;
-    item.textContent = p.name;
-    if (sessions.length >= p.min) item.onclick = () => { applyLayoutPreset(ws, i); menu.classList.add("hidden"); };
-    menu.appendChild(item);
-  });
-  const close = /** @param {MouseEvent} ev */ ev => {
-    const t = ev.target instanceof Node ? ev.target : null;
-    if (!menu.contains(t)) { menu.classList.add("hidden"); document.removeEventListener("mousedown", close); }
-  };
-  setTimeout(() => document.addEventListener("mousedown", close), 0);
-}
+// ===== Layout presets (extracted to lib/layout-presets.js) =====
 
 function renderActiveWorkspace() {
   tileRenderer.renderActiveWorkspace();
