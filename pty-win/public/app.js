@@ -41,13 +41,13 @@ import {
   buildBalancedTree,
   removeSessionFromLayout,
   insertAdjacentToPane,
-  appendLeafToTree,
   getLeafList,
   treeContains,
   findParentSplit,
 } from "./lib/tiling.js";
 import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
 import { createWorkspaceTabs } from "./lib/workspace-tabs.js";
+import { createSessionDrop } from "./lib/session-drop.js";
 import { initFeedPanel } from "./lib/feed-panel.js";
 import { initSettingsModal } from "./lib/settings-modal.js";
 import { renderQuickAccess as _renderQuickAccess } from "./lib/quick-access.js";
@@ -294,6 +294,21 @@ const workspaceTabs = createWorkspaceTabs({
   },
 });
 const renderTabs = workspaceTabs.renderTabs;
+
+const sessionDrop = createSessionDrop({
+  state,
+  byId,
+  helpers: { getLeafList, getDefaultAiCommand },
+  actions: {
+    createWorkspace: (n) => createWorkspace(n),
+    switchToWorkspace: (id) => switchToWorkspace(id),
+    renderActiveWorkspace: () => renderActiveWorkspace(),
+    openFolder: (p, n, c, nw, a) => openFolder(p, n, c, nw, a),
+  },
+});
+const handleSessionDrop = sessionDrop.handleSessionDrop;
+const addSessionToWorkspace = sessionDrop.addSessionToWorkspace;
+sessionDrop.attachWorkspaceAreaListeners();
 
 const wsDispatcher = createWsDispatcher({
   state,
@@ -1409,86 +1424,9 @@ function removeWorkspace(id) {
 // ===== Tabs (extracted to lib/workspace-tabs.js) =====
 
 
-// ===== Session/Folder Drop Handler =====
-
-/**
- * @param {DragEvent} e
- * @param {string | null} targetWsId
- */
-async function handleSessionDrop(e, targetWsId) {
-  e.preventDefault();
-  if (!e.dataTransfer) return;
-  let groupName, workingDir, folderName;
-
-  const sessionData = e.dataTransfer.getData("pty-win/session");
-  const folderData = e.dataTransfer.getData("pty-win/folder");
-
-  if (sessionData) {
-    const d = JSON.parse(sessionData);
-    groupName = d.group;
-  } else if (folderData) {
-    const d = JSON.parse(folderData);
-    workingDir = d.workingDir;
-    folderName = d.folderName;
-    groupName = folderName;
-    // Start a session if not already running
-    const existing = state.sessions.get(groupName);
-    if (!existing || existing.status === "dead") {
-      await openFolder(workingDir, folderName, getDefaultAiCommand());
-    }
-  }
-
-  if (!groupName) return;
-
-  // Create or use target workspace
-  let ws;
-  if (targetWsId) {
-    ws = state.workspaces.find((w) => w.id === targetWsId);
-  } else {
-    ws = createWorkspace(groupName);
-  }
-  if (!ws) return;
-
-  // Add session to workspace if not already there
-  const leaves = ws.layout ? getLeafList(ws.layout) : [];
-  if (!leaves.includes(groupName)) {
-    addSessionToWorkspace(ws.id, groupName);
-  }
-  switchToWorkspace(ws.id);
-  renderActiveWorkspace();
-}
-
-// Workspace area drop target (drop onto current workspace)
-byId("workspace-area")?.addEventListener("dragover", /** @param {DragEvent} e */ (e) => {
-  if (!e.dataTransfer) return;
-  if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
-    e.preventDefault(); e.dataTransfer.dropEffect = "copy";
-  }
-});
-byId("workspace-area")?.addEventListener("drop", /** @param {DragEvent} e */ (e) => {
-  if (!e.dataTransfer) return;
-  if (e.dataTransfer.types.includes("pty-win/session") || e.dataTransfer.types.includes("pty-win/folder")) {
-    handleSessionDrop(e, state.activeWorkspaceId);
-  }
-});
+// ===== Session/Folder Drop Handler (extracted to lib/session-drop.js) =====
 
 // ===== Tiling =====
-
-/**
- * @param {string} workspaceId
- * @param {string} sessionName
- */
-function addSessionToWorkspace(workspaceId, sessionName) {
-  const ws = state.workspaces.find((w) => w.id === workspaceId);
-  if (!ws) return;
-
-  if (!ws.layout) {
-    ws.layout = { type: "leaf", session: sessionName };
-    return;
-  }
-  // Preserve manual/preset layout — append new pane to trailing edge
-  ws.layout = appendLeafToTree(ws.layout, { type: "leaf", session: sessionName });
-}
 
 // ===== Pane drag-to-reorder (extracted to lib/pane-drag.js) =====
 
