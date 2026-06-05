@@ -67,6 +67,7 @@ import { createAgentsPanel } from "./lib/agents-panel.js";
 import { createTrackerPanel } from "./lib/tracker-panel.js";
 import { initRightPanel } from "./lib/right-panel.js";
 import { createDashboardPanel } from "./lib/dashboard-panel.js";
+import { createPaneDrag } from "./lib/pane-drag.js";
 import {
   normPath,
   cssId,
@@ -186,6 +187,18 @@ const dashboardPanel = createDashboardPanel({
   byId,
   fmtAgo,
   onFocusSession: focusExistingSession,
+});
+
+// ===== Pane drag (extracted to lib/pane-drag.js) =====
+
+const paneDragRuntime = createPaneDrag({
+  state,
+  getLeafList,
+  removeSessionFromLayout,
+  treeContains,
+  insertAdjacentToPane,
+  saveWorkspaces,
+  renderActiveWorkspace: () => renderActiveWorkspace(),
 });
 
 // ===== WebSocket (extracted to lib/ws-dispatcher.js) =====
@@ -1545,128 +1558,7 @@ function addSessionToWorkspace(workspaceId, sessionName) {
   ws.layout = appendLeafToTree(ws.layout, { type: "leaf", session: sessionName });
 }
 
-/** Build a balanced binary tree from a list of session names */
-// ===== Pane drag-to-reorder =====
-
-/** @type {{
- *   active: boolean,
- *   session: string | null,
- *   ghostEl: HTMLElement | null,
- *   dropZoneEls: HTMLElement[],
- *   currentTarget: { session: string, side: "left" | "right" | "top" | "bottom" } | null
- * }} */
-const paneDrag = { active: false, session: null, ghostEl: null, dropZoneEls: [], currentTarget: null };
-
-/**
- * @param {string} excludeSession
- */
-function showDropZones(excludeSession) {
-  clearDropZones();
-  document.querySelectorAll(".pane[data-session]").forEach(paneEl => {
-    if (!(paneEl instanceof HTMLElement)) return;
-    const session = paneEl.dataset["session"];
-    if (session === excludeSession) return;
-    const r = paneEl.getBoundingClientRect();
-    [
-      { side: "top",    x: r.left,               y: r.top,                w: r.width,        h: r.height * 0.25 },
-      { side: "bottom", x: r.left,               y: r.top + r.height * 0.75, w: r.width,     h: r.height * 0.25 },
-      { side: "left",   x: r.left,               y: r.top + r.height * 0.25, w: r.width * 0.25, h: r.height * 0.5 },
-      { side: "right",  x: r.left + r.width * 0.75, y: r.top + r.height * 0.25, w: r.width * 0.25, h: r.height * 0.5 },
-    ].forEach(({ side, x, y, w, h }) => {
-      const el = document.createElement("div");
-      el.className = "pane-drop-zone";
-      el.dataset["session"] = session;
-      el.dataset["side"] = side;
-      el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
-      document.body.appendChild(el);
-      paneDrag.dropZoneEls.push(el);
-    });
-  });
-}
-
-function clearDropZones() {
-  paneDrag.dropZoneEls.forEach(el => el.remove());
-  paneDrag.dropZoneEls = [];
-  paneDrag.currentTarget = null;
-}
-
-/**
- * @param {number} mx
- * @param {number} my
- */
-function updateDropZoneHighlight(mx, my) {
-  let best = null;
-  for (const el of paneDrag.dropZoneEls) {
-    const r = el.getBoundingClientRect();
-    if (mx >= r.left && mx <= r.right && my >= r.top && my <= r.bottom) { best = el; break; }
-  }
-  paneDrag.dropZoneEls.forEach(el => el.classList.remove("active"));
-  if (best) {
-    best.classList.add("active");
-    const session = best.dataset["session"] || "";
-    const side = /** @type {"left" | "right" | "top" | "bottom"} */ (best.dataset["side"] || "right");
-    paneDrag.currentTarget = { session, side };
-  } else {
-    paneDrag.currentTarget = null;
-  }
-}
-
-function commitPaneDrop() {
-  const { session: dragSession, currentTarget, ghostEl } = paneDrag;
-  ghostEl?.remove();
-  clearDropZones();
-  paneDrag.active = false; paneDrag.session = null; paneDrag.ghostEl = null;
-  document.body.classList.remove("pane-dragging");
-  if (!currentTarget || !dragSession || currentTarget.session === dragSession) return;
-  const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
-  if (!ws?.layout) return;
-  const pruned = removeSessionFromLayout(ws.layout, dragSession);
-  if (!pruned || !treeContains(pruned, currentTarget.session)) return;
-  ws.layout = insertAdjacentToPane(pruned, currentTarget.session, dragSession, currentTarget.side);
-  saveWorkspaces();
-  renderActiveWorkspace();
-}
-
-/**
- * @param {MouseEvent} e
- * @param {string} groupName
- */
-function startPaneDrag(e, groupName) {
-  const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
-  if (!ws?.layout || getLeafList(ws.layout).length < 2) return;
-  e.preventDefault();
-  paneDrag.active = true; paneDrag.session = groupName;
-  document.body.classList.add("pane-dragging");
-  const ghost = document.createElement("div");
-  ghost.className = "pane-drag-ghost";
-  ghost.textContent = groupName;
-  ghost.style.left = `${e.clientX + 12}px`; ghost.style.top = `${e.clientY + 8}px`;
-  document.body.appendChild(ghost);
-  paneDrag.ghostEl = ghost;
-  showDropZones(groupName);
-  const onMove = /** @param {MouseEvent} ev */ ev => {
-    ghost.style.left = `${ev.clientX + 12}px`; ghost.style.top = `${ev.clientY + 8}px`;
-    updateDropZoneHighlight(ev.clientX, ev.clientY);
-  };
-  const onUp = () => {
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-    document.removeEventListener("keydown", onKey);
-    commitPaneDrop();
-  };
-  const onKey = /** @param {KeyboardEvent} ev */ ev => {
-    if (ev.key !== "Escape") return;
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-    document.removeEventListener("keydown", onKey);
-    ghost.remove(); clearDropZones();
-    paneDrag.active = false; paneDrag.session = null; paneDrag.ghostEl = null;
-    document.body.classList.remove("pane-dragging");
-  };
-  document.addEventListener("mousemove", onMove);
-  document.addEventListener("mouseup", onUp);
-  document.addEventListener("keydown", onKey);
-}
+// ===== Pane drag-to-reorder (extracted to lib/pane-drag.js) =====
 
 // ===== Layout presets =====
 
@@ -2031,9 +1923,11 @@ function attachPaneTopbarActions(topbar, groupName, info, activeSessionName) {
     const t = e.target instanceof Element ? e.target : null;
     if (t && t.closest("button, .pane-close, .pane-action, .pane-identity, .toggle-btn")) return;
     if (e.button !== 0) return;
-    startPaneDrag(e, groupName);
+    paneDragRuntime.startPaneDrag(e, groupName);
   });
 }
+
+
 
 /**
  * Build the bottom status bar for a pane (status dot, label, unread
