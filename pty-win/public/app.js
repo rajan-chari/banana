@@ -65,6 +65,7 @@ import {
 } from "./lib/context-menu.js";
 import { createAgentsPanel } from "./lib/agents-panel.js";
 import { createTrackerPanel } from "./lib/tracker-panel.js";
+import { initRightPanel } from "./lib/right-panel.js";
 import {
   computeDiagTotalCost,
   removeStaleDiagRows,
@@ -3142,38 +3143,7 @@ const agentsPanel = createAgentsPanel({
 
 const trackerPanel = createTrackerPanel({ state, byId });
 
-(function initRightPanelTabs() {
-  const tabs = document.querySelectorAll("#right-panel-tabs .rp-tab");
-  const feedContent = byId("feed-content");
-  const trackerContent = byId("tracker-content");
-  const agentsContent = byId("agents-content");
-
-  tabs.forEach(tab => {
-    if (!(tab instanceof HTMLElement)) return;
-    tab.onclick = () => {
-      tabs.forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      const panel = tab.dataset["panel"];
-      if (feedContent) feedContent.classList.toggle("active", panel === "feed");
-      if (trackerContent) trackerContent.classList.toggle("active", panel === "tracker");
-      if (agentsContent) agentsContent.classList.toggle("active", panel === "agents");
-      if (panel === "tracker") {
-        const existing = trackerContent.querySelector(".tracker-view");
-        if (existing) existing.remove();
-        trackerPanel.render();
-      }
-      if (panel === "agents") agentsPanel.render();
-    };
-  });
-
-  // Start tracker polling (updates badge even when feed tab is active)
-  trackerPanel.render();
-  trackerPanel.startPolling();
-
-  // Start agents panel polling
-  agentsPanel.render();
-  agentsPanel.startPolling();
-})();
+initRightPanel({ byId, panels: { tracker: trackerPanel, agents: agentsPanel } });
 
 // ===== Settings modal (v0.1.33) =====
 //
