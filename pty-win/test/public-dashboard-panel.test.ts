@@ -50,6 +50,15 @@ function fakeFetch(map: Record<string, any>) {
   });
 }
 
+function makeSessionsPort(state: { sessions: Map<string, any> }) {
+  return {
+    list: () => [...state.sessions.values()],
+    entries: () => [...state.sessions.entries()],
+    names: () => [...state.sessions.keys()],
+    size: () => state.sessions.size,
+  };
+}
+
 function makeDeps(opts: {
   area?: HTMLElement;
   statsContainer?: HTMLElement | null;
@@ -61,8 +70,10 @@ function makeDeps(opts: {
   onFocusSession?: any;
 } = {}) {
   const area = opts.area ?? makeArea();
+  const state = opts.state ?? makeState([["a", { status: "idle", costUsd: 1.5 }]]);
   return {
-    state: opts.state ?? makeState([["a", { status: "idle", costUsd: 1.5 }]]),
+    state,
+    sessions: makeSessionsPort(state),
     byId: (id: string) => (id === "workspace-area" ? area : null),
     fmtAgo: () => "",
     onFocusSession: opts.onFocusSession ?? (() => {}),
@@ -226,8 +237,10 @@ describe("createDashboardPanel render", () => {
   });
 
   it("does nothing when workspace-area is missing", () => {
+    const state = makeState([["a", { status: "idle" }]]);
     const panel = createDashboardPanel({
-      state: makeState([["a", { status: "idle" }]]),
+      state,
+      sessions: makeSessionsPort(state),
       byId: () => null,
       fmtAgo: () => "",
       onFocusSession: () => {},

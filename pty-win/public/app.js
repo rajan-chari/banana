@@ -256,6 +256,7 @@ const sessions = createSessionsStore({ state });
 
 const dashboardPanel = createDashboardPanel({
   state,
+  sessions,
   byId,
   fmtAgo,
   onFocusSession: focusExistingSession,
