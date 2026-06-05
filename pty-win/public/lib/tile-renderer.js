@@ -10,12 +10,15 @@
 // resize handle's mouseup re-fits all terminals in the active
 // workspace by re-traversing the layout tree.
 
+import { getPaneGroup } from "./pane-groups.js";
+
 /**
  * @typedef {Object} TileRendererDeps
  * @property {{
  *   workspaces: Array<{ id: string, layout: any }>,
  *   activeWorkspaceId: string | null,
- *   paneGroups: Map<string, { activeType: string, pwsh?: string, claude?: string }>,
+ *   sessions: Map<string, any>,
+ *   activePaneTypes: Map<string, "claude"|"pwsh">,
  *   terminals: Map<string, { fitAddon: { fit: () => void } }>,
  * }} state
  * @property {(id: string) => HTMLElement} byId
@@ -139,7 +142,7 @@ export function createTileRenderer(deps) {
     if (!node) return;
     if (node.type === "leaf") {
       const groupName = node.session;
-      const pg = deps.state.paneGroups.get(groupName);
+      const pg = getPaneGroup(deps.state.sessions, groupName, deps.state.activePaneTypes);
       const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
       const entry = deps.state.terminals.get(activeSessionName || groupName);
       if (entry) { try { entry.fitAddon.fit(); } catch {} }

@@ -18,6 +18,7 @@
 
 import { hasSessionNameSetChanged } from "./ws-handlers.js";
 import { isDashboardMode } from "./navigation.js";
+import { getPaneGroup } from "./pane-groups.js";
 
 /**
  * @typedef {Object} WsDispatcherDeps
@@ -26,7 +27,7 @@ import { isDashboardMode } from "./navigation.js";
  *   sessionMeta: Map<string, any>,
  *   workspaces: any[],
  *   terminals: Map<string, { term: any, fitAddon: any }>,
- *   paneGroups: Map<string, { activeType: string, pwsh?: string, claude?: string }>,
+ *   activePaneTypes: Map<string, "claude"|"pwsh">,
  *   ws?: WebSocket | null,
  *   activeWorkspaceId?: string | null,
  *   focusedPane?: string | null,
@@ -194,7 +195,7 @@ export function createWsDispatcher(deps) {
 
   function restoreTerminalFocusAfterRebuild() {
     if (!deps.state.focusedPane || isDashboardMode(deps.state)) return;
-    const pg = deps.state.paneGroups.get(deps.state.focusedPane);
+    const pg = getPaneGroup(deps.state.sessions, deps.state.focusedPane, deps.state.activePaneTypes);
     const sessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : deps.state.focusedPane;
     const entry = deps.state.terminals.get(sessionName || deps.state.focusedPane);
     const doc = win.document;

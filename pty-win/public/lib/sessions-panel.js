@@ -20,8 +20,8 @@
 /**
  * @typedef {{
  *   state: {
- *     paneGroups: any,
  *     sessions: Map<string, any>,
+ *     activePaneTypes: Map<string, "claude"|"pwsh">,
  *     focusedPane: string | null,
  *     folderInfoCache: Map<string, any>,
  *   },
@@ -36,6 +36,7 @@
  *     buildSessionRowActionsOpts: (g: any, cached: any, onKill: () => void) => any,
  *     patchSessionRowIndicators: (row: HTMLElement, info: any) => void,
  *     activeNameForRow: (g: any) => string | null,
+ *     getPaneGroups: (sessions: Map<string, any>, activePaneTypes: Map<string, "claude"|"pwsh">) => Map<string, any>,
  *   },
  *   actions: {
  *     appendRowActions: (container: HTMLElement, opts: any) => void,
@@ -58,7 +59,8 @@ export function createSessionsPanel(deps) {
     const countEl = doc.querySelector(".session-count");
     if (!list) return;
 
-    const groups = helpers.buildSessionGroups(state.paneGroups, state.sessions);
+    const paneGroups = helpers.getPaneGroups(state.sessions, state.activePaneTypes);
+    const groups = helpers.buildSessionGroups(paneGroups, state.sessions);
     if (countEl) countEl.textContent = groups.length > 0 ? `(${groups.length})` : "";
 
     list.innerHTML = "";

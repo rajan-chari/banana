@@ -4,6 +4,8 @@
 // these helpers split out the resume-eligibility logic and the small
 // menu-item factories so each piece is testable in isolation.
 
+import { getPaneGroup } from "./pane-groups.js";
+
 /** @typedef {{ status?: string, command?: string, workingDir?: string|null }} ClaudeSessionInfo */
 
 /**
@@ -80,7 +82,8 @@ export function makeCtxHeader(text) {
 
 /**
  * @typedef {Object} PaneCtxState
- * @property {Map<string, any>} paneGroups
+ * @property {Map<string, any>} sessions
+ * @property {Map<string, "claude"|"pwsh">} activePaneTypes
  * @property {Array<{ id: string, name?: string, layout: any }>} workspaces
  * @property {Array<{ command: string }>} aiPresets
  *
@@ -137,7 +140,7 @@ export function createPaneContextMenu(deps) {
 
   /** @param {HTMLElement} menu @param {string} groupName */
   function appendResumeSection(menu, groupName) {
-    const pg = state.paneGroups.get(groupName);
+    const pg = getPaneGroup(state.sessions, groupName, state.activePaneTypes);
     const claudeSession = pg?.claude ? sessions.byName(pg.claude) : null;
     const aiCommands = state.aiPresets.map((p) => p.command);
     const { show, canResume, workingDir } = resolveResumeMenuState(claudeSession, aiCommands);

@@ -27,7 +27,7 @@ function mkDeps(overrides: any = {}): any {
     state: overrides.state || {
       workspaces: [],
       activeWorkspaceId: null,
-      paneGroups: new Map(),
+      sessions: new Map(), activePaneTypes: new Map(),
       terminals: new Map(),
     },
     byId,
@@ -47,7 +47,7 @@ describe("createTileRenderer - renderActiveWorkspace", () => {
   it("renders a single leaf as a single pane in the workspace container", () => {
     const ws = { id: "ws1", layout: { type: "leaf", session: "a" } };
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [ws], activeWorkspaceId: "ws1", paneGroups: new Map(), terminals: new Map() },
+      state: { workspaces: [ws], activeWorkspaceId: "ws1", sessions: new Map(), activePaneTypes: new Map(), terminals: new Map() },
     }));
     t.renderActiveWorkspace();
     const container = document.querySelector(".workspace.active");
@@ -63,7 +63,7 @@ describe("createTileRenderer - renderActiveWorkspace", () => {
     };
     const ws = { id: "ws1", layout };
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [ws], activeWorkspaceId: "ws1", paneGroups: new Map(), terminals: new Map() },
+      state: { workspaces: [ws], activeWorkspaceId: "ws1", sessions: new Map(), activePaneTypes: new Map(), terminals: new Map() },
     }));
     t.renderActiveWorkspace();
     const split = document.querySelector(".split-container");
@@ -87,7 +87,7 @@ describe("createTileRenderer - renderActiveWorkspace", () => {
     };
     const ws = { id: "ws1", layout };
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [ws], activeWorkspaceId: "ws1", paneGroups: new Map(), terminals: new Map() },
+      state: { workspaces: [ws], activeWorkspaceId: "ws1", sessions: new Map(), activePaneTypes: new Map(), terminals: new Map() },
     }));
     t.renderActiveWorkspace();
     const split = document.querySelector(".split-container");
@@ -99,7 +99,7 @@ describe("createTileRenderer - renderActiveWorkspace", () => {
     const t = createTileRenderer(mkDeps({
       state: {
         workspaces: [{ id: "ws1", layout: { type: "leaf", session: "a" } }],
-        activeWorkspaceId: "ws1", paneGroups: new Map(), terminals: new Map(),
+        activeWorkspaceId: "ws1", sessions: new Map(), activePaneTypes: new Map(), terminals: new Map(),
       },
     }));
     t.renderActiveWorkspace();
@@ -122,7 +122,7 @@ describe("createTileRenderer - renderActiveWorkspace", () => {
       ],
     };
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [{ id: "ws1", layout }], activeWorkspaceId: "ws1", paneGroups: new Map(), terminals: new Map() },
+      state: { workspaces: [{ id: "ws1", layout }], activeWorkspaceId: "ws1", sessions: new Map(), activePaneTypes: new Map(), terminals: new Map() },
       createPane,
     }));
     t.renderActiveWorkspace();
@@ -140,7 +140,7 @@ describe("createTileRenderer - fitAllTerminals", () => {
       ["b", { fitAddon: { fit: fitB } }],
     ]);
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [], activeWorkspaceId: null, paneGroups: new Map(), terminals },
+      state: { workspaces: [], activeWorkspaceId: null, sessions: new Map(), activePaneTypes: new Map(), terminals },
     }));
     const layout = {
       type: "split", direction: "h", ratio: 0.5,
@@ -154,13 +154,15 @@ describe("createTileRenderer - fitAllTerminals", () => {
   it("resolves the active pane-group sub-session before lookup", () => {
     const fit = vi.fn();
     const terminals = new Map([
-      ["a:pwsh", { fitAddon: { fit } }],
+      ["a~pwsh", { fitAddon: { fit } }],
     ]);
-    const paneGroups = new Map([
-      ["a", { activeType: "pwsh", pwsh: "a:pwsh", claude: "a:claude" }],
+    const sessions = new Map<string, any>([
+      ["a", { status: "idle", group: "a" }],
+      ["a~pwsh", { status: "idle", group: "a" }],
     ]);
+    const activePaneTypes = new Map<string, "claude"|"pwsh">([["a", "pwsh"]]);
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [], activeWorkspaceId: null, paneGroups, terminals },
+      state: { workspaces: [], activeWorkspaceId: null, sessions, activePaneTypes, terminals },
     }));
     t.fitAllTerminals({ type: "leaf", session: "a" });
     expect(fit).toHaveBeenCalledTimes(1);
@@ -175,7 +177,7 @@ describe("createTileRenderer - fitAllTerminals", () => {
     const fit = vi.fn(() => { throw new Error("xterm not ready"); });
     const terminals = new Map([["a", { fitAddon: { fit } }]]);
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [], activeWorkspaceId: null, paneGroups: new Map(), terminals },
+      state: { workspaces: [], activeWorkspaceId: null, sessions: new Map(), activePaneTypes: new Map(), terminals },
     }));
     expect(() => t.fitAllTerminals({ type: "leaf", session: "a" })).not.toThrow();
   });
@@ -189,7 +191,7 @@ describe("createTileRenderer - drag handle resize", () => {
     };
     const ws = { id: "ws1", layout };
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [ws], activeWorkspaceId: "ws1", paneGroups: new Map(), terminals: new Map() },
+      state: { workspaces: [ws], activeWorkspaceId: "ws1", sessions: new Map(), activePaneTypes: new Map(), terminals: new Map() },
     }));
     t.renderActiveWorkspace();
     const handle = document.querySelector(".drag-handle") as HTMLElement;
@@ -211,7 +213,7 @@ describe("createTileRenderer - drag handle resize", () => {
     };
     const ws = { id: "ws1", layout };
     const t = createTileRenderer(mkDeps({
-      state: { workspaces: [ws], activeWorkspaceId: "ws1", paneGroups: new Map(), terminals: new Map() },
+      state: { workspaces: [ws], activeWorkspaceId: "ws1", sessions: new Map(), activePaneTypes: new Map(), terminals: new Map() },
     }));
     t.renderActiveWorkspace();
     const handle = document.querySelector(".drag-handle") as HTMLElement;

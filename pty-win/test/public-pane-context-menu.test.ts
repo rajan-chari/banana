@@ -135,13 +135,11 @@ function mkCtxRuntime(stateOver: any = {}) {
   document.body.appendChild(menu);
 
   const state: any = {
-    paneGroups: new Map([
-      ["g1", { activeType: "claude", claude: "g1", pwsh: "g1~pwsh" }],
-      ["g2", { activeType: "claude", claude: "g2-dead" }],
-    ]),
+    activePaneTypes: new Map(),
     sessions: new Map([
-      ["g1", { status: "idle", command: "claude", workingDir: "/repo/a" }],
-      ["g2-dead", { status: "dead", command: "claude", workingDir: "/repo/b" }],
+      ["g1", { status: "idle", command: "claude", workingDir: "/repo/a", group: "g1" }],
+      ["g1~pwsh", { status: "idle", command: "pwsh", workingDir: "/repo/a", group: "g1" }],
+      ["g2-dead", { status: "dead", command: "claude", workingDir: "/repo/b", group: "g2" }],
     ]),
     workspaces: [
       { id: "w1", name: "ws-one", layout: { type: "leaf", name: "g1" } },

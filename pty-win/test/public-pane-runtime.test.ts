@@ -46,7 +46,7 @@ function mkXterm() {
 function mkState(over: any = {}) {
   return {
     sessions: new Map([["a", { status: "idle", workingDir: "/tmp/a", group: "a" }]]),
-    paneGroups: new Map([["a", { activeType: "claude", claude: "a" }]]),
+    activePaneTypes: new Map(),
     terminals: new Map(),
     workspaces: [],
     activeWorkspaceId: null,
@@ -133,11 +133,11 @@ describe("createPaneRuntime - createPane", () => {
 
   it("includes the claude/pwsh toggle ONLY when both sub-sessions exist", () => {
     const { rt } = mkRuntime({
-      paneGroups: new Map([["a", { activeType: "claude", claude: "a", pwsh: "a~pwsh" }]]),
       sessions: new Map([
-        ["a", { status: "idle" }],
-        ["a~pwsh", { status: "idle" }],
+        ["a", { status: "idle", group: "a" }],
+        ["a~pwsh", { status: "idle", group: "a" }],
       ]),
+      activePaneTypes: new Map([["a", "claude"]]),
     });
     const pane = rt.createPane("a");
     expect(pane.querySelector(".pane-toggle")).toBeTruthy();
@@ -309,11 +309,15 @@ describe("createPaneRuntime - focus/status/switch", () => {
   });
 
   it("switchPaneType mutates pg.activeType and re-renders + refocuses", () => {
-    const { rt, state, actions } = mkRuntime({
-      paneGroups: new Map([["a", { activeType: "claude", claude: "a", pwsh: "a~pwsh" }]]),
+    const { rt, state, actions, activePaneTypes } = mkRuntime({
+      sessions: new Map([
+        ["a", { status: "idle", group: "a" }],
+        ["a~pwsh", { status: "idle", group: "a" }],
+      ]),
+      activePaneTypes: new Map([["a", "claude"]]),
     });
     rt.switchPaneType("a", "pwsh");
-    expect(state.paneGroups.get("a")?.activeType).toBe("pwsh");
+    expect(activePaneTypes.set).toHaveBeenCalledWith("a", "pwsh");
     expect(actions.renderActiveWorkspace).toHaveBeenCalled();
     expect(state.focusedPane).toBe("a");
   });

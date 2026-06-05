@@ -24,7 +24,7 @@ import { isDashboardMode } from "./navigation.js";
  * @typedef {Object} PaneLifecycleState
  * @property {Map<string, any>} sessions
  * @property {Map<string, any>} sessionMeta
- * @property {Map<string, any>} paneGroups
+ * @property {Map<string, "claude"|"pwsh">} activePaneTypes
  * @property {Map<string, { term: any, resizeObserver?: { disconnect: () => void }, wrapperEl?: { remove: () => void } }>} terminals
  * @property {Array<{ id: string, layout: any }>} workspaces
  * @property {string | null} activeWorkspaceId
@@ -115,10 +115,8 @@ export function createPaneLifecycle(deps) {
         }
       });
     } else {
-      const pg = state.paneGroups.get(groupName);
       const newActive = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
       activePaneTypes.set(groupName, newActive);
-      if (pg) pg.activeType = newActive;
     }
 
     disposeTerminalEntry(sessionName);
@@ -206,10 +204,8 @@ export function createPaneLifecycle(deps) {
     if (!siblingAlive) {
       removeGroupFromAllWorkspaces(groupName);
     } else {
-      const pg = state.paneGroups.get(groupName);
       const newActive = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
       activePaneTypes.set(groupName, newActive);
-      if (pg) pg.activeType = newActive;
     }
 
     disposeTerminalEntry(sessionName);

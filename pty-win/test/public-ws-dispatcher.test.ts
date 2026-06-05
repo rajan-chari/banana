@@ -47,7 +47,7 @@ function mkState(overrides: any = {}): any {
     sessionMeta: new Map(),
     workspaces: [],
     terminals: new Map(),
-    paneGroups: new Map(),
+    activePaneTypes: new Map(),
     ws: { send: vi.fn() },
     // Default: in workspace mode (non-dashboard). Tests that need dashboard
     // mode override with `activeWorkspaceId: null`.
@@ -306,7 +306,11 @@ describe("createWsDispatcher - restoreTerminalFocusAfterRebuild", () => {
   it("uses pane-group active type to resolve the terminal name", () => {
     const state = mkState({
       focusedPane: "group1",
-      paneGroups: new Map([["group1", { activeType: "claude", claude: "c-1", pwsh: "p-1" }]]),
+      sessions: new Map([
+        ["c-1", { status: "idle", group: "group1" }],
+        ["p-1~pwsh", { status: "idle", group: "group1" }],
+      ]),
+      activePaneTypes: new Map([["group1", "claude"]]),
     });
     const focusC = vi.fn(); const focusP = vi.fn();
     state.terminals.set("c-1", { term: { focus: focusC, write: vi.fn() }, fitAddon: { fit: vi.fn() } });

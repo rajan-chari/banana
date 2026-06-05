@@ -14,6 +14,7 @@
 
 import { escapeHtml, truncatePath } from "./format.js";
 import { resolveCtrlShiftKeyAction } from "./key-shortcuts.js";
+import { getPaneGroup } from "./pane-groups.js";
 
 const ALLOWED_STATUS_DOT = new Set(["starting", "busy", "idle", "dead"]);
 
@@ -27,7 +28,7 @@ function normaliseStatusDot(status) {
 
 /**
  * @typedef {Object} PaneRuntimeDeps
- * @property {any} state            Shared state (sessions/paneGroups/terminals/ws/focusedPane/workspaces/activeWorkspaceId).
+ * @property {any} state            Shared state (sessions/activePaneTypes/terminals/ws/focusedPane/workspaces/activeWorkspaceId).
  * @property {{ byName: (name: string) => any }} sessions
  * @property {{ set: (name: string, type: "claude"|"pwsh") => void }} activePaneTypes
  * @property {(id: string) => HTMLElement} byId
@@ -356,7 +357,7 @@ export function createPaneRuntime(deps) {
    */
   function createPane(groupName) {
     if (!doc) throw new Error("pane-runtime: no document");
-    const pg = deps.state.paneGroups.get(groupName);
+    const pg = getPaneGroup(deps.state.sessions, groupName, deps.state.activePaneTypes);
     const activeType = pg?.activeType || "claude";
     const activeSessionName = activeType === "pwsh" ? (pg?.pwsh || groupName) : (pg?.claude || groupName);
     const info = deps.sessions.byName(activeSessionName);
@@ -433,10 +434,9 @@ export function createPaneRuntime(deps) {
    * @param {"claude" | "pwsh"} type
    */
   function switchPaneType(groupName, type) {
-    const pg = deps.state.paneGroups.get(groupName);
+    const pg = getPaneGroup(deps.state.sessions, groupName, deps.state.activePaneTypes);
     if (!pg) return;
     deps.activePaneTypes.set(groupName, type);
-    pg.activeType = type;
     deps.actions.renderActiveWorkspace();
     focusPane(groupName);
   }
@@ -449,7 +449,7 @@ export function createPaneRuntime(deps) {
     const info = deps.sessions.byName(sessionName);
     if (!info) return;
     const groupName = info.group || sessionName;
-    const pg = deps.state.paneGroups.get(groupName);
+    const pg = getPaneGroup(deps.state.sessions, groupName, deps.state.activePaneTypes);
     const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : sessionName;
     if (activeSessionName !== sessionName) return;
     doc.querySelectorAll(`.pane[data-session="${groupName}"]`).forEach((pane) => {
@@ -482,7 +482,7 @@ export function createPaneRuntime(deps) {
     });
     doc.querySelectorAll(".session-row").forEach((r) => r.classList.remove("active"));
     doc.querySelector(`.session-row[data-group="${groupName}"]`)?.classList.add("active");
-    const pg = deps.state.paneGroups.get(groupName);
+    const pg = getPaneGroup(deps.state.sessions, groupName, deps.state.activePaneTypes);
     const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
     const entry = deps.state.terminals.get(activeSessionName || groupName);
     if (entry) {

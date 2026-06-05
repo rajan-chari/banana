@@ -45,7 +45,7 @@ import {
   treeContains,
   findParentSplit,
 } from "./lib/tiling.js";
-import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
+import { rebuildPaneGroups as _rebuildPaneGroups, getPaneGroups, getPaneGroup } from "./lib/pane-groups.js";
 import { isDashboardMode } from "./lib/navigation.js";
 import { createWorkspaceTabs } from "./lib/workspace-tabs.js";
 import { createSessionDrop } from "./lib/session-drop.js";
@@ -505,6 +505,7 @@ const sessionsPanel = createSessionsPanel({
     buildSessionRowActionsOpts,
     patchSessionRowIndicators,
     activeNameForRow,
+    getPaneGroups,
   },
   actions: {
     appendRowActions,
@@ -859,10 +860,8 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
  * @param {boolean} isPwsh
  */
 function focusAliveSession(baseName, isPwsh) {
-  const pg = state.paneGroups.get(baseName);
   const type = isPwsh ? "pwsh" : "claude";
   activePaneTypes.set(baseName, type);
-  if (pg) pg.activeType = type;
   focusExistingSession(baseName);
   renderActiveWorkspace();
 }
@@ -909,9 +908,7 @@ function focusExistingSession(name) {
   const groupName = name.replace(/~pwsh$/, "");
   // If focusing a pwsh session, switch the pane toggle
   if (name.endsWith("~pwsh")) {
-    const pg = state.paneGroups.get(groupName);
     activePaneTypes.set(groupName, "pwsh");
-    if (pg) pg.activeType = "pwsh";
   }
   // Find workspace containing this group's pane
   const ws = findWorkspaceContaining(groupName);
@@ -924,7 +921,7 @@ function focusExistingSession(name) {
       renderActiveWorkspace();
       focusPane(groupName);
       requestAnimationFrame(() => {
-        const pg = state.paneGroups.get(groupName);
+        const pg = getPaneGroup(state.sessions, groupName, state.activePaneTypes);
         const sName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
         const entry = state.terminals.get(sName || groupName);
         if (entry) entry.term.focus();
@@ -1142,7 +1139,7 @@ function switchToWorkspace(id) {
     focusPane(focused);
     // Terminal DOM needs a frame to be ready for keyboard focus
     requestAnimationFrame(() => {
-      const pg = state.paneGroups.get(focused);
+      const pg = getPaneGroup(state.sessions, focused, state.activePaneTypes);
       const name = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : focused;
       const entry = state.terminals.get(name || focused);
       if (entry) entry.term.focus();

@@ -24,18 +24,15 @@ function mkTerminalEntry() {
 function mkState(over: any = {}) {
   return {
     sessions: new Map<string, any>([
-      ["a", { status: "idle" }],
-      ["a~pwsh", { status: "idle" }],
-      ["b", { status: "dead" }],
+      ["a", { status: "idle", group: "a" }],
+      ["a~pwsh", { status: "idle", group: "a" }],
+      ["b", { status: "dead", group: "b" }],
     ]),
     sessionMeta: new Map<string, any>([
       ["a", { workingDir: "/tmp/a" }],
       ["b", { workingDir: "/tmp/b" }],
     ]),
-    paneGroups: new Map<string, any>([
-      ["a", { activeType: "claude", claude: "a", pwsh: "a~pwsh" }],
-      ["b", { activeType: "claude", claude: "b" }],
-    ]),
+    activePaneTypes: new Map<string, "claude"|"pwsh">(),
     terminals: new Map<string, any>([
       ["a", mkTerminalEntry()],
       ["a~pwsh", mkTerminalEntry()],
@@ -131,7 +128,7 @@ function mkDeps(stateOver: any = {}) {
       has: (n: string) => (state.sessions as Map<string, any>).has(n),
       remove: (n: string) => (state.sessions as Map<string, any>).delete(n),
     },
-    activePaneTypes: { set: () => {} },
+    activePaneTypes: { set: (n: string, t: "claude"|"pwsh") => (state.activePaneTypes as Map<string, any>).set(n, t) },
     doc: document, env: { fetch: fetchFn as any, setTimeout: setTimeoutFn },
     layout, helpers, views,
   });
@@ -179,7 +176,7 @@ describe("createPaneLifecycle - killSession", () => {
   it("when sibling alive, switches activeType (does NOT remove from layouts)", async () => {
     const { lc, state } = mkDeps();
     await lc.killSession("a"); // kill claude, pwsh sibling alive
-    expect(state.paneGroups.get("a")!.activeType).toBe("pwsh");
+    expect(state.activePaneTypes.get("a")).toBe("pwsh");
     // layout should still contain 'a'
     const ws = state.workspaces.find((w: any) => w.id === "w2")!;
     expect(JSON.stringify(ws.layout)).toContain("\"a\"");
@@ -308,18 +305,18 @@ describe("createPaneLifecycle - autoRemoveDeadSession", () => {
   it("when sibling alive, only switches activeType (does not remove leaf)", () => {
     const { lc, state } = mkDeps({
       sessions: new Map<string, any>([
-        ["a", { status: "dead" }],
-        ["a~pwsh", { status: "idle" }],
+        ["a", { status: "dead", group: "a" }],
+        ["a~pwsh", { status: "idle", group: "a" }],
       ]),
       sessionMeta: new Map<string, any>([["a", { workingDir: "/tmp/a" }]]),
-      paneGroups: new Map<string, any>([["a", { activeType: "claude", claude: "a", pwsh: "a~pwsh" }]]),
+      activePaneTypes: new Map<string, "claude"|"pwsh">([["a", "claude"]]),
       terminals: new Map<string, any>([["a", mkTerminalEntry()]]),
       workspaces: [{ id: "w1", layout: { type: "leaf", name: "a" } }],
       activeWorkspaceId: "w1",
       focusedPane: "a",
     });
     lc.autoRemoveDeadSession("a");
-    expect(state.paneGroups.get("a")!.activeType).toBe("pwsh");
+    expect(state.activePaneTypes.get("a")).toBe("pwsh");
     expect(state.workspaces[0].layout).toEqual({ type: "leaf", name: "a" });
   });
 });

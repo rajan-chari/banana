@@ -14,7 +14,7 @@ function mkPanel(overrides: any = {}) {
     <span class="session-count"></span>
   `;
   const state: any = {
-    paneGroups: new Map(),
+    activePaneTypes: new Map(),
     sessions: new Map(),
     focusedPane: null,
     folderInfoCache: new Map(),
@@ -26,6 +26,7 @@ function mkPanel(overrides: any = {}) {
   const helpers = {
     normPath: (p: string) => (p || "").toLowerCase(),
     buildSessionGroups: vi.fn(() => [] as any[]),
+    getPaneGroups: vi.fn(() => new Map()),
     createSessionRow: vi.fn((g: any) => {
       const row = document.createElement("div");
       row.className = "session-row";
