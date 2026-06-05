@@ -111,6 +111,7 @@ import {
   createPaneContextMenu,
 } from "./lib/pane-context-menu.js";
 import { createSessionsPanel } from "./lib/sessions-panel.js";
+import { createQuickMessage } from "./lib/quick-message.js";
 
 // ===== DOM helpers =====
 // `byId` asserts non-null and returns HTMLElement, so callers can chain
@@ -332,6 +333,17 @@ const layoutPresets = createLayoutPresets({
 });
 const showLayoutPresetsMenu = layoutPresets.showLayoutPresetsMenu;
 
+const quickMessage = createQuickMessage({
+  doc: document,
+  byId,
+  env: {
+    fetchFn: fetch.bind(window),
+    setTimeout: (cb, ms) => setTimeout(cb, ms),
+    windowRef: window,
+  },
+});
+const showQuickMessageInput = quickMessage.show;
+
 const rowActions = createRowActions({
   state,
   doc: document,
@@ -339,7 +351,7 @@ const rowActions = createRowActions({
   helpers: { getAiPresetForCommand, getDefaultAiCommand },
   actions: {
     openFolder: (p, n, c, nw, a) => openFolder(p, n, c, nw, a),
-    showQuickMessageInput: (n, anchor) => showQuickMessageInput(n, anchor),
+    showQuickMessageInput,
     showAiTagContextMenu: (e, fp, fn) => showAiTagContextMenu(e, fp, fn),
   },
 });
@@ -824,96 +836,6 @@ function updateWorkspaceTabName(ws) {
 }
 
 // ===== Context Menu =====
-
-/**
- * @param {string} sessionName
- * @param {HTMLElement} anchorEl
- */
-function showQuickMessageInput(sessionName, anchorEl) {
-  // Remove any existing popup
-  byId("quick-msg-popup")?.remove();
-
-  const popup = document.createElement("div");
-  popup.id = "quick-msg-popup";
-  popup.className = "quick-msg-popup";
-
-  const title = document.createElement("div");
-  title.className = "quick-msg-title";
-  title.textContent = `→ ${sessionName}`;
-  popup.appendChild(title);
-
-  const row = document.createElement("div");
-  row.className = "quick-msg-row";
-
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "quick-msg-input";
-  input.placeholder = "Type a message…";
-
-  const sendBtn = document.createElement("button");
-  sendBtn.className = "quick-msg-send";
-  sendBtn.textContent = "Send";
-
-  row.appendChild(input);
-  row.appendChild(sendBtn);
-  popup.appendChild(row);
-  document.body.appendChild(popup);
-
-  // Position below the anchor element
-  const rect = anchorEl.getBoundingClientRect();
-  popup.style.left = `${Math.min(rect.left, window.innerWidth - 260)}px`;
-  popup.style.top = `${rect.bottom + 4}px`;
-
-  input.focus();
-
-  const dismiss = () => popup.remove();
-
-  const send = () => {
-    const text = input.value.trim();
-    if (!text) return;
-    sendBtn.disabled = true;
-    input.disabled = true;
-    fetch(`/api/sessions/${encodeURIComponent(sessionName)}/quick-message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok) {
-          title.textContent = "sent ✓";
-          title.style.color = "#4ec94e";
-          setTimeout(dismiss, 1200);
-        } else {
-          title.textContent = `error: ${data.error || "failed"}`;
-          title.style.color = "#ff6060";
-          sendBtn.disabled = false;
-          input.disabled = false;
-          input.focus();
-        }
-      })
-      .catch((err) => {
-        title.textContent = `error: ${err.message}`;
-        title.style.color = "#ff6060";
-        sendBtn.disabled = false;
-        input.disabled = false;
-        input.focus();
-      });
-  };
-
-  sendBtn.onclick = send;
-  input.onkeydown = /** @param {KeyboardEvent} e */ (e) => {
-    if (e.key === "Enter") send();
-    if (e.key === "Escape") dismiss();
-  };
-
-  // Click outside to dismiss
-  const outside = /** @param {MouseEvent} e */ (e) => {
-    const t = e.target instanceof Node ? e.target : null;
-    if (!popup.contains(t)) { dismiss(); document.removeEventListener("mousedown", outside); }
-  };
-  setTimeout(() => document.addEventListener("mousedown", outside), 0);
-}
 
 /**
  * @param {MouseEvent} e
