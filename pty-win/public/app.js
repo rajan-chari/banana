@@ -70,6 +70,7 @@ import { createDashboardPanel } from "./lib/dashboard-panel.js";
 import { createPaneDrag } from "./lib/pane-drag.js";
 import { createTileRenderer } from "./lib/tile-renderer.js";
 import { createPaneRuntime } from "./lib/pane-runtime.js";
+import { createPaneLifecycle } from "./lib/pane-lifecycle.js";
 import {
   normPath,
   cssId,
@@ -237,6 +238,27 @@ const paneRuntime = createPaneRuntime({
 });
 
 // ===== WebSocket (extracted to lib/ws-dispatcher.js) =====
+
+const paneLifecycle = createPaneLifecycle({
+  state,
+  layout: { removeSessionFromLayout, getLeafList, buildBalancedTree, treeContains },
+  helpers: {
+    saveSessionMeta,
+    escapeHtml,
+    rebuildPaneGroups,
+    refreshTreeRunningState,
+    updateWorkspaceTabName,
+  },
+  views: {
+    renderActiveWorkspace: () => renderActiveWorkspace(),
+    renderTabs: () => renderTabs(),
+    renderDashboard: () => dashboardPanel.render(),
+  },
+});
+const killSession = paneLifecycle.killSession;
+const closeFocusedPane = paneLifecycle.closeFocusedPane;
+const showDirtyWarning = paneLifecycle.showDirtyWarning;
+const autoRemoveDeadSession = paneLifecycle.autoRemoveDeadSession;
 
 const wsDispatcher = createWsDispatcher({
   state,
@@ -1938,160 +1960,9 @@ function resizeFocused(arrowKey) {
   renderActiveWorkspace();
 }
 
-function closeFocusedPane() {
-  if (!state.focusedPane) return;
-  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-  if (!ws) return;
-  ws.layout = removeSessionFromLayout(ws.layout, state.focusedPane);
-  state.focusedPane = null;
-  const leaves = ws.layout ? getLeafList(ws.layout) : [];
-  if (leaves.length > 0) state.focusedPane = leaves[0];
-  renderActiveWorkspace();
-}
 
-/**
- * @param {string} sessionName
- */
-async function killSession(sessionName) {
-  try {
-    await fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" });
-  } catch {}
+// ===== Pane lifecycle (extracted to lib/pane-lifecycle.js) =====
 
-  // Determine group — only remove tiling leaf if no sibling alive
-  const groupName = sessionName.replace(/~pwsh$/, "");
-  const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
-  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
-
-  if (!siblingAlive) {
-    // No sibling — remove pane from all workspaces
-    for (const ws of state.workspaces) {
-      ws.layout = removeSessionFromLayout(ws.layout, groupName);
-    }
-  } else {
-    // Sibling exists — switch to it
-    const pg = state.paneGroups.get(groupName);
-    if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
-  }
-
-  // Destroy terminal
-  const entry = state.terminals.get(sessionName);
-  if (entry) {
-    entry.resizeObserver?.disconnect();
-    entry.term.dispose();
-    entry.wrapperEl?.remove();
-    state.terminals.delete(sessionName);
-  }
-
-  state.sessions.delete(sessionName);
-  state.sessionMeta.delete(sessionName);
-  saveSessionMeta();
-  rebuildPaneGroups();
-  if (state.focusedPane === groupName && !siblingAlive) state.focusedPane = null;
-
-  refreshTreeRunningState();
-  renderActiveWorkspace();
-  renderTabs();
-}
-
-/**
- * @param {string} sessionName
- * @param {string} workingDir
- */
-function showDirtyWarning(sessionName, workingDir) {
-  const folderName = workingDir.split(/[/\\]/).filter(Boolean).pop() || workingDir;
-  console.warn(`[dirty] ${sessionName} exited with uncommitted changes in ${folderName}`);
-  const toast = document.createElement("div");
-  toast.className = "dirty-toast";
-  toast.innerHTML = `<strong>⚠ ${escapeHtml(folderName)}</strong> has uncommitted changes (session ${escapeHtml(sessionName)} exited)`;
-  toast.onclick = () => toast.remove();
-  document.body.appendChild(toast);
-  // Auto-dismiss after 30s
-  setTimeout(() => toast.remove(), 30000);
-}
-
-/**
- * Remove a no-longer-existent pane group from all workspaces by
- * rebuilding any workspace that contained it as a balanced tree of
- * the remaining leaves.
- *
- * @param {string} groupName
- */
-function removeGroupFromAllWorkspaces(groupName) {
-  for (const ws of state.workspaces) {
-    if (ws.layout && treeContains(ws.layout, groupName)) {
-      const leaves = getLeafList(ws.layout).filter((n) => n !== groupName);
-      ws.layout = buildBalancedTree(leaves);
-      updateWorkspaceTabName(ws);
-    }
-  }
-}
-
-/**
- * Tear down the terminal entry for a session (xterm dispose,
- * resize-observer disconnect, wrapper element removal).
- *
- * @param {string} sessionName
- */
-function disposeTerminalEntry(sessionName) {
-  const entry = state.terminals.get(sessionName);
-  if (!entry) return;
-  entry.resizeObserver?.disconnect();
-  entry.term.dispose();
-  entry.wrapperEl?.remove();
-  state.terminals.delete(sessionName);
-}
-
-/**
- * After a pane is removed and no sibling remains, pick a new focused
- * pane from the active workspace (or null if it's now empty).
- *
- * @param {string} groupName - the just-removed group
- * @param {boolean} siblingAlive
- */
-function refocusAfterPaneRemoval(groupName, siblingAlive) {
-  if (state.focusedPane !== groupName || siblingAlive) return;
-  state.focusedPane = null;
-  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-  const leaves = ws?.layout ? getLeafList(ws.layout) : [];
-  if (leaves.length > 0) state.focusedPane = leaves[0];
-}
-
-/**
- * @param {string} sessionName
- */
-function autoRemoveDeadSession(sessionName) {
-  // Check it's still dead (not restarted)
-  const s = state.sessions.get(sessionName);
-  if (!s || s.status !== "dead") return;
-
-  // Delete from server so the name can be reused
-  fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" }).catch(() => {});
-
-  const groupName = sessionName.replace(/~pwsh$/, "");
-  const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
-  const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
-
-  if (!siblingAlive) {
-    removeGroupFromAllWorkspaces(groupName);
-  } else {
-    const pg = state.paneGroups.get(groupName);
-    if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
-  }
-
-  disposeTerminalEntry(sessionName);
-
-  state.sessions.delete(sessionName);
-  state.sessionMeta.delete(sessionName);
-  saveSessionMeta();
-  rebuildPaneGroups();
-
-  refocusAfterPaneRemoval(groupName, siblingAlive);
-
-  refreshTreeRunningState();
-  if (state.isDashboard) dashboardPanel.render();
-  else renderActiveWorkspace();
-  renderTabs();
-}
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
 
