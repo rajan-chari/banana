@@ -48,21 +48,6 @@ import {
 } from "./lib/tiling.js";
 import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
 import { reorderWorkspaces, tabDropSide } from "./lib/workspace-tabs.js";
-import {
-  renderTrackerItemHtml,
-  renderTrackerHistoryEntries,
-  patchTrackerItem,
-  renderTrackerEmpty,
-  removeTrackerEmpty,
-  removeStaleTrackerItems,
-  removeEmptyTrackerGroups,
-  removeAllTrackerGroups,
-  renderFlatTrackerItems,
-  renderGroupedTrackerItems,
-  buildTrackerChromeHtml,
-  computeTrackerStats,
-  renderTrackerChromeStats,
-} from "./lib/tracker-render.js";
 import { initFeedPanel } from "./lib/feed-panel.js";
 import { initSettingsModal } from "./lib/settings-modal.js";
 import { renderQuickAccess as _renderQuickAccess } from "./lib/quick-access.js";
@@ -79,6 +64,7 @@ import {
   resolveContextAction,
 } from "./lib/context-menu.js";
 import { createAgentsPanel } from "./lib/agents-panel.js";
+import { createTrackerPanel } from "./lib/tracker-panel.js";
 import {
   computeDiagTotalCost,
   removeStaleDiagRows,
@@ -90,14 +76,8 @@ import {
   cssId,
   truncatePath,
   fmtAgo,
-  staleClass,
   escapeHtml,
 } from "./lib/format.js";
-import {
-  filterTrackerItems as _filterTrackerItems,
-  sortTrackerItems as _sortTrackerItems,
-  extractFilterOptions,
-} from "./lib/tracker-filters.js";
 import {
   buildSessionGroups,
 } from "./lib/session-groups.js";
@@ -3038,360 +3018,10 @@ function renderDashboardStats() {
   }).catch(() => {});
 }
 
-// ===== Tracker Panel (Redesigned) =====
 
-const TRACKER_STATUS_ORDER = ["decision-pending", "investigating", "implementing", "monitoring", "blocked", "deferred", "merged", "closed", "ready-to-merge", "testing", "pr-up"];
-/** @type {import('./lib/tracker-filters.js').TrackerSortField} */
-let trackerSortField = "status"; // default: grouped by status
-/** @type {import('./lib/tracker-filters.js').TrackerSortDir} */
-let trackerSortDir = "asc";
-let trackerPrevItems = new Map();
-
-/**
- * @param {any[]} items
- */
-function filterTrackerItems(items) {
-  return _filterTrackerItems(items, {
-    repo: /** @type {HTMLSelectElement|null} */ (byId("tracker-filter-repo"))?.value || "",
-    sev: /** @type {HTMLSelectElement|null} */ (byId("tracker-filter-sev"))?.value || "",
-    assignee: /** @type {HTMLSelectElement|null} */ (byId("tracker-filter-assignee"))?.value || "",
-    cat: localStorage.getItem("pty-win-tracker-cat") || "",
-  });
-}
-
-/**
- * @param {any[]} items
- */
-function populateTrackerFilters(items) {
-  const repoSel = /** @type {HTMLSelectElement | null} */ (byId("tracker-filter-repo"));
-  const assigneeSel = /** @type {HTMLSelectElement | null} */ (byId("tracker-filter-assignee"));
-  if (!repoSel || !assigneeSel) return;
-
-  const { repos, assignees } = extractFilterOptions(items);
-
-  const updateOptions = /**
-   * @param {HTMLSelectElement} sel
-   * @param {string[]} options
-   */
-  (sel, options) => {
-    const saved = localStorage.getItem(`pty-win-${sel.id}`) || "";
-    const current = sel.value;
-    if (sel.options.length - 1 === options.length) return; // no change
-    const firstLabel = sel.options[0].textContent;
-    sel.innerHTML = `<option value="">${escapeHtml(firstLabel)}</option>` + options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("");
-    sel.value = saved || current;
-  };
-
-  updateOptions(repoSel, repos);
-  updateOptions(assigneeSel, assignees);
-}
-
-/**
- * @param {any[]} items
- */
-function sortTrackerItems(items) {
-  return _sortTrackerItems(items, trackerSortField, trackerSortDir);
-}
-
-let _trackerRowNum = 0;
-function resetTrackerRowNum() { _trackerRowNum = 0; }
-
-/**
- * @param {import('./lib/state.js').TrackerItem} item
- */
-function buildTrackerItem(item) {
-  const el = document.createElement("div");
-  el.className = `tracker-item`;
-  el.dataset["id"] = item.id;
-  el.style.contain = "content";
-
-  const ageDate = item.date_found || item.created_at;
-  if (staleClass(ageDate) === "stale-red") el.classList.add("stale-row");
-  if (["closed", "merged", "deferred"].includes(item.status ?? "")) el.classList.add("tracker-item-done");
-
-  el.innerHTML = renderTrackerItemHtml(item, ++_trackerRowNum);
-
-  el.querySelector(".tracker-item-row")?.addEventListener("click", () => {
-    const wasExpanded = el.classList.contains("expanded");
-    el.classList.toggle("expanded");
-    // Lazy-load history on first expand
-    if (!wasExpanded && !el.dataset["historyLoaded"]) {
-      loadTrackerHistory(el, item.id);
-    }
-  });
-  return el;
-}
-
-/**
- * @param {HTMLElement} el
- * @param {import('./lib/state.js').TrackerItem} item
- */
-const TRACKER_DEFAULT_COLS = [22, 85, 0, 55, 55, 65, 40, 35, 40, 50]; // 0 = flex; first col is row #
-
-/**
- * Tracker container element with expandos for column-resize state.
- * The expandos are attached by initTrackerColumnResize() and re-read on
- * subsequent renderTracker() calls to apply widths to newly-appended rows.
- * @typedef {HTMLElement & { _applyColWidths?: () => void, _colWidths?: number[] }} TrackerContainer
- */
-
-/**
- * @param {TrackerContainer} container
- */
-function initTrackerColumnResize(container) {
-  const thead = /** @type {HTMLElement | null} */ (container.querySelector(".tracker-thead"));
-  if (!thead) return;
-  const theadEl = thead; // narrow for closures
-  const ths = /** @type {HTMLElement[]} */ ([...theadEl.querySelectorAll(".tracker-th")]);
-
-  // Load saved widths (reset if column count changed)
-  /** @type {number[]} */
-  let colWidths;
-  try {
-    const saved = localStorage.getItem("pty-win-tracker-col-widths");
-    const parsed = saved ? JSON.parse(saved) : null;
-    colWidths = (parsed && parsed.length === TRACKER_DEFAULT_COLS.length) ? parsed : [...TRACKER_DEFAULT_COLS];
-  } catch { colWidths = [...TRACKER_DEFAULT_COLS]; }
-
-  function applyWidths() {
-    const tpl = colWidths.map(w => w === 0 ? "minmax(0,1fr)" : `${w}px`).join(" ");
-    theadEl.style.gridTemplateColumns = tpl;
-    container.querySelectorAll(".tracker-item-row").forEach(r => {
-      if (r instanceof HTMLElement) r.style.gridTemplateColumns = tpl;
-    });
-  }
-
-  applyWidths();
-
-  // Store applyWidths so new rows can pick it up
-  container._applyColWidths = applyWidths;
-  container._colWidths = colWidths;
-
-  // Add resize handles to all but last header
-  for (let i = 0; i < ths.length - 1; i++) {
-    const handle = document.createElement("div");
-    handle.className = "tracker-col-resize";
-    ths[i].appendChild(handle);
-
-    handle.onmousedown = /** @param {MouseEvent} e */ (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      handle.classList.add("dragging");
-      const startX = e.clientX;
-      const startW = ths[i].offsetWidth;
-      const onMove = /** @param {MouseEvent} ev */ (ev) => {
-        const delta = ev.clientX - startX;
-        const newW = Math.max(30, startW + delta);
-        colWidths[i] = newW;
-        applyWidths();
-      };
-      const onUp = () => {
-        handle.classList.remove("dragging");
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-        localStorage.setItem("pty-win-tracker-col-widths", JSON.stringify(colWidths));
-      };
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    };
-  }
-}
-
-/**
- * @param {HTMLElement} el
- * @param {string} itemId
- */
-function loadTrackerHistory(el, itemId) {
-  const identity = localStorage.getItem("pty-win-feed-identity") || "";
-  const detail = el.querySelector(".tracker-item-detail");
-  if (!detail) return;
-
-  // Add loading placeholder
-  let timeline = detail.querySelector(".tracker-timeline");
-  if (!timeline) {
-    timeline = document.createElement("div");
-    timeline.className = "tracker-timeline";
-    timeline.innerHTML = `<div class="tracker-timeline-title">History</div><div class="tracker-timeline-loading">Loading...</div>`;
-    detail.appendChild(timeline);
-  }
-
-  fetch(`/api/emcom-proxy/tracker/${itemId}`, { headers: { "X-Emcom-Name": identity } })
-    .then(r => r.json())
-    .then(data => {
-      el.dataset["historyLoaded"] = "true";
-      const history = data.history || [];
-      if (history.length === 0) {
-        timeline.innerHTML = `<div class="tracker-timeline-title">History</div><div class="tracker-timeline-loading">No history</div>`;
-        return;
-      }
-
-      const entries = renderTrackerHistoryEntries(history);
-
-      timeline.innerHTML = `<div class="tracker-timeline-title">History</div>${entries}`;
-    })
-    .catch(() => {
-      timeline.innerHTML = `<div class="tracker-timeline-title">History</div><div class="tracker-timeline-loading">Failed to load</div>`;
-    });
-}
-
-function renderTracker() {
-  const area = byId("tracker-content");
-  if (!area) return;
-  const identity = localStorage.getItem("pty-win-feed-identity") || "";
-
-  let container = /** @type {TrackerContainer | null} */ (area.querySelector(".tracker-view"));
-  if (!container) {
-    area.innerHTML = "";
-    container = document.createElement("div");
-    container.className = "tracker-view";
-    container.innerHTML = buildTrackerChromeHtml();
-    area.appendChild(container);
-  }
-  const c = container;
-  if (!c.dataset["wired"]) {
-    c.dataset["wired"] = "1";
-    wireTrackerControls(c);
-  }
-
-  const showClosed = localStorage.getItem("pty-win-tracker-show-closed") === "true";
-  fetch(`/api/emcom-proxy/tracker${showClosed ? "" : "?status=open"}`, {
-    headers: { "X-Emcom-Name": identity },
-  })
-    .then(r => r.json())
-    .then(/** @param {any[]} items */ items => {
-      state.trackerItems = items;
-      const stats = computeTrackerStats(items);
-      state.trackerDecisionCount = stats.decisionPending;
-
-      const badge = byId("tracker-tab-badge");
-      if (badge) {
-        badge.textContent = stats.decisionPending > 0 ? ` (${stats.decisionPending})` : "";
-        badge.classList.toggle("hidden", stats.decisionPending === 0);
-      }
-
-      renderTrackerChromeStats(c.querySelector(".tracker-chrome-stats"), stats);
-
-      populateTrackerFilters(items);
-      renderTrackerBody(c, filterTrackerItems(items));
-    })
-    .catch(() => {
-      const body = c.querySelector(".tracker-body");
-      if (body) body.innerHTML = `<div class="tracker-error">// CONNECTION FAILED</div>`;
-    });
-}
-
-/**
- * Wire all once-only event handlers on the tracker chrome: sortable headers,
- * refresh button, closed toggle, column resize, filter dropdowns, and
- * category buttons. Idempotent guard lives in the caller (data-wired sentinel).
- *
- * @param {TrackerContainer} c
- */
-function wireTrackerControls(c) {
-  c.querySelectorAll(".tracker-th").forEach(th => {
-    if (!(th instanceof HTMLElement)) return;
-    th.onclick = () => {
-      const field = /** @type {import('./lib/tracker-filters.js').TrackerSortField} */ (th.dataset["sort"] || "status");
-      if (trackerSortField === field) {
-        trackerSortDir = trackerSortDir === "asc" ? "desc" : "asc";
-      } else {
-        trackerSortField = field;
-        trackerSortDir = "asc";
-      }
-      c.querySelectorAll(".tracker-th").forEach(h => {
-        if (!(h instanceof HTMLElement)) return;
-        h.classList.toggle("sort-active", h.dataset["sort"] === trackerSortField);
-        const arrow = h.querySelector(".sort-arrow");
-        if (arrow) arrow.textContent = h.dataset["sort"] === trackerSortField ? (trackerSortDir === "asc" ? "\u25b4" : "\u25be") : "";
-      });
-      renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
-    };
-  });
-
-  const refreshBtn = /** @type {HTMLElement | null} */ (c.querySelector("#tracker-refresh-btn"));
-  if (refreshBtn) refreshBtn.onclick = () => renderTracker();
-
-  const closedToggle = /** @type {HTMLInputElement | null} */ (c.querySelector("#tracker-closed-toggle"));
-  if (closedToggle) {
-    closedToggle.checked = localStorage.getItem("pty-win-tracker-show-closed") === "true";
-    closedToggle.onchange = () => {
-      localStorage.setItem("pty-win-tracker-show-closed", String(closedToggle.checked));
-      renderTracker();
-    };
-  }
-
-  initTrackerColumnResize(c);
-
-  const wireFilter = /**
-   * @param {string} id
-   * @param {string} _key reserved for future use; currently the localStorage key derives from id
-   */
-  (id, _key) => {
-    const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (c.querySelector(`#${id}`));
-    if (!el) return;
-    const saved = localStorage.getItem(`pty-win-${id}`);
-    if (saved) el.value = saved;
-    el.onchange = () => {
-      localStorage.setItem(`pty-win-${id}`, el.value);
-      renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
-    };
-  };
-  wireFilter("tracker-filter-repo", "repo");
-  wireFilter("tracker-filter-sev", "severity");
-  wireFilter("tracker-filter-assignee", "assigned_to");
-
-  const savedCat = localStorage.getItem("pty-win-tracker-cat") || "";
-  c.querySelectorAll(".tracker-cat-btn").forEach(btn => {
-    if (!(btn instanceof HTMLElement)) return;
-    if (btn.dataset["cat"] === savedCat) {
-      c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-    }
-    btn.onclick = () => {
-      c.querySelectorAll(".tracker-cat-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      localStorage.setItem("pty-win-tracker-cat", btn.dataset["cat"] ?? "");
-      renderTrackerBody(c, filterTrackerItems(state.trackerItems || []));
-    };
-  });
-}
-
-/**
- * @param {TrackerContainer} container
- * @param {any[]} items
- */
-function renderTrackerBody(container, items) {
-  const body = /** @type {HTMLElement | null} */ (container.querySelector(".tracker-body"));
-  if (!body) return;
-  resetTrackerRowNum();
-
-  removeTrackerEmpty(body);
-
-  if (items.length === 0) {
-    renderTrackerEmpty(body);
-    trackerPrevItems.clear();
-    return;
-  }
-
-  const currentIds = new Set(items.map((i) => i.id));
-  const newItemMap = new Map(items.map((i) => [i.id, i]));
-
-  removeStaleTrackerItems(body, currentIds);
-  removeEmptyTrackerGroups(body);
-
-  const ops = { buildItem: buildTrackerItem, patchItem: patchTrackerItem };
-
-  if (trackerSortField !== "status") {
-    removeAllTrackerGroups(body);
-    renderFlatTrackerItems(body, sortTrackerItems(items), ops);
-  } else {
-    renderGroupedTrackerItems(body, items, TRACKER_STATUS_ORDER, newItemMap, ops);
-  }
-
-  trackerPrevItems = newItemMap;
-
-  if (container._applyColWidths) container._applyColWidths();
-}
+// ===== Tracker Panel (extracted to lib/tracker-panel.js) =====
+// Created after agents-panel so renderTracker() is wired below where
+// the right-panel tabs IIFE expects it.
 
 // ===== Modal =====
 
@@ -3510,6 +3140,8 @@ const agentsPanel = createAgentsPanel({
   onFocusSession: focusExistingSession,
 });
 
+const trackerPanel = createTrackerPanel({ state, byId });
+
 (function initRightPanelTabs() {
   const tabs = document.querySelectorAll("#right-panel-tabs .rp-tab");
   const feedContent = byId("feed-content");
@@ -3528,15 +3160,15 @@ const agentsPanel = createAgentsPanel({
       if (panel === "tracker") {
         const existing = trackerContent.querySelector(".tracker-view");
         if (existing) existing.remove();
-        renderTracker();
+        trackerPanel.render();
       }
       if (panel === "agents") agentsPanel.render();
     };
   });
 
   // Start tracker polling (updates badge even when feed tab is active)
-  renderTracker();
-  setInterval(renderTracker, 10000);
+  trackerPanel.render();
+  trackerPanel.startPolling();
 
   // Start agents panel polling
   agentsPanel.render();
