@@ -159,6 +159,34 @@ describe("createSessionsStore", () => {
     });
   });
 
+  describe("remove (9e-C)", () => {
+    it("removes the entry and returns true when it exists", () => {
+      const { store, state } = mkStore([{ name: "a" }, { name: "b" }]);
+      expect(store.remove("a")).toBe(true);
+      expect(store.has("a")).toBe(false);
+      expect(state.sessions.size).toBe(1);
+    });
+
+    it("returns false and is a no-op when the name is unknown", () => {
+      const { store, onChange } = mkStore([{ name: "a" }]);
+      expect(store.remove("ghost")).toBe(false);
+      expect(store.has("a")).toBe(true);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("fires onChange with { kind: 'remove', name } on success", () => {
+      const { store, onChange } = mkStore([{ name: "a" }]);
+      store.remove("a");
+      expect(onChange).toHaveBeenCalledWith({ kind: "remove", name: "a" });
+    });
+
+    it("default no-op onChange does not throw on remove", () => {
+      const state: any = { sessions: new Map([["a", { name: "a" }]]) };
+      const store = createSessionsStore({ state });
+      expect(() => store.remove("a")).not.toThrow();
+    });
+  });
+
   describe("onChange wiring", () => {
     it("default no-op onChange does not throw", () => {
       const state: any = { sessions: new Map() };

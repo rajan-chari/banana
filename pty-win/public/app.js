@@ -819,7 +819,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
     return;
   }
   if (existing && existing.status === "dead") {
-    await cleanupDeadSession(sessionName, { state });
+    await cleanupDeadSession(sessionName, { state, sessions });
   }
 
   try {

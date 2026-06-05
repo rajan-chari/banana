@@ -21,6 +21,10 @@
 //                      SessionInfo. No-op (returns false) when the
 //                      name is unknown. Fires onChange({ kind:
 //                      "update", name }).
+//   remove(name)       Delete a session entry locally (before the
+//                      server's next snapshot catches up). Returns
+//                      true when an entry existed and was removed.
+//                      Fires onChange({ kind: "remove", name }).
 //   byName(name)       Map.get equivalent; returns SessionInfo | undefined.
 //   has(name)          Map.has equivalent.
 //   size()             count of sessions.
@@ -31,7 +35,7 @@
 //                      the Map type signature; reader-only contract).
 //
 // Internal-only operations (not yet exposed):
-//   - per-name deletion (added 9e-C as remove).
+//   (none — all writers covered through 9e-C)
 
 /**
  * @typedef {import('./state.js').SessionInfo} SessionInfo
@@ -43,6 +47,7 @@
  *   onChange?: (e:
  *     | { kind: "replace", prevNames: Set<string> }
  *     | { kind: "update", name: string }
+ *     | { kind: "remove", name: string }
  *   ) => void,
  * }} SessionsStoreDeps
  */
@@ -88,6 +93,20 @@ export function createSessionsStore(deps) {
     return true;
   }
 
+  /**
+   * Delete a single session entry locally. Returns true if an entry
+   * existed and was removed.
+   *
+   * @param {string} name
+   * @returns {boolean}
+   */
+  function remove(name) {
+    if (!state.sessions.has(name)) return false;
+    state.sessions.delete(name);
+    onChange({ kind: "remove", name });
+    return true;
+  }
+
   /** @param {string} name */
   function byName(name) { return state.sessions.get(name); }
 
@@ -100,5 +119,5 @@ export function createSessionsStore(deps) {
   function entries() { return [...state.sessions.entries()]; }
   function raw() { return state.sessions; }
 
-  return { replaceAll, updateStatus, byName, has, size, names, list, entries, raw };
+  return { replaceAll, updateStatus, remove, byName, has, size, names, list, entries, raw };
 }

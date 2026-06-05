@@ -126,18 +126,24 @@ describe("cleanupDeadSession", () => {
       terminals: new Map(),
     };
   }
+  function mkSessions(state: { sessions: Map<string, unknown> }) {
+    return {
+      remove: (name: string) => state.sessions.delete(name),
+    };
+  }
 
   it("DELETEs the session and removes from sessions Map", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: true });
     const state = makeState();
-    await cleanupDeadSession("dead-a", { state, fetchFn });
+    await cleanupDeadSession("dead-a", { state, sessions: mkSessions(state), fetchFn });
     expect(fetchFn).toHaveBeenCalledWith("/api/sessions/dead-a", { method: "DELETE" });
     expect(state.sessions.has("dead-a")).toBe(false);
   });
 
   it("URL-encodes the session name", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: true });
-    await cleanupDeadSession("name with spaces", { state: makeState(), fetchFn });
+    const state = makeState();
+    await cleanupDeadSession("name with spaces", { state, sessions: mkSessions(state), fetchFn });
     expect(fetchFn).toHaveBeenCalledWith(
       "/api/sessions/name%20with%20spaces",
       { method: "DELETE" },
@@ -147,7 +153,7 @@ describe("cleanupDeadSession", () => {
   it("swallows DELETE failure but still clears local state", async () => {
     const fetchFn = vi.fn().mockRejectedValue(new Error("network"));
     const state = makeState();
-    await expect(cleanupDeadSession("dead-a", { state, fetchFn })).resolves.toBeUndefined();
+    await expect(cleanupDeadSession("dead-a", { state, sessions: mkSessions(state), fetchFn })).resolves.toBeUndefined();
     expect(state.sessions.has("dead-a")).toBe(false);
   });
 
@@ -164,7 +170,7 @@ describe("cleanupDeadSession", () => {
         wrapperEl: { remove },
       }]]),
     };
-    await cleanupDeadSession("s1", { state, fetchFn });
+    await cleanupDeadSession("s1", { state, sessions: mkSessions(state), fetchFn });
     expect(disconnect).toHaveBeenCalledTimes(1);
     expect(dispose).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledTimes(1);
@@ -173,8 +179,8 @@ describe("cleanupDeadSession", () => {
 
   it("tolerates missing terminal entry", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: true });
-    const state = { sessions: new Map(), terminals: new Map() };
-    await expect(cleanupDeadSession("ghost", { state, fetchFn })).resolves.toBeUndefined();
+    const state = { sessions: new Map<string, unknown>(), terminals: new Map() };
+    await expect(cleanupDeadSession("ghost", { state, sessions: mkSessions(state), fetchFn })).resolves.toBeUndefined();
   });
 
   it("tolerates terminal entry without resizeObserver or wrapperEl", async () => {
@@ -184,7 +190,7 @@ describe("cleanupDeadSession", () => {
       sessions: new Map([["s1", { status: "dead" }]]),
       terminals: new Map([["s1", { term: { dispose } }]]),
     };
-    await expect(cleanupDeadSession("s1", { state, fetchFn })).resolves.toBeUndefined();
+    await expect(cleanupDeadSession("s1", { state, sessions: mkSessions(state), fetchFn })).resolves.toBeUndefined();
     expect(dispose).toHaveBeenCalled();
     expect(state.terminals.has("s1")).toBe(false);
   });

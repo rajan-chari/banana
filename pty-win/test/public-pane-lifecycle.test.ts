@@ -129,6 +129,7 @@ function mkDeps(stateOver: any = {}) {
     sessions: {
       byName: (n: string) => (state.sessions as Map<string, any>).get(n),
       has: (n: string) => (state.sessions as Map<string, any>).has(n),
+      remove: (n: string) => (state.sessions as Map<string, any>).delete(n),
     },
     doc: document, env: { fetch: fetchFn as any, setTimeout: setTimeoutFn },
     layout, helpers, views,

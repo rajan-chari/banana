@@ -77,14 +77,15 @@ export function buildCreateSessionRequest(args) {
  *
  * @param {string} sessionName
  * @param {{
- *   state: { sessions: Map<string, unknown>, terminals: Map<string, { resizeObserver?: { disconnect: () => void }, term: { dispose: () => void }, wrapperEl?: { remove: () => void } }> },
+ *   state: { terminals: Map<string, { resizeObserver?: { disconnect: () => void }, term: { dispose: () => void }, wrapperEl?: { remove: () => void } }> },
+ *   sessions: { remove: (name: string) => boolean },
  *   fetchFn?: typeof fetch
  * }} deps
  */
 export async function cleanupDeadSession(sessionName, deps) {
   const fetcher = deps.fetchFn || fetch.bind(window);
   await fetcher(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" }).catch(() => {});
-  deps.state.sessions.delete(sessionName);
+  deps.sessions.remove(sessionName);
   const entry = deps.state.terminals.get(sessionName);
   if (entry) {
     entry.resizeObserver?.disconnect();

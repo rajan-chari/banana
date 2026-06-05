@@ -35,6 +35,7 @@ import { isDashboardMode } from "./navigation.js";
  * @property {{
  *   byName: (name: string) => any,
  *   has: (name: string) => boolean,
+ *   remove: (name: string) => boolean,
  * }} sessions
  * @property {Document} [doc]
  * @property {{
@@ -118,7 +119,7 @@ export function createPaneLifecycle(deps) {
 
     disposeTerminalEntry(sessionName);
 
-    state.sessions.delete(sessionName);
+    sessions.remove(sessionName);
     state.sessionMeta.delete(sessionName);
     helpers.saveSessionMeta();
     helpers.rebuildPaneGroups();
@@ -207,7 +208,7 @@ export function createPaneLifecycle(deps) {
 
     disposeTerminalEntry(sessionName);
 
-    state.sessions.delete(sessionName);
+    sessions.remove(sessionName);
     state.sessionMeta.delete(sessionName);
     helpers.saveSessionMeta();
     helpers.rebuildPaneGroups();
