@@ -52,7 +52,7 @@ import { isDashboardMode } from "./navigation.js";
  * @property {{
  *   saveSessionMeta: () => void,
  *   escapeHtml: (s: string) => string,
- *   rebuildPaneGroups: () => void,
+ *   reconcilePaneActiveTypes: () => void,
  *   refreshTreeRunningState: () => void,
  *   updateWorkspaceTabName: (ws: any) => void,
  *   setWorkspaceLayout: (ws: any, tree: any) => void,
@@ -124,7 +124,7 @@ export function createPaneLifecycle(deps) {
     sessions.remove(sessionName);
     state.sessionMeta.delete(sessionName);
     helpers.saveSessionMeta();
-    helpers.rebuildPaneGroups();
+    helpers.reconcilePaneActiveTypes();
     if (state.focusedPane === groupName && !siblingAlive) helpers.focus.clear();
 
     helpers.refreshTreeRunningState();
@@ -213,7 +213,7 @@ export function createPaneLifecycle(deps) {
     sessions.remove(sessionName);
     state.sessionMeta.delete(sessionName);
     helpers.saveSessionMeta();
-    helpers.rebuildPaneGroups();
+    helpers.reconcilePaneActiveTypes();
 
     refocusAfterPaneRemoval(groupName, siblingAlive);
 

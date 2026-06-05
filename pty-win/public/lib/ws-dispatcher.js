@@ -32,7 +32,7 @@ import { getPaneGroup } from "./pane-groups.js";
  *   activeWorkspaceId?: string | null,
  *   focusedPane?: string | null,
  * }} state
- * @property {{ rebuildPaneGroups: () => void, updatePaneStatus: (name: string) => void }} panes
+ * @property {{ reconcilePaneActiveTypes: () => void, updatePaneStatus: (name: string) => void }} panes
  * @property {{
  *   renderSessionsPanel: () => void,
  *   renderQuickAccess: () => void,
@@ -108,7 +108,7 @@ export function createWsDispatcher(deps) {
     }
     deps.sessions.saveSessionMeta();
 
-    deps.panes.rebuildPaneGroups();
+    deps.panes.reconcilePaneActiveTypes();
 
     const serverGroups = new Set(deps.sessionsStore.list().map((/** @type {any} */ s) => s.group || s.name));
     const orphans = deps.layouts.findOrphanedLeaves(deps.state.workspaces, serverGroups, deps.layouts.getLeafList);
@@ -152,7 +152,7 @@ export function createWsDispatcher(deps) {
       pendingPermission: !!msg.payload.pendingPermission,
     });
     if (!found) return;
-    deps.panes.rebuildPaneGroups();
+    deps.panes.reconcilePaneActiveTypes();
     deps.panes.updatePaneStatus(msg.session);
     deps.tree.refreshTreeRunningState();
     deps.views.renderSessionsPanel();

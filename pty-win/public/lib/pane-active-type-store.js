@@ -12,8 +12,8 @@
 // Lifecycle:
 //   - Not persisted (resets on page reload, matching prior behavior).
 //   - Stale entries (for groups no longer in `sessions`) are cleaned up
-//     by `rebuildPaneGroups` so a group that disappears and later returns
-//     defaults back to "claude" — matching pre-9d-0 behavior.
+//     by `reconcilePaneActiveTypes` so a group that disappears and later
+//     returns defaults back to "claude" — matching pre-9d-0 behavior.
 //
 // Semantics:
 //   - "active tab" / "currently visible", NOT "user preference". When the

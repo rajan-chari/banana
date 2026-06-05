@@ -112,8 +112,6 @@ export const state = {
   ctxTarget: null,        // path for context menu
   /** @type {Map<string, SessionMeta>} */
   sessionMeta: new Map(), // for recreating sessions after restart
-  /** @type {Map<string, PaneGroup>} */
-  paneGroups: new Map(),
   /** @type {Map<string, "claude"|"pwsh">} */
   activePaneTypes: new Map(),
   /** @type {Map<string, FolderInfo>} */

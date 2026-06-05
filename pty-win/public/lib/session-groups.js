@@ -2,8 +2,8 @@
 // Session-group derivation — pure functions extracted from
 // renderSessionsPanel() (tracker 8eb3a993 Phase 3).
 //
-// app.js wraps these and supplies state.paneGroups / state.sessions at call time.
-// All functions are read-only on their inputs.
+// app.js wraps these and supplies the pane-groups selector result +
+// state.sessions at call time. All functions are read-only on their inputs.
 
 /** @typedef {import('./state.js').SessionInfo} SessionInfo */
 /** @typedef {import('./state.js').PaneGroup} PaneGroup */

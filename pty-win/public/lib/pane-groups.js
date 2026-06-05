@@ -13,8 +13,8 @@
  * Normalize activeType against actual sessions in a pane group: if the
  * recorded active sibling is missing, return the surviving one. Pure
  * function — does NOT write back to any store. Used by both the
- * selector (per-read normalization) and `rebuildPaneGroups` (so the
- * persisted activePaneTypes catches up to reality).
+ * selector (per-read normalization) and `reconcilePaneActiveTypes` (so
+ * the persisted activePaneTypes catches up to reality).
  *
  * @param {"claude"|"pwsh"} active
  * @param {{ claude?: string, pwsh?: string }} pg
@@ -28,9 +28,9 @@ function normalizeActiveType(active, pg) {
 
 /**
  * Build the per-group `{claude?, pwsh?}` membership map from a sessions
- * map. Shared by both `rebuildPaneGroups` (reconciler) and `getPaneGroups`
- * (pure selector). The returned groups have NO `activeType` yet — callers
- * layer it on per their needs.
+ * map. Shared by both `reconcilePaneActiveTypes` (reconciler) and
+ * `getPaneGroups` (pure selector). The returned groups have NO
+ * `activeType` yet — callers layer it on per their needs.
  *
  * @param {Map<string, SessionInfo>} sessions
  * @returns {Map<string, { claude?: string, pwsh?: string }>}
@@ -49,48 +49,42 @@ function buildGroupMembership(sessions) {
 }
 
 /**
- * Rebuild pane groups from a sessions map.
- * Groups Claude and PowerShell sessions by folder basename.
- * Seeds each new group's activeType from `activePaneTypes` (the persistent
- * "currently visible tab" store introduced in 9d-0).
+ * Reconcile the `activePaneTypes` store against a fresh sessions map.
+ * Side-effect only — production reads go through `getPaneGroup`/
+ * `getPaneGroups` (pure selectors) instead.
  *
- * Side effects on `activePaneTypes` (intentional, see plan 9d-0):
- *   - flip-to-other when active sibling is missing (keeps store in sync
- *     so the bridge dual-write stays consistent).
- *   - DELETE stale entries for groups not present in the rebuilt map,
- *     so a group that disappears and later returns defaults to "claude"
- *     — preserving pre-9d-0 behavior.
+ * Two reconciliation rules:
+ *   - **flip-to-other**: when the active sibling is missing, set
+ *     `activePaneTypes.set(group, surviving)` so the persisted store
+ *     catches up to reality.
+ *   - **stale prune**: DELETE entries for groups not present in the
+ *     fresh sessions, so a group that disappears and later returns
+ *     defaults to "claude". This preserves pre-9d behavior where
+ *     activeType lived on cached PaneGroup objects discarded on rebuild.
  *
  * @param {Map<string, SessionInfo>} sessions
  * @param {PaneActiveTypeStore} activePaneTypes
- * @returns {Map<string, PaneGroup>}
+ * @returns {void}
  */
-export function rebuildPaneGroups(sessions, activePaneTypes) {
-  /** @type {Map<string, PaneGroup>} */
-  const groups = new Map();
+export function reconcilePaneActiveTypes(sessions, activePaneTypes) {
   const membership = buildGroupMembership(sessions);
   for (const [group, pg] of membership) {
     const seed = /** @type {"claude"|"pwsh"} */ (activePaneTypes.get(group) || "claude");
     const normalized = normalizeActiveType(seed, pg);
     if (normalized !== seed) activePaneTypes.set(group, normalized);
-    groups.set(group, { ...pg, activeType: normalized });
   }
-
-  // Clean up stale store entries for groups no longer present, so a group
-  // that disappears and later returns defaults back to "claude". Preserves
-  // pre-9d-0 behavior (active type used to live on cached PaneGroup objects
-  // which were thrown away on rebuild).
+  // Stale-entry cleanup: groups no longer present release their store
+  // entry so a reappearance defaults back to "claude".
   for (const group of [...activePaneTypes.raw().keys()]) {
-    if (!groups.has(group)) activePaneTypes.delete(group);
+    if (!membership.has(group)) activePaneTypes.delete(group);
   }
-
-  return groups;
 }
 
 /**
- * Pure selector — same shape as `rebuildPaneGroups`, no side effects on
- * `activePaneTypes`. Applies the dead-sibling flip per read so callers
- * never see an `activeType` pointing at a missing session.
+ * Pure selector — derives the per-group `{claude?, pwsh?, activeType}`
+ * shape from `state.sessions` + `state.activePaneTypes` with no side
+ * effects. Applies the dead-sibling flip per read so callers never
+ * see an `activeType` pointing at a missing session.
  *
  * Accepts the raw `Map<string, "claude"|"pwsh">` for activePaneTypes
  * (i.e. `state.activePaneTypes`), not the store. This keeps the selector

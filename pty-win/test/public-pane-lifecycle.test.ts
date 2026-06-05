@@ -89,7 +89,7 @@ function mkDeps(stateOver: any = {}) {
   const helpers = {
     saveSessionMeta: vi.fn(),
     escapeHtml: vi.fn((s: string) => s.replace(/&/g, "&amp;")),
-    rebuildPaneGroups: vi.fn(),
+    reconcilePaneActiveTypes: vi.fn(),
     refreshTreeRunningState: vi.fn(),
     updateWorkspaceTabName: vi.fn(),
     setWorkspaceLayout: vi.fn((ws: any, tree: any) => { ws.layout = tree; }),
@@ -219,13 +219,34 @@ describe("createPaneLifecycle - killSession", () => {
     expect(state.focusedPane).toBe("a");
   });
 
-  it("triggers rebuildPaneGroups, refreshTreeRunningState, render, renderTabs", async () => {
+  it("triggers reconcilePaneActiveTypes, refreshTreeRunningState, render, renderTabs", async () => {
     const { lc, helpers, views } = mkDeps();
     await lc.killSession("a~pwsh");
-    expect(helpers.rebuildPaneGroups).toHaveBeenCalled();
+    expect(helpers.reconcilePaneActiveTypes).toHaveBeenCalled();
     expect(helpers.refreshTreeRunningState).toHaveBeenCalled();
     expect(views.renderActiveWorkspace).toHaveBeenCalled();
     expect(views.renderTabs).toHaveBeenCalled();
+  });
+
+  it("with the real reconciler wired, removing the final sibling prunes the activePaneTypes entry", async () => {
+    const { reconcilePaneActiveTypes } = await import("../public/lib/pane-groups.js");
+    const { createPaneActiveTypeStore } = await import("../public/lib/pane-active-type-store.js");
+    // Group "solo" has only a claude session and a stale activePaneTypes
+    // entry. After killing the lone session, running the real reconciler
+    // should drop the entry so a future reappearance defaults to "claude".
+    const { lc, state } = mkDeps({
+      sessions: new Map<string, any>([["solo", { status: "idle", group: "solo" }]]),
+      sessionMeta: new Map<string, any>([["solo", { workingDir: "/tmp/solo" }]]),
+      activePaneTypes: new Map<string, "claude"|"pwsh">([["solo", "claude"]]),
+      terminals: new Map<string, any>([["solo", mkTerminalEntry()]]),
+      workspaces: [{ id: "w1", layout: { type: "leaf", name: "solo" } }],
+      activeWorkspaceId: "w1",
+      focusedPane: "solo",
+    });
+    const realStore = createPaneActiveTypeStore({ state });
+    await lc.killSession("solo");
+    reconcilePaneActiveTypes(state.sessions as Map<string, any>, realStore);
+    expect(state.activePaneTypes.has("solo")).toBe(false);
   });
 
   it("swallows fetch errors so cleanup still proceeds", async () => {
@@ -274,7 +295,7 @@ describe("createPaneLifecycle - autoRemoveDeadSession", () => {
     const { lc, state, helpers } = mkDeps();
     lc.autoRemoveDeadSession("missing");
     lc.autoRemoveDeadSession("a"); // status: idle
-    expect(helpers.rebuildPaneGroups).not.toHaveBeenCalled();
+    expect(helpers.reconcilePaneActiveTypes).not.toHaveBeenCalled();
     expect(state.sessions.has("a")).toBe(true);
   });
 

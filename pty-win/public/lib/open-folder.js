@@ -99,8 +99,9 @@ export async function cleanupDeadSession(sessionName, deps) {
  * Optimistically insert the just-created session into the local store
  * (Phase 9d) so the upcoming render finds it before the WS `sessions`
  * snapshot arrives. Also flips `activePaneTypes` for the group to the
- * newly-opened tab, and triggers a reconcile so any consumers still
- * reading the cached `state.paneGroups` Map see the new membership.
+ * newly-opened tab, and triggers a reconcile so the activePaneTypes
+ * store stays consistent with the new membership (flip-to-other +
+ * stale-prune rules).
  *
  * Order matters: `activePaneTypes.set` BEFORE `sessions.add` so any
  * synchronous `sessions.onChange` observer sees the intended active type.
@@ -113,7 +114,7 @@ export async function cleanupDeadSession(sessionName, deps) {
  *   folderPath: string,
  *   sessions: { add: (info: any) => boolean },
  *   activePaneTypes: { set: (name: string, type: "claude"|"pwsh") => void },
- *   rebuildPaneGroups: () => void,
+ *   reconcilePaneActiveTypes: () => void,
  * }} args
  */
 export function optimisticallyAddNewSession(args) {
@@ -126,7 +127,7 @@ export function optimisticallyAddNewSession(args) {
     status: "starting",
     workingDir: args.folderPath,
   });
-  args.rebuildPaneGroups();
+  args.reconcilePaneActiveTypes();
 }
 
 /**

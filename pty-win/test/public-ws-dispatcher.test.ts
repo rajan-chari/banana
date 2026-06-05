@@ -8,7 +8,7 @@ import { createSessionsStore } from "../public/lib/sessions-store.js";
 
 function mkPorts(state?: any) {
   return {
-    panes: { rebuildPaneGroups: vi.fn(), updatePaneStatus: vi.fn() },
+    panes: { reconcilePaneActiveTypes: vi.fn(), updatePaneStatus: vi.fn() },
     views: {
       renderSessionsPanel: vi.fn(),
       renderQuickAccess: vi.fn(),
@@ -87,7 +87,7 @@ describe("createWsDispatcher - dispatch routing", () => {
     const ports = mkPorts(state);
     const d = createWsDispatcher({ state, ...ports, win: mkWin() });
     d.dispatch({ type: "status", session: "ghost", payload: { status: "idle" } });
-    expect(ports.panes.rebuildPaneGroups).not.toHaveBeenCalled();
+    expect(ports.panes.reconcilePaneActiveTypes).not.toHaveBeenCalled();
   });
 
   it("ignores notification messages for unknown sessions", () => {
@@ -103,7 +103,7 @@ describe("createWsDispatcher - dispatch routing", () => {
     const ports = mkPorts(state);
     const d = createWsDispatcher({ state, ...ports, win: mkWin() });
     expect(() => d.dispatch({ type: "mystery" })).not.toThrow();
-    expect(ports.panes.rebuildPaneGroups).not.toHaveBeenCalled();
+    expect(ports.panes.reconcilePaneActiveTypes).not.toHaveBeenCalled();
   });
 });
 
@@ -191,7 +191,7 @@ describe("createWsDispatcher - handleWsStatus", () => {
     expect(s.status).toBe("busy");
     expect(s.unreadCount).toBe(3);
     expect(s.pendingPermission).toBe(true);
-    expect(ports.panes.rebuildPaneGroups).toHaveBeenCalled();
+    expect(ports.panes.reconcilePaneActiveTypes).toHaveBeenCalled();
     expect(ports.panes.updatePaneStatus).toHaveBeenCalledWith("a");
   });
 

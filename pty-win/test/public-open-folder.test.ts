@@ -240,7 +240,7 @@ describe("optimisticallyAddNewSession (9d-A)", () => {
       folderPath: "C:\\projects\\foo",
       sessions: { add: vi.fn(() => true) },
       activePaneTypes: { set: vi.fn() },
-      rebuildPaneGroups: vi.fn(),
+      reconcilePaneActiveTypes: vi.fn(),
       ...overrides,
     };
   }
@@ -250,7 +250,7 @@ describe("optimisticallyAddNewSession (9d-A)", () => {
     const args = mkArgs({
       sessions: { add: vi.fn((_info: any) => { calls.push("add"); return true; }) },
       activePaneTypes: { set: vi.fn((_n: string, _t: string) => { calls.push("setActive"); }) },
-      rebuildPaneGroups: vi.fn(() => { calls.push("rebuild"); }),
+      reconcilePaneActiveTypes: vi.fn(() => { calls.push("rebuild"); }),
     });
     optimisticallyAddNewSession(args);
     expect(calls).toEqual(["setActive", "add", "rebuild"]);
@@ -301,24 +301,24 @@ describe("optimisticallyAddNewSession (9d-A)", () => {
     expect(setActive).toHaveBeenCalledWith("foo", "claude");
   });
 
-  it("calls rebuildPaneGroups after the optimistic insertion", () => {
-    const rebuildPaneGroups = vi.fn();
-    const args = mkArgs({ rebuildPaneGroups });
+  it("calls reconcilePaneActiveTypes after the optimistic insertion", () => {
+    const reconcilePaneActiveTypes = vi.fn();
+    const args = mkArgs({ reconcilePaneActiveTypes });
     optimisticallyAddNewSession(args);
-    expect(rebuildPaneGroups).toHaveBeenCalledTimes(1);
+    expect(reconcilePaneActiveTypes).toHaveBeenCalledTimes(1);
   });
 
   it("tolerates sessions.add returning false (name collision) — still flips active + rebuilds", () => {
-    const rebuildPaneGroups = vi.fn();
+    const reconcilePaneActiveTypes = vi.fn();
     const setActive = vi.fn();
     const args = mkArgs({
       sessions: { add: vi.fn(() => false) },
       activePaneTypes: { set: setActive },
-      rebuildPaneGroups,
+      reconcilePaneActiveTypes,
     });
     optimisticallyAddNewSession(args);
     expect(setActive).toHaveBeenCalled();
-    expect(rebuildPaneGroups).toHaveBeenCalled();
+    expect(reconcilePaneActiveTypes).toHaveBeenCalled();
   });
 
   it("uses baseName as the group key (not sessionName) so pwsh joins the claude group", () => {

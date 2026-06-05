@@ -25,7 +25,7 @@ Before responding to the user's first message:
 - **Change terminal appearance** — edit `public/style.css` (xterm overrides at bottom) or `TERM_THEME` in `public/app.js`
 - **Fix tiling/layout bugs** — `public/app.js`, look for `buildBalancedTree()`, `renderTileNode()`, `renderActiveWorkspace()`
 - **Debug idle detection** — `src/screen-detector.ts` (regex patterns), `src/session.ts` (heuristic timer)
-- **Sessions panel** — `renderSessionsPanel()` in `public/app.js`, uses `state.paneGroups` for consolidated rows
+- **Sessions panel** — `renderSessionsPanel()` in `public/app.js`, uses `getPaneGroups()` selector (from `public/lib/pane-groups.js`) for consolidated rows
 - **AI launcher presets** — `state.aiPresets` + `showAiPicker()` in `public/app.js`, presets in localStorage
 - **Emcom integration** — `src/emcom/poller.ts` (polling), `src/session.ts` (injection + unread count)
 

@@ -45,7 +45,7 @@ import {
   treeContains,
   findParentSplit,
 } from "./lib/tiling.js";
-import { rebuildPaneGroups as _rebuildPaneGroups, getPaneGroups, getPaneGroup } from "./lib/pane-groups.js";
+import { reconcilePaneActiveTypes, getPaneGroups, getPaneGroup } from "./lib/pane-groups.js";
 import { isDashboardMode } from "./lib/navigation.js";
 import { createWorkspaceTabs } from "./lib/workspace-tabs.js";
 import { createSessionDrop } from "./lib/session-drop.js";
@@ -174,8 +174,8 @@ function buttonById(id) {
   return el;
 }
 
-function rebuildPaneGroups() {
-  state.paneGroups = _rebuildPaneGroups(state.sessions, activePaneTypes);
+function reconcile() {
+  reconcilePaneActiveTypes(state.sessions, activePaneTypes);
 }
 
 // ===== Folder-tree port (narrow surface for forward-ref callers) =====
@@ -253,8 +253,10 @@ const focus = createFocusStore({
 // (9e-B) and remove (9e-C).
 const sessions = createSessionsStore({ state });
 
-// Pane "active type" store (Phase 9d-0). Owns the writes; rebuildPaneGroups
-// seeds pg.activeType from this store (9d-0-B). Not persisted.
+// Pane "active type" store (Phase 9d-0). Owns the writes; the WS dispatcher
+// invokes reconcilePaneActiveTypes after every snapshot so this store stays
+// consistent with `state.sessions` (flips active when sibling dies; prunes
+// entries for groups that disappear). Not persisted.
 const activePaneTypes = createPaneActiveTypeStore({ state });
 
 
@@ -329,7 +331,7 @@ const paneLifecycle = createPaneLifecycle({
   helpers: {
     saveSessionMeta,
     escapeHtml,
-    rebuildPaneGroups,
+    reconcilePaneActiveTypes: reconcile,
     refreshTreeRunningState,
     updateWorkspaceTabName,
     setWorkspaceLayout,
@@ -518,7 +520,7 @@ const renderSessionsPanel = sessionsPanel.renderSessionsPanel;
 
 const wsDispatcher = createWsDispatcher({
   state,
-  panes: { rebuildPaneGroups, updatePaneStatus },
+  panes: { reconcilePaneActiveTypes: reconcile, updatePaneStatus },
   views: { renderSessionsPanel, renderQuickAccess, renderDashboard: dashboardPanel.render, renderActiveWorkspace, showDirtyWarning },
   tree: { refreshTreeRunningState },
   layouts: {
@@ -883,7 +885,7 @@ function buildOpenFolderBody({ folderPath, command, args }) {
 function placeNewSession({ baseName, sessionName, isPwsh, command, folderPath, newWorkspace }) {
   optimisticallyAddNewSession({
     baseName, sessionName, isPwsh, command, folderPath,
-    sessions, activePaneTypes, rebuildPaneGroups,
+    sessions, activePaneTypes, reconcilePaneActiveTypes: reconcile,
   });
   const siblingWs = findWorkspaceContaining(baseName);
   if (siblingWs) {
