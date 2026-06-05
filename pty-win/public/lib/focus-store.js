@@ -19,6 +19,11 @@
 //   clear()                set to null. Returns true if it changed.
 //   refocusToFirstLeaf()   set to the first leaf of the active workspace
 //                          (or null). Returns the new value.
+//   captureForWorkspace(ws)    save current focused pane onto
+//                              ws.lastFocusedPane (no-op when ws falsy).
+//   restoreForWorkspace(ws)    restore focus from ws.lastFocusedPane
+//                              with first-leaf fallback. Returns the
+//                              pane that ended up focused.
 //
 // The store keeps state.focusedPane as the authoritative backing field so
 // readers across the codebase don't have to switch to the store all at
@@ -98,7 +103,30 @@ export function createFocusStore(deps) {
     return next;
   }
 
-  return { get, set, setOrFirst, clear, refocusToFirstLeaf };
+  /**
+   * Save the currently-focused pane onto `ws.lastFocusedPane` so it can
+   * be restored later via restoreForWorkspace. No-op when `ws` is null.
+   *
+   * @param {{ lastFocusedPane?: string | null } | null | undefined} ws
+   */
+  function captureForWorkspace(ws) {
+    if (!ws) return;
+    ws.lastFocusedPane = state.focusedPane;
+  }
+
+  /**
+   * Restore focus to a workspace's remembered pane. Falls back to the
+   * first leaf of the workspace's layout when the remembered pane is
+   * missing or no longer in the layout.
+   *
+   * @param {{ lastFocusedPane?: string | null } | null | undefined} ws
+   * @returns {string | null}
+   */
+  function restoreForWorkspace(ws) {
+    return setOrFirst(ws?.lastFocusedPane);
+  }
+
+  return { get, set, setOrFirst, clear, refocusToFirstLeaf, captureForWorkspace, restoreForWorkspace };
 }
 
 /**

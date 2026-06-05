@@ -194,4 +194,68 @@ describe("createFocusStore", () => {
       expect(onChange).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("captureForWorkspace", () => {
+    it("writes the current focused pane onto ws.lastFocusedPane", () => {
+      const { store } = mkStore(null, "b");
+      const ws: any = {};
+      store.captureForWorkspace(ws);
+      expect(ws.lastFocusedPane).toBe("b");
+    });
+
+    it("captures null when nothing is focused", () => {
+      const { store } = mkStore(null, null);
+      const ws: any = { lastFocusedPane: "stale" };
+      store.captureForWorkspace(ws);
+      expect(ws.lastFocusedPane).toBeNull();
+    });
+
+    it("is a no-op when ws is null or undefined", () => {
+      const { store } = mkStore(null, "x");
+      expect(() => store.captureForWorkspace(null)).not.toThrow();
+      expect(() => store.captureForWorkspace(undefined)).not.toThrow();
+    });
+
+    it("does NOT fire onChange (it's a workspace-side write, not focus mutation)", () => {
+      const { store, onChange } = mkStore(null, "b");
+      store.captureForWorkspace({} as any);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("restoreForWorkspace", () => {
+    it("restores ws.lastFocusedPane when it's still in the layout", () => {
+      const { store, state } = mkStore(split(leaf("a"), leaf("b")));
+      const ws: any = { lastFocusedPane: "b" };
+      expect(store.restoreForWorkspace(ws)).toBe("b");
+      expect(state.focusedPane).toBe("b");
+    });
+
+    it("falls back to first leaf when lastFocusedPane is stale", () => {
+      const { store, state } = mkStore(split(leaf("a"), leaf("b")));
+      const ws: any = { lastFocusedPane: "ghost" };
+      expect(store.restoreForWorkspace(ws)).toBe("a");
+      expect(state.focusedPane).toBe("a");
+    });
+
+    it("falls back to first leaf when ws has no lastFocusedPane", () => {
+      const { store, state } = mkStore(split(leaf("a"), leaf("b")));
+      const ws: any = {};
+      expect(store.restoreForWorkspace(ws)).toBe("a");
+      expect(state.focusedPane).toBe("a");
+    });
+
+    it("falls back to first leaf when ws is null/undefined", () => {
+      const { store, state } = mkStore(split(leaf("a"), leaf("b")));
+      expect(store.restoreForWorkspace(null)).toBe("a");
+      expect(state.focusedPane).toBe("a");
+    });
+
+    it("returns null when the active workspace has no layout", () => {
+      const { store, state } = mkStore(null, "stale");
+      const ws: any = { lastFocusedPane: "stale" };
+      expect(store.restoreForWorkspace(ws)).toBeNull();
+      expect(state.focusedPane).toBeNull();
+    });
+  });
 });

@@ -879,7 +879,7 @@ function focusExistingSession(name) {
   if (ws) {
     // Set focusedPane directly so switchToWorkspace picks it up
     focus.set(groupName);
-    ws.lastFocusedPane = groupName;
+    focus.captureForWorkspace(ws);
     if (ws.id === state.activeWorkspaceId) {
       // Already on this workspace — just focus the pane, no full switch needed
       renderActiveWorkspace();
@@ -898,7 +898,7 @@ function focusExistingSession(name) {
     const activeWs = getOrCreateActiveWorkspace();
     addSessionToWorkspace(activeWs.id, groupName);
     focus.set(groupName);
-    activeWs.lastFocusedPane = groupName;
+    focus.captureForWorkspace(activeWs);
     switchToWorkspace(activeWs.id);
     updateWorkspaceTabName(activeWs);
   }
@@ -1086,8 +1086,7 @@ function createWorkspace(name) {
 function switchToWorkspace(id) {
   // Save focused pane for current workspace
   if (state.activeWorkspaceId) {
-    const prevWs = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-    if (prevWs) prevWs.lastFocusedPane = state.focusedPane;
+    focus.captureForWorkspace(workspaces.byId(state.activeWorkspaceId));
   }
 
   dashboardPanel.stopPolling();
@@ -1095,8 +1094,7 @@ function switchToWorkspace(id) {
 
   // Restore focused pane for target workspace (falls back to first leaf
   // when lastFocusedPane is stale, missing, or not in the layout).
-  const ws = state.workspaces.find((w) => w.id === id);
-  focus.setOrFirst(ws?.lastFocusedPane);
+  focus.restoreForWorkspace(workspaces.byId(id));
 
   renderTabs();
   renderActiveWorkspace();
