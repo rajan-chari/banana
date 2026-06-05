@@ -20,7 +20,7 @@
  *   openFolder: (path: string, name: string, command?: string, newWorkspace?: boolean) => unknown,
  *   renderTree: () => void,
  *   renderQuickAccess: () => void,
- *   saveFavorites: () => void,
+ *   favorites: { add: (p: string) => boolean, remove: (p: string) => boolean, has: (p: string) => boolean },
  *   savePinnedFolders: () => void,
  *   normPath: (p: string) => string,
  *   fetchFn?: typeof fetch,
@@ -93,39 +93,6 @@ export async function createSubfolderAndRefresh(path, trimmed, state, deps) {
 }
 
 /**
- * Add `path` to favorites if not already present; persist + re-render.
- * Returns true when state changed.
- *
- * @param {string} path
- * @param {ContextMenuDeps["state"]} state
- * @param {{ saveFavorites: () => void, renderTree: () => void }} deps
- */
-export function addFavorite(path, state, deps) {
-  if (state.favorites.includes(path)) return false;
-  state.favorites.push(path);
-  deps.saveFavorites();
-  deps.renderTree();
-  return true;
-}
-
-/**
- * Remove `path` from favorites; persist + re-render. Returns true when
- * state changed.
- *
- * @param {string} path
- * @param {ContextMenuDeps["state"]} state
- * @param {{ saveFavorites: () => void, renderTree: () => void }} deps
- */
-export function removeFavorite(path, state, deps) {
-  const idx = state.favorites.indexOf(path);
-  if (idx === -1) return false;
-  state.favorites.splice(idx, 1);
-  deps.saveFavorites();
-  deps.renderTree();
-  return true;
-}
-
-/**
  * @param {string} path
  * @param {ContextMenuDeps["state"]} state
  * @param {{ savePinnedFolders: () => void, renderQuickAccess: () => void }} deps
@@ -165,7 +132,7 @@ export function buildContextMenuActions(deps) {
   const fetcher = deps.fetchFn || fetch.bind(window);
   const promptF = deps.promptFn || ((m, i) => prompt(m, i));
   const alertF = deps.alertFn || ((m) => alert(m));
-  const favDeps = { saveFavorites: deps.saveFavorites, renderTree: deps.renderTree };
+  const favorites = deps.favorites;
   const pinDeps = { savePinnedFolders: deps.savePinnedFolders, renderQuickAccess: deps.renderQuickAccess };
   return {
     "open": (path, name) => { deps.openFolder(path, name); },
@@ -185,8 +152,8 @@ export function buildContextMenuActions(deps) {
         fetcher, alertF, renderTree: deps.renderTree,
       });
     },
-    "fav-add": (path) => { addFavorite(path, deps.state, favDeps); },
-    "fav-remove": (path) => { removeFavorite(path, deps.state, favDeps); },
+    "fav-add": (path) => { favorites.add(path); },
+    "fav-remove": (path) => { favorites.remove(path); },
     "pin-add": (path) => { addPin(path, deps.state, pinDeps); },
     "pin-remove": (path) => { removePin(path, deps.state, pinDeps); },
   };

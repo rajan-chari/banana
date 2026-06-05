@@ -4,14 +4,13 @@ import {
   forceIdleInFolder,
   validateSubfolderName,
   createSubfolderAndRefresh,
-  addFavorite,
-  removeFavorite,
   addPin,
   removePin,
   buildContextMenuActions,
   resolveContextAction,
   createContextMenu,
 } from "../public/lib/context-menu.js";
+import { createFavoritesStore } from "../public/lib/favorites-store.js";
 
 const normPath = (p: string) => (p ? p.replace(/\\/g, "/").toLowerCase() : "");
 
@@ -135,38 +134,6 @@ describe("createSubfolderAndRefresh", () => {
   });
 });
 
-describe("addFavorite / removeFavorite", () => {
-  it("addFavorite pushes, persists, re-renders, returns true", () => {
-    const state = { favorites: [] };
-    const saveFavorites = vi.fn(); const renderTree = vi.fn();
-    expect(addFavorite("p", state as any, { saveFavorites, renderTree })).toBe(true);
-    expect(state.favorites).toEqual(["p"]);
-    expect(saveFavorites).toHaveBeenCalled();
-    expect(renderTree).toHaveBeenCalled();
-  });
-
-  it("addFavorite no-ops + returns false when already present", () => {
-    const state = { favorites: ["p"] };
-    const saveFavorites = vi.fn(); const renderTree = vi.fn();
-    expect(addFavorite("p", state as any, { saveFavorites, renderTree })).toBe(false);
-    expect(saveFavorites).not.toHaveBeenCalled();
-  });
-
-  it("removeFavorite removes existing", () => {
-    const state = { favorites: ["a", "b"] };
-    const saveFavorites = vi.fn(); const renderTree = vi.fn();
-    expect(removeFavorite("a", state as any, { saveFavorites, renderTree })).toBe(true);
-    expect(state.favorites).toEqual(["b"]);
-  });
-
-  it("removeFavorite no-ops on missing", () => {
-    const state = { favorites: ["a"] };
-    const saveFavorites = vi.fn();
-    expect(removeFavorite("missing", state as any, { saveFavorites, renderTree: vi.fn() })).toBe(false);
-    expect(saveFavorites).not.toHaveBeenCalled();
-  });
-});
-
 describe("addPin / removePin", () => {
   it("addPin pushes, persists, re-renders", () => {
     const state = { pinnedFolders: [] };
@@ -240,28 +207,38 @@ describe("resolveContextAction", () => {
 describe("buildContextMenuActions dispatcher", () => {
   let deps: any;
   let openFolder: any, renderTree: any, renderQuickAccess: any;
-  let saveFavorites: any, savePinnedFolders: any, promptFn: any, alertFn: any, fetchFn: any;
+  let favorites: any, savePinnedFolders: any, promptFn: any, alertFn: any, fetchFn: any;
 
   beforeEach(() => {
     openFolder = vi.fn();
     renderTree = vi.fn();
     renderQuickAccess = vi.fn();
-    saveFavorites = vi.fn();
     savePinnedFolders = vi.fn();
     promptFn = vi.fn();
     alertFn = vi.fn();
     fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
-    deps = {
-      state: {
-        sessions: new Map(),
-        aiPresets: [],
-        folderCache: new Map(),
-        expandedPaths: new Set(),
-        favorites: [],
-        pinnedFolders: [],
+    const baseState: any = {
+      sessions: new Map(),
+      aiPresets: [],
+      folderCache: new Map(),
+      expandedPaths: new Set(),
+      favorites: [],
+      pinnedFolders: [],
+    };
+    const memStorage = new Map<string, string>();
+    favorites = createFavoritesStore({
+      state: baseState,
+      storage: {
+        getItem: (k: string) => memStorage.get(k) ?? null,
+        setItem: (k: string, v: string) => { memStorage.set(k, v); },
       },
+      defaultEntry: null as any,
+    });
+    favorites.init();
+    deps = {
+      state: baseState,
       openFolder, renderTree, renderQuickAccess,
-      saveFavorites, savePinnedFolders, normPath,
+      favorites, savePinnedFolders, normPath,
       promptFn, alertFn, fetchFn,
     };
   });
@@ -292,16 +269,17 @@ describe("buildContextMenuActions dispatcher", () => {
     expect(openFolder).not.toHaveBeenCalled();
   });
 
-  it("'fav-add' delegates to addFavorite", () => {
+  it("'fav-add' delegates to favorites store", () => {
     buildContextMenuActions(deps)["fav-add"]("p", "p");
     expect(deps.state.favorites).toEqual(["p"]);
-    expect(saveFavorites).toHaveBeenCalled();
+    expect(favorites.has("p")).toBe(true);
   });
 
-  it("'fav-remove' delegates to removeFavorite", () => {
-    deps.state.favorites = ["p"];
+  it("'fav-remove' delegates to favorites store", () => {
+    favorites.add("p");
     buildContextMenuActions(deps)["fav-remove"]("p", "p");
     expect(deps.state.favorites).toEqual([]);
+    expect(favorites.has("p")).toBe(false);
   });
 
   it("'pin-add' / 'pin-remove' update pinnedFolders", () => {

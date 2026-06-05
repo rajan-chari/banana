@@ -24,8 +24,6 @@ import {
   syncAiDefaultFromServer,
 } from "./lib/state.js";
 import {
-  loadFavorites,
-  saveFavorites,
   loadPinnedFolders,
   savePinnedFolders,
   loadExpandedPaths,
@@ -37,6 +35,7 @@ import {
   loadSessionMeta,
   saveSessionMeta,
 } from "./lib/persistence.js";
+import { createFavoritesStore } from "./lib/favorites-store.js";
 import {
   buildBalancedTree,
   removeSessionFromLayout,
@@ -188,6 +187,11 @@ function rebuildPaneGroups() {
 let folderTree;
 const renderTree = () => folderTree?.renderTree();
 const refreshTreeRunningState = () => folderTree?.refreshTreeRunningState();
+
+const favorites = createFavoritesStore({
+  state,
+  onChange: () => renderTree(),
+});
 
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
@@ -362,7 +366,7 @@ const contextMenuActions = buildContextMenuActions({
   openFolder: (p, n, c, nw) => openFolder(p, n, c, nw),
   renderTree,
   renderQuickAccess: () => renderQuickAccess(),
-  saveFavorites,
+  favorites,
   savePinnedFolders,
   normPath,
 });
@@ -524,11 +528,8 @@ async function initApp() {
     const res = await fetch("/api/config");
     const config = await res.json();
     for (const root of config.rootDirs || []) {
-      if (!state.favorites.includes(root)) {
-        state.favorites.push(root);
-      }
+      favorites.add(root);
     }
-    saveFavorites();
 
     if (config.name) applyInstanceName(config.name);
     applyBuildInfo(config.build);
@@ -993,11 +994,8 @@ byId("btn-collapse-all").onclick = () => {
 
 byId("btn-add-root").onclick = () => {
   const path = prompt("Enter folder path to add as root:");
-  if (path && !state.favorites.includes(path)) {
-    state.favorites.push(path);
-    saveFavorites();
+  if (path && favorites.add(path)) {
     state.expandedPaths.add(path);
-    renderTree();
   }
 };
 
@@ -1340,8 +1338,7 @@ window.addEventListener("resize", () => {
 
 // ===== Init =====
 
-state.favorites = loadFavorites();
-if (state.favorites.length === 0) state.favorites.push("C:\\");
+favorites.init();
 state.pinnedFolders = loadPinnedFolders();
 state.expandedPaths = loadExpandedPaths();
 // Auto-expand favorites that haven't been explicitly collapsed
