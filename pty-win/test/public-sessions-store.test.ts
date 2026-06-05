@@ -122,6 +122,43 @@ describe("createSessionsStore", () => {
     });
   });
 
+  describe("updateStatus (9e-B)", () => {
+    it("merges patch fields into the existing SessionInfo", () => {
+      const { store } = mkStore([{ name: "a", status: "idle" }]);
+      const ok = store.updateStatus("a", { status: "busy", unreadCount: 3 } as any);
+      expect(ok).toBe(true);
+      const s = store.byName("a")!;
+      expect(s.status).toBe("busy");
+      expect(s.unreadCount).toBe(3);
+    });
+
+    it("keeps the same SessionInfo object reference", () => {
+      const { store } = mkStore([{ name: "a", status: "idle" }]);
+      const before = store.byName("a");
+      store.updateStatus("a", { status: "busy" } as any);
+      expect(store.byName("a")).toBe(before);
+    });
+
+    it("returns false and does nothing when the name is unknown", () => {
+      const { store, onChange } = mkStore([{ name: "a" }]);
+      const ok = store.updateStatus("ghost", { status: "busy" } as any);
+      expect(ok).toBe(false);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("fires onChange with { kind: 'update', name }", () => {
+      const { store, onChange } = mkStore([{ name: "a" }]);
+      store.updateStatus("a", { status: "busy" } as any);
+      expect(onChange).toHaveBeenCalledWith({ kind: "update", name: "a" });
+    });
+
+    it("default no-op onChange does not throw on update", () => {
+      const state: any = { sessions: new Map([["a", { name: "a", status: "idle" }]]) };
+      const store = createSessionsStore({ state });
+      expect(() => store.updateStatus("a", { status: "busy" } as any)).not.toThrow();
+    });
+  });
+
   describe("onChange wiring", () => {
     it("default no-op onChange does not throw", () => {
       const state: any = { sessions: new Map() };

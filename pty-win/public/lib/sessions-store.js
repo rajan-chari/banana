@@ -15,6 +15,12 @@
 // API:
 //   replaceAll(list)   replace ALL sessions with the server snapshot.
 //                      Calls onChange({ kind: "replace", prevNames }).
+//   updateStatus(name, patch)
+//                      In-place merge of {status, unreadCount,
+//                      pendingPermission, ...} into the existing
+//                      SessionInfo. No-op (returns false) when the
+//                      name is unknown. Fires onChange({ kind:
+//                      "update", name }).
 //   byName(name)       Map.get equivalent; returns SessionInfo | undefined.
 //   has(name)          Map.has equivalent.
 //   size()             count of sessions.
@@ -25,8 +31,6 @@
 //                      the Map type signature; reader-only contract).
 //
 // Internal-only operations (not yet exposed):
-//   - in-place mutation of status/unread/pendingPermission (added 9e-B
-//     as updateStatus).
 //   - per-name deletion (added 9e-C as remove).
 
 /**
@@ -36,7 +40,10 @@
 /**
  * @typedef {{
  *   state: { sessions: Map<string, SessionInfo> },
- *   onChange?: (e: { kind: "replace", prevNames: Set<string> }) => void,
+ *   onChange?: (e:
+ *     | { kind: "replace", prevNames: Set<string> }
+ *     | { kind: "update", name: string }
+ *   ) => void,
  * }} SessionsStoreDeps
  */
 
@@ -63,6 +70,24 @@ export function createSessionsStore(deps) {
     return prevNames;
   }
 
+  /**
+   * In-place merge of `patch` fields into the existing SessionInfo for
+   * `name`. Returns true if the session was found, false otherwise.
+   * The store keeps the SAME object reference so callers holding a
+   * prior `byName` result observe the change.
+   *
+   * @param {string} name
+   * @param {Partial<SessionInfo>} patch
+   * @returns {boolean}
+   */
+  function updateStatus(name, patch) {
+    const s = state.sessions.get(name);
+    if (!s) return false;
+    Object.assign(s, patch);
+    onChange({ kind: "update", name });
+    return true;
+  }
+
   /** @param {string} name */
   function byName(name) { return state.sessions.get(name); }
 
@@ -75,5 +100,5 @@ export function createSessionsStore(deps) {
   function entries() { return [...state.sessions.entries()]; }
   function raw() { return state.sessions; }
 
-  return { replaceAll, byName, has, size, names, list, entries, raw };
+  return { replaceAll, updateStatus, byName, has, size, names, list, entries, raw };
 }

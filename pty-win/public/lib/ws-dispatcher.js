@@ -57,6 +57,7 @@ import { isDashboardMode } from "./navigation.js";
  * }} sessions
  * @property {{
  *   replaceAll: (list: Iterable<any>) => Set<string>,
+ *   updateStatus: (name: string, patch: any) => boolean,
  *   byName: (name: string) => any,
  *   has: (name: string) => boolean,
  *   list: () => any[],
@@ -144,11 +145,12 @@ export function createWsDispatcher(deps) {
   }
 
   function handleWsStatus(/** @type {any} */ msg) {
-    const s = deps.sessionsStore.byName(msg.session);
-    if (!s) return;
-    s.status = msg.payload.status;
-    s.unreadCount = msg.payload.unreadCount;
-    s.pendingPermission = !!msg.payload.pendingPermission;
+    const found = deps.sessionsStore.updateStatus(msg.session, {
+      status: msg.payload.status,
+      unreadCount: msg.payload.unreadCount,
+      pendingPermission: !!msg.payload.pendingPermission,
+    });
+    if (!found) return;
     deps.panes.rebuildPaneGroups();
     deps.panes.updatePaneStatus(msg.session);
     deps.tree.refreshTreeRunningState();
