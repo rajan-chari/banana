@@ -97,8 +97,6 @@ export const state = {
   /** @type {string | null} */
   focusedPane: null,
   isDashboard: true,
-  isDiag: false,
-  isTracker: false,
   /** @type {TrackerItem[]} */
   trackerItems: [],
   trackerDecisionCount: 0,
