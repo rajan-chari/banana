@@ -71,6 +71,7 @@ import { createPaneDrag } from "./lib/pane-drag.js";
 import { createTileRenderer } from "./lib/tile-renderer.js";
 import { createPaneRuntime } from "./lib/pane-runtime.js";
 import { createPaneLifecycle } from "./lib/pane-lifecycle.js";
+import { createPaneNav } from "./lib/pane-nav.js";
 import {
   normPath,
   cssId,
@@ -259,6 +260,15 @@ const killSession = paneLifecycle.killSession;
 const closeFocusedPane = paneLifecycle.closeFocusedPane;
 const showDirtyWarning = paneLifecycle.showDirtyWarning;
 const autoRemoveDeadSession = paneLifecycle.autoRemoveDeadSession;
+
+const paneNav = createPaneNav({
+  state,
+  layout: { getLeafList, findParentSplit },
+  focusPane: (name) => focusPane(name),
+  renderActiveWorkspace: () => renderActiveWorkspace(),
+});
+const navigatePanes = paneNav.navigatePanes;
+const resizeFocused = paneNav.resizeFocused;
 
 const wsDispatcher = createWsDispatcher({
   state,
@@ -1926,39 +1936,7 @@ function focusPane(groupName) {
   paneRuntime.focusPane(groupName);
 }
 
-// ===== Navigation =====
-
-/**
- * @param {string} arrowKey
- */
-function navigatePanes(arrowKey) {
-  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-  if (!ws?.layout) return;
-  const leaves = getLeafList(ws.layout);
-  if (!leaves.length) return;
-  if (!state.focusedPane) return;
-  const idx = leaves.indexOf(state.focusedPane);
-  const newIdx = (arrowKey === "ArrowRight" || arrowKey === "ArrowDown")
-    ? (idx + 1) % leaves.length
-    : (idx - 1 + leaves.length) % leaves.length;
-  focusPane(leaves[newIdx]);
-}
-
-/**
- * @param {string} arrowKey
- */
-function resizeFocused(arrowKey) {
-  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-  if (!ws?.layout || ws.layout.type !== "split") return;
-  if (!state.focusedPane) return;
-  const splitNode = findParentSplit(ws.layout, state.focusedPane);
-  if (!splitNode) return;
-  const delta = 0.05;
-  splitNode.ratio = (arrowKey === "ArrowRight" || arrowKey === "ArrowDown")
-    ? Math.min(0.85, splitNode.ratio + delta)
-    : Math.max(0.15, splitNode.ratio - delta);
-  renderActiveWorkspace();
-}
+// ===== Navigation (extracted to lib/pane-nav.js) =====
 
 
 // ===== Pane lifecycle (extracted to lib/pane-lifecycle.js) =====

@@ -116,7 +116,7 @@ describe("createPaneLifecycle - closeFocusedPane", () => {
       activeWorkspaceId: "w2", focusedPane: "a",
     });
     lc.closeFocusedPane();
-    const ws = state.workspaces.find((w) => w.id === "w2")!;
+    const ws = state.workspaces.find((w: any) => w.id === "w2")!;
     expect(ws.layout).toEqual({ type: "leaf", name: "b" });
     expect(state.focusedPane).toBe("b");
     expect(views.renderActiveWorkspace).toHaveBeenCalled();
@@ -153,7 +153,7 @@ describe("createPaneLifecycle - killSession", () => {
     await lc.killSession("a"); // kill claude, pwsh sibling alive
     expect(state.paneGroups.get("a")!.activeType).toBe("pwsh");
     // layout should still contain 'a'
-    const ws = state.workspaces.find((w) => w.id === "w2")!;
+    const ws = state.workspaces.find((w: any) => w.id === "w2")!;
     expect(JSON.stringify(ws.layout)).toContain("\"a\"");
   });
 
@@ -305,7 +305,7 @@ describe("createPaneLifecycle - internals", () => {
   it("_removeGroupFromAllWorkspaces rebalances containing workspaces and updates tab name", () => {
     const { lc, state, helpers } = mkDeps();
     lc._removeGroupFromAllWorkspaces("b");
-    const ws2 = state.workspaces.find((w) => w.id === "w2")!;
+    const ws2 = state.workspaces.find((w: any) => w.id === "w2")!;
     expect(ws2.layout).toEqual({ type: "leaf", name: "a" });
     expect(helpers.updateWorkspaceTabName).toHaveBeenCalled();
   });
