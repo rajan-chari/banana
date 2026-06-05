@@ -68,6 +68,7 @@ import { createTrackerPanel } from "./lib/tracker-panel.js";
 import { initRightPanel } from "./lib/right-panel.js";
 import { createDashboardPanel } from "./lib/dashboard-panel.js";
 import { createPaneDrag } from "./lib/pane-drag.js";
+import { createTileRenderer } from "./lib/tile-renderer.js";
 import {
   normPath,
   cssId,
@@ -199,6 +200,14 @@ const paneDragRuntime = createPaneDrag({
   insertAdjacentToPane,
   saveWorkspaces,
   renderActiveWorkspace: () => renderActiveWorkspace(),
+});
+
+// ===== Tile renderer (extracted to lib/tile-renderer.js) =====
+
+const tileRenderer = createTileRenderer({
+  state,
+  byId,
+  createPane: (name) => createPane(name),
 });
 
 // ===== WebSocket (extracted to lib/ws-dispatcher.js) =====
@@ -1610,115 +1619,14 @@ function showLayoutPresetsMenu(e, ws) {
 }
 
 function renderActiveWorkspace() {
-  const area = byId("workspace-area");
-  area.innerHTML = "";
-
-  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-  if (!ws || !ws.layout) {
-    const empty = document.createElement("div");
-    empty.className = "dashboard active";
-    empty.innerHTML = '<div class="dashboard-empty">Empty workspace. Use the folder browser or <kbd>Ctrl+P</kbd> to open a folder.</div>';
-    area.appendChild(empty);
-    return;
-  }
-
-  const container = document.createElement("div");
-  container.className = "workspace active";
-  area.appendChild(container);
-
-  renderTileNode(ws.layout, container);
-  requestAnimationFrame(() => fitAllTerminals(ws.layout));
-}
-
-/**
- * @param {any} node
- * @param {HTMLElement} parentEl
- */
-function renderTileNode(node, parentEl) {
-  if (node.type === "leaf") {
-    parentEl.appendChild(createPane(node.session));
-    return;
-  }
-
-  const container = document.createElement("div");
-  container.className = "split-container";
-  container.style.flexDirection = node.direction === "h" ? "row" : "column";
-  parentEl.appendChild(container);
-
-  const child1 = document.createElement("div");
-  child1.className = "split-child";
-  child1.style.flex = `${node.ratio} 0 0%`;
-  container.appendChild(child1);
-
-  const handle = document.createElement("div");
-  handle.className = `drag-handle ${node.direction === "v" ? "vertical" : ""}`;
-  setupDragHandle(handle, node, container);
-  container.appendChild(handle);
-
-  const child2 = document.createElement("div");
-  child2.className = "split-child";
-  child2.style.flex = `${1 - node.ratio} 0 0%`;
-  container.appendChild(child2);
-
-  renderTileNode(node.children[0], child1);
-  renderTileNode(node.children[1], child2);
-}
-
-/**
- * @param {HTMLElement} handle
- * @param {any} node
- * @param {HTMLElement} container
- */
-function setupDragHandle(handle, node, container) {
-  handle.addEventListener("mousedown", /** @param {MouseEvent} e */ (e) => {
-    e.preventDefault();
-    handle.classList.add("dragging");
-    document.body.style.cursor = node.direction === "h" ? "col-resize" : "row-resize";
-    document.body.style.userSelect = "none";
-    const startPos = node.direction === "h" ? e.clientX : e.clientY;
-    const startRatio = node.ratio;
-    const totalSize = node.direction === "h" ? container.offsetWidth : container.offsetHeight;
-
-    const onMove = /** @param {MouseEvent} e */ (e) => {
-      const delta = (node.direction === "h" ? e.clientX : e.clientY) - startPos;
-      node.ratio = Math.max(0.15, Math.min(0.85, startRatio + delta / totalSize));
-      const children = container.querySelectorAll(":scope > .split-child");
-      const c0 = /** @type {HTMLElement | null} */ (children[0] || null);
-      const c1 = /** @type {HTMLElement | null} */ (children[1] || null);
-      if (c0) c0.style.flex = `${node.ratio} 0 0%`;
-      if (c1) c1.style.flex = `${1 - node.ratio} 0 0%`;
-    };
-
-    const onUp = () => {
-      handle.classList.remove("dragging");
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-      if (ws?.layout) requestAnimationFrame(() => fitAllTerminals(ws.layout));
-    };
-
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  });
+  tileRenderer.renderActiveWorkspace();
 }
 
 /**
  * @param {any} node
  */
 function fitAllTerminals(node) {
-  if (!node) return;
-  if (node.type === "leaf") {
-    const groupName = node.session;
-    const pg = state.paneGroups.get(groupName);
-    const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
-    const entry = state.terminals.get(activeSessionName || groupName);
-    if (entry) { try { entry.fitAddon.fit(); } catch {} }
-    return;
-  }
-  fitAllTerminals(node.children[0]);
-  fitAllTerminals(node.children[1]);
+  tileRenderer.fitAllTerminals(node);
 }
 
 // ===== Panes =====
