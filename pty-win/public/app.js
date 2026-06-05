@@ -26,7 +26,6 @@ import {
 import {
   loadSidebarWidth,
   saveSidebarWidth,
-  loadWorkspaces,
   saveWorkspaces,
   loadSessionMeta,
   saveSessionMeta,
@@ -34,6 +33,7 @@ import {
 import { createFavoritesStore } from "./lib/favorites-store.js";
 import { createPinnedFoldersStore } from "./lib/pinned-folders-store.js";
 import { createExpandedPathsStore } from "./lib/expanded-paths-store.js";
+import { createWorkspacesStore } from "./lib/workspaces-store.js";
 import {
   buildBalancedTree,
   removeSessionFromLayout,
@@ -217,6 +217,14 @@ const pinned = createPinnedFoldersStore({
 // because mutations happen during high-frequency folder navigation and
 // we want predictable, co-located renders (no surprise re-renders).
 const expanded = createExpandedPathsStore({ state });
+
+// Workspaces store (Phase 9b-A). Owns workspaces/activeWorkspaceId/
+// nextWorkspaceId + the transitional isDashboard flag. No onChange
+// wired here — switchToWorkspace and related orchestrators still own
+// rendering side-effects so they can sequence renders + focus + RAF
+// terminal-focus deliberately. The store handles the persistence side
+// (saveWorkspaces blob) so callers don't have to.
+const workspaces = createWorkspacesStore({ state });
 
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
@@ -1040,10 +1048,7 @@ byId("btn-add-root").onclick = () => {
  * @returns {import("./lib/state.js").Workspace}
  */
 function createWorkspace(name) {
-  const id = `ws-${state.nextWorkspaceId++}`;
-  /** @type {import("./lib/state.js").Workspace} */
-  const ws = { id, name: name || `Workspace ${state.nextWorkspaceId - 1}`, layout: null };
-  state.workspaces.push(ws);
+  const ws = workspaces.create(name);
   renderTabs();
   return ws;
 }
@@ -1386,13 +1391,7 @@ const savedWidth = loadSidebarWidth();
 byId("sidebar").style.width = `${savedWidth}px`;
 
 // Restore workspaces (layouts referencing sessions — terminals reconnect via WS)
-const savedWs = loadWorkspaces();
-if (savedWs) {
-  state.workspaces = savedWs.workspaces || [];
-  state.activeWorkspaceId = savedWs.activeWorkspaceId || null;
-  state.isDashboard = savedWs.isDashboard !== false;
-  state.nextWorkspaceId = savedWs.nextId || 1;
-}
+workspaces.init();
 state.sessionMeta = loadSessionMeta();
 
 renderTabs();
