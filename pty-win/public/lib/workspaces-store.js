@@ -25,6 +25,7 @@
 // outermost commits.
 
 import { loadWorkspaces, saveWorkspaces } from "./persistence.js";
+import { reorderWorkspaces } from "./workspace-tabs.js";
 
 /**
  * @typedef {{
@@ -53,6 +54,7 @@ import { loadWorkspaces, saveWorkspaces } from "./persistence.js";
 /**
  * @param {WorkspacesStoreDeps} deps
  */
+// eslint-disable-next-line max-lines-per-function
 export function createWorkspacesStore(deps) {
   const { state, onChange } = deps;
   const load = deps.loadFn || loadWorkspaces;
@@ -183,5 +185,63 @@ export function createWorkspacesStore(deps) {
     }
   }
 
-  return { init, list, byId, active, create, setActive, transaction };
+  /**
+   * Remove a workspace by id. No-op if the id doesn't exist. Does NOT
+   * clear activeWorkspaceId — callers (app.js's removeWorkspace
+   * orchestrator) decide whether to switch to dashboard / another ws.
+   *
+   * @param {string} id
+   * @returns {boolean} true if a workspace was removed
+   */
+  function remove(id) {
+    const idx = state.workspaces.findIndex((w) => w.id === id);
+    if (idx === -1) return false;
+    state.workspaces.splice(idx, 1);
+    persist();
+    notify();
+    return true;
+  }
+
+  /**
+   * Rename a workspace and mark it custom-named so future auto-rename
+   * logic (e.g. derive-from-first-leaf) skips it. No-op if the id is
+   * missing or both name and customName already match.
+   *
+   * @param {string} id
+   * @param {string} name
+   * @returns {boolean} true if state actually changed
+   */
+  function rename(id, name) {
+    const ws = byId(id);
+    if (!ws) return false;
+    if (ws.name === name && ws.customName === true) return false;
+    ws.name = name;
+    ws.customName = true;
+    persist();
+    notify();
+    return true;
+  }
+
+  /**
+   * Reorder a workspace tab via drag-drop. `side` is "left" or "right"
+   * relative to the target tab. No-op when ids are missing or the
+   * order would not change.
+   *
+   * @param {string} srcId
+   * @param {string} tgtId
+   * @param {"left" | "right"} side
+   * @returns {boolean}
+   */
+  function reorder(srcId, tgtId, side) {
+    const before = state.workspaces.map((w) => w.id).join(",");
+    const next = reorderWorkspaces(state.workspaces, srcId, tgtId, side);
+    const after = next.map((/** @type {Workspace} */ w) => w.id).join(",");
+    if (before === after) return false;
+    state.workspaces = next;
+    persist();
+    notify();
+    return true;
+  }
+
+  return { init, list, byId, active, create, setActive, remove, rename, reorder, transaction };
 }

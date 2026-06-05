@@ -90,6 +90,8 @@ import { isDashboardMode } from "./navigation.js";
  *   switchToDashboard: () => void,
  *   switchToWorkspace: (id: string) => void,
  *   removeWorkspace: (id: string) => void,
+ *   renameWorkspace: (id: string, name: string) => void,
+ *   reorderWorkspaces: (srcId: string, tgtId: string, side: "left" | "right") => void,
  *   showLayoutPresetsMenu: (e: MouseEvent, ws: any) => void,
  *   handleSessionDrop: (e: DragEvent, wsId: string | null) => void,
  *   createWorkspace: (name: string | null) => any
@@ -196,7 +198,7 @@ export function createWorkspaceTabs(deps) {
       if (!dragSrcWsId || dragSrcWsId === ws.id) return;
       e.preventDefault();
       const side = tabDropSide(tab.getBoundingClientRect(), e.clientX);
-      state.workspaces = reorderWorkspaces(state.workspaces, dragSrcWsId, ws.id, side);
+      actions.reorderWorkspaces(dragSrcWsId, ws.id, side);
       dragSrcWsId = null;
       renderTabs();
     });
@@ -228,8 +230,7 @@ export function createWorkspaceTabs(deps) {
 
       const finish = () => {
         const newName = input.value.trim() || ws.name;
-        ws.name = newName;
-        ws.customName = true;
+        actions.renameWorkspace(ws.id, newName);
         renderTabs();
       };
       input.onblur = finish;

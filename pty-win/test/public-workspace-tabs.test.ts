@@ -126,6 +126,8 @@ function mkTabs(stateOver: any = {}) {
     switchToDashboard: vi.fn(),
     switchToWorkspace: vi.fn(),
     removeWorkspace: vi.fn(),
+    renameWorkspace: vi.fn(),
+    reorderWorkspaces: vi.fn(),
     showLayoutPresetsMenu: vi.fn(),
     handleSessionDrop: vi.fn(),
     createWorkspace: vi.fn((_n: any) => ({ id: "w-new", name: "new", layout: null })),
@@ -237,8 +239,8 @@ describe("createWorkspaceTabs - per-tab wiring", () => {
     expect(input.value).toBe("alpha");
   });
 
-  it("Enter in rename input commits the new name and re-renders", () => {
-    const { rt, tabs, state } = mkTabs();
+  it("Enter in rename input dispatches renameWorkspace action and re-renders", () => {
+    const { rt, tabs, actions } = mkTabs();
     rt.renderTabs();
     const w1Tab = tabs.querySelectorAll(".tab")[1] as HTMLElement;
     const label = w1Tab.querySelector(".tab-label") as HTMLElement;
@@ -247,12 +249,11 @@ describe("createWorkspaceTabs - per-tab wiring", () => {
     input.value = "renamed!";
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     // blur runs finish() synchronously
-    expect(state.workspaces[0].name).toBe("renamed!");
-    expect(state.workspaces[0].customName).toBe(true);
+    expect(actions.renameWorkspace).toHaveBeenCalledWith("w1", "renamed!");
   });
 
-  it("Escape in rename input restores the original name", () => {
-    const { rt, tabs, state } = mkTabs();
+  it("Escape restores original name (rename gets called with the original)", () => {
+    const { rt, tabs, actions } = mkTabs();
     rt.renderTabs();
     const w1Tab = tabs.querySelectorAll(".tab")[1] as HTMLElement;
     const label = w1Tab.querySelector(".tab-label") as HTMLElement;
@@ -260,7 +261,9 @@ describe("createWorkspaceTabs - per-tab wiring", () => {
     const input = w1Tab.querySelector("input.tab-rename") as HTMLInputElement;
     input.value = "TYPO";
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(state.workspaces[0].name).toBe("alpha");
+    // Escape handler resets input.value to ws.name then blurs; finish() reads
+    // input.value, so renameWorkspace is invoked but with the original name.
+    expect(actions.renameWorkspace).toHaveBeenCalledWith("w1", "alpha");
   });
 });
 
@@ -309,8 +312,8 @@ describe("createWorkspaceTabs - drag reorder", () => {
     expect(actions.handleSessionDrop).toHaveBeenCalledWith(evt, "w1");
   });
 
-  it("drop with a different src ws reorders workspaces and re-renders", () => {
-    const { rt, tabs, state } = mkTabs();
+  it("drop with a different src ws dispatches reorderWorkspaces and re-renders", () => {
+    const { rt, tabs, actions } = mkTabs();
     rt.renderTabs();
     const w1Tab = tabs.querySelectorAll(".tab")[1] as HTMLElement;
     const w2Tab = tabs.querySelectorAll(".tab")[2] as HTMLElement;
@@ -325,8 +328,8 @@ describe("createWorkspaceTabs - drag reorder", () => {
     dropEvt.preventDefault = vi.fn();
     dropEvt.clientX = 0;
     w2Tab.dispatchEvent(dropEvt);
-    // After reorder, w2 should now come before w1.
-    expect(state.workspaces.map((w: any) => w.id)).toEqual(["w2", "w1"]);
+    // After reorder, action should have been dispatched with src=w1, tgt=w2, side="right".
+    expect(actions.reorderWorkspaces).toHaveBeenCalledWith("w1", "w2", "right");
   });
 });
 

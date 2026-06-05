@@ -339,6 +339,8 @@ const workspaceTabs = createWorkspaceTabs({
     switchToDashboard: () => switchToDashboard(),
     switchToWorkspace: (id) => switchToWorkspace(id),
     removeWorkspace: (id) => removeWorkspace(id),
+    renameWorkspace: (id, name) => workspaces.rename(id, name),
+    reorderWorkspaces: (srcId, tgtId, side) => workspaces.reorder(srcId, tgtId, side),
     showLayoutPresetsMenu: (e, ws) => showLayoutPresetsMenu(e, ws),
     handleSessionDrop: (e, wsId) => handleSessionDrop(e, wsId),
     createWorkspace: (n) => createWorkspace(n),
@@ -1112,10 +1114,10 @@ function findWorkspaceContaining(sessionName) {
  * @param {string} id
  */
 function removeWorkspace(id) {
-  const idx = state.workspaces.findIndex((w) => w.id === id);
-  if (idx === -1) return;
-  state.workspaces.splice(idx, 1);
-  if (state.activeWorkspaceId === id) switchToDashboard();
+  workspaces.transaction(() => {
+    if (!workspaces.remove(id)) return;
+    if (state.activeWorkspaceId === id) switchToDashboard();
+  });
   renderTabs();
 }
 

@@ -325,4 +325,125 @@ describe("createWorkspacesStore", () => {
       expect(onChange).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("remove", () => {
+    it("removes the workspace by id, persists, and notifies", () => {
+      const state = mkState();
+      const onChange = vi.fn();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      store.create("A"); store.create("B");
+      fake.saveFn.mockClear(); onChange.mockClear();
+      const ok = store.remove("ws-1");
+      expect(ok).toBe(true);
+      expect(state.workspaces).toHaveLength(1);
+      expect(state.workspaces[0].id).toBe("ws-2");
+      expect(fake.saveFn).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns false and is a no-op when id is unknown", () => {
+      const state = mkState();
+      const onChange = vi.fn();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      store.create("A");
+      fake.saveFn.mockClear(); onChange.mockClear();
+      expect(store.remove("ws-99")).toBe(false);
+      expect(state.workspaces).toHaveLength(1);
+      expect(fake.saveFn).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("does NOT clear activeWorkspaceId — caller orchestrates the switch", () => {
+      const state = mkState();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      const ws = store.create("A");
+      store.setActive(ws.id);
+      store.remove(ws.id);
+      // activeWorkspaceId still points at the removed workspace — caller's job
+      // (app.js removeWorkspace orchestrator) to either setActive(null) or
+      // switch to another ws. The init() defense will heal it on next reload.
+      expect(state.activeWorkspaceId).toBe(ws.id);
+    });
+  });
+
+  describe("rename", () => {
+    it("sets name + customName=true and persists/notifies", () => {
+      const state = mkState();
+      const onChange = vi.fn();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      const ws = store.create("A");
+      fake.saveFn.mockClear(); onChange.mockClear();
+      expect(store.rename(ws.id, "Renamed")).toBe(true);
+      expect(ws.name).toBe("Renamed");
+      expect(ws.customName).toBe(true);
+      expect(fake.saveFn).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns false and is a no-op when id is unknown", () => {
+      const state = mkState();
+      const onChange = vi.fn();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      expect(store.rename("ws-99", "X")).toBe(false);
+      expect(fake.saveFn).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("returns false and is a no-op when name + customName already match", () => {
+      const state = mkState();
+      const onChange = vi.fn();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      const ws = store.create("A");
+      store.rename(ws.id, "Renamed");
+      fake.saveFn.mockClear(); onChange.mockClear();
+      expect(store.rename(ws.id, "Renamed")).toBe(false);
+      expect(fake.saveFn).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("re-marks customName even if name unchanged but customName was false", () => {
+      const state = mkState();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      const ws = store.create("A");
+      // ws.customName is undefined initially
+      expect(store.rename(ws.id, "A")).toBe(true);
+      expect(ws.customName).toBe(true);
+    });
+  });
+
+  describe("reorder", () => {
+    it("reorders workspaces via the reorderWorkspaces helper and persists/notifies", () => {
+      const state = mkState();
+      const onChange = vi.fn();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      store.create("A"); store.create("B"); store.create("C");
+      fake.saveFn.mockClear(); onChange.mockClear();
+      const ok = store.reorder("ws-1", "ws-3", "right");
+      expect(ok).toBe(true);
+      expect(state.workspaces.map((w: any) => w.id)).toEqual(["ws-2", "ws-3", "ws-1"]);
+      expect(fake.saveFn).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns false and is a no-op when order is unchanged", () => {
+      const state = mkState();
+      const onChange = vi.fn();
+      const fake = mkFakePersistence(null);
+      const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
+      store.create("A"); store.create("B");
+      fake.saveFn.mockClear(); onChange.mockClear();
+      // reorderWorkspaces with src=tgt is a no-op
+      expect(store.reorder("ws-1", "ws-1", "left")).toBe(false);
+      expect(fake.saveFn).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
 });
