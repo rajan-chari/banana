@@ -173,18 +173,34 @@ function rebuildPaneGroups() {
   state.paneGroups = _rebuildPaneGroups(state.sessions, state.paneGroups);
 }
 
-// ===== Folder-tree thunks (factory constructed below, after rowActions) =====
+// ===== Folder-tree port (narrow surface for forward-ref callers) =====
 //
-// Declared early so paneLifecycle (refreshTreeRunningState dep) and
-// wsDispatcher (tree port) can capture stable references via these
-// arrow wrappers. folderTree is assigned later in the composition
-// sequence — call-time lookup defers binding.
+// The architecture critique flagged the prior `let folderTree;` + optional-
+// chain thunks as a hidden cycle: factories above need stable refs to
+// renderTree/refreshTreeRunningState, but folderTree itself depends on
+// the context-menu actions that run AFTER rowActions composes. The fix is
+// a narrow "port" object: methods are explicit, slots start as noops, and
+// the folder-tree implementation is bound in after createFolderTree() runs.
+//
+// Benefits over the prior pattern:
+//  - folderTree can now be a `const` (no eslint-disable for prefer-const)
+//  - No `?.` defensive optional-chain leaks: treePort.render is always a
+//    function, just possibly a noop until binding
+//  - The contract (what early callers can do to the tree) is documented
+//    in one place — the port literal — not scattered across thunk vars
+//
+// All call sites that previously captured `renderTree` / `refreshTree-
+// RunningState` arrows still work unchanged because those arrows now
+// dispatch through treePort.
 
-/** @type {ReturnType<typeof createFolderTree> | undefined} */
-// eslint-disable-next-line prefer-const -- forward-ref pattern: assigned after rowActions composes
-let folderTree;
-const renderTree = () => folderTree?.renderTree();
-const refreshTreeRunningState = () => folderTree?.refreshTreeRunningState();
+const treePort = {
+  /** @type {() => void} */
+  render: () => {},
+  /** @type {() => void} */
+  refreshRunningState: () => {},
+};
+const renderTree = () => treePort.render();
+const refreshTreeRunningState = () => treePort.refreshRunningState();
 
 const favorites = createFavoritesStore({
   state,
@@ -388,7 +404,7 @@ const ctxMenu = createContextMenu({
 const showContextMenu = ctxMenu.show;
 ctxMenu.attachDismissers();
 
-folderTree = createFolderTree({
+const folderTree = createFolderTree({
   state,
   byId,
   doc: document,
@@ -411,6 +427,11 @@ folderTree = createFolderTree({
     showContextMenu: (e, p) => showContextMenu(e, p),
   },
 });
+// Bind the port slots to the real implementation. Calls made through
+// renderTree() / refreshTreeRunningState() prior to this point hit the
+// noop slots (matches prior optional-chain semantics).
+treePort.render = folderTree.renderTree;
+treePort.refreshRunningState = folderTree.refreshTreeRunningState;
 
 const sessionsPanel = createSessionsPanel({
   state,
