@@ -4,7 +4,7 @@
 //
 // @vitest-environment happy-dom
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   isFolderRunning,
   buildRunningUnreadSets,
@@ -14,6 +14,7 @@ import {
   buildChildRowActionsOpts,
   buildChildTreeRow,
   applyFolderInfoToTreeLabel,
+  createFolderTree,
 } from "../public/lib/folder-tree.js";
 import type { SessionInfo } from "../public/lib/folder-tree.js";
 
@@ -501,5 +502,363 @@ describe("buildChildTreeRow", () => {
     const row = buildChildTreeRow(entry, 0, false, false, norm);
     const classes = Array.from(row.children).map((c) => c.className.split(" ")[0]);
     expect(classes).toEqual(["indent", "arrow", "folder-name"]);
+  });
+});
+
+// ===== createFolderTree factory (Phase 7a) =====
+
+function jsonResponse(body: any) {
+  return Promise.resolve({ json: () => Promise.resolve(body) } as any);
+}
+
+function mk(overrides: any = {}) {
+  document.body.innerHTML = `
+    <div id="folder-tree"></div>
+    <span class="folder-count"></span>
+  `;
+  const state: any = {
+    folderCache: new Map(),
+    visitedFolders: [],
+    favorites: [],
+    expandedPaths: new Set(),
+    folderInfoCache: new Map(),
+    sessions: new Map(),
+    ...overrides.state,
+  };
+  const fetchFn = vi.fn(async (url: string) => {
+    if (url.startsWith("/api/folders")) return jsonResponse(overrides.children ?? []);
+    if (url.startsWith("/api/folder-info")) return jsonResponse(overrides.folderInfo ?? { isClaudeReady: false, hasIdentity: false });
+    return jsonResponse({});
+  });
+  const helpers = {
+    normPath: (p: string) => (p || "").toLowerCase(),
+    folderCountText: (favs: string[]) => `(${favs.length})`,
+    isFolderRunning: vi.fn(() => false),
+    resolveFolderSessions: vi.fn(() => ({
+      sessionInfo: null, sessionMatchesPath: false, pwshInfo: null, pwshMatchesPath: false,
+    })),
+    buildTreeRowActionsOpts: vi.fn((args: any) => ({ ...args, kind: "root" })),
+    applyFolderInfoToTreeLabel: vi.fn(),
+    cssId: (s: string) => s.replace(/[^a-z0-9]/gi, "_"),
+    buildChildTreeRow: vi.fn((entry: any, depth: number) => {
+      const row = document.createElement("div");
+      row.className = "tree-node";
+      row.dataset["path"] = entry.path.toLowerCase();
+      row.dataset["depth"] = String(depth);
+      return row;
+    }),
+    buildChildRowActionsOpts: vi.fn((entry: any) => ({ workingDir: entry.path, kind: "child" })),
+    buildRunningUnreadSets: vi.fn(() => ({ running: new Set<string>(), unread: new Set<string>() })),
+    saveExpandedPaths: vi.fn(),
+    ...overrides.helpers,
+  };
+  const actions = {
+    appendRowActions: vi.fn(),
+    showContextMenu: vi.fn(),
+    ...overrides.actions,
+  };
+  const ft = createFolderTree({
+    state,
+    byId: (id: string) => document.getElementById(id),
+    doc: document,
+    env: { fetchFn: fetchFn as any },
+    helpers,
+    actions,
+  });
+  return { ft, state, helpers, actions, fetchFn };
+}
+
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
+describe("createFolderTree - renderTree empty + count", () => {
+  it("renders nothing when favorites is empty, and clears folder-count to (0)", () => {
+    const { ft } = mk();
+    ft.renderTree();
+    expect(document.getElementById("folder-tree")!.children.length).toBe(0);
+    expect(document.querySelector(".folder-count")!.textContent).toBe("(0)");
+  });
+
+  it("is a no-op when #folder-tree is missing (defensive guard)", () => {
+    const { ft } = mk();
+    document.getElementById("folder-tree")!.remove();
+    expect(() => ft.renderTree()).not.toThrow();
+  });
+});
+
+describe("createFolderTree - root rendering", () => {
+  it("renders one .tree-root per favorite with label, arrow, name", () => {
+    const { ft } = mk({ state: { favorites: ["C:/a", "C:/b"] } });
+    ft.renderTree();
+    const tree = document.getElementById("folder-tree")!;
+    expect(tree.querySelectorAll(".tree-root")).toHaveLength(2);
+    expect(tree.querySelectorAll(".tree-root-label .arrow")).toHaveLength(2);
+    expect(tree.querySelectorAll(".tree-root-label .root-name")[0].textContent).toBe("a");
+    expect(tree.querySelectorAll(".tree-root-label .root-name")[1].textContent).toBe("b");
+  });
+
+  it("appendRowActions is called for each root with workingDir + kind=root", () => {
+    const { ft, actions } = mk({ state: { favorites: ["C:/a"] } });
+    ft.renderTree();
+    expect(actions.appendRowActions).toHaveBeenCalledTimes(1);
+    const ar: any = actions.appendRowActions.mock.calls[0];
+    expect(ar[1]).toMatchObject({ workingDir: "C:/a", kind: "root" });
+  });
+
+  it("collapsed root: arrow has no .expanded, child container exists empty, no /api/folders fetch", () => {
+    const { ft, fetchFn } = mk({ state: { favorites: ["C:/a"] } });
+    ft.renderTree();
+    const arrow = document.querySelector(".tree-root-label .arrow")!;
+    expect(arrow.classList.contains("expanded")).toBe(false);
+    const childContainer = document.querySelector(".tree-root > .tree-children")!;
+    expect(childContainer.children.length).toBe(0);
+    const foldersCalls = fetchFn.mock.calls.filter((c: any) => String(c[0]).startsWith("/api/folders"));
+    expect(foldersCalls).toHaveLength(0);
+  });
+
+  it("expanded root: arrow has .expanded; loadAndRenderChildren fetches and renders isDir children only", async () => {
+    const { ft, fetchFn } = mk({
+      state: { favorites: ["C:/a"], expandedPaths: new Set(["C:/a"]) },
+      children: [
+        { name: "sub1", path: "C:/a/sub1", isDir: true },
+        { name: "file.txt", path: "C:/a/file.txt", isDir: false },
+        { name: "sub2", path: "C:/a/sub2", isDir: true },
+      ],
+    });
+    ft.renderTree();
+    await flush();
+    const foldersCalls = fetchFn.mock.calls.filter((c: any) => String(c[0]).startsWith("/api/folders"));
+    expect(foldersCalls).toHaveLength(1);
+    expect(String(foldersCalls[0][0])).toBe(`/api/folders?path=${encodeURIComponent("C:/a")}`);
+    const rows = document.querySelectorAll(".tree-root > .tree-children .tree-node");
+    expect(rows).toHaveLength(2);
+    expect((rows[0] as HTMLElement).dataset["path"]).toBe("c:/a/sub1");
+    expect((rows[1] as HTMLElement).dataset["path"]).toBe("c:/a/sub2");
+  });
+
+  it("isFolderRunning=true: nameSpan gets .running class", () => {
+    const { ft } = mk({
+      state: { favorites: ["C:/a"] },
+      helpers: { isFolderRunning: vi.fn(() => true) },
+    });
+    ft.renderTree();
+    expect(document.querySelector(".tree-root-label .root-name")!.classList.contains("running")).toBe(true);
+  });
+});
+
+describe("createFolderTree - folder-info lazy fetch", () => {
+  it("fetches /api/folder-info, populates folderInfoCache, calls applyFolderInfoToTreeLabel", async () => {
+    const info = { isClaudeReady: true, hasIdentity: true, identityName: "moss" };
+    const { ft, state, helpers, fetchFn } = mk({ state: { favorites: ["C:/a"] }, folderInfo: info });
+    ft.renderTree();
+    await flush();
+    const infoCalls = fetchFn.mock.calls.filter((c: any) => String(c[0]).startsWith("/api/folder-info"));
+    expect(infoCalls).toHaveLength(1);
+    expect(state.folderInfoCache.get("c:/a")).toEqual(info);
+    expect(helpers.applyFolderInfoToTreeLabel).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips fetch when folderInfoCache already has normPath(rootPath) key", () => {
+    const { ft, fetchFn } = mk({
+      state: {
+        favorites: ["C:/a"],
+        folderInfoCache: new Map([["c:/a", { isClaudeReady: true, hasIdentity: false }]]),
+      },
+    });
+    ft.renderTree();
+    const infoCalls = fetchFn.mock.calls.filter((c: any) => String(c[0]).startsWith("/api/folder-info"));
+    expect(infoCalls).toHaveLength(0);
+  });
+
+  it("stale-label guard: does NOT call applyFolderInfoToTreeLabel when label was detached before fetch resolved", async () => {
+    const { ft, state, helpers } = mk({ state: { favorites: ["C:/a"] } });
+    ft.renderTree();
+    document.getElementById("folder-tree")!.innerHTML = "";
+    await flush();
+    expect(state.folderInfoCache.get("c:/a")).toBeDefined();
+    expect(helpers.applyFolderInfoToTreeLabel).not.toHaveBeenCalled();
+  });
+});
+
+describe("createFolderTree - fetchChildren behavior", () => {
+  it("caches by RAW path (parity with state.folderCache.delete(rawPath) invalidator)", async () => {
+    const { ft, state, fetchFn } = mk({ children: [{ name: "x", path: "C:/Mixed/Case", isDir: true }] });
+    await ft.fetchChildren("C:/Mixed/Case");
+    expect(state.folderCache.has("C:/Mixed/Case")).toBe(true);
+    expect(state.folderCache.has("c:/mixed/case")).toBe(false);
+    await ft.fetchChildren("C:/Mixed/Case");
+    const foldersCalls = fetchFn.mock.calls.filter((c: any) => String(c[0]).startsWith("/api/folders"));
+    expect(foldersCalls).toHaveLength(1);
+  });
+
+  it("seeds visitedFolders only for isDir entries that aren't already there", async () => {
+    const { ft, state } = mk({
+      state: { visitedFolders: [{ path: "C:/already" }] },
+      children: [
+        { name: "new", path: "C:/new", isDir: true },
+        { name: "file", path: "C:/x.txt", isDir: false },
+        { name: "already", path: "C:/already", isDir: true },
+      ],
+    });
+    await ft.fetchChildren("C:/root");
+    expect(state.visitedFolders.map((v: any) => v.path).sort()).toEqual(["C:/already", "C:/new"]);
+  });
+
+  it("swallows fetch failure and returns []", async () => {
+    const { ft, fetchFn } = mk();
+    fetchFn.mockRejectedValueOnce(new Error("boom"));
+    const result = await ft.fetchChildren("C:/dead");
+    expect(result).toEqual([]);
+  });
+});
+
+describe("createFolderTree - loadAndRenderChildren stale guard", () => {
+  it("does not render children if the container was detached during the await", async () => {
+    let resolveChildren: any;
+    const fetchFn = vi.fn(async (url: string) => {
+      if (url.startsWith("/api/folders")) {
+        return new Promise((res) => {
+          resolveChildren = () => res({ json: async () => [{ name: "sub", path: "C:/a/sub", isDir: true }] } as any);
+        });
+      }
+      return { json: async () => ({}) } as any;
+    });
+    document.body.innerHTML = `<div id="folder-tree"></div><span class="folder-count"></span>`;
+    const state: any = {
+      folderCache: new Map(), visitedFolders: [], favorites: ["C:/a"],
+      expandedPaths: new Set(["C:/a"]),
+      folderInfoCache: new Map([["c:/a", { isClaudeReady: false, hasIdentity: false }]]),
+      sessions: new Map(),
+    };
+    const helpers = {
+      normPath: (p: string) => (p || "").toLowerCase(),
+      folderCountText: () => "(1)",
+      isFolderRunning: () => false,
+      resolveFolderSessions: () => ({ sessionInfo: null, sessionMatchesPath: false, pwshInfo: null, pwshMatchesPath: false }),
+      buildTreeRowActionsOpts: (a: any) => a,
+      applyFolderInfoToTreeLabel: vi.fn(),
+      cssId: (s: string) => s.replace(/[^a-z0-9]/gi, "_"),
+      buildChildTreeRow: vi.fn((entry: any) => {
+        const row = document.createElement("div"); row.className = "tree-node"; row.dataset["path"] = entry.path; return row;
+      }),
+      buildChildRowActionsOpts: () => ({}),
+      buildRunningUnreadSets: () => ({ running: new Set<string>(), unread: new Set<string>() }),
+      saveExpandedPaths: vi.fn(),
+    };
+    const actions = { appendRowActions: vi.fn(), showContextMenu: vi.fn() };
+    const ft = createFolderTree({
+      state, byId: (id: string) => document.getElementById(id), doc: document, env: { fetchFn: fetchFn as any }, helpers: helpers as any, actions: actions as any,
+    });
+    ft.renderTree();
+    document.getElementById("folder-tree")!.innerHTML = "";
+    resolveChildren();
+    await flush();
+    expect(helpers.buildChildTreeRow).not.toHaveBeenCalled();
+  });
+});
+
+describe("createFolderTree - row wiring", () => {
+  it("root label.onclick toggles expandedPaths and re-renders", async () => {
+    const { ft, state, helpers } = mk({ state: { favorites: ["C:/a"] } });
+    ft.renderTree();
+    expect(state.expandedPaths.has("C:/a")).toBe(false);
+    const label = document.querySelector(".tree-root-label") as HTMLElement;
+    await (label.onclick as any)({} as any);
+    expect(state.expandedPaths.has("C:/a")).toBe(true);
+    expect(helpers.saveExpandedPaths).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".tree-root-label .arrow")!.classList.contains("expanded")).toBe(true);
+  });
+
+  it("root label contextmenu → showContextMenu(e, rootPath)", () => {
+    const { ft, actions } = mk({ state: { favorites: ["C:/a"] } });
+    ft.renderTree();
+    const label = document.querySelector(".tree-root-label") as HTMLElement;
+    label.dispatchEvent(new Event("contextmenu"));
+    expect(actions.showContextMenu).toHaveBeenCalledTimes(1);
+    const cm: any = actions.showContextMenu.mock.calls[0];
+    expect(cm[1]).toBe("C:/a");
+  });
+
+  it("child row dragstart sets pty-win/folder payload with workingDir + folderName", async () => {
+    const { ft } = mk({
+      state: { favorites: ["C:/a"], expandedPaths: new Set(["C:/a"]) },
+      children: [{ name: "sub", path: "C:/a/sub", isDir: true }],
+    });
+    ft.renderTree();
+    await flush();
+    const row = document.querySelector(".tree-root > .tree-children .tree-node") as HTMLElement;
+    expect((row as any).draggable).toBe(true);
+    const evt: any = new Event("dragstart");
+    const setData = vi.fn();
+    evt.dataTransfer = { setData, effectAllowed: "none" };
+    row.dispatchEvent(evt);
+    expect(setData).toHaveBeenCalledWith(
+      "pty-win/folder",
+      JSON.stringify({ workingDir: "C:/a/sub", folderName: "sub" }),
+    );
+    expect(evt.dataTransfer.effectAllowed).toBe("copy");
+  });
+
+  it("child row dragstart with no dataTransfer is a silent no-op", async () => {
+    const { ft } = mk({
+      state: { favorites: ["C:/a"], expandedPaths: new Set(["C:/a"]) },
+      children: [{ name: "sub", path: "C:/a/sub", isDir: true }],
+    });
+    ft.renderTree();
+    await flush();
+    const row = document.querySelector(".tree-root > .tree-children .tree-node") as HTMLElement;
+    const evt: any = new Event("dragstart");
+    evt.dataTransfer = null;
+    expect(() => row.dispatchEvent(evt)).not.toThrow();
+  });
+
+  it("child row contextmenu → showContextMenu(e, entry.path)", async () => {
+    const { ft, actions } = mk({
+      state: { favorites: ["C:/a"], expandedPaths: new Set(["C:/a"]) },
+      children: [{ name: "sub", path: "C:/a/sub", isDir: true }],
+    });
+    ft.renderTree();
+    await flush();
+    const row = document.querySelector(".tree-root > .tree-children .tree-node") as HTMLElement;
+    row.dispatchEvent(new Event("contextmenu"));
+    const cm: any = actions.showContextMenu.mock.calls[0];
+    expect(cm[1]).toBe("C:/a/sub");
+  });
+});
+
+describe("createFolderTree - refreshTreeRunningState", () => {
+  it("toggles .running on .tree-node[data-path] and .show on .unread-dot", () => {
+    const { ft, helpers } = mk();
+    document.getElementById("folder-tree")!.innerHTML = `
+      <div class="tree-node" data-path="c:/r1"><div class="unread-dot"></div></div>
+      <div class="tree-node" data-path="c:/r2"><div class="unread-dot"></div></div>
+    `;
+    helpers.buildRunningUnreadSets.mockReturnValue({
+      running: new Set(["c:/r1"]),
+      unread: new Set(["c:/r2"]),
+    });
+    ft.refreshTreeRunningState();
+    const n1 = document.querySelector('.tree-node[data-path="c:/r1"]')!;
+    const n2 = document.querySelector('.tree-node[data-path="c:/r2"]')!;
+    expect(n1.classList.contains("running")).toBe(true);
+    expect(n2.classList.contains("running")).toBe(false);
+    expect(n1.querySelector(".unread-dot")!.classList.contains("show")).toBe(false);
+    expect(n2.querySelector(".unread-dot")!.classList.contains("show")).toBe(true);
+  });
+
+  it("toggles .running on .tree-root-label[data-path] .root-name and .unread-dot", () => {
+    const { ft, helpers } = mk();
+    document.getElementById("folder-tree")!.innerHTML = `
+      <div class="tree-root-label" data-path="c:/r1">
+        <span class="root-name">r1</span>
+        <div class="unread-dot"></div>
+      </div>
+    `;
+    helpers.buildRunningUnreadSets.mockReturnValue({
+      running: new Set(["c:/r1"]),
+      unread: new Set(["c:/r1"]),
+    });
+    ft.refreshTreeRunningState();
+    expect(document.querySelector(".root-name")!.classList.contains("running")).toBe(true);
+    expect(document.querySelector(".unread-dot")!.classList.contains("show")).toBe(true);
   });
 });

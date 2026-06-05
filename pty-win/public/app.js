@@ -97,6 +97,7 @@ import {
   buildChildRowActionsOpts,
   buildChildTreeRow,
   applyFolderInfoToTreeLabel,
+  createFolderTree,
 } from "./lib/folder-tree.js";
 import {
   createEmptyRow,
@@ -173,6 +174,19 @@ function buttonById(id) {
 function rebuildPaneGroups() {
   state.paneGroups = _rebuildPaneGroups(state.sessions, state.paneGroups);
 }
+
+// ===== Folder-tree thunks (factory constructed below, after rowActions) =====
+//
+// Declared early so paneLifecycle (refreshTreeRunningState dep) and
+// wsDispatcher (tree port) can capture stable references via these
+// arrow wrappers. folderTree is assigned later in the composition
+// sequence — call-time lookup defers binding.
+
+/** @type {ReturnType<typeof createFolderTree> | undefined} */
+// eslint-disable-next-line prefer-const -- forward-ref pattern: assigned after rowActions composes
+let folderTree;
+const renderTree = () => folderTree?.renderTree();
+const refreshTreeRunningState = () => folderTree?.refreshTreeRunningState();
 
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
@@ -331,6 +345,30 @@ const rowActions = createRowActions({
 });
 const appendRowActions = rowActions.appendRowActions;
 
+folderTree = createFolderTree({
+  state,
+  byId,
+  doc: document,
+  env: { fetchFn: fetch.bind(window) },
+  helpers: {
+    normPath,
+    folderCountText,
+    isFolderRunning,
+    resolveFolderSessions,
+    buildTreeRowActionsOpts,
+    applyFolderInfoToTreeLabel,
+    cssId,
+    buildChildTreeRow,
+    buildChildRowActionsOpts,
+    buildRunningUnreadSets,
+    saveExpandedPaths,
+  },
+  actions: {
+    appendRowActions,
+    showContextMenu: (e, p) => showContextMenu(e, p),
+  },
+});
+
 const sessionsPanel = createSessionsPanel({
   state,
   byId,
@@ -483,170 +521,6 @@ async function initApp() {
   renderTabs();
   if (state.isDashboard) dashboardPanel.render();
   else renderActiveWorkspace();
-}
-
-// ===== Folder Tree =====
-
-/**
- * @param {string} path
- */
-async function fetchChildren(path) {
-  if (state.folderCache.has(path)) return state.folderCache.get(path);
-  try {
-    const res = await fetch(`/api/folders?path=${encodeURIComponent(path)}`);
-    const entries = await res.json();
-    state.folderCache.set(path, entries);
-    // Add to visited for quick-open
-    for (const e of entries) {
-      if (e.isDir && !state.visitedFolders.find((v) => v.path === e.path)) {
-        state.visitedFolders.push(e);
-      }
-    }
-    return entries;
-  } catch {
-    return [];
-  }
-}
-
-function renderTree() {
-  const tree = byId("folder-tree");
-  tree.innerHTML = "";
-
-  const folderCountEl = document.querySelector(".folder-count");
-  if (folderCountEl) folderCountEl.textContent = folderCountText(state.favorites);
-
-  for (const rootPath of state.favorites) {
-    const rootName = rootPath.split(/[/\\]/).filter(Boolean).pop() || rootPath;
-    const rootEl = document.createElement("div");
-    rootEl.className = "tree-root";
-
-    const label = document.createElement("div");
-    label.className = "tree-root-label";
-    label.dataset["path"] = normPath(rootPath);
-    const expanded = state.expandedPaths.has(rootPath);
-
-    const arrow = document.createElement("span");
-    arrow.className = `arrow ${expanded ? "expanded" : ""}`;
-    label.appendChild(arrow);
-
-    const nameSpan = document.createElement("span");
-    nameSpan.className = "root-name";
-    nameSpan.textContent = rootName;
-    label.appendChild(nameSpan);
-
-    if (isFolderRunning(state.sessions, rootPath, normPath)) {
-      nameSpan.classList.add("running");
-    }
-
-    const rootResolved = resolveFolderSessions(state.sessions, rootName, rootPath, normPath);
-    const rootCacheKey = normPath(rootPath);
-    const rootCached = state.folderInfoCache.get(rootCacheKey);
-    appendRowActions(label, buildTreeRowActionsOpts({
-      workingDir: rootPath,
-      folderName: rootName,
-      cached: rootCached,
-      sessionInfo: rootResolved.sessionInfo,
-      sessionMatchesPath: rootResolved.sessionMatchesPath,
-      pwshInfo: rootResolved.pwshInfo,
-      pwshMatchesPath: rootResolved.pwshMatchesPath,
-    }));
-    if (!rootCached) {
-      fetch(`/api/folder-info?path=${encodeURIComponent(rootPath)}`)
-        .then((r) => r.json())
-        .then((info) => {
-          state.folderInfoCache.set(rootCacheKey, info);
-          applyFolderInfoToTreeLabel(label, info);
-        })
-        .catch(() => {});
-    }
-
-    label.onclick = () => toggleExpand(rootPath);
-    label.addEventListener("contextmenu", (e) => showContextMenu(e, rootPath));
-    rootEl.appendChild(label);
-
-    const childContainer = document.createElement("div");
-    childContainer.className = `tree-children ${expanded ? "expanded" : ""}`;
-    childContainer.id = `children-${cssId(rootPath)}`;
-    rootEl.appendChild(childContainer);
-
-    tree.appendChild(rootEl);
-
-    if (expanded) loadAndRenderChildren(rootPath, childContainer, 1);
-  }
-}
-
-/**
- * @param {string} path
- */
-async function toggleExpand(path) {
-  if (state.expandedPaths.has(path)) {
-    state.expandedPaths.delete(path);
-  } else {
-    state.expandedPaths.add(path);
-  }
-  saveExpandedPaths();
-  renderTree();
-}
-
-/**
- * @param {string} parentPath
- * @param {HTMLElement} container
- * @param {number} depth
- */
-async function loadAndRenderChildren(parentPath, container, depth) {
-  const entries = await fetchChildren(parentPath);
-  container.innerHTML = "";
-
-  for (const entry of entries) {
-    if (!entry.isDir) continue;
-
-    const node = document.createElement("div");
-    const isExpanded = state.expandedPaths.has(entry.path);
-    const isRunning = isFolderRunning(state.sessions, entry.path, normPath);
-    const row = buildChildTreeRow(entry, depth, isExpanded, isRunning, normPath);
-
-    const resolution = resolveFolderSessions(state.sessions, entry.name, entry.path, normPath);
-    appendRowActions(row, buildChildRowActionsOpts(entry, resolution));
-
-    row.onclick = () => toggleExpand(entry.path);
-    row.addEventListener("contextmenu", (e) => showContextMenu(e, entry.path));
-    row.draggable = true;
-    row.addEventListener("dragstart", (e) => {
-      if (!e.dataTransfer) return;
-      e.dataTransfer.setData("pty-win/folder", JSON.stringify({ workingDir: entry.path, folderName: entry.name }));
-      e.dataTransfer.effectAllowed = "copy";
-    });
-
-    node.appendChild(row);
-
-    const childContainer = document.createElement("div");
-    childContainer.className = `tree-children ${isExpanded ? "expanded" : ""}`;
-    node.appendChild(childContainer);
-
-    container.appendChild(node);
-
-    if (isExpanded) loadAndRenderChildren(entry.path, childContainer, depth + 1);
-  }
-}
-function refreshTreeRunningState() {
-  const { running, unread } = buildRunningUnreadSets(state.sessions, normPath);
-  // Child folder nodes
-  document.querySelectorAll(".tree-node[data-path]").forEach(/** @param {Element} n */ (n) => {
-    if (!(n instanceof HTMLElement)) return;
-    const path = n.dataset["path"] ?? "";
-    n.classList.toggle("running", running.has(path));
-    const dot = n.querySelector(".unread-dot");
-    if (dot) dot.classList.toggle("show", unread.has(path));
-  });
-  // Root folder labels
-  document.querySelectorAll(".tree-root-label[data-path]").forEach(/** @param {Element} n */ (n) => {
-    if (!(n instanceof HTMLElement)) return;
-    const path = n.dataset["path"] ?? "";
-    const nameSpan = n.querySelector(".root-name");
-    if (nameSpan) nameSpan.classList.toggle("running", running.has(path));
-    const dot = n.querySelector(".unread-dot");
-    if (dot) dot.classList.toggle("show", unread.has(path));
-  });
 }
 
 
