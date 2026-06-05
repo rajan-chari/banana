@@ -62,7 +62,7 @@ import {
 } from "./lib/open-folder.js";
 import {
   buildContextMenuActions,
-  resolveContextAction,
+  createContextMenu,
 } from "./lib/context-menu.js";
 import { createAgentsPanel } from "./lib/agents-panel.js";
 import { createTrackerPanel } from "./lib/tracker-panel.js";
@@ -356,6 +356,25 @@ const rowActions = createRowActions({
   },
 });
 const appendRowActions = rowActions.appendRowActions;
+
+const contextMenuActions = buildContextMenuActions({
+  state,
+  openFolder: (p, n, c, nw) => openFolder(p, n, c, nw),
+  renderTree,
+  renderQuickAccess: () => renderQuickAccess(),
+  saveFavorites,
+  savePinnedFolders,
+  normPath,
+});
+const ctxMenu = createContextMenu({
+  doc: document,
+  byId,
+  state,
+  helpers: { normPath },
+  actions: contextMenuActions,
+});
+const showContextMenu = ctxMenu.show;
+ctxMenu.attachDismissers();
 
 folderTree = createFolderTree({
   state,
@@ -834,68 +853,6 @@ function updateWorkspaceTabName(ws) {
   }
   renderTabs();
 }
-
-// ===== Context Menu =====
-
-/**
- * @param {MouseEvent} e
- * @param {string} path
- */
-function showContextMenu(e, path) {
-  e.preventDefault();
-  e.stopPropagation();
-  state.ctxTarget = path;
-
-  const menu = byId("context-menu");
-  const isFav = state.favorites.includes(path);
-
-  menu.querySelector('[data-action="fav-add"]')?.classList.toggle("ctx-disabled", isFav);
-  menu.querySelector('[data-action="fav-remove"]')?.classList.toggle("ctx-disabled", !isFav);
-
-  const isPinned = state.pinnedFolders.includes(path);
-  menu.querySelector('[data-action="pin-add"]')?.classList.toggle("ctx-disabled", isPinned);
-  menu.querySelector('[data-action="pin-remove"]')?.classList.toggle("ctx-disabled", !isPinned);
-
-  // Hide separator only when both pin items are disabled (nothing meaningful to show)
-  const pinSep = /** @type {HTMLElement | null} */ (menu.querySelector(".ctx-sep-pin"));
-  if (pinSep) pinSep.style.display = "";
-
-  // Show "Force idle" only when a busy AI session exists at this path
-  const np = normPath(path);
-  const aiCommands = new Set(state.aiPresets.map((p) => p.command));
-  const hasBusyAI = [...state.sessions.values()].some(
-    (s) => aiCommands.has(s.command) && s.status === "busy" && normPath(s.workingDir) === np
-  );
-  const forceIdleItem = /** @type {HTMLElement | null} */ (menu.querySelector('[data-action="force-idle"]'));
-  if (forceIdleItem) forceIdleItem.style.display = hasBusyAI ? "" : "none";
-
-  menu.style.left = `${e.clientX}px`;
-  menu.style.top = `${e.clientY}px`;
-  menu.classList.remove("hidden");
-}
-
-document.addEventListener("click", () => {
-  byId("context-menu").classList.add("hidden");
-});
-
-byId("context-menu").addEventListener("click", async (e) => {
-  const resolved = resolveContextAction(e.target, state.ctxTarget);
-  if (!resolved) return;
-  const handler = contextMenuActions[resolved.action];
-  if (handler) await handler(resolved.path, resolved.name);
-  byId("context-menu").classList.add("hidden");
-});
-
-const contextMenuActions = buildContextMenuActions({
-  state,
-  openFolder,
-  renderTree,
-  renderQuickAccess,
-  saveFavorites,
-  savePinnedFolders,
-  normPath,
-});
-
 // ===== Quick-Open (Ctrl+P) =====
 
 function openQuickOpen() {

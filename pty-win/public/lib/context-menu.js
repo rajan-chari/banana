@@ -211,3 +211,94 @@ export function resolveContextAction(clickTarget, ctxTarget) {
   const name = path.split(/[/\\]/).filter(Boolean).pop() || path;
   return { action, path, name };
 }
+
+/**
+ * @typedef {{
+ *   doc: Document,
+ *   byId: (id: string) => HTMLElement | null,
+ *   state: {
+ *     ctxTarget?: string | null,
+ *     favorites: string[],
+ *     pinnedFolders: string[],
+ *     aiPresets: Array<{ command: string }>,
+ *     sessions: Map<string, { command: string, status: string, workingDir?: string }>,
+ *   },
+ *   helpers: { normPath: (p: string) => string },
+ *   actions: Record<string, (path: string, name: string) => unknown>,
+ * }} CreateContextMenuDeps
+ */
+
+/**
+ * Factory for the folder context-menu view (Phase 7c). Owns the per-show
+ * DOM mutations (toggle disabled classes, position, reveal) and the two
+ * dismissers (global doc click hides; menu click resolves+dispatches+
+ * hides via doc bubble-up).
+ *
+ * Parity-first extraction: behavior matches the original inline code in
+ * app.js exactly, including:
+ *  - hide-on-any-document-click (menu click ALSO hides via bubble-up;
+ *    we deliberately do NOT add stopPropagation),
+ *  - .ctx-sep-pin display always reset to "" on show (legacy reset),
+ *  - "Force idle" item visibility derived from busy AI sessions whose
+ *    workingDir matches the target path.
+ *
+ * @param {CreateContextMenuDeps} deps
+ */
+export function createContextMenu(deps) {
+  const { doc, byId, state, helpers, actions } = deps;
+  const { normPath } = helpers;
+
+  /**
+   * @param {MouseEvent} e
+   * @param {string} path
+   */
+  function show(e, path) {
+    e.preventDefault();
+    e.stopPropagation();
+    state.ctxTarget = path;
+
+    const menu = byId("context-menu");
+    if (!menu) return;
+    const isFav = state.favorites.includes(path);
+    menu.querySelector('[data-action="fav-add"]')?.classList.toggle("ctx-disabled", isFav);
+    menu.querySelector('[data-action="fav-remove"]')?.classList.toggle("ctx-disabled", !isFav);
+
+    const isPinned = state.pinnedFolders.includes(path);
+    menu.querySelector('[data-action="pin-add"]')?.classList.toggle("ctx-disabled", isPinned);
+    menu.querySelector('[data-action="pin-remove"]')?.classList.toggle("ctx-disabled", !isPinned);
+
+    const pinSep = /** @type {HTMLElement | null} */ (menu.querySelector(".ctx-sep-pin"));
+    if (pinSep) pinSep.style.display = "";
+
+    const np = normPath(path);
+    const aiCommands = new Set(state.aiPresets.map((p) => p.command));
+    const hasBusyAI = [...state.sessions.values()].some(
+      (s) => aiCommands.has(s.command) && s.status === "busy" && !!s.workingDir && normPath(s.workingDir) === np
+    );
+    const forceIdleItem = /** @type {HTMLElement | null} */ (menu.querySelector('[data-action="force-idle"]'));
+    if (forceIdleItem) forceIdleItem.style.display = hasBusyAI ? "" : "none";
+
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+    menu.classList.remove("hidden");
+  }
+
+  function attachDismissers() {
+    doc.addEventListener("click", () => {
+      byId("context-menu")?.classList.add("hidden");
+    });
+
+    const menu = byId("context-menu");
+    if (!menu) return;
+    menu.addEventListener("click", /** @param {Event} ev */ async (ev) => {
+      const resolved = resolveContextAction(ev.target, state.ctxTarget);
+      if (!resolved) return;
+      const handler = actions[resolved.action];
+      if (handler) await handler(resolved.path, resolved.name);
+      byId("context-menu")?.classList.add("hidden");
+    });
+  }
+
+  return { show, attachDismissers };
+}
+

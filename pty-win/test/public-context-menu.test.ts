@@ -10,6 +10,7 @@ import {
   removePin,
   buildContextMenuActions,
   resolveContextAction,
+  createContextMenu,
 } from "../public/lib/context-menu.js";
 
 const normPath = (p: string) => (p ? p.replace(/\\/g, "/").toLowerCase() : "");
@@ -382,5 +383,236 @@ describe("buildContextMenuActions dispatcher", () => {
     } finally {
       Object.defineProperty(globalThis, "fetch", { value: originalFetch, configurable: true, writable: true });
     }
+  });
+});
+
+// ===== Phase 7c: createContextMenu factory =====
+
+function mkMenuDom() {
+  document.body.innerHTML = "";
+  const m = document.createElement("div");
+  m.id = "context-menu";
+  m.className = "hidden";
+  for (const a of ["fav-add", "fav-remove", "pin-add", "pin-remove", "force-idle", "rename"]) {
+    const it = document.createElement("div");
+    it.className = "ctx-item";
+    it.setAttribute("data-action", a);
+    it.textContent = a;
+    m.appendChild(it);
+  }
+  const sep = document.createElement("div");
+  sep.className = "ctx-sep-pin";
+  sep.style.display = "none";
+  m.appendChild(sep);
+  document.body.appendChild(m);
+  return m;
+}
+
+function mkCmState(overrides: any = {}) {
+  return {
+    ctxTarget: null as string | null,
+    favorites: [] as string[],
+    pinnedFolders: [] as string[],
+    aiPresets: [{ command: "claude" }],
+    sessions: new Map<string, any>(),
+    ...overrides,
+  };
+}
+
+function mkCmFactory(overrides: any = {}) {
+  const menu = mkMenuDom();
+  const state = overrides.state || mkCmState();
+  const actions = overrides.actions || {};
+  const f = createContextMenu({
+    doc: document,
+    byId: (id: string) => document.getElementById(id),
+    state: state as any,
+    helpers: { normPath },
+    actions,
+  });
+  return { factory: f, state, menu, actions };
+}
+
+describe("createContextMenu.show", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("sets state.ctxTarget to clicked path", () => {
+    const { factory, state } = mkCmFactory();
+    const e = new MouseEvent("contextmenu", { clientX: 50, clientY: 60 });
+    factory.show(e as any, "C:\\foo");
+    expect(state.ctxTarget).toBe("C:\\foo");
+  });
+
+  it("calls preventDefault and stopPropagation", () => {
+    const { factory } = mkCmFactory();
+    const e = new MouseEvent("contextmenu");
+    const pd = vi.spyOn(e, "preventDefault");
+    const sp = vi.spyOn(e, "stopPropagation");
+    factory.show(e as any, "C:\\foo");
+    expect(pd).toHaveBeenCalled();
+    expect(sp).toHaveBeenCalled();
+  });
+
+  it("toggles fav-add/fav-remove disabled when path is a favorite", () => {
+    const { factory, menu } = mkCmFactory({ state: mkCmState({ favorites: ["C:\\foo"] }) });
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    expect(menu.querySelector('[data-action="fav-add"]')!.classList.contains("ctx-disabled")).toBe(true);
+    expect(menu.querySelector('[data-action="fav-remove"]')!.classList.contains("ctx-disabled")).toBe(false);
+  });
+
+  it("toggles fav-add/fav-remove disabled when path is NOT a favorite", () => {
+    const { factory, menu } = mkCmFactory();
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    expect(menu.querySelector('[data-action="fav-add"]')!.classList.contains("ctx-disabled")).toBe(false);
+    expect(menu.querySelector('[data-action="fav-remove"]')!.classList.contains("ctx-disabled")).toBe(true);
+  });
+
+  it("toggles pin-add/pin-remove disabled when path is pinned", () => {
+    const { factory, menu } = mkCmFactory({ state: mkCmState({ pinnedFolders: ["C:\\foo"] }) });
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    expect(menu.querySelector('[data-action="pin-add"]')!.classList.contains("ctx-disabled")).toBe(true);
+    expect(menu.querySelector('[data-action="pin-remove"]')!.classList.contains("ctx-disabled")).toBe(false);
+  });
+
+  it("always resets .ctx-sep-pin display to empty string on show", () => {
+    const { factory, menu } = mkCmFactory();
+    const sep = menu.querySelector(".ctx-sep-pin") as HTMLElement;
+    expect(sep.style.display).toBe("none");
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    expect(sep.style.display).toBe("");
+  });
+
+  it("hides force-idle when no busy AI session matches path", () => {
+    const { factory, menu } = mkCmFactory({
+      state: mkCmState({
+        sessions: new Map([["s", { command: "pwsh", status: "busy", workingDir: "C:\\foo" }]]),
+      }),
+    });
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    const fi = menu.querySelector('[data-action="force-idle"]') as HTMLElement;
+    expect(fi.style.display).toBe("none");
+  });
+
+  it("shows force-idle when a busy AI session matches the target path", () => {
+    const { factory, menu } = mkCmFactory({
+      state: mkCmState({
+        sessions: new Map([["s", { command: "claude", status: "busy", workingDir: "C:\\foo" }]]),
+      }),
+    });
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    const fi = menu.querySelector('[data-action="force-idle"]') as HTMLElement;
+    expect(fi.style.display).toBe("");
+  });
+
+  it("hides force-idle when busy AI session exists but workingDir differs", () => {
+    const { factory, menu } = mkCmFactory({
+      state: mkCmState({
+        sessions: new Map([["s", { command: "claude", status: "busy", workingDir: "C:\\other" }]]),
+      }),
+    });
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    const fi = menu.querySelector('[data-action="force-idle"]') as HTMLElement;
+    expect(fi.style.display).toBe("none");
+  });
+
+  it("positions menu at e.clientX and e.clientY and removes hidden", () => {
+    const { factory, menu } = mkCmFactory();
+    factory.show(new MouseEvent("contextmenu", { clientX: 123, clientY: 456 }) as any, "C:\\foo");
+    expect((menu as HTMLElement).style.left).toBe("123px");
+    expect((menu as HTMLElement).style.top).toBe("456px");
+    expect(menu.classList.contains("hidden")).toBe(false);
+  });
+
+  it("is a no-op when #context-menu is missing from DOM", () => {
+    document.body.innerHTML = "";
+    const state = mkCmState();
+    const f = createContextMenu({
+      doc: document,
+      byId: (id: string) => document.getElementById(id),
+      state: state as any,
+      helpers: { normPath },
+      actions: {},
+    });
+    expect(() => f.show(new MouseEvent("contextmenu") as any, "C:\\foo")).not.toThrow();
+    expect(state.ctxTarget).toBe("C:\\foo");
+  });
+});
+
+describe("createContextMenu.attachDismissers", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("global document click hides the menu", () => {
+    const { factory, menu } = mkCmFactory();
+    factory.attachDismissers();
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    expect(menu.classList.contains("hidden")).toBe(false);
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(menu.classList.contains("hidden")).toBe(true);
+  });
+
+  it("menu item click resolves action and invokes handler with (path, name)", async () => {
+    const handler = vi.fn();
+    const { factory, menu } = mkCmFactory({ actions: { rename: handler } });
+    factory.attachDismissers();
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo\\bar");
+    const item = menu.querySelector('[data-action="rename"]') as HTMLElement;
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(handler).toHaveBeenCalledWith("C:\\foo\\bar", "bar");
+  });
+
+  it("menu click with no matching action does not invoke any handler", async () => {
+    const handler = vi.fn();
+    const { factory, menu } = mkCmFactory({ actions: { rename: handler } });
+    factory.attachDismissers();
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    const item = menu.querySelector('[data-action="force-idle"]') as HTMLElement;
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("menu click on disabled item does not invoke handler", async () => {
+    const handler = vi.fn();
+    const { factory, menu } = mkCmFactory({
+      state: mkCmState({ favorites: ["C:\\foo"] }),
+      actions: { "fav-add": handler },
+    });
+    factory.attachDismissers();
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    const item = menu.querySelector('[data-action="fav-add"]') as HTMLElement;
+    expect(item.classList.contains("ctx-disabled")).toBe(true);
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("menu click without a prior show() returns early (no ctxTarget)", async () => {
+    const handler = vi.fn();
+    const { factory, menu } = mkCmFactory({ actions: { rename: handler } });
+    factory.attachDismissers();
+    const item = menu.querySelector('[data-action="rename"]') as HTMLElement;
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("awaits async action handlers", async () => {
+    let resolved = false;
+    const handler = vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      resolved = true;
+    });
+    const { factory, menu } = mkCmFactory({ actions: { rename: handler } });
+    factory.attachDismissers();
+    factory.show(new MouseEvent("contextmenu") as any, "C:\\foo");
+    const item = menu.querySelector('[data-action="rename"]') as HTMLElement;
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(resolved).toBe(true);
   });
 });
