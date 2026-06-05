@@ -21,6 +21,7 @@ import {
   upsertDiagRow,
   upsertDiagTotalRow,
 } from "./diag-panel.js";
+import { isDashboardMode } from "./navigation.js";
 
 /**
  * @typedef {Object} StorageLike
@@ -228,7 +229,7 @@ export function createDashboardPanel(deps) {
   }
 
   async function renderStats() {
-    if (!deps.state.isDashboard) return;
+    if (!isDashboardMode(deps.state)) return;
     if (!doc) return;
     // Use getElementById here (not byId) because the #dashboard-stats
     // container is not currently rendered — the guarded early-return
@@ -243,7 +244,7 @@ export function createDashboardPanel(deps) {
     try {
       const res = await fetcher("/api/stats", { signal: myCtl.signal });
       const stats = await res.json();
-      if (!deps.state.isDashboard) return;
+      if (!isDashboardMode(deps.state)) return;
       paintStats(container, stats);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;

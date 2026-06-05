@@ -69,6 +69,8 @@ export function reorderWorkspaces(workspaces, srcId, tgtId, side) {
 // Tab drag state (formerly module-level `dragSrcWsId` in app.js)
 // lives in the factory closure, so multiple instances are independent.
 
+import { isDashboardMode } from "./navigation.js";
+
 /**
  * @typedef {Object} WorkspaceTabsState
  * @property {Array<{ id: string, name: string, customName?: boolean, layout: any }>} workspaces
@@ -115,7 +117,7 @@ export function createWorkspaceTabs(deps) {
     tabsEl.innerHTML = "";
 
     const dashTab = doc.createElement("div");
-    dashTab.className = `tab ${state.isDashboard ? "active" : ""}`;
+    dashTab.className = `tab ${isDashboardMode(state) ? "active" : ""}`;
     dashTab.textContent = "Dashboard";
     dashTab.onclick = () => actions.switchToDashboard();
     tabsEl.appendChild(dashTab);

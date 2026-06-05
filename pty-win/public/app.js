@@ -43,6 +43,7 @@ import {
   findParentSplit,
 } from "./lib/tiling.js";
 import { rebuildPaneGroups as _rebuildPaneGroups } from "./lib/pane-groups.js";
+import { isDashboardMode } from "./lib/navigation.js";
 import { createWorkspaceTabs } from "./lib/workspace-tabs.js";
 import { createSessionDrop } from "./lib/session-drop.js";
 import { createLayoutPresets } from "./lib/layout-presets.js";
@@ -582,7 +583,7 @@ async function initApp() {
   renderTree();
   renderQuickAccess();
   renderTabs();
-  if (state.isDashboard) dashboardPanel.render();
+  if (isDashboardMode(state)) dashboardPanel.render();
   else renderActiveWorkspace();
 }
 
@@ -729,7 +730,7 @@ function pruneFailedSession(name) {
     }
   }
   saveWorkspaces();
-  if (state.isDashboard) dashboardPanel.render();
+  if (isDashboardMode(state)) dashboardPanel.render();
   else renderActiveWorkspace();
 }
 
@@ -1395,7 +1396,7 @@ if (savedWs) {
 state.sessionMeta = loadSessionMeta();
 
 renderTabs();
-if (state.isDashboard) dashboardPanel.render();
+if (isDashboardMode(state)) dashboardPanel.render();
 else renderActiveWorkspace();
 connect();
 

@@ -16,6 +16,8 @@
 // We copied both bodies verbatim from app.js to keep this extraction
 // behaviour-preserving.
 
+import { isDashboardMode } from "./navigation.js";
+
 /**
  * @typedef {{ status?: string }} SessionInfo
  *
@@ -202,7 +204,7 @@ export function createPaneLifecycle(deps) {
     refocusAfterPaneRemoval(groupName, siblingAlive);
 
     helpers.refreshTreeRunningState();
-    if (state.isDashboard) views.renderDashboard();
+    if (isDashboardMode(state)) views.renderDashboard();
     else views.renderActiveWorkspace();
     views.renderTabs();
   }

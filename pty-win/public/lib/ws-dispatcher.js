@@ -17,6 +17,7 @@
 // ws-handlers.js and are passed in via the `layouts` port.
 
 import { hasSessionNameSetChanged } from "./ws-handlers.js";
+import { isDashboardMode } from "./navigation.js";
 
 /**
  * @typedef {Object} WsDispatcherDeps
@@ -125,7 +126,7 @@ export function createWsDispatcher(deps) {
     deps.tree.refreshTreeRunningState();
     deps.views.renderSessionsPanel();
     deps.views.renderQuickAccess();
-    if (deps.state.isDashboard) {
+    if (isDashboardMode(deps.state)) {
       deps.views.renderDashboard();
     } else if (layoutChanged) {
       deps.views.renderActiveWorkspace();
@@ -146,7 +147,7 @@ export function createWsDispatcher(deps) {
     deps.tree.refreshTreeRunningState();
     deps.views.renderSessionsPanel();
     deps.views.renderQuickAccess();
-    if (deps.state.isDashboard) deps.views.renderDashboard();
+    if (isDashboardMode(deps.state)) deps.views.renderDashboard();
 
     if (msg.payload.status === "dead") {
       if (msg.payload.dirtyOnExit) {
@@ -166,7 +167,7 @@ export function createWsDispatcher(deps) {
     deps.panes.updatePaneStatus(msg.session);
     deps.views.renderSessionsPanel();
     deps.views.renderQuickAccess();
-    if (deps.state.isDashboard) deps.views.renderDashboard();
+    if (isDashboardMode(deps.state)) deps.views.renderDashboard();
   }
 
   /**
@@ -183,7 +184,7 @@ export function createWsDispatcher(deps) {
   }
 
   function restoreTerminalFocusAfterRebuild() {
-    if (!deps.state.focusedPane || deps.state.isDashboard) return;
+    if (!deps.state.focusedPane || isDashboardMode(deps.state)) return;
     const pg = deps.state.paneGroups.get(deps.state.focusedPane);
     const sessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : deps.state.focusedPane;
     const entry = deps.state.terminals.get(sessionName || deps.state.focusedPane);
