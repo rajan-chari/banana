@@ -60,6 +60,7 @@ import {
   cleanupDeadSession,
   attachToSiblingWorkspace,
   tileNewSessionIntoWorkspace,
+  optimisticallyAddNewSession,
 } from "./lib/open-folder.js";
 import {
   buildContextMenuActions,
@@ -842,7 +843,12 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
       return;
     }
     await res.json();
-    placeNewSession({ baseName, sessionName, isPwsh, newWorkspace });
+    placeNewSession({
+      baseName, sessionName, isPwsh,
+      command: body.command || getDefaultAiCommand(),
+      folderPath,
+      newWorkspace,
+    });
   } catch {
     alert("Failed to create session");
   }
@@ -871,14 +877,19 @@ function buildOpenFolderBody({ folderPath, command, args }) {
 }
 
 /** Attach to sibling workspace if one exists, else tile into a workspace.
- * @param {{ baseName: string, sessionName: string, isPwsh: boolean, newWorkspace: boolean }} args
+ *  Optimistically inserts the new session into `state.sessions` first so
+ *  the render branch finds it before the WS `sessions` snapshot arrives.
+ * @param {{ baseName: string, sessionName: string, isPwsh: boolean, command: string, folderPath: string, newWorkspace: boolean }} args
  */
-function placeNewSession({ baseName, sessionName, isPwsh, newWorkspace }) {
+function placeNewSession({ baseName, sessionName, isPwsh, command, folderPath, newWorkspace }) {
+  optimisticallyAddNewSession({
+    baseName, sessionName, isPwsh, command, folderPath,
+    sessions, activePaneTypes, rebuildPaneGroups,
+  });
   const siblingWs = findWorkspaceContaining(baseName);
   if (siblingWs) {
     attachToSiblingWorkspace({
-      siblingWs, baseName, sessionName, isPwsh,
-      state, activePaneTypes, switchToWorkspace, renderActiveWorkspace, focusPane,
+      siblingWs, baseName, switchToWorkspace, renderActiveWorkspace, focusPane,
     });
     return;
   }

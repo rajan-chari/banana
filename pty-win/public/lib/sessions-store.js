@@ -25,6 +25,13 @@
 //                      server's next snapshot catches up). Returns
 //                      true when an entry existed and was removed.
 //                      Fires onChange({ kind: "remove", name }).
+//   add(info)          Optimistically insert a new session entry locally
+//                      (Phase 9d — before the server's next snapshot
+//                      catches up). Returns false (no-op) when a session
+//                      with that name already exists; returns true on
+//                      insert. Fires onChange({ kind: "add", name }).
+//                      The next replaceAll() from the server will refresh
+//                      the entry with authoritative fields.
 //   byName(name)       Map.get equivalent; returns SessionInfo | undefined.
 //   has(name)          Map.has equivalent.
 //   size()             count of sessions.
@@ -48,6 +55,7 @@
  *     | { kind: "replace", prevNames: Set<string> }
  *     | { kind: "update", name: string }
  *     | { kind: "remove", name: string }
+ *     | { kind: "add", name: string }
  *   ) => void,
  * }} SessionsStoreDeps
  */
@@ -107,6 +115,21 @@ export function createSessionsStore(deps) {
     return true;
   }
 
+  /**
+   * Optimistically insert a new session entry. Returns false (no-op) when
+   * the name already exists, true on insert. The next server snapshot
+   * replaces the optimistic entry with authoritative fields.
+   *
+   * @param {SessionInfo} info
+   * @returns {boolean}
+   */
+  function add(info) {
+    if (state.sessions.has(info.name)) return false;
+    state.sessions.set(info.name, info);
+    onChange({ kind: "add", name: info.name });
+    return true;
+  }
+
   /** @param {string} name */
   function byName(name) { return state.sessions.get(name); }
 
@@ -119,5 +142,5 @@ export function createSessionsStore(deps) {
   function entries() { return [...state.sessions.entries()]; }
   function raw() { return state.sessions; }
 
-  return { replaceAll, updateStatus, remove, byName, has, size, names, list, entries, raw };
+  return { replaceAll, updateStatus, remove, add, byName, has, size, names, list, entries, raw };
 }

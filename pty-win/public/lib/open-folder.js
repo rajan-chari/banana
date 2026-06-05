@@ -96,6 +96,40 @@ export async function cleanupDeadSession(sessionName, deps) {
 }
 
 /**
+ * Optimistically insert the just-created session into the local store
+ * (Phase 9d) so the upcoming render finds it before the WS `sessions`
+ * snapshot arrives. Also flips `activePaneTypes` for the group to the
+ * newly-opened tab, and triggers a reconcile so any consumers still
+ * reading the cached `state.paneGroups` Map see the new membership.
+ *
+ * Order matters: `activePaneTypes.set` BEFORE `sessions.add` so any
+ * synchronous `sessions.onChange` observer sees the intended active type.
+ *
+ * @param {{
+ *   baseName: string,
+ *   sessionName: string,
+ *   isPwsh: boolean,
+ *   command: string,
+ *   folderPath: string,
+ *   sessions: { add: (info: any) => boolean },
+ *   activePaneTypes: { set: (name: string, type: "claude"|"pwsh") => void },
+ *   rebuildPaneGroups: () => void,
+ * }} args
+ */
+export function optimisticallyAddNewSession(args) {
+  const type = args.isPwsh ? "pwsh" : "claude";
+  args.activePaneTypes.set(args.baseName, type);
+  args.sessions.add({
+    name: args.sessionName,
+    group: args.baseName,
+    command: args.command,
+    status: "starting",
+    workingDir: args.folderPath,
+  });
+  args.rebuildPaneGroups();
+}
+
+/**
  * Place a freshly-created session into a workspace when no sibling
  * workspace exists yet. Either creates a new workspace named after the
  * base name or appends to the active workspace, then switches focus.
@@ -125,31 +159,19 @@ export function tileNewSessionIntoWorkspace(args) {
 
 /**
  * Attach a freshly-created session to a workspace that already contains
- * its sibling (the other of the claude/pwsh pair). Mutates the pane
- * group, switches the workspace, and re-renders.
- *
- * Replaces the two near-duplicate branches in the original openFolder
- * by parameterizing on `isPwsh`.
+ * its sibling (the other of the claude/pwsh pair). Orchestration only —
+ * the optimistic state insertion lives in `optimisticallyAddNewSession`,
+ * called from `placeNewSession` BEFORE this branch fires.
  *
  * @param {{
  *   siblingWs: { id: string },
  *   baseName: string,
- *   sessionName: string,
- *   isPwsh: boolean,
- *   state: { paneGroups: Map<string, { activeType: string, claude?: string|null, pwsh?: string|null }> },
- *   activePaneTypes: { set: (name: string, type: "claude"|"pwsh") => void },
  *   switchToWorkspace: (id: string) => void,
  *   renderActiveWorkspace: () => void,
  *   focusPane: (name: string) => void
  * }} args
  */
 export function attachToSiblingWorkspace(args) {
-  const type = args.isPwsh ? "pwsh" : "claude";
-  const pg = args.state.paneGroups.get(args.baseName) || { activeType: type };
-  pg[type] = args.sessionName;
-  pg.activeType = type;
-  args.activePaneTypes.set(args.baseName, type);
-  args.state.paneGroups.set(args.baseName, pg);
   args.switchToWorkspace(args.siblingWs.id);
   args.renderActiveWorkspace();
   args.focusPane(args.baseName);

@@ -7,6 +7,7 @@ import {
   cleanupDeadSession,
   attachToSiblingWorkspace,
   tileNewSessionIntoWorkspace,
+  optimisticallyAddNewSession,
 } from "../public/lib/open-folder.js";
 
 describe("computeSessionNames", () => {
@@ -201,10 +202,6 @@ describe("attachToSiblingWorkspace", () => {
     return {
       siblingWs: { id: "ws-1" },
       baseName: "foo",
-      sessionName: "foo",
-      isPwsh: false,
-      state: { paneGroups: new Map() },
-      activePaneTypes: { set: vi.fn() },
       switchToWorkspace: vi.fn(),
       renderActiveWorkspace: vi.fn(),
       focusPane: vi.fn(),
@@ -212,42 +209,133 @@ describe("attachToSiblingWorkspace", () => {
     };
   }
 
-  it("creates pane group for claude session", () => {
-    const args = mkArgs({ isPwsh: false, sessionName: "foo" });
-    attachToSiblingWorkspace(args);
-    const pg = args.state.paneGroups.get("foo");
-    expect(pg).toEqual({ activeType: "claude", claude: "foo" });
-  });
-
-  it("creates pane group for pwsh session", () => {
-    const args = mkArgs({ isPwsh: true, sessionName: "foo~pwsh" });
-    attachToSiblingWorkspace(args);
-    const pg = args.state.paneGroups.get("foo");
-    expect(pg).toEqual({ activeType: "pwsh", pwsh: "foo~pwsh" });
-  });
-
-  it("merges with existing pane group, preserving sibling type", () => {
-    const args = mkArgs({
-      isPwsh: true,
-      sessionName: "foo~pwsh",
-      state: {
-        paneGroups: new Map([["foo", { activeType: "claude", claude: "foo" }]]),
-      },
-    });
-    attachToSiblingWorkspace(args);
-    expect(args.state.paneGroups.get("foo")).toEqual({
-      activeType: "pwsh",
-      claude: "foo",
-      pwsh: "foo~pwsh",
-    });
-  });
-
-  it("switches workspace, renders, focuses pane", () => {
+  it("switches to the sibling workspace, renders, and focuses the pane", () => {
     const args = mkArgs();
     attachToSiblingWorkspace(args);
     expect(args.switchToWorkspace).toHaveBeenCalledWith("ws-1");
     expect(args.renderActiveWorkspace).toHaveBeenCalledTimes(1);
     expect(args.focusPane).toHaveBeenCalledWith("foo");
+  });
+
+  it("orchestration only — does not touch state.sessions or activePaneTypes", () => {
+    // Phase 9d-A invariant: optimistic state insertion moved to
+    // optimisticallyAddNewSession (called from placeNewSession).
+    // attachToSiblingWorkspace is purely orchestration now.
+    const args = mkArgs();
+    attachToSiblingWorkspace(args);
+    // Just renders + focuses. No store interaction.
+    expect(Object.keys(args).sort()).toEqual([
+      "baseName", "focusPane", "renderActiveWorkspace", "siblingWs", "switchToWorkspace",
+    ].sort());
+  });
+});
+
+describe("optimisticallyAddNewSession (9d-A)", () => {
+  function mkArgs(overrides: any = {}) {
+    return {
+      baseName: "foo",
+      sessionName: "foo",
+      isPwsh: false,
+      command: "claude",
+      folderPath: "C:\\projects\\foo",
+      sessions: { add: vi.fn(() => true) },
+      activePaneTypes: { set: vi.fn() },
+      rebuildPaneGroups: vi.fn(),
+      ...overrides,
+    };
+  }
+
+  it("sets activeType BEFORE calling sessions.add (observer-order invariant)", () => {
+    const calls: string[] = [];
+    const args = mkArgs({
+      sessions: { add: vi.fn((_info: any) => { calls.push("add"); return true; }) },
+      activePaneTypes: { set: vi.fn((_n: string, _t: string) => { calls.push("setActive"); }) },
+      rebuildPaneGroups: vi.fn(() => { calls.push("rebuild"); }),
+    });
+    optimisticallyAddNewSession(args);
+    expect(calls).toEqual(["setActive", "add", "rebuild"]);
+  });
+
+  it("inserts a starting SessionInfo with name/group/command/workingDir", () => {
+    const add = vi.fn((_info: any) => true);
+    const args = mkArgs({
+      isPwsh: false,
+      sessionName: "foo",
+      command: "claude",
+      folderPath: "/path/to/foo",
+      sessions: { add },
+    });
+    optimisticallyAddNewSession(args);
+    expect(add).toHaveBeenCalledWith({
+      name: "foo",
+      group: "foo",
+      command: "claude",
+      status: "starting",
+      workingDir: "/path/to/foo",
+    });
+  });
+
+  it("uses the real command, not a hard-coded 'claude'", () => {
+    const add = vi.fn((_info: any) => true);
+    const args = mkArgs({ command: "copilot", sessions: { add } });
+    optimisticallyAddNewSession(args);
+    expect(add.mock.calls[0][0].command).toBe("copilot");
+  });
+
+  it("sets activePaneTypes to 'pwsh' for a pwsh session", () => {
+    const setActive = vi.fn();
+    const args = mkArgs({
+      isPwsh: true,
+      sessionName: "foo~pwsh",
+      command: "pwsh",
+      activePaneTypes: { set: setActive },
+    });
+    optimisticallyAddNewSession(args);
+    expect(setActive).toHaveBeenCalledWith("foo", "pwsh");
+  });
+
+  it("sets activePaneTypes to 'claude' for a non-pwsh session", () => {
+    const setActive = vi.fn();
+    const args = mkArgs({ isPwsh: false, activePaneTypes: { set: setActive } });
+    optimisticallyAddNewSession(args);
+    expect(setActive).toHaveBeenCalledWith("foo", "claude");
+  });
+
+  it("calls rebuildPaneGroups after the optimistic insertion", () => {
+    const rebuildPaneGroups = vi.fn();
+    const args = mkArgs({ rebuildPaneGroups });
+    optimisticallyAddNewSession(args);
+    expect(rebuildPaneGroups).toHaveBeenCalledTimes(1);
+  });
+
+  it("tolerates sessions.add returning false (name collision) — still flips active + rebuilds", () => {
+    const rebuildPaneGroups = vi.fn();
+    const setActive = vi.fn();
+    const args = mkArgs({
+      sessions: { add: vi.fn(() => false) },
+      activePaneTypes: { set: setActive },
+      rebuildPaneGroups,
+    });
+    optimisticallyAddNewSession(args);
+    expect(setActive).toHaveBeenCalled();
+    expect(rebuildPaneGroups).toHaveBeenCalled();
+  });
+
+  it("uses baseName as the group key (not sessionName) so pwsh joins the claude group", () => {
+    const setActive = vi.fn();
+    const add = vi.fn((_info: any) => true);
+    const args = mkArgs({
+      baseName: "foo",
+      sessionName: "foo~pwsh",
+      isPwsh: true,
+      command: "pwsh",
+      sessions: { add },
+      activePaneTypes: { set: setActive },
+    });
+    optimisticallyAddNewSession(args);
+    expect(setActive).toHaveBeenCalledWith("foo", "pwsh");
+    expect(add.mock.calls[0][0].group).toBe("foo");
+    expect(add.mock.calls[0][0].name).toBe("foo~pwsh");
   });
 });
 

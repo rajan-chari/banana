@@ -187,6 +187,45 @@ describe("createSessionsStore", () => {
     });
   });
 
+  describe("add (9d-A)", () => {
+    it("inserts a new session and returns true", () => {
+      const { store, state } = mkStore();
+      const ok = store.add({ name: "a", status: "starting" } as any);
+      expect(ok).toBe(true);
+      expect(state.sessions.has("a")).toBe(true);
+      expect(store.byName("a")?.status).toBe("starting");
+    });
+
+    it("returns false and is a no-op when the name already exists", () => {
+      const { store, onChange } = mkStore([{ name: "a", status: "idle" }]);
+      const ok = store.add({ name: "a", status: "starting" } as any);
+      expect(ok).toBe(false);
+      expect(store.byName("a")?.status).toBe("idle");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("fires onChange with { kind: 'add', name } on success", () => {
+      const { store, onChange } = mkStore();
+      store.add({ name: "a" } as any);
+      expect(onChange).toHaveBeenCalledWith({ kind: "add", name: "a" });
+    });
+
+    it("default no-op onChange does not throw on add", () => {
+      const state: any = { sessions: new Map() };
+      const store = createSessionsStore({ state });
+      expect(() => store.add({ name: "a" } as any)).not.toThrow();
+    });
+
+    it("a subsequent replaceAll wipes the optimistic entry if server omits it", () => {
+      const { store } = mkStore();
+      store.add({ name: "optimistic" } as any);
+      expect(store.has("optimistic")).toBe(true);
+      store.replaceAll([{ name: "authoritative" }] as any);
+      expect(store.has("optimistic")).toBe(false);
+      expect(store.has("authoritative")).toBe(true);
+    });
+  });
+
   describe("onChange wiring", () => {
     it("default no-op onChange does not throw", () => {
       const state: any = { sessions: new Map() };

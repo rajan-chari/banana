@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rebuildPaneGroups } from "../public/lib/pane-groups.js";
+import { rebuildPaneGroups, getPaneGroups, getPaneGroup } from "../public/lib/pane-groups.js";
 import type { SessionInfo } from "../public/lib/pane-groups.js";
 import { createPaneActiveTypeStore } from "../public/lib/pane-active-type-store.js";
 
@@ -195,5 +195,97 @@ describe("rebuildPaneGroups", () => {
     expect(result.size).toBe(2);
     expect(store.get("a")).toBe("pwsh");
     expect(store.get("b")).toBe("claude");
+  });
+});
+
+describe("getPaneGroups (9d-A pure selector)", () => {
+  function rawActive(initial: Array<[string, "claude" | "pwsh"]> = []) {
+    return new Map<string, "claude" | "pwsh">(initial);
+  }
+
+  it("returns empty map for no sessions", () => {
+    const result = getPaneGroups(new Map(), rawActive());
+    expect(result.size).toBe(0);
+  });
+
+  it("produces same membership as rebuildPaneGroups for a mixed input", () => {
+    const sess = sessions(
+      { name: "a" },
+      { name: "a~pwsh" },
+      { name: "b" },
+      { name: "c~pwsh" },
+    );
+    const active = rawActive([["a", "pwsh"], ["c", "claude"]]);
+    const sel = getPaneGroups(sess, active);
+    const reb = rebuildPaneGroups(sess, createPaneActiveTypeStore({ state: { activePaneTypes: new Map([["a", "pwsh"], ["c", "claude"]]) } }));
+    expect([...sel.keys()].sort()).toEqual([...reb.keys()].sort());
+    for (const k of sel.keys()) {
+      const s = sel.get(k)!;
+      const r = reb.get(k)!;
+      expect(s.claude).toBe(r.claude);
+      expect(s.pwsh).toBe(r.pwsh);
+      expect(s.activeType).toBe(r.activeType);
+    }
+  });
+
+  it("defaults activeType to 'claude' when no store entry", () => {
+    const result = getPaneGroups(sessions({ name: "myapp" }, { name: "myapp~pwsh" }), rawActive());
+    expect(result.get("myapp")!.activeType).toBe("claude");
+  });
+
+  it("read-only flip: returns claude when stored pwsh but pwsh sibling absent", () => {
+    const active = rawActive([["myapp", "pwsh"]]);
+    const result = getPaneGroups(sessions({ name: "myapp" }), active);
+    expect(result.get("myapp")!.activeType).toBe("claude");
+    // Store NOT mutated by selector
+    expect(active.get("myapp")).toBe("pwsh");
+  });
+
+  it("read-only flip: returns pwsh when stored claude but claude sibling absent", () => {
+    const active = rawActive([["myapp", "claude"]]);
+    const result = getPaneGroups(sessions({ name: "myapp~pwsh" }), active);
+    expect(result.get("myapp")!.activeType).toBe("pwsh");
+    expect(active.get("myapp")).toBe("claude");
+  });
+
+  it("does NOT prune stale store entries (caller's reconciler owns that)", () => {
+    const active = rawActive([["gone", "pwsh"], ["still-here", "claude"]]);
+    const result = getPaneGroups(sessions({ name: "still-here" }), active);
+    expect(result.has("gone")).toBe(false);
+    // Stale entry survives — only rebuildPaneGroups prunes
+    expect(active.has("gone")).toBe(true);
+  });
+
+  it("returns fresh group objects (mutating them does not affect activePaneTypes)", () => {
+    const active = rawActive([["myapp", "claude"]]);
+    const result = getPaneGroups(sessions({ name: "myapp" }), active);
+    const pg = result.get("myapp")!;
+    pg.activeType = "pwsh";
+    expect(active.get("myapp")).toBe("claude");
+  });
+
+  it("uses info.group for grouping", () => {
+    const sess = new Map<string, SessionInfo>();
+    sess.set("custom", { name: "custom", group: "shared", command: "claude", status: "idle" });
+    sess.set("shared~pwsh", { name: "shared~pwsh", group: "shared", command: "pwsh", status: "idle" });
+    const result = getPaneGroups(sess, rawActive());
+    expect(result.size).toBe(1);
+    expect(result.get("shared")!.claude).toBe("custom");
+    expect(result.get("shared")!.pwsh).toBe("shared~pwsh");
+  });
+});
+
+describe("getPaneGroup (9d-A convenience)", () => {
+  it("returns the single named group", () => {
+    const active = new Map<string, "claude" | "pwsh">();
+    const result = getPaneGroup(sessions({ name: "myapp" }, { name: "myapp~pwsh" }), "myapp", active);
+    expect(result?.claude).toBe("myapp");
+    expect(result?.pwsh).toBe("myapp~pwsh");
+  });
+
+  it("returns undefined when no group with that name has live sessions", () => {
+    const active = new Map<string, "claude" | "pwsh">();
+    const result = getPaneGroup(sessions({ name: "other" }), "missing", active);
+    expect(result).toBeUndefined();
   });
 });
