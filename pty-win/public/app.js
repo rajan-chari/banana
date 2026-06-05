@@ -66,12 +66,7 @@ import {
 import { createAgentsPanel } from "./lib/agents-panel.js";
 import { createTrackerPanel } from "./lib/tracker-panel.js";
 import { initRightPanel } from "./lib/right-panel.js";
-import {
-  computeDiagTotalCost,
-  removeStaleDiagRows,
-  upsertDiagRow,
-  upsertDiagTotalRow,
-} from "./lib/diag-panel.js";
+import { createDashboardPanel } from "./lib/dashboard-panel.js";
 import {
   normPath,
   cssId,
@@ -99,11 +94,6 @@ import {
   applyFolderInfoToTreeLabel,
 } from "./lib/folder-tree.js";
 import {
-  EMPTY_DASHBOARD_HTML,
-  patchCardFields,
-  removeStaleCards,
-} from "./lib/dashboard-patch.js";
-import {
   createEmptyRow,
   createSessionRow,
   buildSessionRowActionsOpts,
@@ -124,10 +114,6 @@ import {
 
 /** @type {string | null} */
 let dragSrcWsId = null;
-/** @type {ReturnType<typeof setInterval> | null} */
-let diagPollTimer = null;
-/** @type {ReturnType<typeof setInterval> | null} */
-let trackerPollTimer = null;
 
 // ===== DOM helpers =====
 // `byId` asserts non-null and returns HTMLElement, so callers can chain
@@ -193,12 +179,21 @@ function rebuildPaneGroups() {
 }
 
 
+// ===== Dashboard (extracted to lib/dashboard-panel.js) =====
+
+const dashboardPanel = createDashboardPanel({
+  state,
+  byId,
+  fmtAgo,
+  onFocusSession: focusExistingSession,
+});
+
 // ===== WebSocket (extracted to lib/ws-dispatcher.js) =====
 
 const wsDispatcher = createWsDispatcher({
   state,
   panes: { rebuildPaneGroups, updatePaneStatus },
-  views: { renderSessionsPanel, renderQuickAccess, renderDashboard, renderActiveWorkspace, showDirtyWarning },
+  views: { renderSessionsPanel, renderQuickAccess, renderDashboard: dashboardPanel.render, renderActiveWorkspace, showDirtyWarning },
   tree: { refreshTreeRunningState },
   layouts: {
     findOrphanedLeaves,
@@ -322,7 +317,7 @@ async function initApp() {
   renderTree();
   renderQuickAccess();
   renderTabs();
-  if (state.isDashboard) renderDashboard();
+  if (state.isDashboard) dashboardPanel.render();
   else renderActiveWorkspace();
 }
 
@@ -762,7 +757,7 @@ function pruneFailedSession(name) {
     }
   }
   saveWorkspaces();
-  if (state.isDashboard) renderDashboard();
+  if (state.isDashboard) dashboardPanel.render();
   else renderActiveWorkspace();
 }
 
@@ -1243,8 +1238,7 @@ function switchToWorkspace(id) {
     if (prevWs) prevWs.lastFocusedPane = state.focusedPane;
   }
 
-  stopDiagPoll();
-  stopTrackerPoll();
+  dashboardPanel.stopPolling();
   state.activeWorkspaceId = id;
   state.isDashboard = false;
   state.isDiag = false;
@@ -1274,24 +1268,15 @@ function switchToWorkspace(id) {
   }
 }
 
-function stopDiagPoll() {
-  if (diagPollTimer) { clearInterval(diagPollTimer); diagPollTimer = null; }
-}
-
 function switchToDashboard() {
-  stopDiagPoll();
-  stopTrackerPoll();
+  dashboardPanel.stopPolling();
   state.activeWorkspaceId = null;
   state.isDashboard = true;
   state.isDiag = false;
   state.isTracker = false;
   renderTabs();
-  renderDashboard();
-  diagPollTimer = setInterval(renderDashboardStats, 5000);
-}
-
-function stopTrackerPoll() {
-  if (trackerPollTimer) { clearInterval(trackerPollTimer); trackerPollTimer = null; }
+  dashboardPanel.render();
+  dashboardPanel.startPolling();
 }
 
 /**
@@ -2692,221 +2677,12 @@ function autoRemoveDeadSession(sessionName) {
   refocusAfterPaneRemoval(groupName, siblingAlive);
 
   refreshTreeRunningState();
-  if (state.isDashboard) renderDashboard();
+  if (state.isDashboard) dashboardPanel.render();
   else renderActiveWorkspace();
   renderTabs();
 }
 
-// ===== Dashboard =====
-
-function renderDashboard() {
-  const area = byId("workspace-area");
-
-  // Check if dashboard already exists — patch in-place instead of rebuilding
-  let dash = /** @type {HTMLElement | null} */ (area.querySelector(".dashboard"));
-  if (dash) {
-    patchDashboard(dash);
-    return;
-  }
-
-  // First render — build the structure once
-  area.innerHTML = "";
-  dash = document.createElement("div");
-  dash.className = "dashboard active";
-  area.appendChild(dash);
-
-  if (state.sessions.size === 0) {
-    dash.innerHTML = `
-      <div class="dashboard-empty">
-        // NO ACTIVE SESSIONS<br><br>
-        Open a folder from the sidebar or press <kbd>Ctrl+P</kbd>
-      </div>
-    `;
-    return;
-  }
-
-  // Header strip
-  const header = document.createElement("div");
-  header.className = "dash-header";
-  header.innerHTML = buildHeaderHTML();
-  dash.appendChild(header);
-
-  // Collapsible cards section
-  const cardsCollapsed = localStorage.getItem("pty-win-dash-cards-collapsed") === "true";
-  const cardsSection = document.createElement("div");
-  cardsSection.className = "dash-cards-section";
-
-  const cardsHeader = document.createElement("div");
-  cardsHeader.className = "dash-cards-header";
-  cardsHeader.innerHTML = `<span class="dash-cards-arrow">${cardsCollapsed ? "\u25b8" : "\u25be"}</span> Workspaces <span class="dash-cards-count">(${state.sessions.size})</span>`;
-  cardsHeader.onclick = () => {
-    const grid = /** @type {HTMLElement | null} */ (cardsSection.querySelector(".dash-cards"));
-    const arrow = /** @type {HTMLElement | null} */ (cardsHeader.querySelector(".dash-cards-arrow"));
-    if (!grid || !arrow) return;
-    const collapsed = grid.style.display === "none";
-    grid.style.display = collapsed ? "" : "none";
-    arrow.textContent = collapsed ? "\u25be" : "\u25b8";
-    localStorage.setItem("pty-win-dash-cards-collapsed", collapsed ? "false" : "true");
-  };
-  cardsSection.appendChild(cardsHeader);
-
-  const cardsGrid = document.createElement("div");
-  cardsGrid.className = "dash-cards";
-  if (cardsCollapsed) cardsGrid.style.display = "none";
-  cardsSection.appendChild(cardsGrid);
-  dash.appendChild(cardsSection);
-
-  for (const [name, info] of state.sessions) {
-    cardsGrid.appendChild(createDashboardCard(name, info));
-  }
-}
-
-function buildHeaderHTML() {
-  const totalCost = [...state.sessions.values()].reduce(/**
-   * @param {number} s
-   * @param {import('./lib/state.js').SessionInfo} i
-   */
-  (s, i) => s + (i.costUsd || 0), 0);
-  const alive = [...state.sessions.values()].filter(i => i.status !== "dead").length;
-  const busy = [...state.sessions.values()].filter(i => i.status === "busy").length;
-  return `
-    <span class="dash-title">Mission Control</span>
-    <span class="dash-summary">
-      <span class="val">${alive}</span> active &middot;
-      <span class="val">${busy}</span> busy &middot;
-      <span class="val">${state.sessions.size}</span> total
-      ${totalCost > 0 ? `&middot; <span class="val">$${totalCost.toFixed(2)}</span>` : ""}
-    </span>
-  `;
-}
-
-/**
- * @param {string} name
- * @param {import('./lib/state.js').SessionInfo} info
- */
-function createDashboardCard(name, info) {
-  const card = document.createElement("div");
-  card.className = `dashboard-card status-${info.status}`;
-  card.dataset["session"] = name;
-  card.style.contain = "content";
-  const unread = info.unreadCount || 0;
-  const identity = info.emcomIdentity ? `<span class="dashboard-card-identity">@${info.emcomIdentity}</span>` : "";
-  const cost = `<span class="dashboard-card-cost">$${(info.costUsd || 0).toFixed(2)}</span>`;
-  card.innerHTML = `
-    <div class="dashboard-card-header">
-      <span class="dashboard-card-name">${name}</span>
-      <span class="dashboard-card-meta">
-        ${identity}
-        ${cost}
-        <span class="dashboard-card-status ${info.status}">${info.status}</span>
-        <span class="dashboard-card-badge ${unread > 0 ? "show" : ""}">${unread}</span>
-      </span>
-    </div>
-    <div class="dashboard-card-preview">...</div>
-  `;
-  card.onclick = () => focusExistingSession(name);
-  loadSnapshot(name);
-  return card;
-}
-
-/**
- * @param {HTMLElement} dash
- */
-function patchDashboard(dash) {
-  if (state.sessions.size === 0) {
-    dash.innerHTML = EMPTY_DASHBOARD_HTML;
-    return;
-  }
-
-  // Remove empty placeholder if sessions appeared
-  const empty = dash.querySelector(".dashboard-empty");
-  if (empty) { dash.innerHTML = ""; renderDashboard(); return; }
-
-  // Patch header
-  const header = dash.querySelector(".dash-header");
-  if (header) header.innerHTML = buildHeaderHTML();
-
-  // Patch cards count
-  const countEl = dash.querySelector(".dash-cards-count");
-  if (countEl) countEl.textContent = `(${state.sessions.size})`;
-
-  // Patch cards grid
-  const cardsGrid = dash.querySelector(".dash-cards");
-  if (!cardsGrid) return;
-
-  removeStaleCards(cardsGrid, new Set(state.sessions.keys()));
-
-  for (const [name, info] of state.sessions) {
-    const card = cardsGrid.querySelector(`.dashboard-card[data-session="${CSS.escape(name)}"]`);
-    if (!card) {
-      cardsGrid.appendChild(createDashboardCard(name, info));
-    } else {
-      patchCardFields(/** @type {HTMLElement} */ (card), info);
-    }
-  }
-}
-
-/**
- * @param {string} sessionName
- */
-async function loadSnapshot(sessionName) {
-  try {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionName)}/snapshot?lines=8`);
-    const data = await res.json();
-    const card = document.querySelector(`.dashboard-card[data-session="${CSS.escape(sessionName)}"]`);
-    const el = card?.querySelector(".dashboard-card-preview");
-    if (el) el.textContent = data.lines.join("\n") || "(no output yet)";
-  } catch {}
-}
-
-// ===== Dashboard Stats (inline) =====
-
-function renderDashboardStats() {
-  if (!state.isDashboard) return;
-  // Use getElementById here (not byId) because the #dashboard-stats
-  // container is not currently rendered — the guarded early-return
-  // keeps the polling interval harmless. If the dashboard ever gains
-  // a real stats container with this ID, this can switch to byId.
-  const container = document.getElementById("dashboard-stats");
-  if (!container) return;
-
-  fetch("/api/stats").then((r) => r.json()).then(/** @param {any[]} stats */ (stats) => {
-    if (!state.isDashboard) return;
-
-    const statsMap = new Map(stats.map((s) => [s.name, s]));
-    const sessions = [...state.sessions.entries()];
-    const totalCostVal = computeDiagTotalCost(sessions);
-
-    // Build table structure once, then patch rows
-    let table = container.querySelector(".diag-table");
-    if (!table) {
-      container.innerHTML = `
-        <div class="diag-section-title">Sessions</div>
-        <table class="diag-table">
-          <thead>
-            <tr><th>Session</th><th>Status</th><th>Active</th><th>cb/s</th><th>KB/s</th><th>Cost</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>`;
-      table = container.querySelector(".diag-table");
-    }
-
-    const tbody = table?.querySelector("tbody");
-    if (!tbody) return;
-    const currentNames = new Set(sessions.map(([n]) => n));
-
-    removeStaleDiagRows(tbody, currentNames);
-
-    for (const [name, info] of sessions) {
-      upsertDiagRow(tbody, name, info, statsMap.get(name), {
-        onFocusSession: focusExistingSession,
-        fmtAgo,
-      });
-    }
-
-    upsertDiagTotalRow(tbody, totalCostVal);
-  }).catch(() => {});
-}
+// ===== Dashboard (extracted to lib/dashboard-panel.js) =====
 
 
 // ===== Tracker Panel (extracted to lib/tracker-panel.js) =====
@@ -2994,7 +2770,7 @@ if (savedWs) {
 state.sessionMeta = loadSessionMeta();
 
 renderTabs();
-if (state.isDashboard) renderDashboard();
+if (state.isDashboard) dashboardPanel.render();
 else renderActiveWorkspace();
 connect();
 
