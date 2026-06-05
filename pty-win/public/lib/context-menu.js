@@ -21,7 +21,7 @@
  *   renderTree: () => void,
  *   renderQuickAccess: () => void,
  *   favorites: { add: (p: string) => boolean, remove: (p: string) => boolean, has: (p: string) => boolean },
- *   savePinnedFolders: () => void,
+ *   pinned: { add: (p: string) => boolean, remove: (p: string) => boolean, has: (p: string) => boolean },
  *   normPath: (p: string) => string,
  *   fetchFn?: typeof fetch,
  *   promptFn?: (msg: string, init?: string) => string|null,
@@ -93,33 +93,6 @@ export async function createSubfolderAndRefresh(path, trimmed, state, deps) {
 }
 
 /**
- * @param {string} path
- * @param {ContextMenuDeps["state"]} state
- * @param {{ savePinnedFolders: () => void, renderQuickAccess: () => void }} deps
- */
-export function addPin(path, state, deps) {
-  if (state.pinnedFolders.includes(path)) return false;
-  state.pinnedFolders.push(path);
-  deps.savePinnedFolders();
-  deps.renderQuickAccess();
-  return true;
-}
-
-/**
- * @param {string} path
- * @param {ContextMenuDeps["state"]} state
- * @param {{ savePinnedFolders: () => void, renderQuickAccess: () => void }} deps
- */
-export function removePin(path, state, deps) {
-  const idx = state.pinnedFolders.indexOf(path);
-  if (idx === -1) return false;
-  state.pinnedFolders.splice(idx, 1);
-  deps.savePinnedFolders();
-  deps.renderQuickAccess();
-  return true;
-}
-
-/**
  * Build the action-name -> handler dispatcher table. Each handler
  * receives (path, name) and may return a Promise.
  *
@@ -133,7 +106,7 @@ export function buildContextMenuActions(deps) {
   const promptF = deps.promptFn || ((m, i) => prompt(m, i));
   const alertF = deps.alertFn || ((m) => alert(m));
   const favorites = deps.favorites;
-  const pinDeps = { savePinnedFolders: deps.savePinnedFolders, renderQuickAccess: deps.renderQuickAccess };
+  const pinned = deps.pinned;
   return {
     "open": (path, name) => { deps.openFolder(path, name); },
     "open-new-ws": (path, name) => { deps.openFolder(path, name, undefined, true); },
@@ -154,8 +127,8 @@ export function buildContextMenuActions(deps) {
     },
     "fav-add": (path) => { favorites.add(path); },
     "fav-remove": (path) => { favorites.remove(path); },
-    "pin-add": (path) => { addPin(path, deps.state, pinDeps); },
-    "pin-remove": (path) => { removePin(path, deps.state, pinDeps); },
+    "pin-add": (path) => { pinned.add(path); },
+    "pin-remove": (path) => { pinned.remove(path); },
   };
 }
 

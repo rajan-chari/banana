@@ -24,8 +24,6 @@ import {
   syncAiDefaultFromServer,
 } from "./lib/state.js";
 import {
-  loadPinnedFolders,
-  savePinnedFolders,
   loadExpandedPaths,
   saveExpandedPaths,
   loadSidebarWidth,
@@ -36,6 +34,7 @@ import {
   saveSessionMeta,
 } from "./lib/persistence.js";
 import { createFavoritesStore } from "./lib/favorites-store.js";
+import { createPinnedFoldersStore } from "./lib/pinned-folders-store.js";
 import {
   buildBalancedTree,
   removeSessionFromLayout,
@@ -191,6 +190,11 @@ const refreshTreeRunningState = () => folderTree?.refreshTreeRunningState();
 const favorites = createFavoritesStore({
   state,
   onChange: () => renderTree(),
+});
+
+const pinned = createPinnedFoldersStore({
+  state,
+  onChange: () => renderQuickAccess(),
 });
 
 
@@ -367,7 +371,7 @@ const contextMenuActions = buildContextMenuActions({
   renderTree,
   renderQuickAccess: () => renderQuickAccess(),
   favorites,
-  savePinnedFolders,
+  pinned,
   normPath,
 });
 const ctxMenu = createContextMenu({
@@ -994,8 +998,12 @@ byId("btn-collapse-all").onclick = () => {
 
 byId("btn-add-root").onclick = () => {
   const path = prompt("Enter folder path to add as root:");
-  if (path && favorites.add(path)) {
+  if (!path) return;
+  // Batched: suppress favorites onChange so we don't render the tree
+  // BEFORE expandedPaths.add() — otherwise the new root paints collapsed.
+  if (favorites.add(path, { notify: false })) {
     state.expandedPaths.add(path);
+    renderTree();
   }
 };
 
@@ -1339,7 +1347,7 @@ window.addEventListener("resize", () => {
 // ===== Init =====
 
 favorites.init();
-state.pinnedFolders = loadPinnedFolders();
+pinned.init();
 state.expandedPaths = loadExpandedPaths();
 // Auto-expand favorites that haven't been explicitly collapsed
 for (const f of state.favorites) {

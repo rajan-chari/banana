@@ -99,6 +99,18 @@ describe("createFavoritesStore", () => {
       expect(state.favorites).toEqual(["p"]);
       expect(onChange).not.toHaveBeenCalled();
     });
+
+    it("suppresses onChange when {notify:false} is passed", () => {
+      const { storage, map } = mkMemStorage();
+      const state: any = { favorites: [] };
+      const onChange = vi.fn();
+      const store = createFavoritesStore({ state, storage, defaultEntry: null as any, onChange });
+      store.init();
+      expect(store.add("p", { notify: false })).toBe(true);
+      expect(state.favorites).toEqual(["p"]);
+      expect(JSON.parse(map.get("pty-win-favorites")!)).toEqual(["p"]);
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 
   describe("remove", () => {

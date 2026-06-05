@@ -4,13 +4,12 @@ import {
   forceIdleInFolder,
   validateSubfolderName,
   createSubfolderAndRefresh,
-  addPin,
-  removePin,
   buildContextMenuActions,
   resolveContextAction,
   createContextMenu,
 } from "../public/lib/context-menu.js";
 import { createFavoritesStore } from "../public/lib/favorites-store.js";
+import { createPinnedFoldersStore } from "../public/lib/pinned-folders-store.js";
 
 const normPath = (p: string) => (p ? p.replace(/\\/g, "/").toLowerCase() : "");
 
@@ -134,25 +133,6 @@ describe("createSubfolderAndRefresh", () => {
   });
 });
 
-describe("addPin / removePin", () => {
-  it("addPin pushes, persists, re-renders", () => {
-    const state = { pinnedFolders: [] };
-    const savePinnedFolders = vi.fn(); const renderQuickAccess = vi.fn();
-    expect(addPin("p", state as any, { savePinnedFolders, renderQuickAccess })).toBe(true);
-    expect(state.pinnedFolders).toEqual(["p"]);
-    expect(savePinnedFolders).toHaveBeenCalled();
-    expect(renderQuickAccess).toHaveBeenCalled();
-  });
-
-  it("removePin removes existing, no-ops on missing", () => {
-    const state = { pinnedFolders: ["a", "b"] };
-    const savePinnedFolders = vi.fn(); const renderQuickAccess = vi.fn();
-    expect(removePin("b", state as any, { savePinnedFolders, renderQuickAccess })).toBe(true);
-    expect(state.pinnedFolders).toEqual(["a"]);
-    expect(removePin("missing", state as any, { savePinnedFolders, renderQuickAccess })).toBe(false);
-  });
-});
-
 describe("resolveContextAction", () => {
   function makeItem(action: string | null, disabled = false): HTMLElement {
     const el = document.createElement("div");
@@ -207,13 +187,12 @@ describe("resolveContextAction", () => {
 describe("buildContextMenuActions dispatcher", () => {
   let deps: any;
   let openFolder: any, renderTree: any, renderQuickAccess: any;
-  let favorites: any, savePinnedFolders: any, promptFn: any, alertFn: any, fetchFn: any;
+  let favorites: any, pinned: any, promptFn: any, alertFn: any, fetchFn: any;
 
   beforeEach(() => {
     openFolder = vi.fn();
     renderTree = vi.fn();
     renderQuickAccess = vi.fn();
-    savePinnedFolders = vi.fn();
     promptFn = vi.fn();
     alertFn = vi.fn();
     fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
@@ -226,19 +205,27 @@ describe("buildContextMenuActions dispatcher", () => {
       pinnedFolders: [],
     };
     const memStorage = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => memStorage.get(k) ?? null,
+      setItem: (k: string, v: string) => { memStorage.set(k, v); },
+    };
     favorites = createFavoritesStore({
       state: baseState,
-      storage: {
-        getItem: (k: string) => memStorage.get(k) ?? null,
-        setItem: (k: string, v: string) => { memStorage.set(k, v); },
-      },
+      storage,
       defaultEntry: null as any,
     });
     favorites.init();
+    pinned = createPinnedFoldersStore({
+      state: baseState,
+      storage,
+      key: "pty-win-pinned-test",
+      onChange: () => renderQuickAccess(),
+    });
+    pinned.init();
     deps = {
       state: baseState,
       openFolder, renderTree, renderQuickAccess,
-      favorites, savePinnedFolders, normPath,
+      favorites, pinned, normPath,
       promptFn, alertFn, fetchFn,
     };
   });

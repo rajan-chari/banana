@@ -60,22 +60,30 @@ export function createFavoritesStore(deps) {
     return state.favorites.includes(path);
   }
 
-  /** @param {string} path */
-  function add(path) {
+  /**
+   * @param {string} path
+   * @param {{ notify?: boolean }} [opts] - notify defaults to true; pass false to
+   *   suppress onChange when batching with another store (avoids double-render
+   *   or pre-render-before-companion-state-updated races).
+   */
+  function add(path, opts) {
     if (has(path)) return false;
     state.favorites.push(path);
     persist();
-    onChange?.();
+    if (opts?.notify !== false) onChange?.();
     return true;
   }
 
-  /** @param {string} path */
-  function remove(path) {
+  /**
+   * @param {string} path
+   * @param {{ notify?: boolean }} [opts]
+   */
+  function remove(path, opts) {
     const i = state.favorites.indexOf(path);
     if (i === -1) return false;
     state.favorites.splice(i, 1);
     persist();
-    onChange?.();
+    if (opts?.notify !== false) onChange?.();
     return true;
   }
 
