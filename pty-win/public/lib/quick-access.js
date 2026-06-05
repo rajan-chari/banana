@@ -207,15 +207,15 @@ export function buildQuickAccessRow(folderPath, deps) {
 }
 
 /**
- * Render the entire Quick Access panel from `state.pinnedFolders`.
+ * Render the entire Quick Access panel from the pinned-folders store.
  *
  * @param {{
  *   byId: (id: string) => HTMLElement|null,
  *   state: {
- *     pinnedFolders: string[],
  *     sessions: Map<string, SessionLike>,
  *     folderInfoCache: Map<string, FolderInfo>
  *   },
+ *   pinned: { list: () => string[], count: () => number },
  *   focusExistingSession: (name: string) => void,
  *   openFolder: (path: string, name: string) => void,
  *   appendRowActions: (container: HTMLElement, opts: ReturnType<typeof buildRowActionsOptions>) => void,
@@ -228,8 +228,8 @@ export function renderQuickAccess(deps) {
   const panel = deps.byId("quick-access-panel");
   if (!panel) return;
   panel.innerHTML = "";
-  if (deps.state.pinnedFolders.length === 0) return;
-  for (const folderPath of deps.state.pinnedFolders) {
+  if (deps.pinned.count() === 0) return;
+  for (const folderPath of deps.pinned.list()) {
     panel.appendChild(buildQuickAccessRow(folderPath, deps));
   }
 }

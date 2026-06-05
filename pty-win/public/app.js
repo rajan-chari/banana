@@ -628,6 +628,7 @@ function renderQuickAccess() {
   _renderQuickAccess({
     byId,
     state,
+    pinned,
     focusExistingSession,
     openFolder,
     appendRowActions,

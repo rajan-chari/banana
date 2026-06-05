@@ -408,10 +408,15 @@ describe("renderQuickAccess", () => {
     return (id: string) => (id === "quick-access-panel" ? panel : null);
   }
 
+  function mkPinned(list: string[]) {
+    return { list: () => list, count: () => list.length };
+  }
+
   it("no-ops when panel missing", () => {
     expect(() => renderQuickAccess({
       byId: makeByIdReturning(null),
-      state: { pinnedFolders: ["x"], sessions: new Map(), folderInfoCache: new Map() },
+      state: { sessions: new Map(), folderInfoCache: new Map() },
+      pinned: mkPinned(["x"]),
       focusExistingSession: vi.fn(),
       openFolder: vi.fn(),
       appendRowActions: vi.fn(),
@@ -425,7 +430,8 @@ describe("renderQuickAccess", () => {
     panel.innerHTML = "<span>stale</span>";
     renderQuickAccess({
       byId: makeByIdReturning(panel),
-      state: { pinnedFolders: [], sessions: new Map(), folderInfoCache: new Map() },
+      state: { sessions: new Map(), folderInfoCache: new Map() },
+      pinned: mkPinned([]),
       focusExistingSession: vi.fn(),
       openFolder: vi.fn(),
       appendRowActions: vi.fn(),
@@ -440,10 +446,10 @@ describe("renderQuickAccess", () => {
     renderQuickAccess({
       byId: makeByIdReturning(panel),
       state: {
-        pinnedFolders: ["C:\\foo", "C:\\bar"],
         sessions: new Map(),
         folderInfoCache: new Map([["c:/foo", {}], ["c:/bar", {}]]),
       },
+      pinned: mkPinned(["C:\\foo", "C:\\bar"]),
       focusExistingSession: vi.fn(),
       openFolder: vi.fn(),
       appendRowActions: vi.fn(),
