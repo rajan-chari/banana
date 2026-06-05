@@ -104,10 +104,7 @@ import {
   buildSessionRowActionsOpts,
   patchSessionRowIndicators,
   activeNameForRow,
-  buildIdentityTag,
-  buildUnreadBadge,
-  buildIndicatorSlot,
-  buildKillButton,
+  createRowActions,
 } from "./lib/session-row.js";
 import {
   createPaneContextMenu,
@@ -319,6 +316,19 @@ const layoutPresets = createLayoutPresets({
   actions: { renderActiveWorkspace: () => renderActiveWorkspace() },
 });
 const showLayoutPresetsMenu = layoutPresets.showLayoutPresetsMenu;
+
+const rowActions = createRowActions({
+  state,
+  doc: document,
+  env: { fetchFn: fetch.bind(window) },
+  helpers: { getAiPresetForCommand, getDefaultAiCommand },
+  actions: {
+    openFolder: (p, n, c, nw, a) => openFolder(p, n, c, nw, a),
+    showQuickMessageInput: (n, anchor) => showQuickMessageInput(n, anchor),
+    showAiTagContextMenu: (e, fp, fn) => showAiTagContextMenu(e, fp, fn),
+  },
+});
+const appendRowActions = rowActions.appendRowActions;
 
 const wsDispatcher = createWsDispatcher({
   state,
@@ -679,89 +689,7 @@ function renderSessionsPanel() {
   }
 }
 
-/**
- * AI command tag (Claude / agency cc / etc). Uses the running command's
- * preset when alive, falls back to the user's default-AI when absent.
- * Live: click sends a quick message. Absent: click launches the default,
- * right-click shows the AI-picker context menu.
- *
- * @param {any} opts
- * @returns {HTMLSpanElement}
- */
-function buildAiTag(opts) {
-  const aiPreset = opts.claudeAlive && opts.claudeCommand
-    ? getAiPresetForCommand(opts.claudeCommand)
-    : state.aiPresets[state.aiDefaultIndex];
-  const tag = document.createElement("span");
-  tag.className = `cmd-tag ${opts.claudeAlive ? "alive" : "absent"}`;
-  tag.textContent = aiPreset.icon;
-  if (opts.claudeAlive) {
-    tag.title = `${aiPreset.name}: running — click to send message`;
-    tag.onclick = (e) => { e.stopPropagation(); showQuickMessageInput(opts.folderName, tag); };
-  } else {
-    tag.title = `Start ${aiPreset.name} (right-click for options)`;
-    tag.onclick = (e) => { e.stopPropagation(); openFolder(opts.workingDir, opts.folderName, getDefaultAiCommand()); };
-    tag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showAiTagContextMenu(e, opts.workingDir, opts.folderName); };
-  }
-  return tag;
-}
-
-/**
- * PowerShell tag — click launches pwsh in the folder when absent;
- * non-interactive when alive (other UI surfaces handle pwsh focus).
- *
- * @param {any} opts
- * @returns {HTMLSpanElement}
- */
-function buildPwshTag(opts) {
-  const tag = document.createElement("span");
-  tag.className = `cmd-tag pwsh ${opts.pwshAlive ? "alive" : "absent"}`;
-  tag.textContent = ">_";
-  tag.title = opts.pwshAlive ? "PowerShell: running" : "Start PowerShell";
-  if (!opts.pwshAlive) {
-    tag.onclick = (e) => { e.stopPropagation(); openFolder(opts.workingDir, opts.folderName, "pwsh"); };
-  }
-  return tag;
-}
-
-/**
- * VS Code launcher tag — fires POST /api/open-editor with the folder path.
- * Exits Fullscreen API mode first so the editor steals focus cleanly
- * (server handles F11/minimize via Win32).
- *
- * @param {any} workingDir
- * @returns {HTMLSpanElement}
- */
-function buildVsCodeTag(workingDir) {
-  const tag = document.createElement("span");
-  tag.className = "cmd-tag code";
-  tag.textContent = "\u003c/\u003e";
-  tag.title = "Open in VS Code (click to launch)";
-  tag.onclick = (e) => {
-    e.stopPropagation();
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    fetch("/api/open-editor", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: workingDir }),
-    });
-  };
-  return tag;
-}
-
-/**
- * @param {HTMLElement} container
- * @param {any} opts
- */
-function appendRowActions(container, opts) {
-  container.appendChild(buildIdentityTag(opts.identityName));
-  container.appendChild(buildUnreadBadge(opts.unreadCount));
-  container.appendChild(buildAiTag(opts));
-  container.appendChild(buildPwshTag(opts));
-  container.appendChild(buildVsCodeTag(opts.workingDir));
-  container.appendChild(buildIndicatorSlot(opts));
-  container.appendChild(buildKillButton(opts.onKill));
-}
+// Tag builders + appendRowActions extracted to lib/session-row.js (Phase 6a)
 
 // Sessions panel collapse toggle
 (() => {

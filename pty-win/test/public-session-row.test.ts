@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 //
 // Tests for public/lib/session-row.js — the DOM constructors + opts
-// shaper extracted from app.js renderSessionsPanel.
+// shaper extracted from app.js renderSessionsPanel. Also covers the
+// createRowActions factory (Phase 6a) which owns the side-effecting tag
+// builders and the appendRowActions composer.
 
 import { describe, it, expect, vi } from "vitest";
 import {
@@ -14,6 +16,7 @@ import {
   buildUnreadBadge,
   buildIndicatorSlot,
   buildKillButton,
+  createRowActions,
 } from "../public/lib/session-row.js";
 
 type SessionInfo = {
@@ -346,5 +349,183 @@ describe("buildKillButton", () => {
     expect(btn.style.pointerEvents).toBe("none");
     expect(btn.title).toBe("");
     expect(btn.onclick).toBeNull();
+  });
+});
+
+// ===== createRowActions factory (Phase 6a) =====
+
+function mkRowActions(overrides: any = {}) {
+  const state: any = {
+    aiPresets: [
+      { name: "Claude", icon: "C", command: "claude" },
+      { name: "Codex",  icon: "X", command: "codex" },
+    ],
+    aiDefaultIndex: 0,
+    ...overrides.state,
+  };
+  const fetchFn = vi.fn(async () => new Response("{}"));
+  const actions = {
+    openFolder: vi.fn(),
+    showQuickMessageInput: vi.fn(),
+    showAiTagContextMenu: vi.fn(),
+    ...overrides.actions,
+  };
+  const helpers = {
+    getAiPresetForCommand: vi.fn((cmd: string) =>
+      state.aiPresets.find((p: any) => p.command === cmd) || state.aiPresets[0]),
+    getDefaultAiCommand: vi.fn(() => "claude"),
+    ...overrides.helpers,
+  };
+  const ra = createRowActions({
+    state,
+    doc: document,
+    env: { fetchFn: fetchFn as any },
+    helpers,
+    actions,
+  });
+  return { ra, state, actions, helpers, fetchFn };
+}
+
+describe("createRowActions - buildAiTag (live)", () => {
+  it("renders the running command's preset icon and 'alive' className", () => {
+    const { ra } = mkRowActions();
+    const tag = ra._buildAiTag({ claudeAlive: true, claudeCommand: "codex", folderName: "x", workingDir: "/x" });
+    expect(tag.textContent).toBe("X");
+    expect(tag.className).toContain("alive");
+    expect(tag.title).toContain("running");
+  });
+
+  it("click on alive tag calls showQuickMessageInput with folderName + tag anchor", () => {
+    const { ra, actions } = mkRowActions();
+    const tag = ra._buildAiTag({ claudeAlive: true, claudeCommand: "claude", folderName: "myfolder", workingDir: "/x" });
+    const evt: any = new Event("click"); evt.stopPropagation = vi.fn();
+    tag.onclick!(evt);
+    expect(evt.stopPropagation).toHaveBeenCalled();
+    expect(actions.showQuickMessageInput).toHaveBeenCalledWith("myfolder", tag);
+  });
+});
+
+describe("createRowActions - buildAiTag (absent)", () => {
+  it("uses state.aiPresets[state.aiDefaultIndex] when no claudeCommand", () => {
+    const { ra, state } = mkRowActions();
+    state.aiDefaultIndex = 1;  // mutate after factory creation to verify live read
+    const tag = ra._buildAiTag({ claudeAlive: false, folderName: "x", workingDir: "/x" });
+    expect(tag.textContent).toBe("X");
+    expect(tag.className).toContain("absent");
+    expect(tag.title).toContain("right-click");
+  });
+
+  it("click launches openFolder with getDefaultAiCommand result", () => {
+    const { ra, actions, helpers } = mkRowActions();
+    const tag = ra._buildAiTag({ claudeAlive: false, folderName: "x", workingDir: "/x" });
+    const evt: any = new Event("click"); evt.stopPropagation = vi.fn();
+    tag.onclick!(evt);
+    expect(helpers.getDefaultAiCommand).toHaveBeenCalled();
+    expect(actions.openFolder).toHaveBeenCalledWith("/x", "x", "claude");
+  });
+
+  it("right-click calls showAiTagContextMenu and preventDefault/stopPropagation", () => {
+    const { ra, actions } = mkRowActions();
+    const tag = ra._buildAiTag({ claudeAlive: false, folderName: "x", workingDir: "/x" });
+    const evt: any = new Event("contextmenu");
+    evt.preventDefault = vi.fn();
+    evt.stopPropagation = vi.fn();
+    tag.oncontextmenu!(evt);
+    expect(evt.preventDefault).toHaveBeenCalled();
+    expect(evt.stopPropagation).toHaveBeenCalled();
+    expect(actions.showAiTagContextMenu).toHaveBeenCalledWith(evt, "/x", "x");
+  });
+
+  it("does not attach oncontextmenu when alive", () => {
+    const { ra } = mkRowActions();
+    const tag = ra._buildAiTag({ claudeAlive: true, claudeCommand: "claude", folderName: "x", workingDir: "/x" });
+    expect(tag.oncontextmenu).toBeNull();
+  });
+});
+
+describe("createRowActions - buildPwshTag", () => {
+  it("renders 'alive' className and no onclick when pwsh is running", () => {
+    const { ra } = mkRowActions();
+    const tag = ra._buildPwshTag({ pwshAlive: true, folderName: "x", workingDir: "/x" });
+    expect(tag.className).toContain("alive");
+    expect(tag.title).toContain("running");
+    expect(tag.onclick).toBeNull();
+  });
+
+  it("absent click launches openFolder with 'pwsh' command", () => {
+    const { ra, actions } = mkRowActions();
+    const tag = ra._buildPwshTag({ pwshAlive: false, folderName: "x", workingDir: "/x" });
+    expect(tag.className).toContain("absent");
+    const evt: any = new Event("click"); evt.stopPropagation = vi.fn();
+    tag.onclick!(evt);
+    expect(actions.openFolder).toHaveBeenCalledWith("/x", "x", "pwsh");
+  });
+});
+
+describe("createRowActions - buildVsCodeTag", () => {
+  it("POSTs /api/open-editor via injected fetchFn with the working dir", () => {
+    const { ra, fetchFn } = mkRowActions();
+    const tag = ra._buildVsCodeTag("/foo/bar");
+    const evt: any = new Event("click"); evt.stopPropagation = vi.fn();
+    tag.onclick!(evt);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe("/api/open-editor");
+    expect((init as any).method).toBe("POST");
+    expect(JSON.parse((init as any).body)).toEqual({ path: "/foo/bar" });
+  });
+
+  it("exits fullscreen first when document.fullscreenElement is set", () => {
+    const { ra } = mkRowActions();
+    const exitFs = vi.fn(async () => {});
+    Object.defineProperty(document, "fullscreenElement", { value: document.body, configurable: true });
+    Object.defineProperty(document, "exitFullscreen", { value: exitFs, configurable: true });
+    const tag = ra._buildVsCodeTag("/x");
+    const evt: any = new Event("click"); evt.stopPropagation = vi.fn();
+    tag.onclick!(evt);
+    expect(exitFs).toHaveBeenCalled();
+    Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+  });
+});
+
+describe("createRowActions - appendRowActions", () => {
+  it("appends 7 children in the documented order (identity, unread, AI, pwsh, code, indicator, kill)", () => {
+    const { ra } = mkRowActions();
+    const container = document.createElement("div");
+    ra.appendRowActions(container, {
+      identityName: "moss",
+      unreadCount: 3,
+      claudeAlive: true,
+      claudeCommand: "claude",
+      pwshAlive: false,
+      workingDir: "/r",
+      folderName: "r",
+      isClaudeReady: true,
+      hasIdentity: true,
+      onKill: vi.fn(),
+    });
+    expect(container.children).toHaveLength(7);
+    expect(container.children[0].className).toContain("identity-tag");
+    expect(container.children[1].className).toContain("unread-badge");
+    expect(container.children[2].className).toContain("cmd-tag");
+    expect(container.children[3].className).toContain("pwsh");
+    expect(container.children[4].className).toContain("code");
+    expect(container.children[5].className).toContain("indicator");
+    expect(container.children[6].className).toContain("kill-btn");
+  });
+
+  it("kill button wired to opts.onKill", () => {
+    const { ra } = mkRowActions();
+    const container = document.createElement("div");
+    const onKill = vi.fn();
+    ra.appendRowActions(container, {
+      identityName: null, unreadCount: 0,
+      claudeAlive: false, pwshAlive: false,
+      workingDir: "/r", folderName: "r", onKill,
+    });
+    const killBtn = container.children[6] as HTMLButtonElement;
+    const evt: any = new Event("click"); evt.stopPropagation = vi.fn();
+    killBtn.onclick!(evt);
+    expect(onKill).toHaveBeenCalled();
   });
 });

@@ -2,10 +2,13 @@
 //
 // Sessions-panel row helpers — pure-ish DOM constructors and a data shaper
 // for the per-row opts that renderSessionsPanel feeds into appendRowActions.
+// Also hosts the createRowActions factory (Phase 6a) which owns the
+// side-effecting tag builders shared by the sessions panel, folder tree, and
+// quick-access list.
 //
-// Extracted from app.js renderSessionsPanel (originally Cx 19). Async
-// handlers + global state access stay in app.js; this file owns the
-// deterministic DOM construction + data shaping.
+// Originally extracted from app.js renderSessionsPanel (Cx 19). Async
+// handlers + global state access were kept in app.js until Phase 6a moved
+// the tag builders here behind a narrow-port factory.
 
 import { computeGroupStatus, computeGroupUnread, getActiveSessionName } from "./session-groups.js";
 
@@ -195,4 +198,112 @@ export function buildKillButton(onKill) {
     btn.style.pointerEvents = "none";
   }
   return btn;
+}
+
+// ===== createRowActions factory (Phase 6a) =====
+//
+// Owns the four side-effecting row tag builders (AI, PowerShell, VS Code,
+// composer appendRowActions) shared by sessions panel, folder tree, and
+// quick-access list. The pure builders above (identity, unread, indicator,
+// kill) are referenced by the factory through closure.
+
+/**
+ * @typedef {{
+ *   state: { aiPresets: any[], aiDefaultIndex: number },
+ *   doc: Document,
+ *   env: { fetchFn: typeof fetch },
+ *   helpers: {
+ *     getAiPresetForCommand: (cmd: string) => any,
+ *     getDefaultAiCommand: () => string,
+ *   },
+ *   actions: {
+ *     openFolder: (path: string, name: string, command?: string, newWorkspace?: boolean, args?: string[]) => Promise<unknown> | unknown,
+ *     showQuickMessageInput: (folderName: string, anchor: HTMLElement) => void,
+ *     showAiTagContextMenu: (e: MouseEvent, folderPath: string, folderName: string) => void,
+ *   }
+ * }} RowActionsDeps
+ */
+
+/**
+ * @param {RowActionsDeps} deps
+ */
+export function createRowActions(deps) {
+  const { state, doc, env, helpers, actions } = deps;
+  const fetcher = env.fetchFn || fetch.bind(window);
+
+  /**
+   * @param {any} opts
+   */
+  function buildAiTag(opts) {
+    const aiPreset = opts.claudeAlive && opts.claudeCommand
+      ? helpers.getAiPresetForCommand(opts.claudeCommand)
+      : state.aiPresets[state.aiDefaultIndex];
+    const tag = doc.createElement("span");
+    tag.className = `cmd-tag ${opts.claudeAlive ? "alive" : "absent"}`;
+    tag.textContent = aiPreset.icon;
+    if (opts.claudeAlive) {
+      tag.title = `${aiPreset.name}: running — click to send message`;
+      tag.onclick = (e) => { e.stopPropagation(); actions.showQuickMessageInput(opts.folderName, tag); };
+    } else {
+      tag.title = `Start ${aiPreset.name} (right-click for options)`;
+      tag.onclick = (e) => { e.stopPropagation(); actions.openFolder(opts.workingDir, opts.folderName, helpers.getDefaultAiCommand()); };
+      tag.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); actions.showAiTagContextMenu(e, opts.workingDir, opts.folderName); };
+    }
+    return tag;
+  }
+
+  /**
+   * @param {any} opts
+   */
+  function buildPwshTag(opts) {
+    const tag = doc.createElement("span");
+    tag.className = `cmd-tag pwsh ${opts.pwshAlive ? "alive" : "absent"}`;
+    tag.textContent = ">_";
+    tag.title = opts.pwshAlive ? "PowerShell: running" : "Start PowerShell";
+    if (!opts.pwshAlive) {
+      tag.onclick = (e) => { e.stopPropagation(); actions.openFolder(opts.workingDir, opts.folderName, "pwsh"); };
+    }
+    return tag;
+  }
+
+  /**
+   * @param {string} workingDir
+   */
+  function buildVsCodeTag(workingDir) {
+    const tag = doc.createElement("span");
+    tag.className = "cmd-tag code";
+    tag.textContent = "\u003c/\u003e";
+    tag.title = "Open in VS Code (click to launch)";
+    tag.onclick = (e) => {
+      e.stopPropagation();
+      if (doc.fullscreenElement) doc.exitFullscreen().catch(() => {});
+      fetcher("/api/open-editor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: workingDir }),
+      });
+    };
+    return tag;
+  }
+
+  /**
+   * @param {HTMLElement} container
+   * @param {any} opts
+   */
+  function appendRowActions(container, opts) {
+    container.appendChild(buildIdentityTag(opts.identityName));
+    container.appendChild(buildUnreadBadge(opts.unreadCount));
+    container.appendChild(buildAiTag(opts));
+    container.appendChild(buildPwshTag(opts));
+    container.appendChild(buildVsCodeTag(opts.workingDir));
+    container.appendChild(buildIndicatorSlot(opts));
+    container.appendChild(buildKillButton(opts.onKill));
+  }
+
+  return {
+    appendRowActions,
+    _buildAiTag: buildAiTag,
+    _buildPwshTag: buildPwshTag,
+    _buildVsCodeTag: buildVsCodeTag,
+  };
 }
