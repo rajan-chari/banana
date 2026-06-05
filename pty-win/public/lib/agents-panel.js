@@ -193,3 +193,268 @@ export function upsertAgentTotalRow(tbody, totalCost) {
     totalRow.remove();
   }
 }
+
+/**
+ * Pure: extract per-session and total cost time series from a cost-history
+ * snapshot array. Returns an empty result when the history is null or has
+ * fewer than 2 samples (drawing a sparkline needs >= 2 points).
+ *
+ * @param {Array<{sessions: Record<string, number>}> | null | undefined} history
+ * @returns {{ sessionSeries: Map<string, number[]>, totalSeries: number[] }}
+ */
+export function computeCostSeries(history) {
+  /** @type {Map<string, number[]>} */
+  const sessionSeries = new Map();
+  /** @type {number[]} */
+  const totalSeries = [];
+  if (!Array.isArray(history) || history.length < 2) {
+    return { sessionSeries, totalSeries };
+  }
+  for (const sample of history) {
+    const entries = Object.entries(sample.sessions || {});
+    let sum = 0;
+    for (const [name, cost] of entries) {
+      const n = typeof cost === "number" ? cost : 0;
+      if (!sessionSeries.has(name)) sessionSeries.set(name, []);
+      const series = sessionSeries.get(name);
+      if (series) series.push(n);
+      sum += n;
+    }
+    totalSeries.push(sum);
+  }
+  return { sessionSeries, totalSeries };
+}
+
+/**
+ * Find or create the <canvas class="agents-sparkline"> inside `cell` and
+ * return it. Idempotent.
+ *
+ * @param {Element} cell
+ * @returns {HTMLCanvasElement}
+ */
+function ensureSparklineCanvas(cell) {
+  let canvas = /** @type {HTMLCanvasElement | null} */ (cell.querySelector(".agents-sparkline"));
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    canvas.className = "agents-sparkline";
+    canvas.width = 50;
+    canvas.height = 14;
+    cell.appendChild(canvas);
+  }
+  return canvas;
+}
+
+/**
+ * Render a 1-pixel line graph of `data` into `canvas`. No-op when fewer
+ * than 2 points or canvas 2D context is unavailable.
+ *
+ * @param {HTMLCanvasElement} canvas
+ * @param {ReadonlyArray<number>} data
+ */
+export function drawSparkline(canvas, data) {
+  if (data.length < 2) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  ctx.strokeStyle = "#d4882a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((data[i] - min) / range) * (h - 2) - 1;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+/**
+ * Paint per-session and total sparklines into the trend cells of `panel`.
+ * Looks up rows via the selector-free findAgentRow helper so awkward
+ * session names cannot break the lookup.
+ *
+ * @param {HTMLElement} panel
+ * @param {{ sessionSeries: Map<string, number[]>, totalSeries: number[] }} series
+ */
+export function paintSparklines(panel, series) {
+  const tbody = panel.querySelector("tbody");
+  if (!tbody) return;
+
+  for (const [name, points] of series.sessionSeries) {
+    const row = findAgentRow(tbody, name);
+    if (!row) continue;
+    const trendCell = row.querySelector(".agents-trend");
+    if (!trendCell) continue;
+    drawSparkline(ensureSparklineCanvas(trendCell), points);
+  }
+
+  const totalRow = /** @type {HTMLElement | null} */ (tbody.querySelector(".agents-total-row"));
+  if (totalRow && series.totalSeries.length >= 2) {
+    let trendCell = totalRow.querySelector(".agents-trend");
+    if (!trendCell) {
+      // Total row was created with colspan=4; restructure to add a trend cell.
+      totalRow.innerHTML = `<td colspan="4">Total</td><td class="agents-trend"></td><td class="agents-cost"></td>`;
+      trendCell = totalRow.querySelector(".agents-trend");
+    }
+    if (trendCell) drawSparkline(ensureSparklineCanvas(trendCell), series.totalSeries);
+  }
+}
+
+const AGENTS_PANEL_TEMPLATE =
+  `<div class="agents-header">` +
+  `<span class="agents-title">AGENT STATUS</span>` +
+  `<span class="agents-summary"></span>` +
+  `</div>` +
+  `<table class="agents-table">` +
+  `<thead><tr><th>Agent</th><th>Status</th><th>cb/s</th><th>Active</th><th>Trend</th><th>Cost</th></tr></thead>` +
+  `<tbody></tbody>` +
+  `</table>`;
+
+/**
+ * Ensure the .agents-panel wrapper exists inside `area` and return it.
+ * Idempotent: only rebuilds when missing or when the prior render was an
+ * empty-state placeholder.
+ *
+ * @param {HTMLElement} area
+ * @returns {HTMLElement}
+ */
+function ensureAgentsPanelWrapper(area) {
+  let panel = /** @type {HTMLElement | null} */ (area.querySelector(".agents-panel"));
+  if (!panel || !panel.querySelector(".agents-table")) {
+    area.innerHTML = "";
+    panel = document.createElement("div");
+    panel.className = "agents-panel";
+    panel.innerHTML = AGENTS_PANEL_TEMPLATE;
+    area.appendChild(panel);
+  }
+  return panel;
+}
+
+/**
+ * Render the agents panel into `area`. Performs two fetches (stats and
+ * cost-history) and patches the existing DOM in place. All fetches are
+ * cancellable via the deps.signal AbortSignal so back-to-back polls do
+ * not race.
+ *
+ * @param {HTMLElement} area
+ * @param {{
+ *   state: { sessions: Map<string, any> },
+ *   fmtAgo: (ms: number | undefined) => string,
+ *   onFocusSession: (name: string) => void,
+ *   fetchFn?: typeof fetch,
+ *   signal?: AbortSignal,
+ * }} deps
+ */
+export async function renderAgentsPanel(area, deps) {
+  if (!area) return;
+  const sessionsAll = [...deps.state.sessions.entries()];
+  if (sessionsAll.length === 0) {
+    area.innerHTML = `<div class="agents-panel"><div class="agents-empty">No active sessions</div></div>`;
+    return;
+  }
+
+  const panel = ensureAgentsPanelWrapper(area);
+  const fetcher = deps.fetchFn || fetch.bind(window);
+
+  try {
+    const statsResp = await fetcher("/api/stats", { signal: deps.signal });
+    const stats = await statsResp.json();
+    const sessions = [...deps.state.sessions.entries()];
+    const currentNames = new Set(sessions.map(([n]) => n));
+    const statsMap = new Map(stats.map((/** @type {any} */ s) => [s.name, s]));
+
+    const counters = computeAgentsCounters(sessions, statsMap);
+    const summaryEl = panel.querySelector(".agents-summary");
+    if (summaryEl) summaryEl.innerHTML = formatAgentsSummaryHtml(counters);
+
+    const tbody = panel.querySelector("tbody");
+    if (!tbody) return;
+    removeStaleAgentRows(tbody, currentNames);
+    for (const [name, info] of sessions) {
+      upsertAgentRow(tbody, name, info, statsMap.get(name), {
+        onFocusSession: deps.onFocusSession,
+        fmtAgo: deps.fmtAgo,
+      });
+    }
+    upsertAgentTotalRow(tbody, counters.totalCost);
+
+    const histResp = await fetcher("/api/cost-history", { signal: deps.signal });
+    const history = await histResp.json();
+    paintSparklines(panel, computeCostSeries(history));
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") return;
+    // Otherwise swallow — panel keeps its prior contents until the next poll succeeds.
+  }
+}
+
+/**
+ * Build an agents-panel runtime with explicit lifecycle. Manages a
+ * single in-flight render via AbortController so overlapping polls
+ * cannot patch a panel out from under each other, and exposes
+ * start/stop/dispose for tests and for the right-panel coordinator.
+ *
+ * @param {{
+ *   state: { sessions: Map<string, any> },
+ *   byId: (id: string) => HTMLElement | null,
+ *   fmtAgo: (ms: number | undefined) => string,
+ *   onFocusSession: (name: string) => void,
+ *   fetchFn?: typeof fetch,
+ *   setIntervalFn?: typeof setInterval,
+ *   clearIntervalFn?: typeof clearInterval,
+ *   pollMs?: number,
+ * }} deps
+ */
+export function createAgentsPanel(deps) {
+  const setIntervalFn = deps.setIntervalFn || setInterval.bind(window);
+  const clearIntervalFn = deps.clearIntervalFn || clearInterval.bind(window);
+  const pollMs = deps.pollMs ?? 5000;
+  /** @type {AbortController | null} */
+  let inflight = null;
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let timer = null;
+
+  async function render() {
+    const area = deps.byId("agents-content");
+    if (!area) return;
+    if (inflight) inflight.abort();
+    inflight = new AbortController();
+    const myCtl = inflight;
+    try {
+      await renderAgentsPanel(area, {
+        state: deps.state,
+        fmtAgo: deps.fmtAgo,
+        onFocusSession: deps.onFocusSession,
+        fetchFn: deps.fetchFn,
+        signal: myCtl.signal,
+      });
+    } finally {
+      if (inflight === myCtl) inflight = null;
+    }
+  }
+
+  function startPolling() {
+    if (timer != null) return;
+    timer = setIntervalFn(() => { render(); }, pollMs);
+  }
+
+  function stopPolling() {
+    if (timer != null) {
+      clearIntervalFn(timer);
+      timer = null;
+    }
+  }
+
+  function dispose() {
+    stopPolling();
+    if (inflight) { inflight.abort(); inflight = null; }
+  }
+
+  return { render, startPolling, stopPolling, dispose };
+}

@@ -78,13 +78,7 @@ import {
   buildContextMenuActions,
   resolveContextAction,
 } from "./lib/context-menu.js";
-import {
-  computeAgentsCounters,
-  formatAgentsSummaryHtml,
-  removeStaleAgentRows,
-  upsertAgentRow,
-  upsertAgentTotalRow,
-} from "./lib/agents-panel.js";
+import { createAgentsPanel } from "./lib/agents-panel.js";
 import {
   computeDiagTotalCost,
   removeStaleDiagRows,
@@ -3509,162 +3503,12 @@ initFeedPanel({ byId, inputById, selectById, state, fitAllTerminals });
 // ===== Right Panel Tab Switching =====
 // ===== Agents Panel =====
 
-function renderAgentsPanel() {
-  const area = byId("agents-content");
-  if (!area) return;
-
-  const allSessions = [...state.sessions.entries()];
-  if (allSessions.length === 0) {
-    area.innerHTML = `<div class="agents-panel"><div class="agents-empty">No active sessions</div></div>`;
-    return;
-  }
-
-  // Build table structure once, then patch. If empty state was showing, rebuild.
-  let panel = /** @type {HTMLElement | null} */ (area.querySelector(".agents-panel"));
-  if (!panel || !panel.querySelector(".agents-table")) {
-    area.innerHTML = "";
-    panel = document.createElement("div");
-    panel.className = "agents-panel";
-    panel.innerHTML = `
-      <div class="agents-header">
-        <span class="agents-title">AGENT STATUS</span>
-        <span class="agents-summary"></span>
-      </div>
-      <table class="agents-table">
-        <thead><tr><th>Agent</th><th>Status</th><th>cb/s</th><th>Active</th><th>Trend</th><th>Cost</th></tr></thead>
-        <tbody></tbody>
-      </table>`;
-    area.appendChild(panel);
-  }
-
-  // Fetch stats for cb/s data
-  fetch("/api/stats").then(r => r.json()).then(/** @param {any[]} stats */ stats => {
-    // Re-snapshot sessions inside the handler so the panel reflects
-    // the freshest state, not the snapshot from before the fetch.
-    const sessions = [...state.sessions.entries()];
-    const currentNames = new Set(sessions.map(([n]) => n));
-    const statsMap = new Map(stats.map(s => [s.name, s]));
-
-    const counters = computeAgentsCounters(sessions, statsMap);
-    const summaryEl = panel.querySelector(".agents-summary");
-    if (summaryEl) {
-      summaryEl.innerHTML = formatAgentsSummaryHtml(counters);
-    }
-
-    const tbody = panel.querySelector("tbody");
-    if (!tbody) return;
-    removeStaleAgentRows(tbody, currentNames);
-
-    for (const [name, info] of sessions) {
-      upsertAgentRow(tbody, name, info, statsMap.get(name), {
-        onFocusSession: focusExistingSession,
-        fmtAgo,
-      });
-    }
-
-    upsertAgentTotalRow(tbody, counters.totalCost);
-
-    fetchCostHistory(panel);
-  }).catch(() => {});
-}
-
-/**
- * @param {HTMLElement} panel
- */
-function fetchCostHistory(panel) {
-  fetch("/api/cost-history").then(r => r.json()).then(/** @param {any[]} history */ history => {
-    if (!history || history.length < 2) return;
-
-    // Extract per-session time series
-    const sessionSeries = new Map();
-    for (const sample of history) {
-      for (const [name, cost] of Object.entries(sample.sessions)) {
-        if (!sessionSeries.has(name)) sessionSeries.set(name, []);
-        sessionSeries.get(name).push(cost);
-      }
-    }
-
-    // Draw sparklines into table trend cells
-    const tbody = panel.querySelector("tbody");
-    if (!tbody) return;
-
-    for (const [name, series] of sessionSeries) {
-      const row = tbody.querySelector(`.agents-row[data-session="${CSS.escape(name)}"]`);
-      if (!row) continue;
-
-      const trendCell = row.querySelector(".agents-trend");
-      if (!trendCell) continue;
-
-      let canvas = /** @type {HTMLCanvasElement | null} */ (trendCell.querySelector(".agents-sparkline"));
-      if (!canvas) {
-        canvas = document.createElement("canvas");
-        canvas.className = "agents-sparkline";
-        canvas.width = 50;
-        canvas.height = 14;
-        trendCell.appendChild(canvas);
-      }
-
-      drawSparkline(canvas, series);
-    }
-
-    // Total sparkline — sum all sessions per timestamp
-    const totalSeries = history.map(sample => {
-      let sum = 0;
-      for (const cost of Object.values(sample.sessions)) sum += cost;
-      return sum;
-    });
-
-    const totalRow = tbody.querySelector(".agents-total-row");
-    if (totalRow && totalSeries.length >= 2) {
-      // Find or create trend cell in total row
-      let trendCell = totalRow.querySelector(".agents-trend");
-      if (!trendCell) {
-        // Total row has colspan — need to restructure: remove colspan, add trend cell
-        totalRow.innerHTML = `<td colspan="4">Total</td><td class="agents-trend"></td><td class="agents-cost"></td>`;
-      }
-      trendCell = totalRow.querySelector(".agents-trend");
-      if (trendCell) {
-        let canvas = /** @type {HTMLCanvasElement | null} */ (trendCell.querySelector(".agents-sparkline"));
-        if (!canvas) {
-          canvas = document.createElement("canvas");
-          canvas.className = "agents-sparkline";
-          canvas.width = 50;
-          canvas.height = 14;
-          trendCell.appendChild(canvas);
-        }
-        drawSparkline(canvas, totalSeries);
-      }
-    }
-  }).catch(() => {});
-}
-
-/**
- * @param {HTMLCanvasElement} canvas
- * @param {number[]} data
- */
-function drawSparkline(canvas, data) {
-  if (data.length < 2) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const w = canvas.width;
-  const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-
-  ctx.strokeStyle = "#d4882a";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((data[i] - min) / range) * (h - 2) - 1;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-}
+const agentsPanel = createAgentsPanel({
+  state,
+  byId,
+  fmtAgo,
+  onFocusSession: focusExistingSession,
+});
 
 (function initRightPanelTabs() {
   const tabs = document.querySelectorAll("#right-panel-tabs .rp-tab");
@@ -3686,7 +3530,7 @@ function drawSparkline(canvas, data) {
         if (existing) existing.remove();
         renderTracker();
       }
-      if (panel === "agents") renderAgentsPanel();
+      if (panel === "agents") agentsPanel.render();
     };
   });
 
@@ -3695,8 +3539,8 @@ function drawSparkline(canvas, data) {
   setInterval(renderTracker, 10000);
 
   // Start agents panel polling
-  renderAgentsPanel();
-  setInterval(renderAgentsPanel, 5000);
+  agentsPanel.render();
+  agentsPanel.startPolling();
 })();
 
 // ===== Settings modal (v0.1.33) =====

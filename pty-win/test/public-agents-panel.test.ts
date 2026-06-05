@@ -297,3 +297,319 @@ describe("upsertAgentTotalRow", () => {
     expect(cell.firstChild).toBe(originalNode);
   });
 });
+
+import {
+  computeCostSeries,
+  drawSparkline,
+  paintSparklines,
+  renderAgentsPanel,
+  createAgentsPanel,
+} from "../public/lib/agents-panel.js";
+
+describe("computeCostSeries", () => {
+  it("returns empty series for null, empty, or single-sample input", () => {
+    expect(computeCostSeries(null).totalSeries).toEqual([]);
+    expect(computeCostSeries(undefined as any).sessionSeries.size).toBe(0);
+    expect(computeCostSeries([]).totalSeries).toEqual([]);
+    expect(computeCostSeries([{ sessions: { a: 1 } }]).totalSeries).toEqual([]);
+  });
+
+  it("extracts per-session and total time series", () => {
+    const { sessionSeries, totalSeries } = computeCostSeries([
+      { sessions: { a: 1, b: 2 } },
+      { sessions: { a: 3, b: 4 } },
+      { sessions: { a: 5, b: 6 } },
+    ]);
+    expect(sessionSeries.get("a")).toEqual([1, 3, 5]);
+    expect(sessionSeries.get("b")).toEqual([2, 4, 6]);
+    expect(totalSeries).toEqual([3, 7, 11]);
+  });
+
+  it("treats missing/non-numeric costs as 0 and tolerates absent sessions key", () => {
+    const { sessionSeries, totalSeries } = computeCostSeries([
+      { sessions: { a: 1 } } as any,
+      { sessions: { a: "oops" } } as any,
+      {} as any,
+    ]);
+    expect(sessionSeries.get("a")).toEqual([1, 0]);
+    expect(totalSeries).toEqual([1, 0, 0]);
+  });
+});
+
+describe("drawSparkline", () => {
+  it("does nothing for fewer than 2 points", () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 50;
+    canvas.height = 14;
+    const ctx = { clearRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), strokeStyle: "", lineWidth: 0 };
+    canvas.getContext = vi.fn().mockReturnValue(ctx);
+    drawSparkline(canvas, [5]);
+    expect(ctx.beginPath).not.toHaveBeenCalled();
+  });
+
+  it("clears the canvas and strokes the line for >=2 points", () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 50;
+    canvas.height = 14;
+    const ctx = { clearRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), strokeStyle: "", lineWidth: 0 };
+    canvas.getContext = vi.fn().mockReturnValue(ctx);
+    drawSparkline(canvas, [1, 2, 3]);
+    expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 50, 14);
+    expect(ctx.beginPath).toHaveBeenCalledTimes(1);
+    expect(ctx.moveTo).toHaveBeenCalledTimes(1);
+    expect(ctx.lineTo).toHaveBeenCalledTimes(2);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles constant series without dividing by zero", () => {
+    const canvas = document.createElement("canvas");
+    const ctx = { clearRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), strokeStyle: "", lineWidth: 0 };
+    canvas.getContext = vi.fn().mockReturnValue(ctx);
+    expect(() => drawSparkline(canvas, [4, 4, 4])).not.toThrow();
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("paintSparklines", () => {
+  function makePanelWithRows(names: string[]): HTMLElement {
+    const panel = document.createElement("div");
+    panel.innerHTML =
+      `<table><tbody>` +
+      names.map(n =>
+        `<tr class="agents-row" data-session="${n}">` +
+        `<td class="agents-name">${n}</td>` +
+        `<td class="agents-status"></td>` +
+        `<td class="agents-cbs"></td>` +
+        `<td class="agents-active"></td>` +
+        `<td class="agents-trend"></td>` +
+        `<td class="agents-cost"></td>` +
+        `</tr>`
+      ).join("") +
+      `<tr class="agents-total-row"><td colspan="5">Total</td><td class="agents-cost">$0.00</td></tr>` +
+      `</tbody></table>`;
+    return panel;
+  }
+
+  it("creates one canvas per series and rebuilds total row to add trend cell", () => {
+    const panel = makePanelWithRows(["alpha", "beta"]);
+    paintSparklines(panel, {
+      sessionSeries: new Map([["alpha", [1, 2, 3]], ["beta", [4, 5, 6]]]),
+      totalSeries: [5, 7, 9],
+    });
+    const canvases = panel.querySelectorAll("canvas.agents-sparkline");
+    expect(canvases.length).toBe(3);
+    const totalRow = panel.querySelector(".agents-total-row")!;
+    expect(totalRow.querySelector(".agents-trend")).not.toBeNull();
+  });
+
+  it("skips rows whose session names are not in the table", () => {
+    const panel = makePanelWithRows(["alpha"]);
+    paintSparklines(panel, {
+      sessionSeries: new Map([["alpha", [1, 2]], ["ghost", [9, 9]]]),
+      totalSeries: [],
+    });
+    expect(panel.querySelectorAll("canvas.agents-sparkline").length).toBe(1);
+  });
+
+  it("tolerates session names with quotes (no CSS.escape required)", () => {
+    const tricky = `weird"name`;
+    const panel = document.createElement("div");
+    panel.innerHTML = `<table><tbody></tbody></table>`;
+    const tbody = panel.querySelector("tbody")!;
+    const tr = document.createElement("tr");
+    tr.className = "agents-row";
+    tr.dataset["session"] = tricky;
+    tr.innerHTML =
+      `<td class="agents-name"></td>` +
+      `<td class="agents-status"></td>` +
+      `<td class="agents-cbs"></td>` +
+      `<td class="agents-active"></td>` +
+      `<td class="agents-trend"></td>` +
+      `<td class="agents-cost"></td>`;
+    tbody.appendChild(tr);
+
+    expect(() => paintSparklines(panel, {
+      sessionSeries: new Map([[tricky, [1, 2]]]),
+      totalSeries: [],
+    })).not.toThrow();
+    expect(panel.querySelectorAll("canvas.agents-sparkline").length).toBe(1);
+  });
+});
+
+describe("renderAgentsPanel", () => {
+  function makeArea(): HTMLElement {
+    const area = document.createElement("div");
+    document.body.appendChild(area);
+    return area;
+  }
+
+  it("renders empty state when no sessions", async () => {
+    const area = makeArea();
+    await renderAgentsPanel(area, {
+      state: { sessions: new Map() },
+      fmtAgo: () => "",
+      onFocusSession: () => {},
+      fetchFn: vi.fn(),
+    });
+    expect(area.querySelector(".agents-empty")?.textContent).toContain("No active sessions");
+  });
+
+  it("populates rows from /api/stats and sparklines from /api/cost-history", async () => {
+    const area = makeArea();
+    const state = {
+      sessions: new Map<string, any>([
+        ["alpha", { status: "idle", costUsd: 1.5 }],
+        ["beta", { status: "busy", costUsd: 0.75 }],
+      ]),
+    };
+    const fetchFn = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/stats") {
+        return Promise.resolve({ json: () => Promise.resolve([
+          { name: "alpha", busy: { callbacksPerSec: 0 } },
+          { name: "beta", busy: { callbacksPerSec: 3 } },
+        ]) });
+      }
+      if (url === "/api/cost-history") {
+        return Promise.resolve({ json: () => Promise.resolve([
+          { sessions: { alpha: 1, beta: 0.5 } },
+          { sessions: { alpha: 1.5, beta: 0.75 } },
+        ]) });
+      }
+      return Promise.reject(new Error("unexpected url " + url));
+    });
+
+    await renderAgentsPanel(area, {
+      state,
+      fmtAgo: () => "—",
+      onFocusSession: () => {},
+      fetchFn: fetchFn as any,
+    });
+
+    expect(area.querySelectorAll(".agents-row").length).toBe(2);
+    expect(area.querySelector(".agents-total-row")).not.toBeNull();
+  });
+
+  it("aborts cleanly when its signal is aborted mid-flight", async () => {
+    const area = makeArea();
+    const ctl = new AbortController();
+    const fetchFn = vi.fn().mockImplementation((_url: string, opts: any) => {
+      return new Promise((_resolve, reject) => {
+        opts.signal.addEventListener("abort", () => {
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+      });
+    });
+    const p = renderAgentsPanel(area, {
+      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      fmtAgo: () => "",
+      onFocusSession: () => {},
+      fetchFn: fetchFn as any,
+      signal: ctl.signal,
+    });
+    ctl.abort();
+    await expect(p).resolves.toBeUndefined();
+  });
+});
+
+describe("createAgentsPanel lifecycle", () => {
+  function makeDeps(area: HTMLElement) {
+    const fetchFn = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/stats") return Promise.resolve({ json: () => Promise.resolve([]) });
+      if (url === "/api/cost-history") return Promise.resolve({ json: () => Promise.resolve([]) });
+      return Promise.reject(new Error("unexpected url " + url));
+    });
+    const setIntervalFn = vi.fn().mockReturnValue(123);
+    const clearIntervalFn = vi.fn();
+    return {
+      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      byId: (id: string) => (id === "agents-content" ? area : null),
+      fmtAgo: () => "",
+      onFocusSession: () => {},
+      fetchFn: fetchFn as any,
+      setIntervalFn: setIntervalFn as any,
+      clearIntervalFn: clearIntervalFn as any,
+      pollMs: 5000,
+    };
+  }
+
+  it("startPolling registers exactly one interval; calling twice does not duplicate", () => {
+    const area = document.createElement("div");
+    document.body.appendChild(area);
+    const deps = makeDeps(area);
+    const panel = createAgentsPanel(deps);
+    panel.startPolling();
+    panel.startPolling();
+    expect(deps.setIntervalFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("stopPolling clears the interval and is idempotent", () => {
+    const area = document.createElement("div");
+    document.body.appendChild(area);
+    const deps = makeDeps(area);
+    const panel = createAgentsPanel(deps);
+    panel.startPolling();
+    panel.stopPolling();
+    panel.stopPolling();
+    expect(deps.clearIntervalFn).toHaveBeenCalledTimes(1);
+    expect(deps.clearIntervalFn).toHaveBeenCalledWith(123);
+  });
+
+  it("dispose aborts inflight render and clears interval", async () => {
+    const area = document.createElement("div");
+    document.body.appendChild(area);
+    let stallReject: ((e: Error) => void) | null = null;
+    const fetchFn = vi.fn().mockImplementation((_url: string, opts: any) => {
+      return new Promise((_resolve, reject) => {
+        stallReject = reject;
+        opts.signal.addEventListener("abort", () => {
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+      });
+    });
+    const panel = createAgentsPanel({
+      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      byId: (id: string) => (id === "agents-content" ? area : null),
+      fmtAgo: () => "",
+      onFocusSession: () => {},
+      fetchFn: fetchFn as any,
+      setIntervalFn: ((_fn: any, _ms: number) => 9 as any) as any,
+      clearIntervalFn: vi.fn() as any,
+    });
+    panel.startPolling();
+    const p = panel.render();
+    panel.dispose();
+    await expect(p).resolves.toBeUndefined();
+    expect(stallReject).not.toBeNull();
+  });
+
+  it("a second render call aborts the earlier inflight render", async () => {
+    const area = document.createElement("div");
+    document.body.appendChild(area);
+    const fetchFn = vi.fn().mockImplementation((_url: string, opts: any) => {
+      return new Promise((_resolve, reject) => {
+        opts.signal.addEventListener("abort", () => {
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+      });
+    });
+    const panel = createAgentsPanel({
+      state: { sessions: new Map([["a", { status: "idle" }]]) },
+      byId: (id: string) => (id === "agents-content" ? area : null),
+      fmtAgo: () => "",
+      onFocusSession: () => {},
+      fetchFn: fetchFn as any,
+    });
+    const first = panel.render();
+    const second = panel.render();
+    await expect(first).resolves.toBeUndefined();
+    // Abort the second one too so the test does not hang on cleanup.
+    panel.dispose();
+    await expect(second).resolves.toBeUndefined();
+  });
+});
