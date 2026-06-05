@@ -59,6 +59,11 @@ function normaliseStatusDot(status) {
  *   getAiPresetForCommand: (cmd: string) => { name: string, icon: string } | null,
  *   renderActiveWorkspace: () => void,
  * }} actions
+ * @property {{
+ *   focus: {
+ *     set: (name: string | null) => boolean,
+ *   },
+ * }} helpers
  */
 
 /**
@@ -467,7 +472,7 @@ export function createPaneRuntime(deps) {
    */
   function focusPane(groupName) {
     if (!doc) return;
-    deps.state.focusedPane = groupName;
+    deps.helpers.focus.set(groupName);
     doc.querySelectorAll(".pane").forEach((p) => {
       if (!(p instanceof HTMLElement)) return;
       p.classList.toggle("focused", p.dataset["session"] === groupName);

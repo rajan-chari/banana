@@ -97,8 +97,17 @@ function mkRuntime(stateOver: any = {}, actionsOver: any = {}, envOver: any = {}
     if (!el) throw new Error(`missing #${id}`);
     return el;
   };
-  const rt = createPaneRuntime({ state, byId, xterm, actions, env });
-  return { rt, state, actions, env, spies };
+  const helpers = {
+    focus: {
+      set: vi.fn((name: string | null) => {
+        if (state.focusedPane === name) return false;
+        state.focusedPane = name;
+        return true;
+      }),
+    },
+  };
+  const rt = createPaneRuntime({ state, byId, xterm, actions, env, helpers });
+  return { rt, state, actions, env, spies, helpers };
 }
 
 describe("createPaneRuntime - createPane", () => {

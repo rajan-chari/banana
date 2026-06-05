@@ -97,6 +97,26 @@ function mkDeps(stateOver: any = {}) {
     updateWorkspaceTabName: vi.fn(),
     setWorkspaceLayout: vi.fn((ws: any, tree: any) => { ws.layout = tree; }),
     transactionFn: vi.fn((fn: () => void) => fn()),
+    focus: {
+      get: vi.fn(() => state.focusedPane),
+      set: vi.fn((name: string | null) => {
+        if (state.focusedPane === name) return false;
+        state.focusedPane = name;
+        return true;
+      }),
+      clear: vi.fn(() => {
+        if (state.focusedPane === null) return false;
+        state.focusedPane = null;
+        return true;
+      }),
+      refocusToFirstLeaf: vi.fn(() => {
+        const ws = state.workspaces.find((w: any) => w.id === state.activeWorkspaceId);
+        const leaves: string[] = ws?.layout ? layout.getLeafList(ws.layout) : [];
+        const next = leaves.length > 0 ? leaves[0] : null;
+        state.focusedPane = next;
+        return next;
+      }),
+    },
   };
   const views = {
     renderActiveWorkspace: vi.fn(),

@@ -51,6 +51,12 @@ import { isDashboardMode } from "./navigation.js";
  *   updateWorkspaceTabName: (ws: any) => void,
  *   setWorkspaceLayout: (ws: any, tree: any) => void,
  *   transactionFn: (fn: () => void) => void,
+ *   focus: {
+ *     get: () => string | null,
+ *     set: (name: string | null) => boolean,
+ *     clear: () => boolean,
+ *     refocusToFirstLeaf: () => string | null,
+ *   },
  * }} helpers
  * @property {{
  *   renderActiveWorkspace: () => void,
@@ -72,13 +78,12 @@ export function createPaneLifecycle(deps) {
   };
 
   function closeFocusedPane() {
-    if (!state.focusedPane) return;
+    const focused = helpers.focus.get();
+    if (!focused) return;
     const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
     if (!ws) return;
-    helpers.setWorkspaceLayout(ws, layout.removeSessionFromLayout(ws.layout, state.focusedPane));
-    state.focusedPane = null;
-    const leaves = ws.layout ? layout.getLeafList(ws.layout) : [];
-    if (leaves.length > 0) state.focusedPane = leaves[0];
+    helpers.setWorkspaceLayout(ws, layout.removeSessionFromLayout(ws.layout, focused));
+    helpers.focus.refocusToFirstLeaf();
     views.renderActiveWorkspace();
   }
 
@@ -112,7 +117,7 @@ export function createPaneLifecycle(deps) {
     state.sessionMeta.delete(sessionName);
     helpers.saveSessionMeta();
     helpers.rebuildPaneGroups();
-    if (state.focusedPane === groupName && !siblingAlive) state.focusedPane = null;
+    if (state.focusedPane === groupName && !siblingAlive) helpers.focus.clear();
 
     helpers.refreshTreeRunningState();
     views.renderActiveWorkspace();
@@ -172,10 +177,7 @@ export function createPaneLifecycle(deps) {
    */
   function refocusAfterPaneRemoval(groupName, siblingAlive) {
     if (state.focusedPane !== groupName || siblingAlive) return;
-    state.focusedPane = null;
-    const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-    const leaves = ws?.layout ? layout.getLeafList(ws.layout) : [];
-    if (leaves.length > 0) state.focusedPane = leaves[0];
+    helpers.focus.refocusToFirstLeaf();
   }
 
   /**

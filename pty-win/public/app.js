@@ -34,6 +34,7 @@ import { createFavoritesStore } from "./lib/favorites-store.js";
 import { createPinnedFoldersStore } from "./lib/pinned-folders-store.js";
 import { createExpandedPathsStore } from "./lib/expanded-paths-store.js";
 import { createWorkspacesStore } from "./lib/workspaces-store.js";
+import { createFocusStore } from "./lib/focus-store.js";
 import {
   buildBalancedTree,
   removeSessionFromLayout,
@@ -231,6 +232,17 @@ const setWorkspaceLayout = (ws, tree) => { workspaces.setLayout(ws.id, tree); };
 /** @type {(fn: () => void) => void} */
 const transactionFn = (fn) => { workspaces.transaction(fn); };
 
+// Focus store (Phase 9c). Owns state.focusedPane. All previous raw
+// `state.focusedPane =` writes go through one of: set / setOrFirst /
+// clear / refocusToFirstLeaf. No onChange wired here — every caller
+// orchestrates its own renderActiveWorkspace / focusPane / RAF dance.
+const focus = createFocusStore({
+  state,
+  getActiveLayout: () => workspaces.active()?.layout || null,
+  getLeafList,
+  treeContains,
+});
+
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
 
@@ -287,6 +299,7 @@ const paneRuntime = createPaneRuntime({
     getAiPresetForCommand,
     renderActiveWorkspace: () => renderActiveWorkspace(),
   },
+  helpers: { focus },
 });
 
 // ===== WebSocket (extracted to lib/ws-dispatcher.js) =====
@@ -302,6 +315,7 @@ const paneLifecycle = createPaneLifecycle({
     updateWorkspaceTabName,
     setWorkspaceLayout,
     transactionFn,
+    focus,
   },
   views: {
     renderActiveWorkspace: () => renderActiveWorkspace(),
@@ -864,7 +878,7 @@ function focusExistingSession(name) {
   const ws = findWorkspaceContaining(groupName);
   if (ws) {
     // Set focusedPane directly so switchToWorkspace picks it up
-    state.focusedPane = groupName;
+    focus.set(groupName);
     ws.lastFocusedPane = groupName;
     if (ws.id === state.activeWorkspaceId) {
       // Already on this workspace — just focus the pane, no full switch needed
@@ -883,7 +897,7 @@ function focusExistingSession(name) {
     // Not in any workspace — tile into active workspace
     const activeWs = getOrCreateActiveWorkspace();
     addSessionToWorkspace(activeWs.id, groupName);
-    state.focusedPane = groupName;
+    focus.set(groupName);
     activeWs.lastFocusedPane = groupName;
     switchToWorkspace(activeWs.id);
     updateWorkspaceTabName(activeWs);
@@ -1079,14 +1093,10 @@ function switchToWorkspace(id) {
   dashboardPanel.stopPolling();
   workspaces.setActive(id);
 
-  // Restore focused pane for target workspace
+  // Restore focused pane for target workspace (falls back to first leaf
+  // when lastFocusedPane is stale, missing, or not in the layout).
   const ws = state.workspaces.find((w) => w.id === id);
-  if (ws?.lastFocusedPane && ws.layout && treeContains(ws.layout, ws.lastFocusedPane)) {
-    state.focusedPane = ws.lastFocusedPane;
-  } else if (ws?.layout) {
-    const leaves = getLeafList(ws.layout);
-    state.focusedPane = leaves.length > 0 ? leaves[0] : null;
-  }
+  focus.setOrFirst(ws?.lastFocusedPane);
 
   renderTabs();
   renderActiveWorkspace();
