@@ -69,10 +69,10 @@ import { initRightPanel } from "./lib/right-panel.js";
 import { createDashboardPanel } from "./lib/dashboard-panel.js";
 import { createPaneDrag } from "./lib/pane-drag.js";
 import { createTileRenderer } from "./lib/tile-renderer.js";
+import { createPaneRuntime } from "./lib/pane-runtime.js";
 import {
   normPath,
   cssId,
-  truncatePath,
   fmtAgo,
   escapeHtml,
 } from "./lib/format.js";
@@ -106,7 +106,6 @@ import {
   buildIndicatorSlot,
   buildKillButton,
 } from "./lib/session-row.js";
-import { resolveCtrlShiftKeyAction } from "./lib/key-shortcuts.js";
 import {
   resolveResumeMenuState,
   makeCtxItem,
@@ -208,6 +207,33 @@ const tileRenderer = createTileRenderer({
   state,
   byId,
   createPane: (name) => createPane(name),
+});
+
+// ===== Pane runtime (extracted to lib/pane-runtime.js) =====
+
+const paneRuntime = createPaneRuntime({
+  state,
+  byId,
+  xterm: {
+    Terminal: xtermTerminal,
+    FitAddon: xtermFitAddon.FitAddon,
+    WebLinksAddon: xtermWebLinksAddon.WebLinksAddon,
+    theme: TERM_THEME,
+  },
+  actions: {
+    openQuickOpen: () => openQuickOpen(),
+    switchToDashboard: () => switchToDashboard(),
+    switchToWorkspace: (id) => switchToWorkspace(id),
+    toggleSidebar: () => toggleSidebar(),
+    closeFocusedPane: () => closeFocusedPane(),
+    navigatePanes: (k) => navigatePanes(k),
+    resizeFocused: (k) => resizeFocused(k),
+    killSession: (name) => killSession(name),
+    showPaneContextMenu: (e, g) => showPaneContextMenu(e, g),
+    startPaneDrag: (e, g) => paneDragRuntime.startPaneDrag(e, g),
+    getAiPresetForCommand,
+    renderActiveWorkspace: () => renderActiveWorkspace(),
+  },
 });
 
 // ===== WebSocket (extracted to lib/ws-dispatcher.js) =====
@@ -1629,390 +1655,16 @@ function fitAllTerminals(node) {
   tileRenderer.fitAllTerminals(node);
 }
 
-// ===== Panes =====
-
-// Module-scoped paste guard: short (50ms) window during Ctrl+V handling
-// that prevents onData from re-emitting the pasted text. Only one pane
-// has focus at any time, so a singleton is sufficient.
-// Per-session paste guard: when the Ctrl+V handler reads the clipboard and
-// sends the payload via WS, the terminal's own onData also fires for the
-// pasted text — set the guard while the clipboard read is in flight so we
-// don't double-send. Module-scope but keyed BY session so a paste in pane
-// A never suppresses data from pane B.
-const _pasteGuards = new Set();
+// ===== Panes (extracted to lib/pane-runtime.js) =====
 
 /**
- * Handle Ctrl+Shift+<key> shortcuts inside an xterm pane.
- *
- * @param {KeyboardEvent} e
- * @param {string} sessionName
- * @returns {boolean} false if handled (suppress default), true otherwise
- */
-function handleCtrlShiftKey(e, sessionName) {
-  const action = resolveCtrlShiftKeyAction(e.key);
-  switch (action.type) {
-    case "clearInputDirty":
-      state.ws?.send(JSON.stringify({ type: "clear-input-dirty", session: sessionName }));
-      return false;
-    case "switchToDashboard": switchToDashboard(); return false;
-    case "closeFocusedPane": closeFocusedPane(); return false;
-    case "toggleSidebar": toggleSidebar(); return false;
-    case "switchWorkspace":
-      if (state.workspaces[action.index]) switchToWorkspace(state.workspaces[action.index].id);
-      return false;
-    case "resize": resizeFocused(action.direction); return false;
-    case "noop": return false;
-    case "passthrough": return true;
-  }
-  return true;
-}
-
-/**
- * Handle Ctrl+<key> (no shift) shortcuts inside an xterm pane.
- *
- * @param {KeyboardEvent} e
- * @param {string} sessionName
- * @returns {boolean} false if handled (suppress default), true otherwise
- */
-function handleCtrlOnlyKey(e, sessionName) {
-  if (e.key === "p") {
-    openQuickOpen();
-    return false;
-  }
-  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-    navigatePanes(e.key);
-    return false;
-  }
-  if (e.key === "v") {
-    _pasteGuards.add(sessionName);
-    navigator.clipboard.readText().then((text) => {
-      if (text) state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
-    }).catch(() => {}).finally(() => {
-      setTimeout(() => { _pasteGuards.delete(sessionName); }, 50);
-    });
-    return false;
-  }
-  return true;
-}
-
-const ALLOWED_STATUS_DOT = new Set(["starting", "busy", "idle", "dead"]);
-
-/**
- * Normalise a server-supplied status string to one of the known
- * dot-color classes; unknown values fall back to "starting".
- *
- * @param {string | undefined} status
- * @returns {string}
- */
-function normaliseStatusDot(status) {
-  return status && ALLOWED_STATUS_DOT.has(status) ? status : "starting";
-}
-
-/**
- * Build the top bar of a pane, including all event handlers
- * (toggle, code button, close button, identity click, context menu,
- * topbar drag). All dynamic strings interpolated into innerHTML are
- * routed through escapeHtml() — defense in depth, since values like
- * info.emcomIdentity and info.workingDir can flow from disk-side
- * config files (identity.json, presets).
- *
- * @param {{ activeType?: string, claude?: string, pwsh?: string } | undefined} pg
- * @param {"claude" | "pwsh"} activeType
- * @param {import('./lib/state.js').SessionInfo | undefined} info
  * @param {string} groupName
- * @param {boolean} hasBoth
- * @param {string} activeSessionName
  * @returns {HTMLElement}
- */
-function buildPaneTopbar(pg, activeType, info, groupName, hasBoth, activeSessionName) {
-  const topbar = document.createElement("div");
-  topbar.className = "pane-topbar";
-
-  const toggleHtml = hasBoth ? buildPaneToggleHtml(activeType) : "";
-  const identityHtml = info?.emcomIdentity
-    ? `<span class="pane-identity">${escapeHtml(info.emcomIdentity)}</span>`
-    : "";
-  const aiPreset = (activeType !== "pwsh" && info?.command)
-    ? getAiPresetForCommand(info.command)
-    : null;
-  const presetBadge = aiPreset
-    ? `<span class="pane-ai-preset" title="${escapeHtml(aiPreset.name)}">${escapeHtml(aiPreset.icon)} ${escapeHtml(aiPreset.name)}</span>`
-    : "";
-  const wd = info?.workingDir || "";
-  topbar.innerHTML = `
-    <span class="pane-name">${escapeHtml(groupName)}</span>
-    ${toggleHtml}
-    ${presetBadge}
-    <span class="pane-action cmd-tag code" title="Open in VS Code">&lt;/&gt;</span>
-    ${identityHtml}
-    <span class="pane-cwd" title="${escapeHtml(wd)}">${escapeHtml(truncatePath(wd))}</span>
-    <span class="pane-close" title="Kill session">&times;</span>
-  `;
-
-  if (hasBoth) attachPaneToggleHandlers(topbar, groupName);
-  attachPaneTopbarActions(topbar, groupName, info, activeSessionName);
-  return topbar;
-}
-
-/**
- * @param {"claude" | "pwsh"} activeType
- * @returns {string}
- */
-function buildPaneToggleHtml(activeType) {
-  const claudeActive = activeType === "claude" ? "active" : "";
-  const pwshActive = activeType === "pwsh" ? "active" : "";
-  return `<span class="pane-toggle">
-      <button class="toggle-btn toggle-claude ${claudeActive}" title="Claude">C</button>
-      <button class="toggle-btn toggle-pwsh ${pwshActive}" title="PowerShell">&gt;_</button>
-    </span>`;
-}
-
-/**
- * @param {HTMLElement} topbar
- * @param {string} groupName
- */
-function attachPaneToggleHandlers(topbar, groupName) {
-  topbar.querySelector(".toggle-claude")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    switchPaneType(groupName, "claude");
-  });
-  topbar.querySelector(".toggle-pwsh")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    switchPaneType(groupName, "pwsh");
-  });
-}
-
-/**
- * Wire the code button, close button, identity click, right-click
- * context menu and topbar drag handler.
- *
- * @param {HTMLElement} topbar
- * @param {string} groupName
- * @param {import('./lib/state.js').SessionInfo | undefined} info
- * @param {string} activeSessionName
- */
-function attachPaneTopbarActions(topbar, groupName, info, activeSessionName) {
-  const codeBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-action.code"));
-  if (codeBtn) codeBtn.onclick = (e) => {
-    e.stopPropagation();
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    fetch("/api/open-editor", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: info?.workingDir || "" }),
-    });
-  };
-
-  const closeBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-close"));
-  if (closeBtn) closeBtn.onclick = (e) => {
-    e.stopPropagation();
-    killSession(activeSessionName);
-  };
-
-  topbar.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    showPaneContextMenu(e, groupName);
-  });
-
-  const identityEl = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-identity"));
-  if (identityEl && info?.emcomIdentity) {
-    const identity = info.emcomIdentity;
-    identityEl.style.cursor = "pointer";
-    identityEl.title = `Switch feed to ${identity}`;
-    identityEl.onclick = (e) => {
-      e.stopPropagation();
-      localStorage.setItem("pty-win-feed-identity", identity);
-      window.dispatchEvent(new CustomEvent("feed-identity-change", { detail: identity }));
-    };
-  }
-
-  topbar.addEventListener("mousedown", (e) => {
-    const t = e.target instanceof Element ? e.target : null;
-    if (t && t.closest("button, .pane-close, .pane-action, .pane-identity, .toggle-btn")) return;
-    if (e.button !== 0) return;
-    paneDragRuntime.startPaneDrag(e, groupName);
-  });
-}
-
-
-
-/**
- * Build the bottom status bar for a pane (status dot, label, unread
- * pill). Values are coerced/whitelisted defensively.
- *
- * @param {import('./lib/state.js').SessionInfo | undefined} info
- * @returns {HTMLElement}
- */
-function buildPaneStatusbar(info) {
-  const statusbar = document.createElement("div");
-  statusbar.className = "pane-statusbar";
-  const status = normaliseStatusDot(info?.status);
-  const unread = Number(info?.unreadCount) || 0;
-  const dotClass = info?.pendingPermission ? "permission" : status;
-  const label = info?.pendingPermission ? "permission" : status;
-  statusbar.innerHTML = `
-    <span class="status-dot ${escapeHtml(dotClass)}"></span>
-    <span class="pane-status-label">${escapeHtml(label)}</span>
-    <span class="pane-unread ${unread > 0 ? "show" : ""}">${unread}</span>
-  `;
-  return statusbar;
-}
-
-/**
- * Set up the xterm fit/resize lifecycle for the terminal entry inside
- * the pane's terminal area. Performs the persistent-wrapper attach,
- * retry-fit loop (waits for flex layout to resolve), and the
- * ResizeObserver. A fresh observer is created per render so its
- * closure doesn't hold stale `termArea`/`fitAndSync` references after
- * re-render.
- *
- * @param {{ term: any, fitAddon: any, opened: boolean, wrapperEl: HTMLElement, resizeObserver?: ResizeObserver }} entry
- * @param {HTMLElement} termArea
- * @param {string} activeSessionName
- */
-function setupPaneFitLifecycle(entry, termArea, activeSessionName) {
-  const fitAndSync = () => {
-    try {
-      if (!termArea.isConnected) return; // pane was detached before delayed fit
-      const h = termArea.offsetHeight;
-      if (h < 50) return;
-      const prevCols = entry.term.cols;
-      const prevRows = entry.term.rows;
-      entry.fitAddon.fit();
-      const { cols, rows } = entry.term;
-      if (cols !== prevCols || rows !== prevRows) {
-        state.ws?.send(JSON.stringify({ type: "resize", session: activeSessionName, payload: { cols, rows } }));
-      }
-    } catch {}
-  };
-
-  requestAnimationFrame(() => {
-    if (!termArea.isConnected) return;
-    if (!entry.opened) {
-      termArea.appendChild(entry.wrapperEl);
-      entry.term.open(entry.wrapperEl);
-      entry.opened = true;
-    } else {
-      termArea.appendChild(entry.wrapperEl);
-    }
-
-    let fitRetries = 0;
-    const retryFit = () => {
-      if (!termArea.isConnected) return;
-      fitAndSync();
-      if (termArea.offsetHeight < 50 && fitRetries < 20) {
-        fitRetries++;
-        setTimeout(retryFit, 100);
-      }
-    };
-    retryFit();
-    setTimeout(fitAndSync, 300);
-    setTimeout(fitAndSync, 1000);
-
-    // Always create a fresh ResizeObserver per render so its callback
-    // closes over the *current* termArea/fitAndSync. Disconnect any
-    // stale observer left over from a previous render of the same
-    // terminal entry.
-    entry.resizeObserver?.disconnect();
-    let lastW = 0, lastH = 0;
-    entry.resizeObserver = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect;
-      if (!rect || rect.height < 50) return;
-      const w = Math.round(rect.width), h = Math.round(rect.height);
-      if (w === lastW && h === lastH) return;
-      lastW = w; lastH = h;
-      fitAndSync();
-    });
-    entry.resizeObserver.observe(termArea);
-  });
-}
-
-/**
- * @param {string} groupName
  */
 function createPane(groupName) {
-  const pg = state.paneGroups.get(groupName);
-  const activeType = pg?.activeType || "claude";
-  const activeSessionName = activeType === "pwsh" ? (pg?.pwsh || groupName) : (pg?.claude || groupName);
-  const info = state.sessions.get(activeSessionName);
-  const hasBoth = !!(pg?.claude && pg?.pwsh);
-
-  const pane = document.createElement("div");
-  pane.className = `pane ${groupName === state.focusedPane ? "focused" : ""} ${info?.status === "dead" ? "dead" : ""}`;
-  pane.dataset["session"] = groupName;
-  pane.addEventListener("mousedown", () => focusPane(groupName));
-
-  pane.appendChild(buildPaneTopbar(pg, activeType, info, groupName, hasBoth, activeSessionName));
-
-  const termArea = document.createElement("div");
-  termArea.className = "pane-terminal";
-  pane.appendChild(termArea);
-
-  pane.appendChild(buildPaneStatusbar(info));
-
-  const entry = ensureTerminal(activeSessionName);
-  setupPaneFitLifecycle(entry, termArea, activeSessionName);
-
-  return pane;
+  return paneRuntime.createPane(groupName);
 }
 
-/**
- * @param {string} sessionName
- */
-function ensureTerminal(sessionName) {
-  let entry = state.terminals.get(sessionName);
-  if (entry) return entry;
-
-  const term = new xtermTerminal({
-    theme: TERM_THEME,
-    fontFamily: "'Cascadia Code', Consolas, 'Courier New', monospace",
-    fontSize: 13,
-    lineHeight: 1.2,
-    cursorBlink: true,
-    allowProposedApi: true,
-  });
-
-  const fitAddon = new xtermFitAddon.FitAddon();
-  term.loadAddon(fitAddon);
-  term.loadAddon(new xtermWebLinksAddon.WebLinksAddon());
-
-  term.onData(/** @param {string} data */ (data) => {
-    if (_pasteGuards.has(sessionName)) return; // skip — already sent by Ctrl+V handler
-    state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: data }));
-  });
-
-  term.onResize(/** @param {{cols: number, rows: number}} dim */ ({ cols, rows }) => {
-    state.ws?.send(JSON.stringify({ type: "resize", session: sessionName, payload: { cols, rows } }));
-  });
-
-  term.attachCustomKeyEventHandler(/** @param {KeyboardEvent} e */ (e) => {
-    if (e.type !== "keydown") return true;
-    if (e.ctrlKey && e.shiftKey) return handleCtrlShiftKey(e, sessionName);
-    if (e.ctrlKey && !e.shiftKey) return handleCtrlOnlyKey(e, sessionName);
-    return true;
-  });
-
-  const wrapperEl = document.createElement("div");
-  wrapperEl.style.position = "absolute";
-  wrapperEl.style.inset = "0";
-
-  entry = { term, fitAddon, opened: false, wrapperEl };
-  state.terminals.set(sessionName, entry);
-  return entry;
-}
-
-/**
- * @param {string} groupName
- * @param {"claude" | "pwsh"} type
- */
-function switchPaneType(groupName, type) {
-  const pg = state.paneGroups.get(groupName);
-  if (!pg) return;
-  pg.activeType = type;
-  renderActiveWorkspace();
-  focusPane(groupName);
-}
 
 /**
  * @param {MouseEvent} e
@@ -2242,57 +1894,14 @@ function movePaneToWorkspace(groupName, fromWs, toWs) {
  * @param {string} sessionName
  */
 function updatePaneStatus(sessionName) {
-  const info = state.sessions.get(sessionName);
-  if (!info) return;
-  // Pane data-session is the group name
-  const groupName = info.group || sessionName;
-  const pg = state.paneGroups.get(groupName);
-  const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : sessionName;
-  // Only update status bar if this is the currently active session in the pane
-  if (activeSessionName !== sessionName) return;
-  document.querySelectorAll(`.pane[data-session="${groupName}"]`).forEach((pane) => {
-    const dot = pane.querySelector(".status-dot");
-    const label = pane.querySelector(".pane-status-label");
-    const unread = pane.querySelector(".pane-unread");
-    // pendingPermission overrides the status dot — it's the highest-priority
-    // signal since the user needs to act before Claude proceeds. Otherwise
-    // funnel through normaliseStatusDot so updates honor the same whitelist
-    // (starting | busy | idle | dead) used at initial render.
-    const dotClass = info.pendingPermission ? "permission" : normaliseStatusDot(info.status);
-    const labelText = info.pendingPermission ? "permission" : dotClass;
-    if (dot) dot.className = `status-dot ${dotClass}`;
-    if (label) label.textContent = labelText;
-    if (unread) {
-      const unreadN = Number(info.unreadCount) || 0;
-      unread.textContent = String(unreadN);
-      unread.classList.toggle("show", unreadN > 0);
-    }
-    pane.classList.toggle("dead", info.status === "dead");
-    pane.classList.toggle("pending-permission", !!info.pendingPermission);
-  });
+  paneRuntime.updatePaneStatus(sessionName);
 }
 
 /**
  * @param {string} groupName
  */
 function focusPane(groupName) {
-  state.focusedPane = groupName;
-  document.querySelectorAll(".pane").forEach((p) => {
-    if (!(p instanceof HTMLElement)) return;
-    p.classList.toggle("focused", p.dataset["session"] === groupName);
-  });
-  // Update sessions panel highlight
-  document.querySelectorAll(".session-row").forEach((r) => r.classList.remove("active"));
-  document.querySelector(`.session-row[data-group="${groupName}"]`)?.classList.add("active");
-  // Focus the active session's terminal (use rAF to run after any pending DOM updates)
-  const pg = state.paneGroups.get(groupName);
-  const activeSessionName = pg ? (pg.activeType === "pwsh" ? pg.pwsh : pg.claude) : groupName;
-  const entry = state.terminals.get(activeSessionName || groupName);
-  if (entry) {
-    entry.term.focus();
-    // Double-tap: rAF ensures focus sticks after any queued DOM mutations
-    requestAnimationFrame(() => entry.term.focus());
-  }
+  paneRuntime.focusPane(groupName);
 }
 
 // ===== Navigation =====
