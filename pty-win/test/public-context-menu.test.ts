@@ -16,16 +16,18 @@ const normPath = (p: string) => (p ? p.replace(/\\/g, "/").toLowerCase() : "");
 describe("forceIdleInFolder", () => {
   it("POSTs force-idle only for busy AI sessions in matching folder", () => {
     const fetcher = vi.fn();
-    const state = {
-      sessions: new Map<string, any>([
-        ["a", { command: "claude", status: "busy", workingDir: "C:\\foo" }],
-        ["b", { command: "claude", status: "idle", workingDir: "C:\\foo" }],
-        ["c", { command: "pwsh", status: "busy", workingDir: "C:\\foo" }],
-        ["d", { command: "claude", status: "busy", workingDir: "C:\\other" }],
-      ]),
-      aiPresets: [{ command: "claude" }],
+    const sessionsMap = new Map<string, any>([
+      ["a", { command: "claude", status: "busy", workingDir: "C:\\foo" }],
+      ["b", { command: "claude", status: "idle", workingDir: "C:\\foo" }],
+      ["c", { command: "pwsh", status: "busy", workingDir: "C:\\foo" }],
+      ["d", { command: "claude", status: "busy", workingDir: "C:\\other" }],
+    ]);
+    const sessions = {
+      entries: () => [...sessionsMap.entries()],
+      list: () => [...sessionsMap.values()],
     };
-    forceIdleInFolder("C:\\foo", state as any, fetcher as any, normPath);
+    const state = { aiPresets: [{ command: "claude" }] };
+    forceIdleInFolder("C:\\foo", state as any, sessions as any, fetcher as any, normPath);
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(fetcher).toHaveBeenCalledWith(
       "/api/sessions/a/force-idle",
@@ -35,23 +37,27 @@ describe("forceIdleInFolder", () => {
 
   it("does nothing when no aiPresets match", () => {
     const fetcher = vi.fn();
-    const state = {
-      sessions: new Map([["a", { command: "claude", status: "busy", workingDir: "/foo" }]]),
-      aiPresets: [{ command: "codex" }],
+    const sessionsMap = new Map([["a", { command: "claude", status: "busy", workingDir: "/foo" }]]);
+    const sessions = {
+      entries: () => [...sessionsMap.entries()],
+      list: () => [...sessionsMap.values()],
     };
-    forceIdleInFolder("/foo", state as any, fetcher as any, normPath);
+    const state = { aiPresets: [{ command: "codex" }] };
+    forceIdleInFolder("/foo", state as any, sessions as any, fetcher as any, normPath);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
   it("URL-encodes session names", () => {
     const fetcher = vi.fn();
-    const state = {
-      sessions: new Map([
-        ["with space", { command: "claude", status: "busy", workingDir: "/x" }],
-      ]),
-      aiPresets: [{ command: "claude" }],
+    const sessionsMap = new Map([
+      ["with space", { command: "claude", status: "busy", workingDir: "/x" }],
+    ]);
+    const sessions = {
+      entries: () => [...sessionsMap.entries()],
+      list: () => [...sessionsMap.values()],
     };
-    forceIdleInFolder("/x", state as any, fetcher as any, normPath);
+    const state = { aiPresets: [{ command: "claude" }] };
+    forceIdleInFolder("/x", state as any, sessions as any, fetcher as any, normPath);
     expect(fetcher).toHaveBeenCalledWith(
       "/api/sessions/with%20space/force-idle",
       { method: "POST" },
@@ -239,6 +245,10 @@ describe("buildContextMenuActions dispatcher", () => {
       openFolder, renderTree, renderQuickAccess,
       favorites, pinned, normPath,
       expanded: { add: vi.fn(() => true) },
+      sessions: {
+        entries: () => [...(baseState.sessions as Map<string, any>).entries()],
+        list: () => [...(baseState.sessions as Map<string, any>).values()],
+      },
       promptFn, alertFn, fetchFn,
     };
   });
@@ -402,15 +412,20 @@ function mkCmFactory(overrides: any = {}) {
   const state = overrides.state || mkCmState();
   const actions = overrides.actions || {};
   // Derive narrow ports from the state shape so existing tests that set
-  // state.favorites / state.pinnedFolders keep working unchanged.
+  // state.favorites / state.pinnedFolders / state.sessions keep working.
   const favorites = { has: (p: string) => state.favorites.includes(p) };
   const pinned = { has: (p: string) => state.pinnedFolders.includes(p) };
+  const sessions = {
+    entries: () => [...(state.sessions as Map<string, any>).entries()],
+    list: () => [...(state.sessions as Map<string, any>).values()],
+  };
   const f = createContextMenu({
     doc: document,
     byId: (id: string) => document.getElementById(id),
     state: state as any,
     favorites,
     pinned,
+    sessions: sessions as any,
     helpers: { normPath },
     actions,
   });
@@ -518,6 +533,7 @@ describe("createContextMenu.show", () => {
       state: state as any,
       favorites: { has: (p: string) => state.favorites.includes(p) },
       pinned: { has: (p: string) => state.pinnedFolders.includes(p) },
+      sessions: { entries: () => [], list: () => [] },
       helpers: { normPath },
       actions: {},
     });

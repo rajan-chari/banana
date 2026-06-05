@@ -434,6 +434,7 @@ const contextMenuActions = buildContextMenuActions({
   favorites,
   pinned,
   expanded,
+  sessions,
   normPath,
 });
 const ctxMenu = createContextMenu({
@@ -442,6 +443,7 @@ const ctxMenu = createContextMenu({
   state,
   favorites,
   pinned,
+  sessions,
   helpers: { normPath },
   actions: contextMenuActions,
 });

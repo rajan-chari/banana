@@ -9,8 +9,14 @@
 
 /**
  * @typedef {{
+ *   entries: () => Array<[string, { command: string, status: string, workingDir?: string }]>,
+ *   list: () => Array<{ command: string, status: string, workingDir?: string }>,
+ * }} ContextMenuSessionsPort
+ */
+
+/**
+ * @typedef {{
  *   state: {
- *     sessions: Map<string, { command: string, status: string, workingDir?: string }>,
  *     aiPresets: Array<{ command: string }>,
  *     folderCache: Map<string, unknown>,
  *     favorites: string[],
@@ -22,6 +28,7 @@
  *   favorites: { add: (p: string) => boolean, remove: (p: string) => boolean, has: (p: string) => boolean },
  *   pinned: { add: (p: string) => boolean, remove: (p: string) => boolean, has: (p: string) => boolean },
  *   expanded: { add: (p: string, opts?: { notify?: boolean }) => boolean },
+ *   sessions: ContextMenuSessionsPort,
  *   normPath: (p: string) => string,
  *   fetchFn?: typeof fetch,
  *   promptFn?: (msg: string, init?: string) => string|null,
@@ -36,14 +43,15 @@ const INVALID_FOLDER_CHAR = /[/\\:*?"<>|]/;
  * matches the given path. Failures are intentionally swallowed.
  *
  * @param {string} path
- * @param {ContextMenuDeps["state"]} state
+ * @param {{ aiPresets: Array<{ command: string }> }} state
+ * @param {ContextMenuSessionsPort} sessions
  * @param {(input: string, init?: RequestInit) => unknown} fetcher
  * @param {(p: string) => string} normPath
  */
-export function forceIdleInFolder(path, state, fetcher, normPath) {
+export function forceIdleInFolder(path, state, sessions, fetcher, normPath) {
   const fnp = normPath(path);
   const aiCmds = new Set(state.aiPresets.map((p) => p.command));
-  for (const [sName, s] of state.sessions) {
+  for (const [sName, s] of sessions.entries()) {
     if (aiCmds.has(s.command) && s.status === "busy" && s.workingDir && normPath(s.workingDir) === fnp) {
       fetcher(`/api/sessions/${encodeURIComponent(sName)}/force-idle`, { method: "POST" });
     }
@@ -114,7 +122,7 @@ export function buildContextMenuActions(deps) {
       const cmd = promptF("Command to run:", "cmd.exe");
       if (cmd) deps.openFolder(path, name, cmd);
     },
-    "force-idle": (path) => forceIdleInFolder(path, deps.state, fetcher, deps.normPath),
+    "force-idle": (path) => forceIdleInFolder(path, deps.state, deps.sessions, fetcher, deps.normPath),
     "new-folder": async (path) => {
       const raw = promptF("New folder name:");
       const err = validateSubfolderName(raw);
@@ -159,10 +167,10 @@ export function resolveContextAction(clickTarget, ctxTarget) {
  *   state: {
  *     ctxTarget?: string | null,
  *     aiPresets: Array<{ command: string }>,
- *     sessions: Map<string, { command: string, status: string, workingDir?: string }>,
  *   },
  *   favorites: { has: (p: string) => boolean },
  *   pinned: { has: (p: string) => boolean },
+ *   sessions: ContextMenuSessionsPort,
  *   helpers: { normPath: (p: string) => string },
  *   actions: Record<string, (path: string, name: string) => unknown>,
  * }} CreateContextMenuDeps
@@ -185,7 +193,7 @@ export function resolveContextAction(clickTarget, ctxTarget) {
  * @param {CreateContextMenuDeps} deps
  */
 export function createContextMenu(deps) {
-  const { doc, byId, state, helpers, actions, favorites, pinned } = deps;
+  const { doc, byId, state, helpers, actions, favorites, pinned, sessions } = deps;
   const { normPath } = helpers;
 
   /**
@@ -212,7 +220,7 @@ export function createContextMenu(deps) {
 
     const np = normPath(path);
     const aiCommands = new Set(state.aiPresets.map((p) => p.command));
-    const hasBusyAI = [...state.sessions.values()].some(
+    const hasBusyAI = sessions.list().some(
       (s) => aiCommands.has(s.command) && s.status === "busy" && !!s.workingDir && normPath(s.workingDir) === np
     );
     const forceIdleItem = /** @type {HTMLElement | null} */ (menu.querySelector('[data-action="force-idle"]'));
