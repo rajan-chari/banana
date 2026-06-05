@@ -469,10 +469,10 @@ describe("createRowActions - buildVsCodeTag", () => {
     const evt: any = new Event("click"); evt.stopPropagation = vi.fn();
     tag.onclick!(evt);
     expect(fetchFn).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchFn.mock.calls[0];
-    expect(url).toBe("/api/open-editor");
-    expect((init as any).method).toBe("POST");
-    expect(JSON.parse((init as any).body)).toEqual({ path: "/foo/bar" });
+    const call: any = fetchFn.mock.calls[0];
+    expect(call[0]).toBe("/api/open-editor");
+    expect(call[1].method).toBe("POST");
+    expect(JSON.parse(call[1].body)).toEqual({ path: "/foo/bar" });
   });
 
   it("exits fullscreen first when document.fullscreenElement is set", () => {

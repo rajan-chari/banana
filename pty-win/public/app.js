@@ -109,6 +109,7 @@ import {
 import {
   createPaneContextMenu,
 } from "./lib/pane-context-menu.js";
+import { createSessionsPanel } from "./lib/sessions-panel.js";
 
 // ===== DOM helpers =====
 // `byId` asserts non-null and returns HTMLElement, so callers can chain
@@ -329,6 +330,29 @@ const rowActions = createRowActions({
   },
 });
 const appendRowActions = rowActions.appendRowActions;
+
+const sessionsPanel = createSessionsPanel({
+  state,
+  byId,
+  doc: document,
+  env: { fetchFn: fetch.bind(window) },
+  helpers: {
+    normPath,
+    buildSessionGroups,
+    createSessionRow,
+    createEmptyRow,
+    buildSessionRowActionsOpts,
+    patchSessionRowIndicators,
+    activeNameForRow,
+  },
+  actions: {
+    appendRowActions,
+    killSession: (n) => killSession(n),
+    focusExistingSession: (n) => focusExistingSession(n),
+    showContextMenu: (e, p) => showContextMenu(e, p),
+  },
+});
+const renderSessionsPanel = sessionsPanel.renderSessionsPanel;
 
 const wsDispatcher = createWsDispatcher({
   state,
@@ -640,54 +664,7 @@ function renderQuickAccess() {
   });
 }
 
-// ===== Sessions Panel =====
-
-function renderSessionsPanel() {
-  const list = byId("sessions-list");
-  const countEl = document.querySelector(".session-count");
-  if (!list) return;
-
-  const groups = buildSessionGroups(state.paneGroups, state.sessions);
-  if (countEl) countEl.textContent = groups.length > 0 ? `(${groups.length})` : "";
-
-  list.innerHTML = "";
-  if (groups.length === 0) {
-    list.appendChild(createEmptyRow());
-    return;
-  }
-
-  for (const g of groups) {
-    const row = createSessionRow(g, state.focusedPane);
-    const cacheKey = normPath(g.workingDir);
-    const cached = state.folderInfoCache.get(cacheKey);
-
-    appendRowActions(row, buildSessionRowActionsOpts(g, cached, () => {
-      if (g.claudeAlive && g.pg.claude) killSession(g.pg.claude);
-      if (g.pwshAlive && g.pg.pwsh) killSession(g.pg.pwsh);
-    }));
-
-    if (!cached && g.workingDir) {
-      fetch(`/api/folder-info?path=${encodeURIComponent(g.workingDir)}`)
-        .then((r) => r.json())
-        .then((info) => {
-          state.folderInfoCache.set(cacheKey, info);
-          patchSessionRowIndicators(row, info);
-        })
-        .catch(() => {});
-    }
-
-    const activeName = activeNameForRow(g);
-    if (activeName) row.onclick = () => focusExistingSession(activeName);
-    row.addEventListener("contextmenu", (e) => { if (g.workingDir) showContextMenu(e, g.workingDir); });
-    row.draggable = true;
-    row.addEventListener("dragstart", (e) => {
-      if (!e.dataTransfer) return;
-      e.dataTransfer.setData("pty-win/session", JSON.stringify({ group: g.group, workingDir: g.workingDir }));
-      e.dataTransfer.effectAllowed = "copy";
-    });
-    list.appendChild(row);
-  }
-}
+// ===== Sessions Panel (extracted to lib/sessions-panel.js) =====
 
 // Tag builders + appendRowActions extracted to lib/session-row.js (Phase 6a)
 
