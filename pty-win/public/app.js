@@ -804,11 +804,12 @@ function pruneFailedSession(name) {
 /** Get the active workspace, or the most recent one, or create a new one */
 function getOrCreateActiveWorkspace() {
   // If we're on a workspace tab already, use it
-  const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+  const active = workspaces.active();
   if (active) return active;
 
   // If on dashboard but workspaces exist, use the last one
-  if (state.workspaces.length > 0) return state.workspaces[state.workspaces.length - 1];
+  const last = workspaces.list().at(-1);
+  if (last) return last;
 
   // No workspaces at all — create one
   return createWorkspace("Workspace 1");
@@ -1049,7 +1050,7 @@ function toggleSidebar() {
   byId("sidebar").classList.toggle("hidden", !state.sidebarVisible);
   byId("sidebar-strip").classList.toggle("hidden", state.sidebarVisible);
   // Refit terminals
-  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+  const ws = workspaces.active();
   if (ws?.layout) requestAnimationFrame(() => fitAllTerminals(ws.layout));
 }
 
@@ -1086,7 +1087,7 @@ byId("btn-collapse-all").onclick = () => {
       document.removeEventListener("mouseup", onUp);
       saveSidebarWidth(parseInt(sidebar.style.width, 10));
       // Refit terminals after sidebar resize
-      const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+      const ws = workspaces.active();
       if (ws?.layout) requestAnimationFrame(() => fitAllTerminals(ws.layout));
     };
 
@@ -1414,7 +1415,8 @@ document.addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
     if (e.key >= "1" && e.key <= "9") {
       e.preventDefault();
       const idx = parseInt(e.key) - 1;
-      if (state.workspaces[idx]) switchToWorkspace(state.workspaces[idx].id);
+      const ws = workspaces.list()[idx];
+      if (ws) switchToWorkspace(ws.id);
     }
   }
 });
@@ -1422,7 +1424,7 @@ document.addEventListener("keydown", /** @param {KeyboardEvent} e */ (e) => {
 // ===== Window resize =====
 
 window.addEventListener("resize", () => {
-  const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+  const ws = workspaces.active();
   if (ws?.layout) requestAnimationFrame(() => fitAllTerminals(ws.layout));
 });
 
