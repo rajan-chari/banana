@@ -1064,8 +1064,7 @@ function switchToWorkspace(id) {
   }
 
   dashboardPanel.stopPolling();
-  state.activeWorkspaceId = id;
-  state.isDashboard = false;
+  workspaces.setActive(id);
 
   // Restore focused pane for target workspace
   const ws = state.workspaces.find((w) => w.id === id);
@@ -1093,8 +1092,7 @@ function switchToWorkspace(id) {
 
 function switchToDashboard() {
   dashboardPanel.stopPolling();
-  state.activeWorkspaceId = null;
-  state.isDashboard = true;
+  workspaces.setActive(null);
   renderTabs();
   dashboardPanel.render();
   dashboardPanel.startPolling();
