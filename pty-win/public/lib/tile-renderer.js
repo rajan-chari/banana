@@ -15,12 +15,11 @@ import { getPaneGroup } from "./pane-groups.js";
 /**
  * @typedef {Object} TileRendererDeps
  * @property {{
- *   workspaces: Array<{ id: string, layout: any }>,
- *   activeWorkspaceId: string | null,
  *   sessions: Map<string, any>,
  *   activePaneTypes: Map<string, "claude"|"pwsh">,
  *   terminals: Map<string, { fitAddon: { fit: () => void } }>,
  * }} state
+ * @property {{ active: () => ({ id: string, layout: any } | null) }} workspaces
  * @property {(id: string) => HTMLElement} byId
  * @property {(groupName: string) => HTMLElement} createPane
  * @property {Document} [doc]
@@ -40,7 +39,7 @@ export function createTileRenderer(deps) {
     const area = deps.byId("workspace-area");
     area.innerHTML = "";
 
-    const ws = deps.state.workspaces.find((w) => w.id === deps.state.activeWorkspaceId);
+    const ws = deps.workspaces.active();
     if (!ws || !ws.layout) {
       const empty = doc.createElement("div");
       empty.className = "dashboard active";
@@ -126,7 +125,7 @@ export function createTileRenderer(deps) {
           doc.removeEventListener("mousemove", onMove);
           doc.removeEventListener("mouseup", onUp);
         }
-        const ws = deps.state.workspaces.find((w) => w.id === deps.state.activeWorkspaceId);
+        const ws = deps.workspaces.active();
         if (ws?.layout) raf(() => fitAllTerminals(ws.layout));
       };
 

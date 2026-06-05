@@ -7,11 +7,8 @@
 
 /**
  * @typedef {Object} PaneNavDeps
- * @property {{
- *   workspaces: Array<{ id: string, layout: any }>,
- *   activeWorkspaceId: string | null,
- *   focusedPane: string | null
- * }} state
+ * @property {{ focusedPane: string | null }} state
+ * @property {{ active: () => ({ id: string, layout: any } | null) }} workspaces
  * @property {{
  *   getLeafList: (layout: any) => string[],
  *   findParentSplit: (layout: any, name: string) => { ratio: number } | null
@@ -24,13 +21,13 @@
  * @param {PaneNavDeps} deps
  */
 export function createPaneNav(deps) {
-  const { state, layout, focusPane, renderActiveWorkspace } = deps;
+  const { state, layout, focusPane, renderActiveWorkspace, workspaces } = deps;
 
   /**
    * @param {string} arrowKey
    */
   function navigatePanes(arrowKey) {
-    const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+    const ws = workspaces.active();
     if (!ws?.layout) return;
     const leaves = layout.getLeafList(ws.layout);
     if (!leaves.length) return;
@@ -46,7 +43,7 @@ export function createPaneNav(deps) {
    * @param {string} arrowKey
    */
   function resizeFocused(arrowKey) {
-    const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+    const ws = workspaces.active();
     if (!ws?.layout || ws.layout.type !== "split") return;
     if (!state.focusedPane) return;
     const splitNode = layout.findParentSplit(ws.layout, state.focusedPane);

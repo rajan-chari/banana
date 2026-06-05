@@ -15,7 +15,8 @@
 
 /**
  * @typedef {Object} PaneDragDeps
- * @property {{ workspaces: Array<{ id: string, layout: any }>, activeWorkspaceId: string | null }} state
+ * @property {{}} [state] reserved for future shared state; current callers may omit
+ * @property {{ active: () => ({ id: string, layout: any } | null) }} workspaces
  * @property {(layout: any) => any[]} getLeafList
  * @property {(layout: any, name: string) => any} removeSessionFromLayout
  * @property {(layout: any, name: string) => boolean} treeContains
@@ -122,7 +123,7 @@ export function createPaneDrag(deps) {
     paneDrag.ghostEl = null;
     if (doc) doc.body.classList.remove("pane-dragging");
     if (!currentTarget || !dragSession || currentTarget.session === dragSession) return;
-    const ws = deps.state.workspaces.find((w) => w.id === deps.state.activeWorkspaceId);
+    const ws = deps.workspaces.active();
     if (!ws?.layout) return;
     const pruned = deps.removeSessionFromLayout(ws.layout, dragSession);
     if (!pruned || !deps.treeContains(pruned, currentTarget.session)) return;
@@ -146,7 +147,7 @@ export function createPaneDrag(deps) {
    */
   function startPaneDrag(e, groupName) {
     if (!doc) return;
-    const ws = deps.state.workspaces.find((w) => w.id === deps.state.activeWorkspaceId);
+    const ws = deps.workspaces.active();
     if (!ws?.layout || deps.getLeafList(ws.layout).length < 2) return;
     e.preventDefault();
     paneDrag.active = true;

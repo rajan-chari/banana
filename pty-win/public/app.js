@@ -274,6 +274,7 @@ const dashboardPanel = createDashboardPanel({
 
 const paneDragRuntime = createPaneDrag({
   state,
+  workspaces,
   getLeafList,
   removeSessionFromLayout,
   treeContains,
@@ -287,6 +288,7 @@ const paneDragRuntime = createPaneDrag({
 
 const tileRenderer = createTileRenderer({
   state,
+  workspaces,
   byId,
   createPane: (name) => createPane(name),
 });
@@ -351,6 +353,7 @@ const autoRemoveDeadSession = paneLifecycle.autoRemoveDeadSession;
 
 const paneNav = createPaneNav({
   state,
+  workspaces,
   layout: { getLeafList, findParentSplit },
   focusPane: (name) => focusPane(name),
   renderActiveWorkspace: () => renderActiveWorkspace(),
@@ -1482,7 +1485,7 @@ window.addEventListener("load", () => {
 
 // ===== Emcom feed panel (neo-terminal theme) =====
 
-initFeedPanel({ byId, inputById, selectById, state, fitAllTerminals });
+initFeedPanel({ byId, inputById, selectById, state, workspaces, fitAllTerminals });
 
 // ===== Right Panel Tab Switching =====
 // ===== Agents Panel =====

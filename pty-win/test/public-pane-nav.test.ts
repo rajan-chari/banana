@@ -21,6 +21,11 @@ function mkNav(stateOver: any = {}) {
     focusedPane: "a",
     ...stateOver,
   };
+  const workspaces = {
+    active: () => state.activeWorkspaceId
+      ? (state.workspaces.find((w: any) => w.id === state.activeWorkspaceId) || null)
+      : null,
+  };
   const focusPane = vi.fn();
   const renderActiveWorkspace = vi.fn();
   const layout = {
@@ -39,7 +44,7 @@ function mkNav(stateOver: any = {}) {
       return null;
     }),
   };
-  const nav = createPaneNav({ state, layout, focusPane, renderActiveWorkspace });
+  const nav = createPaneNav({ state, workspaces, layout, focusPane, renderActiveWorkspace });
   return { nav, state, focusPane, renderActiveWorkspace, layout };
 }
 

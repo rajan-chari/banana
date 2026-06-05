@@ -15,6 +15,14 @@ interface State {
   activeWorkspaceId: string | null;
 }
 
+function makeWorkspacesPort(s: State) {
+  return {
+    active: () => s.activeWorkspaceId
+      ? (s.workspaces.find((w) => w.id === s.activeWorkspaceId) || null)
+      : null,
+  };
+}
+
 function mkDeps(overrides: Partial<{
   state: State;
   getLeafList: ReturnType<typeof vi.fn>;
@@ -25,11 +33,13 @@ function mkDeps(overrides: Partial<{
   setWorkspaceLayout: ReturnType<typeof vi.fn>;
   renderActiveWorkspace: ReturnType<typeof vi.fn>;
 }> = {}): any {
+  const state = overrides.state || {
+    workspaces: [{ id: "ws1", layout: { type: "leaf", session: "a" } }],
+    activeWorkspaceId: "ws1",
+  };
   return {
-    state: overrides.state || {
-      workspaces: [{ id: "ws1", layout: { type: "leaf", session: "a" } }],
-      activeWorkspaceId: "ws1",
-    },
+    state,
+    workspaces: makeWorkspacesPort(state),
     getLeafList: overrides.getLeafList || vi.fn().mockReturnValue([{ session: "a" }, { session: "b" }]),
     removeSessionFromLayout: overrides.removeSessionFromLayout || vi.fn().mockReturnValue({ type: "leaf", session: "b" }),
     treeContains: overrides.treeContains || vi.fn().mockReturnValue(true),

@@ -208,7 +208,8 @@ export function buildFeedItemInnerHtml(email, opts) {
  * @property {(id: string) => HTMLElement} byId
  * @property {(id: string) => HTMLInputElement} inputById
  * @property {(id: string) => HTMLSelectElement} selectById
- * @property {{ terminals: Map<string, any>, workspaces: any[], activeWorkspaceId: string | null }} state
+ * @property {{ terminals: Map<string, any> }} state
+ * @property {{ active: () => ({ id: string, layout: any } | null) }} workspaces
  * @property {(node: any) => void} fitAllTerminals
  */
 
@@ -228,7 +229,7 @@ export function buildFeedItemInnerHtml(email, opts) {
  */
 // eslint-disable-next-line max-lines-per-function -- init wirer; see jsdoc above
 export function initFeedPanel(deps) {
-  const { byId, inputById, selectById, state, fitAllTerminals } = deps;
+  const { byId, inputById, selectById, state, fitAllTerminals, workspaces } = deps;
   const FEED_POLL_MS = 10_000;
   const panel = byId("feed-panel");
   const strip = byId("feed-strip");
@@ -285,7 +286,7 @@ export function initFeedPanel(deps) {
       document.removeEventListener("mouseup", onUp);
       localStorage.setItem("pty-win-feed-width", String(parseInt(panel.style.width, 10)));
       // Reconnect ResizeObservers + fit once
-      const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
+      const ws = workspaces.active();
       for (const [name, entry] of state.terminals) {
         const el = document.querySelector(`.pane[data-session="${name}"] .pane-terminal`);
         if (el && entry.resizeObserver) entry.resizeObserver.observe(el);

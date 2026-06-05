@@ -375,6 +375,11 @@ describe("initFeedPanel (smoke)", () => {
   });
 
   function makeDeps() {
+    const state = {
+      terminals: new Map<string, unknown>(),
+      workspaces: [] as Array<{ id: string; layout: any }>,
+      activeWorkspaceId: null as string | null,
+    };
     return {
       byId: (id: string) => {
         const el = document.getElementById(id);
@@ -383,10 +388,11 @@ describe("initFeedPanel (smoke)", () => {
       },
       inputById: (id: string) => document.getElementById(id) as HTMLInputElement,
       selectById: (id: string) => document.getElementById(id) as HTMLSelectElement,
-      state: {
-        terminals: new Map<string, unknown>(),
-        workspaces: [],
-        activeWorkspaceId: null,
+      state,
+      workspaces: {
+        active: () => state.activeWorkspaceId
+          ? (state.workspaces.find((w) => w.id === state.activeWorkspaceId) || null)
+          : null,
       },
       fitAllTerminals: () => {},
     };

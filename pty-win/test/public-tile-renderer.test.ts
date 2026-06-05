@@ -23,12 +23,18 @@ function fakePane(name: string): HTMLElement {
 }
 
 function mkDeps(overrides: any = {}): any {
+  const state = overrides.state || {
+    workspaces: [],
+    activeWorkspaceId: null,
+    sessions: new Map(), activePaneTypes: new Map(),
+    terminals: new Map(),
+  };
   return {
-    state: overrides.state || {
-      workspaces: [],
-      activeWorkspaceId: null,
-      sessions: new Map(), activePaneTypes: new Map(),
-      terminals: new Map(),
+    state,
+    workspaces: {
+      active: () => state.activeWorkspaceId
+        ? (state.workspaces.find((w: any) => w.id === state.activeWorkspaceId) || null)
+        : null,
     },
     byId,
     createPane: overrides.createPane || ((name: string) => fakePane(name)),
