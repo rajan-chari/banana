@@ -131,6 +131,7 @@ function mkDeps(stateOver: any = {}) {
       has: (n: string) => (state.sessions as Map<string, any>).has(n),
       remove: (n: string) => (state.sessions as Map<string, any>).delete(n),
     },
+    activePaneTypes: { set: () => {} },
     doc: document, env: { fetch: fetchFn as any, setTimeout: setTimeoutFn },
     layout, helpers, views,
   });

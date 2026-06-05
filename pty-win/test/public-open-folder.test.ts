@@ -204,6 +204,7 @@ describe("attachToSiblingWorkspace", () => {
       sessionName: "foo",
       isPwsh: false,
       state: { paneGroups: new Map() },
+      activePaneTypes: { set: vi.fn() },
       switchToWorkspace: vi.fn(),
       renderActiveWorkspace: vi.fn(),
       focusPane: vi.fn(),

@@ -29,6 +29,7 @@ function normaliseStatusDot(status) {
  * @typedef {Object} PaneRuntimeDeps
  * @property {any} state            Shared state (sessions/paneGroups/terminals/ws/focusedPane/workspaces/activeWorkspaceId).
  * @property {{ byName: (name: string) => any }} sessions
+ * @property {{ set: (name: string, type: "claude"|"pwsh") => void }} activePaneTypes
  * @property {(id: string) => HTMLElement} byId
  * @property {Document} [doc]
  * @property {{
@@ -434,6 +435,7 @@ export function createPaneRuntime(deps) {
   function switchPaneType(groupName, type) {
     const pg = deps.state.paneGroups.get(groupName);
     if (!pg) return;
+    deps.activePaneTypes.set(groupName, type);
     pg.activeType = type;
     deps.actions.renderActiveWorkspace();
     focusPane(groupName);

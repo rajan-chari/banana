@@ -36,6 +36,7 @@ import { createExpandedPathsStore } from "./lib/expanded-paths-store.js";
 import { createWorkspacesStore } from "./lib/workspaces-store.js";
 import { createFocusStore } from "./lib/focus-store.js";
 import { createSessionsStore } from "./lib/sessions-store.js";
+import { createPaneActiveTypeStore } from "./lib/pane-active-type-store.js";
 import {
   buildBalancedTree,
   removeSessionFromLayout,
@@ -173,7 +174,7 @@ function buttonById(id) {
 }
 
 function rebuildPaneGroups() {
-  state.paneGroups = _rebuildPaneGroups(state.sessions, state.paneGroups);
+  state.paneGroups = _rebuildPaneGroups(state.sessions, activePaneTypes);
 }
 
 // ===== Folder-tree port (narrow surface for forward-ref callers) =====
@@ -251,6 +252,10 @@ const focus = createFocusStore({
 // (9e-B) and remove (9e-C).
 const sessions = createSessionsStore({ state });
 
+// Pane "active type" store (Phase 9d-0). Owns the writes; rebuildPaneGroups
+// seeds pg.activeType from this store (9d-0-B). Not persisted.
+const activePaneTypes = createPaneActiveTypeStore({ state });
+
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
 
@@ -288,6 +293,7 @@ const tileRenderer = createTileRenderer({
 const paneRuntime = createPaneRuntime({
   state,
   sessions,
+  activePaneTypes,
   byId,
   xterm: {
     Terminal: xtermTerminal,
@@ -317,6 +323,7 @@ const paneRuntime = createPaneRuntime({
 const paneLifecycle = createPaneLifecycle({
   state,
   sessions,
+  activePaneTypes,
   layout: { removeSessionFromLayout, getLeafList, buildBalancedTree, treeContains },
   helpers: {
     saveSessionMeta,
@@ -847,7 +854,9 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
  */
 function focusAliveSession(baseName, isPwsh) {
   const pg = state.paneGroups.get(baseName);
-  if (pg) pg.activeType = isPwsh ? "pwsh" : "claude";
+  const type = isPwsh ? "pwsh" : "claude";
+  activePaneTypes.set(baseName, type);
+  if (pg) pg.activeType = type;
   focusExistingSession(baseName);
   renderActiveWorkspace();
 }
@@ -869,7 +878,7 @@ function placeNewSession({ baseName, sessionName, isPwsh, newWorkspace }) {
   if (siblingWs) {
     attachToSiblingWorkspace({
       siblingWs, baseName, sessionName, isPwsh,
-      state, switchToWorkspace, renderActiveWorkspace, focusPane,
+      state, activePaneTypes, switchToWorkspace, renderActiveWorkspace, focusPane,
     });
     return;
   }
@@ -890,6 +899,7 @@ function focusExistingSession(name) {
   // If focusing a pwsh session, switch the pane toggle
   if (name.endsWith("~pwsh")) {
     const pg = state.paneGroups.get(groupName);
+    activePaneTypes.set(groupName, "pwsh");
     if (pg) pg.activeType = "pwsh";
   }
   // Find workspace containing this group's pane

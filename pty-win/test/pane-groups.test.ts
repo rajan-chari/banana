@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { rebuildPaneGroups } from "../public/lib/pane-groups.js";
-import type { SessionInfo, PaneGroup } from "../public/lib/pane-groups.js";
+import type { SessionInfo } from "../public/lib/pane-groups.js";
+import { createPaneActiveTypeStore } from "../public/lib/pane-active-type-store.js";
 
 // Helper to build sessions map
 function sessions(...entries: Array<{ name: string; group?: string; command?: string; status?: SessionInfo["status"] }>): Map<string, SessionInfo> {
@@ -16,16 +17,21 @@ function sessions(...entries: Array<{ name: string; group?: string; command?: st
   return map;
 }
 
-const empty = new Map<string, PaneGroup>();
+function mkStore(initial: Array<[string, "claude" | "pwsh"]> = []) {
+  const state: { activePaneTypes?: Map<string, "claude" | "pwsh"> } = {
+    activePaneTypes: new Map(initial),
+  };
+  return createPaneActiveTypeStore({ state });
+}
 
 describe("rebuildPaneGroups", () => {
   it("returns empty map for no sessions", () => {
-    const result = rebuildPaneGroups(new Map(), empty);
+    const result = rebuildPaneGroups(new Map(), mkStore());
     expect(result.size).toBe(0);
   });
 
   it("creates group for single Claude session", () => {
-    const result = rebuildPaneGroups(sessions({ name: "myapp" }), empty);
+    const result = rebuildPaneGroups(sessions({ name: "myapp" }), mkStore());
     expect(result.size).toBe(1);
     const pg = result.get("myapp")!;
     expect(pg.claude).toBe("myapp");
@@ -34,7 +40,7 @@ describe("rebuildPaneGroups", () => {
   });
 
   it("creates group for single PowerShell session", () => {
-    const result = rebuildPaneGroups(sessions({ name: "myapp~pwsh" }), empty);
+    const result = rebuildPaneGroups(sessions({ name: "myapp~pwsh" }), mkStore());
     expect(result.size).toBe(1);
     const pg = result.get("myapp")!;
     expect(pg.pwsh).toBe("myapp~pwsh");
@@ -46,7 +52,7 @@ describe("rebuildPaneGroups", () => {
   it("groups Claude + PowerShell for same folder", () => {
     const result = rebuildPaneGroups(
       sessions({ name: "myapp" }, { name: "myapp~pwsh" }),
-      empty
+      mkStore()
     );
     expect(result.size).toBe(1);
     const pg = result.get("myapp")!;
@@ -58,50 +64,47 @@ describe("rebuildPaneGroups", () => {
   it("creates separate groups for different folders", () => {
     const result = rebuildPaneGroups(
       sessions({ name: "app1" }, { name: "app2" }),
-      empty
+      mkStore()
     );
     expect(result.size).toBe(2);
     expect(result.has("app1")).toBe(true);
     expect(result.has("app2")).toBe(true);
   });
 
-  it("preserves activeType from previous groups", () => {
-    const prev = new Map<string, PaneGroup>([
-      ["myapp", { claude: "myapp", pwsh: "myapp~pwsh", activeType: "pwsh" }],
-    ]);
+  it("uses activePaneTypes store value when present", () => {
+    const store = mkStore([["myapp", "pwsh"]]);
     const result = rebuildPaneGroups(
       sessions({ name: "myapp" }, { name: "myapp~pwsh" }),
-      prev
+      store
     );
     expect(result.get("myapp")!.activeType).toBe("pwsh");
   });
 
-  it("flips activeType to claude when pwsh session disappears", () => {
-    const prev = new Map<string, PaneGroup>([
-      ["myapp", { claude: "myapp", pwsh: "myapp~pwsh", activeType: "pwsh" }],
-    ]);
+  it("flips activeType to claude when pwsh session disappears (and updates store)", () => {
+    const store = mkStore([["myapp", "pwsh"]]);
     // Only Claude session remains
-    const result = rebuildPaneGroups(sessions({ name: "myapp" }), prev);
+    const result = rebuildPaneGroups(sessions({ name: "myapp" }), store);
     const pg = result.get("myapp")!;
     expect(pg.activeType).toBe("claude");
     expect(pg.pwsh).toBeUndefined();
+    // Store mirrored the flip:
+    expect(store.get("myapp")).toBe("claude");
   });
 
-  it("flips activeType to pwsh when claude session disappears", () => {
-    const prev = new Map<string, PaneGroup>([
-      ["myapp", { claude: "myapp", pwsh: "myapp~pwsh", activeType: "claude" }],
-    ]);
+  it("flips activeType to pwsh when claude session disappears (and updates store)", () => {
+    const store = mkStore([["myapp", "claude"]]);
     // Only PowerShell session remains
-    const result = rebuildPaneGroups(sessions({ name: "myapp~pwsh" }), prev);
+    const result = rebuildPaneGroups(sessions({ name: "myapp~pwsh" }), store);
     const pg = result.get("myapp")!;
     expect(pg.activeType).toBe("pwsh");
     expect(pg.claude).toBeUndefined();
+    expect(store.get("myapp")).toBe("pwsh");
   });
 
-  it("defaults to claude when no previous activeType", () => {
+  it("defaults to claude when no store entry", () => {
     const result = rebuildPaneGroups(
       sessions({ name: "myapp" }, { name: "myapp~pwsh" }),
-      empty
+      mkStore()
     );
     expect(result.get("myapp")!.activeType).toBe("claude");
   });
@@ -114,7 +117,7 @@ describe("rebuildPaneGroups", () => {
         { name: "app2" },
         { name: "app3~pwsh" },
       ),
-      empty
+      mkStore()
     );
     expect(result.size).toBe(3);
     expect(result.get("app1")!.claude).toBe("app1");
@@ -140,20 +143,57 @@ describe("rebuildPaneGroups", () => {
       command: "pwsh",
       status: "idle",
     });
-    const result = rebuildPaneGroups(sess, empty);
+    const result = rebuildPaneGroups(sess, mkStore());
     expect(result.size).toBe(1);
     expect(result.get("shared-group")!.claude).toBe("custom-name");
     expect(result.get("shared-group")!.pwsh).toBe("shared-group~pwsh");
   });
 
-  it("handles rebuild with no previous groups (fresh start)", () => {
+  it("handles rebuild with empty store (fresh start)", () => {
     const result = rebuildPaneGroups(
       sessions({ name: "a" }, { name: "b" }, { name: "c" }),
-      empty
+      mkStore()
     );
     expect(result.size).toBe(3);
     for (const [, pg] of result) {
       expect(pg.activeType).toBe("claude");
     }
+  });
+
+  // 9d-0 stale-entry cleanup: groups that disappear should release their store
+  // entry so a reappearance defaults back to "claude" — preserves pre-9d-0
+  // behavior where activeType lived on cached PaneGroup objects that were
+  // thrown away when the group went away.
+  it("removes stale store entries for groups not in the rebuilt map", () => {
+    const store = mkStore([["myapp", "pwsh"], ["other", "claude"]]);
+    // Only `other` is in the new session list.
+    const result = rebuildPaneGroups(sessions({ name: "other" }), store);
+    expect(result.has("myapp")).toBe(false);
+    expect(store.has("myapp")).toBe(false);
+    expect(store.has("other")).toBe(true);
+  });
+
+  it("group that disappears and later returns defaults to claude", () => {
+    const store = mkStore([["myapp", "pwsh"]]);
+    // First: group disappears.
+    rebuildPaneGroups(new Map(), store);
+    expect(store.has("myapp")).toBe(false);
+    // Then: group returns with both sessions.
+    const result = rebuildPaneGroups(
+      sessions({ name: "myapp" }, { name: "myapp~pwsh" }),
+      store,
+    );
+    expect(result.get("myapp")!.activeType).toBe("claude");
+  });
+
+  it("does not delete store entries for groups still present", () => {
+    const store = mkStore([["a", "pwsh"], ["b", "claude"]]);
+    const result = rebuildPaneGroups(
+      sessions({ name: "a" }, { name: "a~pwsh" }, { name: "b" }, { name: "b~pwsh" }),
+      store,
+    );
+    expect(result.size).toBe(2);
+    expect(store.get("a")).toBe("pwsh");
+    expect(store.get("b")).toBe("claude");
   });
 });

@@ -37,6 +37,7 @@ import { isDashboardMode } from "./navigation.js";
  *   has: (name: string) => boolean,
  *   remove: (name: string) => boolean,
  * }} sessions
+ * @property {{ set: (name: string, type: "claude"|"pwsh") => void }} activePaneTypes
  * @property {Document} [doc]
  * @property {{
  *   fetch: typeof fetch,
@@ -77,6 +78,7 @@ import { isDashboardMode } from "./navigation.js";
 export function createPaneLifecycle(deps) {
   const { state, layout, helpers, views } = deps;
   const sessions = deps.sessions;
+  const activePaneTypes = deps.activePaneTypes;
   const doc = deps.doc || document;
   const env = {
     fetch: deps.env?.fetch || fetch.bind(globalThis),
@@ -114,7 +116,9 @@ export function createPaneLifecycle(deps) {
       });
     } else {
       const pg = state.paneGroups.get(groupName);
-      if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
+      const newActive = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
+      activePaneTypes.set(groupName, newActive);
+      if (pg) pg.activeType = newActive;
     }
 
     disposeTerminalEntry(sessionName);
@@ -203,7 +207,9 @@ export function createPaneLifecycle(deps) {
       removeGroupFromAllWorkspaces(groupName);
     } else {
       const pg = state.paneGroups.get(groupName);
-      if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
+      const newActive = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
+      activePaneTypes.set(groupName, newActive);
+      if (pg) pg.activeType = newActive;
     }
 
     disposeTerminalEntry(sessionName);

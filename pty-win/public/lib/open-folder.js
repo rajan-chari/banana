@@ -137,6 +137,7 @@ export function tileNewSessionIntoWorkspace(args) {
  *   sessionName: string,
  *   isPwsh: boolean,
  *   state: { paneGroups: Map<string, { activeType: string, claude?: string|null, pwsh?: string|null }> },
+ *   activePaneTypes: { set: (name: string, type: "claude"|"pwsh") => void },
  *   switchToWorkspace: (id: string) => void,
  *   renderActiveWorkspace: () => void,
  *   focusPane: (name: string) => void
@@ -147,6 +148,7 @@ export function attachToSiblingWorkspace(args) {
   const pg = args.state.paneGroups.get(args.baseName) || { activeType: type };
   pg[type] = args.sessionName;
   pg.activeType = type;
+  args.activePaneTypes.set(args.baseName, type);
   args.state.paneGroups.set(args.baseName, pg);
   args.switchToWorkspace(args.siblingWs.id);
   args.renderActiveWorkspace();

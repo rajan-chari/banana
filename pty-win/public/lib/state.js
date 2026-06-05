@@ -114,6 +114,8 @@ export const state = {
   sessionMeta: new Map(), // for recreating sessions after restart
   /** @type {Map<string, PaneGroup>} */
   paneGroups: new Map(),
+  /** @type {Map<string, "claude"|"pwsh">} */
+  activePaneTypes: new Map(),
   /** @type {Map<string, FolderInfo>} */
   folderInfoCache: new Map(),
   /** @type {string[]} */
