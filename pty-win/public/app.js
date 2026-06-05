@@ -1397,13 +1397,14 @@ window.addEventListener("resize", () => {
 favorites.init();
 pinned.init();
 expanded.init();
-// Auto-expand favorites on first run when nothing has been explicitly
-// collapsed. NOTE: this preserves a latent quirk of the prior code — the
-// `size === 0` check is re-evaluated after each add(), so only the FIRST
-// favorite ever auto-expands. Fixing this is a separate behavior change.
-for (const f of favorites.list()) {
-  if (!expanded.has(f) && expanded.size() === 0) {
-    expanded.add(f, { notify: false });
+// Auto-expand all favorites on first run (when nothing has been
+// explicitly collapsed yet). Earlier code re-evaluated `expanded.size()`
+// inside the loop, so only the FIRST favorite ever auto-expanded;
+// snapshot the empty-state guard once before iterating to fix that.
+const noneExpandedYet = expanded.size() === 0;
+if (noneExpandedYet) {
+  for (const f of favorites.list()) {
+    if (!expanded.has(f)) expanded.add(f, { notify: false });
   }
 }
 
