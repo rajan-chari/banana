@@ -39,6 +39,7 @@ export const LAYOUT_PRESETS = [
  *   helpers: {
  *     getLeafList: (node: any) => string[],
  *     saveWorkspaces: () => void,
+ *     setWorkspaceLayout: (ws: any, tree: any) => void,
  *   },
  *   actions: {
  *     renderActiveWorkspace: () => void,
@@ -60,8 +61,7 @@ export function createLayoutPresets(deps) {
     const preset = LAYOUT_PRESETS[idx];
     const sessions = helpers.getLeafList(ws.layout);
     if (!preset || sessions.length < preset.min) return;
-    ws.layout = preset.build(sessions);
-    helpers.saveWorkspaces();
+    helpers.setWorkspaceLayout(ws, preset.build(sessions));
     actions.renderActiveWorkspace();
   }
 

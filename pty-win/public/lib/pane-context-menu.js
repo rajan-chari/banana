@@ -96,7 +96,9 @@ export function makeCtxHeader(text) {
  * }} layout
  * @property {{
  *   updateWorkspaceTabName: (ws: any) => void,
- *   saveWorkspaces: () => void
+ *   saveWorkspaces: () => void,
+ *   setWorkspaceLayout: (ws: any, tree: any) => void,
+ *   transactionFn: (fn: () => void) => void,
  * }} helpers
  * @property {{
  *   findWorkspaceContaining: (name: string) => any,
@@ -121,15 +123,14 @@ export function createPaneContextMenu(deps) {
    * @param {any} toWs
    */
   function movePaneToWorkspace(groupName, fromWs, toWs) {
-    if (fromWs) {
-      fromWs.layout = layout.removeSessionFromLayout(fromWs.layout, groupName);
-      helpers.updateWorkspaceTabName(fromWs);
-    }
-    const existing = toWs.layout ? layout.getLeafList(toWs.layout) : [];
-    existing.push(groupName);
-    toWs.layout = layout.buildBalancedTree(existing);
-    helpers.updateWorkspaceTabName(toWs);
-    helpers.saveWorkspaces();
+    helpers.transactionFn(() => {
+      if (fromWs) {
+        helpers.setWorkspaceLayout(fromWs, layout.removeSessionFromLayout(fromWs.layout, groupName));
+      }
+      const existing = toWs.layout ? layout.getLeafList(toWs.layout) : [];
+      existing.push(groupName);
+      helpers.setWorkspaceLayout(toWs, layout.buildBalancedTree(existing));
+    });
     actions.renderTabs();
     actions.renderActiveWorkspace();
   }

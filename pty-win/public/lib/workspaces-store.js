@@ -48,6 +48,7 @@ import { reorderWorkspaces } from "./workspace-tabs.js";
  *   onChange?: () => void,
  *   loadFn?: () => any,
  *   saveFn?: () => void,
+ *   getLeafList?: (layout: any) => string[],
  * }} WorkspacesStoreDeps
  */
 
@@ -59,6 +60,8 @@ export function createWorkspacesStore(deps) {
   const { state, onChange } = deps;
   const load = deps.loadFn || loadWorkspaces;
   const save = deps.saveFn || saveWorkspaces;
+  /** @type {(layout: any) => string[]} */
+  const getLeaves = deps.getLeafList || (() => []);
 
   let txDepth = 0;
   let pendingPersist = false;
@@ -243,5 +246,50 @@ export function createWorkspacesStore(deps) {
     return true;
   }
 
-  return { init, list, byId, active, create, setActive, remove, rename, reorder, transaction };
+  /**
+   * Auto-rename a workspace based on its current layout's leaves.
+   * Skipped when ws.customName is true. Pure mirror of app.js's
+   * updateWorkspaceTabName, but does NOT trigger a render — callers
+   * decide when to re-render tabs.
+   *
+   * @param {Workspace} ws
+   * @returns {boolean} true if name changed
+   */
+  function autoRename(ws) {
+    if (ws.customName) return false;
+    const leaves = ws.layout ? getLeaves(ws.layout) : [];
+    if (leaves.length === 0) return false;
+    let next;
+    if (leaves.length === 1) next = leaves[0];
+    else if (leaves.length <= 3) next = leaves.join(" + ");
+    else next = leaves.slice(0, 2).join(" + ") + ` +${leaves.length - 2}`;
+    if (ws.name === next) return false;
+    ws.name = next;
+    return true;
+  }
+
+  /**
+   * Replace a workspace's layout tree. Auto-renames the workspace
+   * unless customName is set. Persists. Does NOT render — callers
+   * decide whether to renderTabs / renderActiveWorkspace and when.
+   *
+   * No-op when id is unknown.
+   *
+   * @param {string} id
+   * @param {any} tree
+   * @returns {boolean} true if state actually changed
+   */
+  function setLayout(id, tree) {
+    const ws = byId(id);
+    if (!ws) return false;
+    const layoutChanged = ws.layout !== tree;
+    ws.layout = tree;
+    const nameChanged = autoRename(ws);
+    if (!layoutChanged && !nameChanged) return false;
+    persist();
+    notify();
+    return true;
+  }
+
+  return { init, list, byId, active, create, setActive, setLayout, remove, rename, reorder, transaction };
 }

@@ -15,6 +15,7 @@ import { appendLeafToTree } from "./tiling.js";
  *   helpers: {
  *     getLeafList: (node: any) => string[],
  *     getDefaultAiCommand: () => string,
+ *     setWorkspaceLayout: (ws: any, tree: any) => void,
  *   },
  *   actions: {
  *     createWorkspace: (name: string | null) => any,
@@ -39,10 +40,10 @@ export function createSessionDrop(deps) {
     const ws = state.workspaces.find((/** @type {any} */ w) => w.id === workspaceId);
     if (!ws) return;
     if (!ws.layout) {
-      ws.layout = { type: "leaf", session: sessionName };
+      helpers.setWorkspaceLayout(ws, { type: "leaf", session: sessionName });
       return;
     }
-    ws.layout = appendLeafToTree(ws.layout, { type: "leaf", session: sessionName });
+    helpers.setWorkspaceLayout(ws, appendLeafToTree(ws.layout, { type: "leaf", session: sessionName }));
   }
 
   /**

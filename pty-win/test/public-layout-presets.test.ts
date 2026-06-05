@@ -13,6 +13,7 @@ function mkPresets(overrides: any = {}) {
   const helpers = {
     getLeafList,
     saveWorkspaces: vi.fn(),
+    setWorkspaceLayout: vi.fn((ws: any, tree: any) => { ws.layout = tree; }),
     ...overrides.helpers,
   };
   const actions = {
@@ -104,7 +105,7 @@ describe("createLayoutPresets - applyLayoutPreset", () => {
     expect(ws.layout.direction).toBe("h");
     expect(ws.layout.ratio).toBe(0.5);
     expect(getLeafList(ws.layout)).toEqual(["a", "b"]);
-    expect(helpers.saveWorkspaces).toHaveBeenCalledTimes(1);
+    expect(helpers.setWorkspaceLayout).toHaveBeenCalledTimes(1);
     expect(actions.renderActiveWorkspace).toHaveBeenCalledTimes(1);
   });
 
@@ -114,7 +115,7 @@ describe("createLayoutPresets - applyLayoutPreset", () => {
     const before = ws.layout;
     lp.applyLayoutPreset(ws, 99);
     expect(ws.layout).toBe(before);
-    expect(helpers.saveWorkspaces).not.toHaveBeenCalled();
+    expect(helpers.setWorkspaceLayout).not.toHaveBeenCalled();
     expect(actions.renderActiveWorkspace).not.toHaveBeenCalled();
   });
 
@@ -193,7 +194,7 @@ describe("createLayoutPresets - showLayoutPresetsMenu", () => {
     const items = menu.querySelectorAll(".ctx-item") as NodeListOf<HTMLElement>;
     // 2 Columns is the second item (index 1)
     items[1].click();
-    expect(helpers.saveWorkspaces).toHaveBeenCalledTimes(1);
+    expect(helpers.setWorkspaceLayout).toHaveBeenCalledTimes(1);
     expect(actions.renderActiveWorkspace).toHaveBeenCalledTimes(1);
     expect(menu.classList.contains("hidden")).toBe(true);
   });
@@ -205,7 +206,7 @@ describe("createLayoutPresets - showLayoutPresetsMenu", () => {
     const items = document.getElementById("pane-context-menu")!.querySelectorAll(".ctx-item") as NodeListOf<HTMLElement>;
     // Disabled items have no onclick — confirm clicking them is silent
     items[1].click();
-    expect(helpers.saveWorkspaces).not.toHaveBeenCalled();
+    expect(helpers.setWorkspaceLayout).not.toHaveBeenCalled();
   });
 
   it("positions the menu under the target element using its bounding rect", () => {
@@ -255,7 +256,7 @@ describe("createLayoutPresets - showLayoutPresetsMenu", () => {
       byId: (id: string) => document.getElementById(id),
       doc: document,
       env: { setTimeout: vi.fn() as any },
-      helpers: { getLeafList, saveWorkspaces: vi.fn() },
+      helpers: { getLeafList, saveWorkspaces: vi.fn(), setWorkspaceLayout: vi.fn((ws: any, tree: any) => { ws.layout = tree; }) },
       actions: { renderActiveWorkspace: vi.fn() },
     });
     expect(() => lp.showLayoutPresetsMenu({ stopPropagation: vi.fn(), target: null } as any, { layout: null } as any)).not.toThrow();

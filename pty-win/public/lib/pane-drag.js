@@ -21,6 +21,7 @@
  * @property {(layout: any, name: string) => boolean} treeContains
  * @property {(layout: any, anchor: string, name: string, side: DropSide) => any} insertAdjacentToPane
  * @property {() => void} saveWorkspaces
+ * @property {(ws: any, tree: any) => void} setWorkspaceLayout
  * @property {() => void} renderActiveWorkspace
  * @property {Document} [doc]
  */
@@ -125,8 +126,7 @@ export function createPaneDrag(deps) {
     if (!ws?.layout) return;
     const pruned = deps.removeSessionFromLayout(ws.layout, dragSession);
     if (!pruned || !deps.treeContains(pruned, currentTarget.session)) return;
-    ws.layout = deps.insertAdjacentToPane(pruned, currentTarget.session, dragSession, currentTarget.side);
-    deps.saveWorkspaces();
+    deps.setWorkspaceLayout(ws, deps.insertAdjacentToPane(pruned, currentTarget.session, dragSession, currentTarget.side));
     deps.renderActiveWorkspace();
   }
 

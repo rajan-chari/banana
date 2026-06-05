@@ -23,6 +23,8 @@ function mkPorts() {
       getLeafList: vi.fn().mockReturnValue([]),
       buildBalancedTree: vi.fn().mockReturnValue({ type: "leaf" }),
       updateWorkspaceTabName: vi.fn(),
+      setWorkspaceLayout: vi.fn(),
+      transactionFn: vi.fn((fn: () => void) => fn()),
     },
     sessions: {
       recreateOrphanedSessions: vi.fn(),
@@ -157,8 +159,8 @@ describe("createWsDispatcher - handleWsSessions", () => {
     ports.layouts.rebalanceLayoutsWithoutLeaves.mockReturnValue([{ workspace: w, newLayout }]);
     const d = createWsDispatcher({ state, ...ports, win: mkWin() });
     d.dispatch({ type: "sessions", payload: [] });
-    expect(w.layout).toBe(newLayout);
-    expect(ports.layouts.updateWorkspaceTabName).toHaveBeenCalledWith(w);
+    expect(ports.layouts.transactionFn).toHaveBeenCalled();
+    expect(ports.layouts.setWorkspaceLayout).toHaveBeenCalledWith(w, newLayout);
   });
 
   it("recreates recreatable orphan sessions", () => {

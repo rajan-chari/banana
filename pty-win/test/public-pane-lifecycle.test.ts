@@ -96,6 +96,8 @@ function mkDeps(stateOver: any = {}) {
     rebuildPaneGroups: vi.fn(),
     refreshTreeRunningState: vi.fn(),
     updateWorkspaceTabName: vi.fn(),
+    setWorkspaceLayout: vi.fn((ws: any, tree: any) => { ws.layout = tree; }),
+    transactionFn: vi.fn((fn: () => void) => fn()),
   };
   const views = {
     renderActiveWorkspace: vi.fn(),
@@ -302,12 +304,13 @@ describe("createPaneLifecycle - internals", () => {
     expect(() => lc._disposeTerminalEntry("nope")).not.toThrow();
   });
 
-  it("_removeGroupFromAllWorkspaces rebalances containing workspaces and updates tab name", () => {
+  it("_removeGroupFromAllWorkspaces rebalances containing workspaces via setWorkspaceLayout", () => {
     const { lc, state, helpers } = mkDeps();
     lc._removeGroupFromAllWorkspaces("b");
     const ws2 = state.workspaces.find((w: any) => w.id === "w2")!;
     expect(ws2.layout).toEqual({ type: "leaf", name: "a" });
-    expect(helpers.updateWorkspaceTabName).toHaveBeenCalled();
+    expect(helpers.setWorkspaceLayout).toHaveBeenCalled();
+    expect(helpers.transactionFn).toHaveBeenCalled();
   });
 
   it("_refocusAfterPaneRemoval picks a remaining leaf when removed pane was focused and no sibling", () => {

@@ -164,6 +164,8 @@ function mkCtxRuntime(stateOver: any = {}) {
   const renderTabs = vi.fn();
   const updateWorkspaceTabName = vi.fn();
   const saveWorkspaces = vi.fn();
+  const setWorkspaceLayout = vi.fn((ws: any, tree: any) => { ws.layout = tree; });
+  const transactionFn = vi.fn((fn: () => void) => fn());
 
   const layout = {
     removeSessionFromLayout: vi.fn((_t: any, _n: string) => null),
@@ -176,7 +178,7 @@ function mkCtxRuntime(stateOver: any = {}) {
 
   const rt = createPaneContextMenu({
     state, byId, doc: document, layout,
-    helpers: { updateWorkspaceTabName, saveWorkspaces },
+    helpers: { updateWorkspaceTabName, saveWorkspaces, setWorkspaceLayout, transactionFn },
     actions: {
       findWorkspaceContaining, createWorkspace, switchToWorkspace,
       openFolder, renderActiveWorkspace, renderTabs,
@@ -188,7 +190,7 @@ function mkCtxRuntime(stateOver: any = {}) {
     spies: {
       findWorkspaceContaining, createWorkspace, switchToWorkspace,
       openFolder, renderActiveWorkspace, renderTabs,
-      updateWorkspaceTabName, saveWorkspaces,
+      updateWorkspaceTabName, saveWorkspaces, setWorkspaceLayout, transactionFn,
     },
   };
 }
@@ -255,7 +257,8 @@ describe("createPaneContextMenu - showPaneContextMenu", () => {
     const moveItem = Array.from(menu.querySelectorAll(".ctx-item"))
       .find((el) => el.textContent === "ws-two") as HTMLElement;
     moveItem.click();
-    expect(spies.saveWorkspaces).toHaveBeenCalled();
+    expect(spies.transactionFn).toHaveBeenCalled();
+    expect(spies.setWorkspaceLayout).toHaveBeenCalled();
     expect(spies.renderTabs).toHaveBeenCalled();
     expect(spies.renderActiveWorkspace).toHaveBeenCalled();
     // w2 already had g2; after moving g1 in, it becomes a 2-leaf split.
@@ -294,17 +297,19 @@ describe("createPaneContextMenu - movePaneToWorkspace", () => {
     const fromWs = state.workspaces[0];
     const toWs = state.workspaces[1];
     rt.movePaneToWorkspace("g1", fromWs, toWs);
-    expect(spies.updateWorkspaceTabName).toHaveBeenCalledWith(fromWs);
-    expect(spies.updateWorkspaceTabName).toHaveBeenCalledWith(toWs);
+    const calls = spies.setWorkspaceLayout.mock.calls;
+    expect(calls.some((c: any[]) => c[0] === fromWs)).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === toWs)).toBe(true);
     expect(toWs.layout).toBeTruthy();
-    expect(spies.saveWorkspaces).toHaveBeenCalled();
+    expect(spies.transactionFn).toHaveBeenCalled();
   });
 
   it("works when fromWs is null (drop from no workspace)", () => {
     const { rt, state, spies } = mkCtxRuntime();
     const toWs = state.workspaces[1];
     rt.movePaneToWorkspace("orphan", null, toWs);
-    expect(spies.updateWorkspaceTabName).toHaveBeenCalledWith(toWs);
-    expect(spies.saveWorkspaces).toHaveBeenCalled();
+    const calls = spies.setWorkspaceLayout.mock.calls;
+    expect(calls.some((c: any[]) => c[0] === toWs)).toBe(true);
+    expect(spies.transactionFn).toHaveBeenCalled();
   });
 });

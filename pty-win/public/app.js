@@ -224,7 +224,12 @@ const expanded = createExpandedPathsStore({ state });
 // rendering side-effects so they can sequence renders + focus + RAF
 // terminal-focus deliberately. The store handles the persistence side
 // (saveWorkspaces blob) so callers don't have to.
-const workspaces = createWorkspacesStore({ state });
+const workspaces = createWorkspacesStore({ state, getLeafList });
+
+/** @type {(ws: any, tree: any) => void} */
+const setWorkspaceLayout = (ws, tree) => { workspaces.setLayout(ws.id, tree); };
+/** @type {(fn: () => void) => void} */
+const transactionFn = (fn) => { workspaces.transaction(fn); };
 
 
 // ===== Dashboard (extracted to lib/dashboard-panel.js) =====
@@ -245,6 +250,7 @@ const paneDragRuntime = createPaneDrag({
   treeContains,
   insertAdjacentToPane,
   saveWorkspaces,
+  setWorkspaceLayout,
   renderActiveWorkspace: () => renderActiveWorkspace(),
 });
 
@@ -294,6 +300,8 @@ const paneLifecycle = createPaneLifecycle({
     rebuildPaneGroups,
     refreshTreeRunningState,
     updateWorkspaceTabName,
+    setWorkspaceLayout,
+    transactionFn,
   },
   views: {
     renderActiveWorkspace: () => renderActiveWorkspace(),
@@ -319,7 +327,7 @@ const paneCtxMenu = createPaneContextMenu({
   state,
   byId,
   layout: { removeSessionFromLayout, getLeafList, buildBalancedTree },
-  helpers: { updateWorkspaceTabName, saveWorkspaces },
+  helpers: { updateWorkspaceTabName, saveWorkspaces, setWorkspaceLayout, transactionFn },
   actions: {
     findWorkspaceContaining: (n) => findWorkspaceContaining(n),
     createWorkspace: (n) => createWorkspace(n),
@@ -351,7 +359,7 @@ const renderTabs = workspaceTabs.renderTabs;
 const sessionDrop = createSessionDrop({
   state,
   byId,
-  helpers: { getLeafList, getDefaultAiCommand },
+  helpers: { getLeafList, getDefaultAiCommand, setWorkspaceLayout },
   actions: {
     createWorkspace: (n) => createWorkspace(n),
     switchToWorkspace: (id) => switchToWorkspace(id),
@@ -367,7 +375,7 @@ const layoutPresets = createLayoutPresets({
   byId,
   doc: document,
   env: { setTimeout: (cb, ms) => setTimeout(cb, ms) },
-  helpers: { getLeafList, saveWorkspaces },
+  helpers: { getLeafList, saveWorkspaces, setWorkspaceLayout },
   actions: { renderActiveWorkspace: () => renderActiveWorkspace() },
 });
 const showLayoutPresetsMenu = layoutPresets.showLayoutPresetsMenu;
@@ -481,6 +489,8 @@ const wsDispatcher = createWsDispatcher({
     getLeafList,
     buildBalancedTree,
     updateWorkspaceTabName,
+    setWorkspaceLayout,
+    transactionFn,
   },
   sessions: { recreateOrphanedSessions, autoRemoveDeadSession, saveSessionMeta },
   appChrome: { applyInstanceName },
@@ -732,14 +742,15 @@ async function recreateOrphanedSessions(names) {
 function pruneFailedSession(name) {
   state.sessionMeta.delete(name);
   saveSessionMeta();
-  for (const ws of state.workspaces) {
-    if (ws.layout && treeContains(ws.layout, name)) {
-      const leaves = getLeafList(ws.layout).filter((n) => n !== name);
-      ws.layout = buildBalancedTree(leaves);
-      updateWorkspaceTabName(ws);
+  workspaces.transaction(() => {
+    for (const ws of state.workspaces) {
+      if (ws.layout && treeContains(ws.layout, name)) {
+        const leaves = getLeafList(ws.layout).filter((n) => n !== name);
+        workspaces.setLayout(ws.id, buildBalancedTree(leaves));
+      }
     }
-  }
-  saveWorkspaces();
+  });
+  renderTabs();
   if (isDashboardMode(state)) dashboardPanel.render();
   else renderActiveWorkspace();
 }

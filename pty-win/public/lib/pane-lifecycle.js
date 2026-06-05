@@ -49,7 +49,9 @@ import { isDashboardMode } from "./navigation.js";
  *   escapeHtml: (s: string) => string,
  *   rebuildPaneGroups: () => void,
  *   refreshTreeRunningState: () => void,
- *   updateWorkspaceTabName: (ws: any) => void
+ *   updateWorkspaceTabName: (ws: any) => void,
+ *   setWorkspaceLayout: (ws: any, tree: any) => void,
+ *   transactionFn: (fn: () => void) => void,
  * }} helpers
  * @property {{
  *   renderActiveWorkspace: () => void,
@@ -74,7 +76,7 @@ export function createPaneLifecycle(deps) {
     if (!state.focusedPane) return;
     const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
     if (!ws) return;
-    ws.layout = layout.removeSessionFromLayout(ws.layout, state.focusedPane);
+    helpers.setWorkspaceLayout(ws, layout.removeSessionFromLayout(ws.layout, state.focusedPane));
     state.focusedPane = null;
     const leaves = ws.layout ? layout.getLeafList(ws.layout) : [];
     if (leaves.length > 0) state.focusedPane = leaves[0];
@@ -95,9 +97,11 @@ export function createPaneLifecycle(deps) {
     const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
 
     if (!siblingAlive) {
-      for (const ws of state.workspaces) {
-        ws.layout = layout.removeSessionFromLayout(ws.layout, groupName);
-      }
+      helpers.transactionFn(() => {
+        for (const ws of state.workspaces) {
+          helpers.setWorkspaceLayout(ws, layout.removeSessionFromLayout(ws.layout, groupName));
+        }
+      });
     } else {
       const pg = state.paneGroups.get(groupName);
       if (pg) pg.activeType = sessionName.endsWith("~pwsh") ? "claude" : "pwsh";
@@ -139,13 +143,14 @@ export function createPaneLifecycle(deps) {
    * @param {string} groupName
    */
   function removeGroupFromAllWorkspaces(groupName) {
-    for (const ws of state.workspaces) {
-      if (ws.layout && layout.treeContains(ws.layout, groupName)) {
-        const leaves = layout.getLeafList(ws.layout).filter((n) => n !== groupName);
-        ws.layout = layout.buildBalancedTree(leaves);
-        helpers.updateWorkspaceTabName(ws);
+    helpers.transactionFn(() => {
+      for (const ws of state.workspaces) {
+        if (ws.layout && layout.treeContains(ws.layout, groupName)) {
+          const leaves = layout.getLeafList(ws.layout).filter((n) => n !== groupName);
+          helpers.setWorkspaceLayout(ws, layout.buildBalancedTree(leaves));
+        }
       }
-    }
+    });
   }
 
   /**

@@ -28,6 +28,7 @@ function mkDrop(overrides: any = {}) {
       return [...helpers.getLeafList(node.children[0]), ...helpers.getLeafList(node.children[1])];
     },
     getDefaultAiCommand: vi.fn(() => "claude"),
+    setWorkspaceLayout: vi.fn((ws: any, tree: any) => { ws.layout = tree; }),
     ...overrides.helpers,
   };
   const drop = createSessionDrop({

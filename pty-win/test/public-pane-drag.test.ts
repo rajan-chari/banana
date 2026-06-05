@@ -22,6 +22,7 @@ function mkDeps(overrides: Partial<{
   treeContains: ReturnType<typeof vi.fn>;
   insertAdjacentToPane: ReturnType<typeof vi.fn>;
   saveWorkspaces: ReturnType<typeof vi.fn>;
+  setWorkspaceLayout: ReturnType<typeof vi.fn>;
   renderActiveWorkspace: ReturnType<typeof vi.fn>;
 }> = {}): any {
   return {
@@ -34,6 +35,7 @@ function mkDeps(overrides: Partial<{
     treeContains: overrides.treeContains || vi.fn().mockReturnValue(true),
     insertAdjacentToPane: overrides.insertAdjacentToPane || vi.fn().mockReturnValue({ type: "split", direction: "h" }),
     saveWorkspaces: overrides.saveWorkspaces || vi.fn(),
+    setWorkspaceLayout: overrides.setWorkspaceLayout || vi.fn((ws: any, tree: any) => { ws.layout = tree; }),
     renderActiveWorkspace: overrides.renderActiveWorkspace || vi.fn(),
   };
 }
@@ -166,7 +168,7 @@ describe("createPaneDrag - mouseup commit", () => {
       "a",
     );
     expect(deps.insertAdjacentToPane).toHaveBeenCalled();
-    expect(deps.saveWorkspaces).toHaveBeenCalled();
+    expect(deps.setWorkspaceLayout).toHaveBeenCalled();
     expect(deps.renderActiveWorkspace).toHaveBeenCalled();
     expect(drag._state.active).toBe(false);
     expect(document.body.classList.contains("pane-dragging")).toBe(false);

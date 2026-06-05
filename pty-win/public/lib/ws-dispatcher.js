@@ -47,6 +47,8 @@ import { isDashboardMode } from "./navigation.js";
  *   getLeafList: (layout: any) => string[],
  *   buildBalancedTree: (sessions: string[]) => any,
  *   updateWorkspaceTabName: (ws: any) => void,
+ *   setWorkspaceLayout: (ws: any, tree: any) => void,
+ *   transactionFn: (fn: () => void) => void,
  * }} layouts
  * @property {{
  *   recreateOrphanedSessions: (names: string[]) => Promise<void> | void,
@@ -113,10 +115,11 @@ export function createWsDispatcher(deps) {
         deps.layouts.getLeafList,
         deps.layouts.buildBalancedTree,
       );
-      for (const { workspace, newLayout } of updates) {
-        workspace.layout = newLayout;
-        deps.layouts.updateWorkspaceTabName(workspace);
-      }
+      deps.layouts.transactionFn(() => {
+        for (const { workspace, newLayout } of updates) {
+          deps.layouts.setWorkspaceLayout(workspace, newLayout);
+        }
+      });
     }
 
     if (recreatable.length > 0) {
