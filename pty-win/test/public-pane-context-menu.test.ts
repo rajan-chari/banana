@@ -177,7 +177,9 @@ function mkCtxRuntime(stateOver: any = {}) {
   const byId = vi.fn((id: string) => document.getElementById(id)!);
 
   const rt = createPaneContextMenu({
-    state, byId, doc: document, layout,
+    state,
+    sessions: { byName: (n: string) => (state.sessions as Map<string, any>).get(n) },
+    byId, doc: document, layout,
     helpers: { updateWorkspaceTabName, saveWorkspaces, setWorkspaceLayout, transactionFn },
     actions: {
       findWorkspaceContaining, createWorkspace, switchToWorkspace,

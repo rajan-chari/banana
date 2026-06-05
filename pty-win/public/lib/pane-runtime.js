@@ -28,6 +28,7 @@ function normaliseStatusDot(status) {
 /**
  * @typedef {Object} PaneRuntimeDeps
  * @property {any} state            Shared state (sessions/paneGroups/terminals/ws/focusedPane/workspaces/activeWorkspaceId).
+ * @property {{ byName: (name: string) => any }} sessions
  * @property {(id: string) => HTMLElement} byId
  * @property {Document} [doc]
  * @property {{
@@ -357,7 +358,7 @@ export function createPaneRuntime(deps) {
     const pg = deps.state.paneGroups.get(groupName);
     const activeType = pg?.activeType || "claude";
     const activeSessionName = activeType === "pwsh" ? (pg?.pwsh || groupName) : (pg?.claude || groupName);
-    const info = deps.state.sessions.get(activeSessionName);
+    const info = deps.sessions.byName(activeSessionName);
     const hasBoth = !!(pg?.claude && pg?.pwsh);
 
     const pane = doc.createElement("div");
@@ -443,7 +444,7 @@ export function createPaneRuntime(deps) {
    */
   function updatePaneStatus(sessionName) {
     if (!doc) return;
-    const info = deps.state.sessions.get(sessionName);
+    const info = deps.sessions.byName(sessionName);
     if (!info) return;
     const groupName = info.group || sessionName;
     const pg = deps.state.paneGroups.get(groupName);

@@ -33,6 +33,7 @@ function mkDrop(overrides: any = {}) {
   };
   const drop = createSessionDrop({
     state,
+    sessions: { byName: (n: string) => (state.sessions as Map<string, any>)?.get?.(n) },
     byId: (id: string) => document.getElementById(id),
     helpers,
     actions,

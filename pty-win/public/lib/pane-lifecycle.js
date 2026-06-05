@@ -32,6 +32,10 @@ import { isDashboardMode } from "./navigation.js";
  *
  * @typedef {Object} PaneLifecycleDeps
  * @property {PaneLifecycleState} state
+ * @property {{
+ *   byName: (name: string) => any,
+ *   has: (name: string) => boolean,
+ * }} sessions
  * @property {Document} [doc]
  * @property {{
  *   fetch: typeof fetch,
@@ -71,6 +75,7 @@ import { isDashboardMode } from "./navigation.js";
 // eslint-disable-next-line max-lines-per-function
 export function createPaneLifecycle(deps) {
   const { state, layout, helpers, views } = deps;
+  const sessions = deps.sessions;
   const doc = deps.doc || document;
   const env = {
     fetch: deps.env?.fetch || fetch.bind(globalThis),
@@ -98,7 +103,7 @@ export function createPaneLifecycle(deps) {
     // Determine group — only remove tiling leaf if no sibling alive
     const groupName = sessionName.replace(/~pwsh$/, "");
     const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
-    const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
+    const siblingAlive = sessions.has(siblingName) && sessions.byName(siblingName)?.status !== "dead";
 
     if (!siblingAlive) {
       helpers.transactionFn(() => {
@@ -184,14 +189,14 @@ export function createPaneLifecycle(deps) {
    * @param {string} sessionName
    */
   function autoRemoveDeadSession(sessionName) {
-    const s = state.sessions.get(sessionName);
+    const s = sessions.byName(sessionName);
     if (!s || s.status !== "dead") return;
 
     env.fetch(`/api/sessions/${encodeURIComponent(sessionName)}`, { method: "DELETE" }).catch(() => {});
 
     const groupName = sessionName.replace(/~pwsh$/, "");
     const siblingName = sessionName.endsWith("~pwsh") ? groupName : groupName + "~pwsh";
-    const siblingAlive = state.sessions.has(siblingName) && state.sessions.get(siblingName)?.status !== "dead";
+    const siblingAlive = sessions.has(siblingName) && sessions.byName(siblingName)?.status !== "dead";
 
     if (!siblingAlive) {
       removeGroupFromAllWorkspaces(groupName);

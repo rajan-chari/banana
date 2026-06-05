@@ -10,7 +10,8 @@ import { appendLeafToTree } from "./tiling.js";
 
 /**
  * @typedef {{
- *   state: { sessions: Map<string, any>, workspaces: any[], activeWorkspaceId: string | null },
+ *   state: { workspaces: any[], activeWorkspaceId: string | null },
+ *   sessions: { byName: (name: string) => any },
  *   byId: (id: string) => HTMLElement | null,
  *   helpers: {
  *     getLeafList: (node: any) => string[],
@@ -30,7 +31,7 @@ import { appendLeafToTree } from "./tiling.js";
  * @param {SessionDropDeps} deps
  */
 export function createSessionDrop(deps) {
-  const { state, byId, helpers, actions } = deps;
+  const { state, byId, helpers, actions, sessions } = deps;
 
   /**
    * @param {string} workspaceId
@@ -66,7 +67,7 @@ export function createSessionDrop(deps) {
       workingDir = d.workingDir;
       folderName = d.folderName;
       groupName = folderName;
-      const existing = state.sessions.get(groupName);
+      const existing = sessions.byName(groupName);
       if (!existing || existing.status === "dead") {
         await actions.openFolder(workingDir, folderName, helpers.getDefaultAiCommand());
       }

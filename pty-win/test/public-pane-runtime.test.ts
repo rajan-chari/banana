@@ -106,7 +106,8 @@ function mkRuntime(stateOver: any = {}, actionsOver: any = {}, envOver: any = {}
       }),
     },
   };
-  const rt = createPaneRuntime({ state, byId, xterm, actions, env, helpers });
+  const sessions = { byName: (n: string) => (state.sessions as Map<string, any>).get(n) };
+  const rt = createPaneRuntime({ state, sessions, byId, xterm, actions, env, helpers });
   return { rt, state, actions, env, spies, helpers };
 }
 

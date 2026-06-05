@@ -287,6 +287,7 @@ const tileRenderer = createTileRenderer({
 
 const paneRuntime = createPaneRuntime({
   state,
+  sessions,
   byId,
   xterm: {
     Terminal: xtermTerminal,
@@ -315,6 +316,7 @@ const paneRuntime = createPaneRuntime({
 
 const paneLifecycle = createPaneLifecycle({
   state,
+  sessions,
   layout: { removeSessionFromLayout, getLeafList, buildBalancedTree, treeContains },
   helpers: {
     saveSessionMeta,
@@ -348,6 +350,7 @@ const resizeFocused = paneNav.resizeFocused;
 
 const paneCtxMenu = createPaneContextMenu({
   state,
+  sessions,
   byId,
   layout: { removeSessionFromLayout, getLeafList, buildBalancedTree },
   helpers: { updateWorkspaceTabName, saveWorkspaces, setWorkspaceLayout, transactionFn },
@@ -381,6 +384,7 @@ const renderTabs = workspaceTabs.renderTabs;
 
 const sessionDrop = createSessionDrop({
   state,
+  sessions,
   byId,
   helpers: { getLeafList, getDefaultAiCommand, setWorkspaceLayout },
   actions: {

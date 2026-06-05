@@ -81,12 +81,12 @@ export function makeCtxHeader(text) {
 /**
  * @typedef {Object} PaneCtxState
  * @property {Map<string, any>} paneGroups
- * @property {Map<string, any>} sessions
  * @property {Array<{ id: string, name?: string, layout: any }>} workspaces
  * @property {Array<{ command: string }>} aiPresets
  *
  * @typedef {Object} PaneCtxDeps
  * @property {PaneCtxState} state
+ * @property {{ byName: (name: string) => any }} sessions
  * @property {(id: string) => HTMLElement} byId
  * @property {Document} [doc]
  * @property {{
@@ -114,7 +114,7 @@ export function makeCtxHeader(text) {
  * @param {PaneCtxDeps} deps
  */
 export function createPaneContextMenu(deps) {
-  const { state, byId, layout, helpers, actions } = deps;
+  const { state, byId, layout, helpers, actions, sessions } = deps;
   const doc = deps.doc || document;
 
   /**
@@ -138,7 +138,7 @@ export function createPaneContextMenu(deps) {
   /** @param {HTMLElement} menu @param {string} groupName */
   function appendResumeSection(menu, groupName) {
     const pg = state.paneGroups.get(groupName);
-    const claudeSession = pg?.claude ? state.sessions.get(pg.claude) : null;
+    const claudeSession = pg?.claude ? sessions.byName(pg.claude) : null;
     const aiCommands = state.aiPresets.map((p) => p.command);
     const { show, canResume, workingDir } = resolveResumeMenuState(claudeSession, aiCommands);
     if (!show) return;

@@ -125,7 +125,12 @@ function mkDeps(stateOver: any = {}) {
   };
 
   const lc = createPaneLifecycle({
-    state, doc: document, env: { fetch: fetchFn as any, setTimeout: setTimeoutFn },
+    state,
+    sessions: {
+      byName: (n: string) => (state.sessions as Map<string, any>).get(n),
+      has: (n: string) => (state.sessions as Map<string, any>).has(n),
+    },
+    doc: document, env: { fetch: fetchFn as any, setTimeout: setTimeoutFn },
     layout, helpers, views,
   });
   return { lc, state, fetchFn, setTimeoutFn, layout, helpers, views };
