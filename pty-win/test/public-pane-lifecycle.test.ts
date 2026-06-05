@@ -49,7 +49,6 @@ function mkState(over: any = {}) {
     ],
     activeWorkspaceId: "w1",
     focusedPane: "a",
-    isDashboard: false,
     ...over,
   };
 }
@@ -273,7 +272,7 @@ describe("createPaneLifecycle - autoRemoveDeadSession", () => {
   });
 
   it("when dashboard active, calls renderDashboard instead of renderActiveWorkspace", () => {
-    const { lc, views } = mkDeps({ isDashboard: true });
+    const { lc, views } = mkDeps({ activeWorkspaceId: null });
     lc.autoRemoveDeadSession("b");
     expect(views.renderDashboard).toHaveBeenCalled();
     expect(views.renderActiveWorkspace).not.toHaveBeenCalled();

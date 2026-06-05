@@ -54,12 +54,12 @@ describe("state defaults", () => {
     expect(state.aiDefaultIndex).toBe(0);
   });
 
-  it("starts with empty collections and isDashboard=true", async () => {
+  it("starts with empty collections and no active workspace", async () => {
     const { state } = await importFresh();
     expect(state.sessions.size).toBe(0);
     expect(state.workspaces).toEqual([]);
     expect(state.terminals.size).toBe(0);
-    expect(state.isDashboard).toBe(true);
+    expect(state.activeWorkspaceId).toBeNull();
     expect(state.nextWorkspaceId).toBe(1);
   });
 });

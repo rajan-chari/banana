@@ -28,7 +28,6 @@ function mkState(): any {
     workspaces: [],
     activeWorkspaceId: null,
     nextWorkspaceId: 1,
-    isDashboard: true,
   };
 }
 
@@ -38,7 +37,6 @@ describe("createWorkspacesStore", () => {
       const fake = mkFakePersistence({
         workspaces: [{ id: "ws-1", name: "Foo", layout: null }],
         activeWorkspaceId: "ws-1",
-        isDashboard: false,
         nextId: 2,
       });
       const state = mkState();
@@ -46,7 +44,6 @@ describe("createWorkspacesStore", () => {
       store.init();
       expect(state.workspaces).toEqual([{ id: "ws-1", name: "Foo", layout: null }]);
       expect(state.activeWorkspaceId).toBe("ws-1");
-      expect(state.isDashboard).toBe(false);
       expect(state.nextWorkspaceId).toBe(2);
     });
 
@@ -57,38 +54,37 @@ describe("createWorkspacesStore", () => {
       store.init();
       expect(state.workspaces).toEqual([]);
       expect(state.activeWorkspaceId).toBe(null);
-      expect(state.isDashboard).toBe(true);
       expect(state.nextWorkspaceId).toBe(1);
     });
 
-    it("treats blob isDashboard !== false as true (matches pre-9b-A semantic)", () => {
-      // Old app.js: state.isDashboard = savedWs.isDashboard !== false
-      // So missing/undefined/true all become true; only explicit false stays false.
-      const fake = mkFakePersistence({ workspaces: [], activeWorkspaceId: null });
+    it("ignores legacy isDashboard field in the blob (back-compat)", () => {
+      // Old persisted blobs from before Phase 9b-E may still carry an
+      // isDashboard boolean. The store loads them without complaint and
+      // doesn't write the field back on next save.
+      const fake = mkFakePersistence({ workspaces: [], activeWorkspaceId: null, isDashboard: false });
       const state = mkState();
       const store = createWorkspacesStore({ state, loadFn: fake.loadFn, saveFn: fake.saveFn });
       store.init();
-      expect(state.isDashboard).toBe(true);
+      expect(state.activeWorkspaceId).toBe(null);
+      expect((state as any).isDashboard).toBeUndefined();
     });
 
-    it("validates activeWorkspaceId: clears it and forces dashboard when target ws is missing", () => {
+    it("validates activeWorkspaceId: clears it when target ws is missing", () => {
       const fake = mkFakePersistence({
         workspaces: [{ id: "ws-other", name: "Other", layout: null }],
         activeWorkspaceId: "ws-gone",
-        isDashboard: false,
         nextId: 5,
       });
       const state = mkState();
       const store = createWorkspacesStore({ state, loadFn: fake.loadFn, saveFn: fake.saveFn });
       store.init();
       expect(state.activeWorkspaceId).toBe(null);
-      expect(state.isDashboard).toBe(true);
       // Defensive write-back so subsequent loads don't see the stale id.
       expect(fake.saveFn).toHaveBeenCalled();
     });
 
     it("does NOT notify onChange during init (caller controls first render)", () => {
-      const fake = mkFakePersistence({ workspaces: [{ id: "ws-1", name: "A", layout: null }], activeWorkspaceId: "ws-gone", isDashboard: false, nextId: 2 });
+      const fake = mkFakePersistence({ workspaces: [{ id: "ws-1", name: "A", layout: null }], activeWorkspaceId: "ws-gone", nextId: 2 });
       const state = mkState();
       const onChange = vi.fn();
       const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
@@ -208,7 +204,7 @@ describe("createWorkspacesStore", () => {
   });
 
   describe("setActive", () => {
-    it("sets activeWorkspaceId and clears isDashboard when switching to a ws", () => {
+    it("sets activeWorkspaceId when switching to a ws", () => {
       const state = mkState();
       state.workspaces = [{ id: "ws-1", name: "A", layout: null }];
       const onChange = vi.fn();
@@ -216,22 +212,19 @@ describe("createWorkspacesStore", () => {
       const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
       expect(store.setActive("ws-1")).toBe(true);
       expect(state.activeWorkspaceId).toBe("ws-1");
-      expect(state.isDashboard).toBe(false);
       expect(fake.saveFn).toHaveBeenCalledTimes(1);
       expect(onChange).toHaveBeenCalledTimes(1);
     });
 
-    it("setActive(null) clears activeWorkspaceId and sets isDashboard true", () => {
+    it("setActive(null) clears activeWorkspaceId (dashboard mode)", () => {
       const state = mkState();
       state.workspaces = [{ id: "ws-1", name: "A", layout: null }];
       state.activeWorkspaceId = "ws-1";
-      state.isDashboard = false;
       const onChange = vi.fn();
       const fake = mkFakePersistence(null);
       const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });
       expect(store.setActive(null)).toBe(true);
       expect(state.activeWorkspaceId).toBe(null);
-      expect(state.isDashboard).toBe(true);
     });
 
     it("no-ops (no persist, no notify) when id refers to a missing workspace", () => {
@@ -249,7 +242,6 @@ describe("createWorkspacesStore", () => {
       const state = mkState();
       state.workspaces = [{ id: "ws-1", name: "A", layout: null }];
       state.activeWorkspaceId = "ws-1";
-      state.isDashboard = false;
       const onChange = vi.fn();
       const fake = mkFakePersistence(null);
       const store = createWorkspacesStore({ state, onChange, loadFn: fake.loadFn, saveFn: fake.saveFn });

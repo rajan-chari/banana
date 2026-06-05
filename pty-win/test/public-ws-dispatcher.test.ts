@@ -43,7 +43,9 @@ function mkState(overrides: any = {}): any {
     terminals: new Map(),
     paneGroups: new Map(),
     ws: { send: vi.fn() },
-    isDashboard: false,
+    // Default: in workspace mode (non-dashboard). Tests that need dashboard
+    // mode override with `activeWorkspaceId: null`.
+    activeWorkspaceId: "w1",
     focusedPane: null,
     ...overrides,
   };
@@ -142,7 +144,7 @@ describe("createWsDispatcher - handleWsSessions", () => {
   });
 
   it("calls renderDashboard (not renderActiveWorkspace) when in dashboard mode", () => {
-    const state = mkState({ isDashboard: true });
+    const state = mkState({ activeWorkspaceId: null });
     const ports = mkPorts();
     const d = createWsDispatcher({ state, ...ports, win: mkWin() });
     d.dispatch({ type: "sessions", payload: [{ name: "a" }] });
@@ -276,7 +278,7 @@ describe("createWsDispatcher - restoreTerminalFocusAfterRebuild", () => {
   });
 
   it("no-ops when in dashboard mode", () => {
-    const state = mkState({ focusedPane: "a", isDashboard: true });
+    const state = mkState({ focusedPane: "a", activeWorkspaceId: null });
     const focusMock = vi.fn();
     state.terminals.set("a", { term: { focus: focusMock, write: vi.fn() }, fitAddon: { fit: vi.fn() } });
     const d = createWsDispatcher({ state, ...mkPorts(), win: mkWin() });

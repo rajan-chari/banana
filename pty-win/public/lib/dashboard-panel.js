@@ -31,7 +31,7 @@ import { isDashboardMode } from "./navigation.js";
 
 /**
  * @typedef {Object} DashboardDeps
- * @property {{ sessions: Map<string, any>, isDashboard: boolean }} state
+ * @property {{ sessions: Map<string, any>, activeWorkspaceId?: string | null }} state
  * @property {(id: string) => HTMLElement | null} byId
  * @property {(ms: number | undefined) => string} fmtAgo
  * @property {(name: string) => void} onFocusSession

@@ -96,7 +96,6 @@ export const state = {
   terminals: new Map(),
   /** @type {string | null} */
   focusedPane: null,
-  isDashboard: true,
   /** @type {TrackerItem[]} */
   trackerItems: [],
   trackerDecisionCount: 0,

@@ -29,7 +29,6 @@ import { isDashboardMode } from "./navigation.js";
  * @property {Array<{ id: string, layout: any }>} workspaces
  * @property {string | null} activeWorkspaceId
  * @property {string | null} focusedPane
- * @property {boolean} [isDashboard]
  *
  * @typedef {Object} PaneLifecycleDeps
  * @property {PaneLifecycleState} state

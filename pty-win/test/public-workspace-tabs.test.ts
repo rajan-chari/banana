@@ -110,7 +110,6 @@ function mkTabs(stateOver: any = {}) {
       ]}},
     ],
     activeWorkspaceId: "w2",
-    isDashboard: false,
     ...stateOver,
   };
 
@@ -155,8 +154,8 @@ describe("createWorkspaceTabs - renderTabs", () => {
     expect(tabs.querySelector("#btn-new-workspace")).toBeTruthy();
   });
 
-  it("marks Dashboard tab active when state.isDashboard is true", () => {
-    const { rt, tabs } = mkTabs({ isDashboard: true });
+  it("marks Dashboard tab active when no workspace is active", () => {
+    const { rt, tabs } = mkTabs({ activeWorkspaceId: null });
     rt.renderTabs();
     const dashTab = tabs.querySelectorAll(".tab")[0];
     expect(dashTab.classList.contains("active")).toBe(true);

@@ -28,7 +28,7 @@ import { isDashboardMode } from "./navigation.js";
  *   terminals: Map<string, { term: any, fitAddon: any }>,
  *   paneGroups: Map<string, { activeType: string, pwsh?: string, claude?: string }>,
  *   ws?: WebSocket | null,
- *   isDashboard: boolean,
+ *   activeWorkspaceId?: string | null,
  *   focusedPane?: string | null,
  * }} state
  * @property {{ rebuildPaneGroups: () => void, updatePaneStatus: (name: string) => void }} panes

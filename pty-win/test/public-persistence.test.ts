@@ -23,7 +23,6 @@ beforeEach(() => {
   state.expandedPaths = new Set();
   state.workspaces = [];
   state.activeWorkspaceId = null;
-  state.isDashboard = true;
   state.nextWorkspaceId = 1;
   state.sessionMeta = new Map();
 });
@@ -105,7 +104,6 @@ describe("workspaces", () => {
       { id: "w2", name: "scratch", layout: null },
     ] as any;
     state.activeWorkspaceId = "w1";
-    state.isDashboard = false;
     state.nextWorkspaceId = 3;
 
     saveWorkspaces();
@@ -121,7 +119,7 @@ describe("workspaces", () => {
       id: "w2", name: "scratch", customName: false, layout: null,
     });
     expect(loaded.activeWorkspaceId).toBe("w1");
-    expect(loaded.isDashboard).toBe(false);
+    expect(loaded.isDashboard).toBeUndefined();
     expect(loaded.nextId).toBe(3);
   });
 });

@@ -218,12 +218,12 @@ const pinned = createPinnedFoldersStore({
 // we want predictable, co-located renders (no surprise re-renders).
 const expanded = createExpandedPathsStore({ state });
 
-// Workspaces store (Phase 9b-A). Owns workspaces/activeWorkspaceId/
-// nextWorkspaceId + the transitional isDashboard flag. No onChange
-// wired here — switchToWorkspace and related orchestrators still own
-// rendering side-effects so they can sequence renders + focus + RAF
-// terminal-focus deliberately. The store handles the persistence side
-// (saveWorkspaces blob) so callers don't have to.
+// Workspaces store (Phase 9b). Owns workspaces/activeWorkspaceId/
+// nextWorkspaceId. No onChange wired here — switchToWorkspace and
+// related orchestrators still own rendering side-effects so they can
+// sequence renders + focus + RAF terminal-focus deliberately. The
+// store handles the persistence side (saveWorkspaces blob) so callers
+// don't have to.
 const workspaces = createWorkspacesStore({ state, getLeafList });
 
 /** @type {(ws: any, tree: any) => void} */

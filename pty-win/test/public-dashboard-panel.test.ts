@@ -19,7 +19,9 @@ beforeEach(() => {
 function makeState(entries: Array<[string, SessionInfo]> = [], isDashboard = true) {
   return {
     sessions: new Map<string, SessionInfo>(entries),
-    isDashboard,
+    // Dashboard mode = no active workspace. Tests that need workspace mode
+    // pass isDashboard=false; we mirror that into activeWorkspaceId.
+    activeWorkspaceId: isDashboard ? null : "w-test",
   };
 }
 

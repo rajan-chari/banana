@@ -63,7 +63,6 @@ export function saveWorkspaces() {
   localStorage.setItem("pty-win-workspaces", JSON.stringify({
     workspaces: data,
     activeWorkspaceId: state.activeWorkspaceId,
-    isDashboard: state.isDashboard,
     nextId: state.nextWorkspaceId,
   }));
 }

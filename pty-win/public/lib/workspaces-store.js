@@ -1,14 +1,14 @@
 // @ts-check
-// Workspaces store (Phase 9b-A — fourth model-layer slice).
+// Workspaces store (Phase 9b — fourth model-layer slice).
 //
 // Owns the three persisted fields that always travel together:
 //   - state.workspaces        (array of { id, name, customName?, layout, ... })
-//   - state.activeWorkspaceId (string | null)
+//   - state.activeWorkspaceId (string | null — null means dashboard mode)
 //   - state.nextWorkspaceId   (monotonic counter for new ws ids)
 //
-// Plus the transitional isDashboard flag (kept in the persisted blob
-// until Phase 9b-E so old code reading the same localStorage key still
-// works during the rolling migration).
+// Dashboard mode is `state.activeWorkspaceId === null` (derived via
+// isDashboardMode in navigation.js). There is no separate isDashboard
+// field — Phase 9b-E dropped it after this store became the sole writer.
 //
 // Why one store, not three: the three fields are saved as one
 // localStorage blob ("pty-win-workspaces") and mutated together
@@ -40,7 +40,6 @@ import { reorderWorkspaces } from "./workspace-tabs.js";
  *   workspaces: Workspace[],
  *   activeWorkspaceId: string | null,
  *   nextWorkspaceId: number,
- *   isDashboard?: boolean,
  * }} WorkspacesState
  *
  * @typedef {{
@@ -82,22 +81,18 @@ export function createWorkspacesStore(deps) {
     if (saved) {
       state.workspaces = saved.workspaces || [];
       state.activeWorkspaceId = saved.activeWorkspaceId || null;
-      state.isDashboard = saved.isDashboard !== false;
       state.nextWorkspaceId = saved.nextId || 1;
     } else {
       state.workspaces = state.workspaces || [];
       state.activeWorkspaceId = state.activeWorkspaceId ?? null;
-      state.isDashboard = state.isDashboard !== false;
       state.nextWorkspaceId = state.nextWorkspaceId || 1;
     }
     // Defensive: if activeWorkspaceId references a workspace that no
     // longer exists (e.g. localStorage partially cleared, downgrade from
-    // a future schema), clear it. Otherwise selectors that derive
-    // dashboard-mode from "no active workspace" would say "workspace
-    // mode" while there's nothing to render.
+    // a future schema), clear it. Otherwise the dashboard-mode selector
+    // would say "workspace mode" while there's nothing to render.
     if (state.activeWorkspaceId && !state.workspaces.find((w) => w.id === state.activeWorkspaceId)) {
       state.activeWorkspaceId = null;
-      state.isDashboard = true;
       // Don't notify on init — caller decides when to first render.
       save();
     }
@@ -144,8 +139,7 @@ export function createWorkspacesStore(deps) {
    * Set the active workspace by id, or null for dashboard mode.
    * DATA-ONLY: does not touch focus, terminals, dashboard polling, or
    * the DOM. Callers (app.js's switchToWorkspace orchestrator) handle
-   * those concerns. The isDashboard backing field is kept in sync
-   * here until Phase 9b-E drops it.
+   * those concerns.
    *
    * No-op (with no persist/notify) when:
    *  - id refers to a workspace that doesn't exist
@@ -156,10 +150,8 @@ export function createWorkspacesStore(deps) {
    */
   function setActive(id) {
     if (id !== null && !byId(id)) return false;
-    const nextDashboard = id === null;
-    if (state.activeWorkspaceId === id && state.isDashboard === nextDashboard) return false;
+    if (state.activeWorkspaceId === id) return false;
     state.activeWorkspaceId = id;
-    state.isDashboard = nextDashboard;
     persist();
     notify();
     return true;

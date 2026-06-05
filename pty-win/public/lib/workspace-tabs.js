@@ -75,7 +75,6 @@ import { isDashboardMode } from "./navigation.js";
  * @typedef {Object} WorkspaceTabsState
  * @property {Array<{ id: string, name: string, customName?: boolean, layout: any }>} workspaces
  * @property {string | null} activeWorkspaceId
- * @property {boolean} [isDashboard]
  *
  * @typedef {Object} WorkspaceTabsDeps
  * @property {WorkspaceTabsState} state
