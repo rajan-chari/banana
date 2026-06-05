@@ -1400,7 +1400,7 @@ expanded.init();
 // collapsed. NOTE: this preserves a latent quirk of the prior code — the
 // `size === 0` check is re-evaluated after each add(), so only the FIRST
 // favorite ever auto-expands. Fixing this is a separate behavior change.
-for (const f of state.favorites) {
+for (const f of favorites.list()) {
   if (!expanded.has(f) && expanded.size() === 0) {
     expanded.add(f, { notify: false });
   }
