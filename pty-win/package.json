@@ -1,6 +1,6 @@
 {
   "name": "pty-win",
-  "version": "0.1.50",
+  "version": "0.2.0",
   "description": "Browser-based terminal multiplexer with emcom integration",
   "type": "module",
   "main": "dist/index.js",
