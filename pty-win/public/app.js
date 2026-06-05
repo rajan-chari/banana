@@ -398,6 +398,8 @@ const ctxMenu = createContextMenu({
   doc: document,
   byId,
   state,
+  favorites,
+  pinned,
   helpers: { normPath },
   actions: contextMenuActions,
 });

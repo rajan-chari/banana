@@ -388,10 +388,16 @@ function mkCmFactory(overrides: any = {}) {
   const menu = mkMenuDom();
   const state = overrides.state || mkCmState();
   const actions = overrides.actions || {};
+  // Derive narrow ports from the state shape so existing tests that set
+  // state.favorites / state.pinnedFolders keep working unchanged.
+  const favorites = { has: (p: string) => state.favorites.includes(p) };
+  const pinned = { has: (p: string) => state.pinnedFolders.includes(p) };
   const f = createContextMenu({
     doc: document,
     byId: (id: string) => document.getElementById(id),
     state: state as any,
+    favorites,
+    pinned,
     helpers: { normPath },
     actions,
   });
@@ -497,6 +503,8 @@ describe("createContextMenu.show", () => {
       doc: document,
       byId: (id: string) => document.getElementById(id),
       state: state as any,
+      favorites: { has: (p: string) => state.favorites.includes(p) },
+      pinned: { has: (p: string) => state.pinnedFolders.includes(p) },
       helpers: { normPath },
       actions: {},
     });

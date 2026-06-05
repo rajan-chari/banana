@@ -158,11 +158,11 @@ export function resolveContextAction(clickTarget, ctxTarget) {
  *   byId: (id: string) => HTMLElement | null,
  *   state: {
  *     ctxTarget?: string | null,
- *     favorites: string[],
- *     pinnedFolders: string[],
  *     aiPresets: Array<{ command: string }>,
  *     sessions: Map<string, { command: string, status: string, workingDir?: string }>,
  *   },
+ *   favorites: { has: (p: string) => boolean },
+ *   pinned: { has: (p: string) => boolean },
  *   helpers: { normPath: (p: string) => string },
  *   actions: Record<string, (path: string, name: string) => unknown>,
  * }} CreateContextMenuDeps
@@ -185,7 +185,7 @@ export function resolveContextAction(clickTarget, ctxTarget) {
  * @param {CreateContextMenuDeps} deps
  */
 export function createContextMenu(deps) {
-  const { doc, byId, state, helpers, actions } = deps;
+  const { doc, byId, state, helpers, actions, favorites, pinned } = deps;
   const { normPath } = helpers;
 
   /**
@@ -199,11 +199,11 @@ export function createContextMenu(deps) {
 
     const menu = byId("context-menu");
     if (!menu) return;
-    const isFav = state.favorites.includes(path);
+    const isFav = favorites.has(path);
     menu.querySelector('[data-action="fav-add"]')?.classList.toggle("ctx-disabled", isFav);
     menu.querySelector('[data-action="fav-remove"]')?.classList.toggle("ctx-disabled", !isFav);
 
-    const isPinned = state.pinnedFolders.includes(path);
+    const isPinned = pinned.has(path);
     menu.querySelector('[data-action="pin-add"]')?.classList.toggle("ctx-disabled", isPinned);
     menu.querySelector('[data-action="pin-remove"]')?.classList.toggle("ctx-disabled", !isPinned);
 
