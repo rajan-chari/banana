@@ -21,7 +21,6 @@ cost-history.json
 costs.json
 settings.local.json
 .claude/settings.local.json
-identity.json
 briefing.md
 briefing-archive.md
 tracker.md
