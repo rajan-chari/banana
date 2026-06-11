@@ -422,7 +422,7 @@ const showLayoutPresetsMenu = layoutPresets.showLayoutPresetsMenu;
 
 const quickMessage = createQuickMessage({
   doc: document,
-  byId,
+  byId: (id) => document.getElementById(id),
   env: {
     fetchFn: fetch.bind(window),
     setTimeout: (cb, ms) => setTimeout(cb, ms),
