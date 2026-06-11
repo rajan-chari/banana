@@ -7,11 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Before responding to the user's first message:
 
 1. Read working state from `working-state/milo/` (sibling repo, not in this repo):
-   - `c:\s\projects\work\teams\working\working-state\milo\briefing.md` — rolling narrative
-   - `c:\s\projects\work\teams\working\working-state\milo\field-notes.md` — tactical gotchas
-   - `c:\s\projects\work\teams\working\working-state\milo\notes.md` — preferences + activity log
+   - `..\working-state\milo\briefing.md` — rolling narrative
+   - `..\working-state\milo\field-notes.md` — tactical gotchas
+   - `..\working-state\milo\notes.md` — preferences + activity log
 2. Run `tracker queue milo` for in-flight work (CLI is sole source of truth).
-3. Read team wiki index at `c:\s\projects\work\teams\working\team-wiki\index.md` for shared knowledge. Shared contributions go through `librarian` via emcom; sensitive content via `private-librarian`.
+3. Read team wiki index at `..\team-wiki\index.md` for shared knowledge. Shared contributions go through `librarian` via emcom; sensitive content via `private-librarian`.
 4. Read `progress.md` (LLM Assistant project plan — host-repo state).
 5. Greet the user covering three things:
    - **What's here** — project summary table with columns: Project, Path, Components (list packages/subpackages, not status/phase)
@@ -38,7 +38,7 @@ Do these **as they happen** — there is no end-of-session hook, so never defer 
 - **User's Shell**: PowerShell 7 (for manual commands)
 - **Claude Code Bash Tool**: Uses `/usr/bin/bash` (Git Bash/WSL) — use bash syntax, not PowerShell
 - **Python**: 3.10+
-- **Workspace Root**: `C:\s\projects\work\teams\working\banana` — Claude starts here
+- **Workspace Root**: `C:\Users\ranaras\s\banana` — Claude starts here
 - **Python Working Directory**: `python/` — **Run all Python commands from this folder**
 - **Virtual Environment**: `python/.venv/` — **ALWAYS activate before running commands**
 

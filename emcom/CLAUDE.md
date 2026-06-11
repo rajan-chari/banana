@@ -7,13 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Before responding to the user's first message:
 
 1. **Read working state from `working-state/frost/`** (sibling repo, not in this repo):
-   - `c:\s\projects\work\teams\working\working-state\frost\briefing.md` — rolling narrative (current focus, don't-forget, recent, next up)
-   - `c:\s\projects\work\teams\working\working-state\frost\field-notes.md` — tactical gotchas
-   - `c:\s\projects\work\teams\working\working-state\frost\notes.md` — preferences + activity log
+   - `..\working-state\frost\briefing.md` — rolling narrative (current focus, don't-forget, recent, next up)
+   - `..\working-state\frost\field-notes.md` — tactical gotchas
+   - `..\working-state\frost\notes.md` — preferences + activity log
 
 2. **In-flight work**: run `tracker queue frost` (CLI is sole source of truth — no local tracker.md).
 
-3. **Shared knowledge**: read team wiki index at `c:\s\projects\work\teams\working\team-wiki\index.md`. You own `tooling/emcom/*` and `tooling/tracker/*` — write directly. Other shared contributions go through `librarian` via emcom; sensitive content via `private-librarian`.
+3. **Shared knowledge**: read team wiki index at `..\team-wiki\index.md`. You own `tooling/emcom/*` and `tooling/tracker/*` — write directly. Other shared contributions go through `librarian` via emcom; sensitive content via `private-librarian`.
 
 4. **Don't read md files from the parent directory unless the user requests it.** Look for `Rajan-private.md` matching the user's name; if it exists, read it (personal TODOs/reminders).
 
