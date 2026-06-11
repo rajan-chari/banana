@@ -21,7 +21,8 @@ export class SessionHookController {
   private lastHookNotifyType = "";
   private lastHookPromptSubmitTime = 0;
   private inputBoxDirty = false;
-  private pendingPermission = false;
+  private hookPermissionActive = false;
+  private screenPermissionActive = false;
   private graceEnded = false;
   private needsStartupKick = false;
   private isResumedSession = false;
@@ -52,7 +53,15 @@ export class SessionHookController {
   }
 
   getPendingPermission(): boolean {
-    return this.pendingPermission;
+    return this.hookPermissionActive || this.screenPermissionActive;
+  }
+
+  getHookPermissionActive(): boolean {
+    return this.hookPermissionActive;
+  }
+
+  getScreenPermissionActive(): boolean {
+    return this.screenPermissionActive;
   }
 
   getNeedsStartupKick(): boolean {
@@ -160,14 +169,14 @@ export class SessionHookController {
   }
 
   setScreenPermissionPrompt(active: boolean, reason: string): void {
+    if (this.screenPermissionActive === active) return;
+    this.screenPermissionActive = active;
     if (active) {
-      if (this.pendingPermission) return;
-      this.pendingPermission = true;
       this.log(`[${this.sessionName}] screen permission detected (${reason})`);
-      this.emitStatusChange();
-      return;
+    } else {
+      this.log(`[${this.sessionName}] screen permission cleared (${reason})`);
     }
-    this.clearPendingPermission(reason);
+    this.emitStatusChange();
   }
 
   hookNotify(type: string): void {
@@ -176,8 +185,8 @@ export class SessionHookController {
 
     if (type === "permission_prompt") {
       this.log(`hook:notify(permission) → ${this.sessionName} — pending permission`);
-      if (!this.pendingPermission) {
-        this.pendingPermission = true;
+      if (!this.hookPermissionActive) {
+        this.hookPermissionActive = true;
         this.emitStatusChange();
       }
       return;
@@ -195,8 +204,9 @@ export class SessionHookController {
   }
 
   clearPendingPermission(reason: string): void {
-    if (!this.pendingPermission) return;
-    this.pendingPermission = false;
+    if (!this.getPendingPermission()) return;
+    this.hookPermissionActive = false;
+    this.screenPermissionActive = false;
     this.log(`[${this.sessionName}] pending permission cleared (${reason})`);
     this.emitStatusChange();
   }

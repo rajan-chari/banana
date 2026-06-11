@@ -438,6 +438,8 @@ export function createPaneRuntime(deps) {
         <dt>unread</dt><dd>${escapeHtml(String(s.unreadCount ?? 0))}</dd>
         <dt>input dirty</dt><dd>${escapeHtml(String(!!s.inputBoxDirty))}</dd>
         <dt>permission</dt><dd>${escapeHtml(String(!!s.pendingPermission))}</dd>
+        <dt>hook permission</dt><dd>${escapeHtml(String(!!s.hookPermissionActive))}</dd>
+        <dt>screen permission</dt><dd>${escapeHtml(String(!!s.screenPermissionActive))}</dd>
         <dt>quiet</dt><dd>${escapeHtml(formatMs(s.quietMs))}</dd>
         <dt>heuristic timer</dt><dd>${escapeHtml(String(!!s.heuristicTimerActive))}</dd>
       </dl>

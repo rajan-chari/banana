@@ -138,7 +138,7 @@ describe("createPaneRuntime - createPane", () => {
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: "idle", command: "agency cp", quietMs: 1234, stateEventHistory: [{ event: "status-change", detail: "busy -> idle" }] }) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ injections: [{ time: Date.now(), type: "emcom" }] }) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ ticks: [{ action: "idle", reason: "hook:stop" }] }) })
-      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: "busy", command: "agency cp", pendingPermission: true, quietMs: 42 }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: "busy", command: "agency cp", pendingPermission: true, hookPermissionActive: true, screenPermissionActive: false, quietMs: 42 }) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ injections: [] }) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ ticks: [] }) });
     const setTimeoutFn = vi.fn((_cb: () => void, _ms: number) => 1 as any);
@@ -164,6 +164,8 @@ describe("createPaneRuntime - createPane", () => {
     expect(setTimeoutFn).toHaveBeenCalledWith(expect.any(Function), 1000);
     expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("permission");
     expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("busy");
+    expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("hook permission");
+    expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("screen permission");
 
     (pane.querySelector(".pane-state-close") as HTMLElement).click();
     expect(pane.querySelector(".pane-state-popover")).toBeFalsy();

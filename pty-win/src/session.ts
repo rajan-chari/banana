@@ -107,7 +107,6 @@ export class PtySession extends EventEmitter {
   private status: SessionStatus = "starting";
   private pendingMessages = false;
   private unreadCount = 0;
-  private screenPermissionActive = false;
   private lastOutputTime = Date.now();
   private dirtyOnExit = false;
   private busyStartTime = 0;
@@ -176,6 +175,7 @@ export class PtySession extends EventEmitter {
       getLastOutputTime: () => this.lastOutputTime,
       getNeedsStartupKick: () => this.hookController.getNeedsStartupKick(),
       getInputBoxDirty: () => this.hookController.getInputBoxDirty(),
+      getPendingPermission: () => this.hookController.getPendingPermission(),
       getRawBuffer: () => this.rawBuffer,
       getPermissionScanBuffer: () => this.permissionScanBuffer,
       setIdle: () => this.setStatus("idle"),
@@ -378,6 +378,10 @@ export class PtySession extends EventEmitter {
    *  heuristic used to do when it detected an "input" prompt via screen. */
   private maybeFireOnIdle(reason: string): void {
     if (this.status !== "idle") return;
+    if (this.hookController.getPendingPermission()) {
+      clog(`[${this.name}] maybeFireOnIdle skipped — pending permission (trigger: ${reason})`);
+      return;
+    }
     if (this.hookController.getInputBoxDirty()) {
       clog(`[${this.name}] maybeFireOnIdle skipped — input box dirty (trigger: ${reason})`);
       return;
@@ -478,6 +482,8 @@ export class PtySession extends EventEmitter {
       inputBoxDirty: this.hookController.getInputBoxDirty(),
       dirtyOnExit: this.dirtyOnExit,
       pendingPermission: this.hookController.getPendingPermission(),
+      hookPermissionActive: this.hookController.getHookPermissionActive(),
+      screenPermissionActive: this.hookController.getScreenPermissionActive(),
       pendingMessages: this.pendingMessages,
       unreadCount: this.unreadCount,
       pollerActive: this.poller !== null,
@@ -637,13 +643,7 @@ export class PtySession extends EventEmitter {
   }
 
   private setScreenPermissionPrompt(active: boolean, reason: string): void {
-    if (!active && !this.screenPermissionActive) return;
     const wasPending = this.hookController.getPendingPermission();
-    if (!active && this.hookController.getLastHookNotifyType() === "permission_prompt") {
-      this.screenPermissionActive = false;
-      return;
-    }
-    this.screenPermissionActive = active;
     this.hookController.setScreenPermissionPrompt(active, reason);
     const isPending = this.hookController.getPendingPermission();
     if (wasPending !== isPending) {

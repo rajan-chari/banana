@@ -74,6 +74,7 @@ describe("SessionHeuristicController permission prompt fallback", () => {
       getLastOutputTime: () => Date.now() - 10_000,
       getNeedsStartupKick: () => true,
       getInputBoxDirty: () => false,
+      getPendingPermission: () => false,
       getRawBuffer: () => rawBuffer,
       getPermissionScanBuffer: () => rawBuffer,
       setIdle,
@@ -105,6 +106,7 @@ describe("SessionHeuristicController permission prompt fallback", () => {
       getLastOutputTime: () => Date.now() - 10_000,
       getNeedsStartupKick: () => false,
       getInputBoxDirty: () => false,
+      getPendingPermission: () => false,
       getRawBuffer: () => `${oldPrompt}\n${recentLines}`,
       getPermissionScanBuffer: () => `${oldPrompt}\n${recentLines}`,
       setIdle,
@@ -118,6 +120,35 @@ describe("SessionHeuristicController permission prompt fallback", () => {
 
     expect(setPermission).toHaveBeenCalledWith(false, "screen-permission-cleared");
     expect(setIdle).toHaveBeenCalled();
+    controller.stop();
+  });
+
+  it("does not mark idle when hook-sourced permission is active even if screen scan misses", () => {
+    vi.useFakeTimers();
+    let status: "starting" | "busy" | "idle" | "dead" = "busy";
+    const setIdle = vi.fn(() => { status = "idle"; });
+    const maybeFireOnIdle = vi.fn();
+    const controller = new SessionHeuristicController({
+      command: "agency cp",
+      sessionName: "research",
+      getStatus: () => status,
+      getLastOutputTime: () => Date.now() - 10_000,
+      getNeedsStartupKick: () => false,
+      getInputBoxDirty: () => false,
+      getPendingPermission: () => true,
+      getRawBuffer: () => "plain prompt",
+      getPermissionScanBuffer: () => "plain prompt",
+      setIdle,
+      maybeFireOnIdle,
+      setScreenPermissionPrompt: vi.fn(),
+      log: vi.fn(),
+    });
+
+    controller.start();
+    vi.advanceTimersByTime(1_000);
+
+    expect(setIdle).not.toHaveBeenCalled();
+    expect(maybeFireOnIdle).not.toHaveBeenCalled();
     controller.stop();
   });
 });

@@ -38,6 +38,7 @@ interface SessionHeuristicControllerOptions {
   getLastOutputTime: () => number;
   getNeedsStartupKick: () => boolean;
   getInputBoxDirty: () => boolean;
+  getPendingPermission: () => boolean;
   getRawBuffer: () => string;
   getPermissionScanBuffer: () => string;
   setIdle: () => void;
@@ -86,7 +87,7 @@ export class SessionHeuristicController {
   private evaluateAiNoStartupKick(quietMs: number, hasWorkingHooks: boolean): void {
     if (hasWorkingHooks) return;
     if (this.options.getInputBoxDirty()) return;
-    if (this.hasScreenPermissionPrompt()) return;
+    if (this.options.getPendingPermission()) return;
     if (this.options.getStatus() === "busy" && quietMs >= AI_NO_HOOKS_IDLE_QUIET_MS) {
       this.options.setIdle();
       this.options.maybeFireOnIdle(`no-hooks-quiet (${quietMs}ms)`);
@@ -105,6 +106,7 @@ export class SessionHeuristicController {
 
   private evaluateAiStartupKick(quietMs: number): void {
     if (this.options.getInputBoxDirty()) return;
+    if (this.options.getPendingPermission()) return;
 
     const rawBuffer = this.options.getRawBuffer();
     const promptVisible = rawBuffer.includes(PROMPT_GLYPH);
