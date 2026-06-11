@@ -119,6 +119,7 @@ export class PtySession extends EventEmitter {
   // and render it via xterm.js client-side; this buffer is purely for
   // server-side inspection/debugging.
   private rawBuffer = "";
+  private permissionScanBuffer = "";
   private static readonly RAW_BUF_MAX_BYTES = 32 * 1024;
   // Track current state of mode-set escapes so we can replay them to
   // late-connecting WS clients. These get emitted once at startup by apps like
@@ -134,6 +135,7 @@ export class PtySession extends EventEmitter {
     // eslint-disable-next-line no-control-regex
     /\x1b\[\?(1049|1047|1048|47|1002|1003|1006|1015|1000|1004|2004)([hl])/g;
   private injectionHistory: Array<{ time: number; type: string; prompt: string; statusBefore: string }> = [];
+  private stateEventHistory: Array<{ time: number; event: string; status: string; pendingPermission: boolean; detail?: string }> = [];
   private detectionHistory: Array<{ time: number; quietMs: number; promptType: string; mlResult: string | null; statusBefore: string; statusAfter: string; action: string; reason: string }> = [];
   // Retained for debug-endpoint compatibility; no longer written to since
   // hook-driven idle detection replaced the LLM escalation path.
@@ -174,8 +176,10 @@ export class PtySession extends EventEmitter {
       getNeedsStartupKick: () => this.hookController.getNeedsStartupKick(),
       getInputBoxDirty: () => this.hookController.getInputBoxDirty(),
       getRawBuffer: () => this.rawBuffer,
+      getPermissionScanBuffer: () => this.permissionScanBuffer,
       setIdle: () => this.setStatus("idle"),
       maybeFireOnIdle: (reason) => this.maybeFireOnIdle(reason),
+      setScreenPermissionPrompt: (active, reason) => this.setScreenPermissionPrompt(active, reason),
       log: (message) => clog(message),
     });
 
@@ -204,6 +208,7 @@ export class PtySession extends EventEmitter {
       this.lastOutputTime = now;
       this.dataEvents.push({ t: now, bytes: data.length, isBusy: this.status === "busy" });
       this.rawBuffer = appendRawBuffer(this.rawBuffer, data, PtySession.RAW_BUF_MAX_BYTES);
+      this.permissionScanBuffer = appendRawBuffer(this.permissionScanBuffer, data, 8 * 1024);
       trackModeEscapes(data, this.modeState, PtySession.TRACKED_MODE_RE);
       const cost = extractCost(data);
       if (cost !== null) this.costUsd = cost;
@@ -324,6 +329,7 @@ export class PtySession extends EventEmitter {
    *  compact. Only startup and resume care about the kick — clear/compact
    *  mean Claude is already established and just rewriting its context. */
   hookSessionStart(source: string): void {
+    this.recordStateEvent("hook:session-start", source);
     this.hookController.hookSessionStart(source);
   }
 
@@ -333,11 +339,14 @@ export class PtySession extends EventEmitter {
    *  heuristic/screen detection confirms the prompt is visible first,
    *  then handles startup kicks, emcom, and checkpoints. */
   hookStop(): void {
+    this.recordStateEvent("hook:stop");
     this.hookController.hookStop();
   }
 
   /** Hook: user/injection sent input → busy */
   hookPromptSubmit(): void {
+    this.recordStateEvent("hook:prompt-submit");
+    this.permissionScanBuffer = "";
     this.hookController.hookPromptSubmit();
   }
 
@@ -345,6 +354,9 @@ export class PtySession extends EventEmitter {
    *  Cleared by hookPromptSubmit. Gates maybeFireOnIdle to avoid injecting
    *  while the user has unsent text in the input box. */
   markUserInput(data: string): void {
+    if (data === "\r" || data === "\n" || (!data.startsWith("\x1b") && /[\x20-\x7e]/.test(data))) {
+      this.permissionScanBuffer = "";
+    }
     this.hookController.markUserInput(data);
   }
 
@@ -356,6 +368,7 @@ export class PtySession extends EventEmitter {
    *  permission_prompt, and potentially other types over time. Matcher
    *  is `.*` so all types reach us; handle the known ones, log the rest. */
   hookNotify(type: string): void {
+    this.recordStateEvent("hook:notify", type);
     this.hookController.hookNotify(type);
   }
 
@@ -427,8 +440,20 @@ export class PtySession extends EventEmitter {
   // --- Debug instrumentation ---
 
   private recordInjection(type: string, prompt: string): void {
+    this.recordStateEvent("inject", type);
     this.injectionHistory.push({ time: Date.now(), type, prompt, statusBefore: this.status });
     if (this.injectionHistory.length > 50) this.injectionHistory.shift();
+  }
+
+  private recordStateEvent(event: string, detail?: string): void {
+    this.stateEventHistory.push({
+      time: Date.now(),
+      event,
+      status: this.status,
+      pendingPermission: this.hookController.getPendingPermission(),
+      detail,
+    });
+    if (this.stateEventHistory.length > 100) this.stateEventHistory.shift();
   }
 
   private recordDetectionTick(quietMs: number, promptType: string, mlResult: string | null, action: string, reason: string): void {
@@ -449,7 +474,9 @@ export class PtySession extends EventEmitter {
       busyTimeoutSaved: this.busyTimeoutSaved,
       needsStartupKick: this.hookController.getNeedsStartupKick(),
       isResumedSession: this.hookController.getIsResumedSession(),
+      inputBoxDirty: this.hookController.getInputBoxDirty(),
       dirtyOnExit: this.dirtyOnExit,
+      pendingPermission: this.hookController.getPendingPermission(),
       pendingMessages: this.pendingMessages,
       unreadCount: this.unreadCount,
       pollerActive: this.poller !== null,
@@ -464,6 +491,7 @@ export class PtySession extends EventEmitter {
       quietMs: now - this.lastOutputTime,
       costUsd: this.costUsd,
       injectionHistory: this.injectionHistory,
+      stateEventHistory: this.stateEventHistory,
       detectionHistory: this.detectionHistory,
     };
   }
@@ -488,6 +516,7 @@ export class PtySession extends EventEmitter {
 
   getDetectionHistory() { return this.detectionHistory; }
   getInjectionHistory() { return this.injectionHistory; }
+  getStateEventHistory() { return this.stateEventHistory; }
 
   debugForceInject(): void {
     const prompt = INJECTION_PROMPT();
@@ -595,13 +624,24 @@ export class PtySession extends EventEmitter {
 
   private setStatus(s: SessionStatus): void {
     if (this.status === s) return;
+    const previous = this.status;
     this.status = s;
+    this.recordStateEvent("status-change", `${previous} -> ${s}`);
     if (s === "busy") {
       this.busyStartTime = Date.now();
       this.busyTimeoutSaved = false;
     }
     if (s === "idle") this.checkpointController.onSessionIdle();
     this.emit("status-change", s);
+  }
+
+  private setScreenPermissionPrompt(active: boolean, reason: string): void {
+    const wasPending = this.hookController.getPendingPermission();
+    this.hookController.setScreenPermissionPrompt(active, reason);
+    const isPending = this.hookController.getPendingPermission();
+    if (wasPending !== isPending) {
+      this.recordStateEvent(isPending ? "permission-detected" : "permission-cleared", reason);
+    }
   }
 
   private startHeuristic(): void {
@@ -613,15 +653,14 @@ export class PtySession extends EventEmitter {
   getLlmHistory() { return this.llmHistory; }
 
   /** Watch for hook:prompt-submit within VERIFY_WINDOW_MS of any inject.
-   *  If absent, the inject didn't submit. Recovery is unconditional: re-send
-   *  SUBMIT once and watch again. The hook is ground truth — no need for an
-   *  LLM check on screen content (Claude Code's grey placeholder text fooled
-   *  earlier checkStuckInput attempts into saying not-stuck on real stuck
-   *  cases). Empty Enter on already-empty input is harmless. */
+   *  If absent for hook-backed commands, the inject may not have submitted, so
+   *  re-send SUBMIT and watch again. Non-hook commands (e.g. agency cp) can be
+   *  slow or hookless; blind Enter retries there duplicate input. */
   private verifyInjectAfter(
     snapshot: { screen: string; why: string; injectText: string },
     source: string,
   ): void {
+    const retryOnMissingPromptSubmit = (HOOKS_WORKING_COMMANDS as readonly string[]).includes(this.config.command);
     verifyInjectionAfter({
       source,
       snapshot,
@@ -630,6 +669,17 @@ export class PtySession extends EventEmitter {
       getLastHookPromptSubmitTime: () => this.hookController.getLastHookPromptSubmitTime(),
       relayWrite: (text, relaySource) => this.relayWrite(text, relaySource),
       log: (message) => clog(message),
+      retryOnMissingPromptSubmit,
+      onUnverified: (unverifiedSnapshot, unverifiedSource) => {
+        void appendCorrection({
+          time: new Date().toISOString(),
+          session: this.name,
+          screen: unverifiedSnapshot.screen,
+          llmSaid: unverifiedSource === "llm-driven" ? true : null,
+          llmWhy: unverifiedSnapshot.why,
+          actualOutcome: "no_submit_within_5s",
+        });
+      },
       onRecoveredByResend: (recoveredSnapshot, recoveredSource) => {
         void appendCorrection({
           time: new Date().toISOString(),

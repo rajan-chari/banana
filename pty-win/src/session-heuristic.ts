@@ -8,6 +8,8 @@ const STARTUP_FALLBACK_QUIET_MS = 30_000;
 const AI_NO_HOOKS_IDLE_QUIET_MS = 5_000;
 const GENERIC_IDLE_QUIET_MS = 3_000;
 const PROMPT_GLYPH = "❯";
+const COPILOT_PERMISSION_RE = /(?:Do you want to run this command\?|Session in use|Resume anyway)/;
+const PERMISSION_SCAN_TAIL_BYTES = 2_000;
 
 /**
  * True iff `quietMs` has just crossed a one-minute boundary (e.g. went
@@ -37,8 +39,10 @@ interface SessionHeuristicControllerOptions {
   getNeedsStartupKick: () => boolean;
   getInputBoxDirty: () => boolean;
   getRawBuffer: () => string;
+  getPermissionScanBuffer: () => string;
   setIdle: () => void;
   maybeFireOnIdle: (reason: string) => void;
+  setScreenPermissionPrompt: (active: boolean, reason: string) => void;
   log: (message: string) => void;
 }
 
@@ -63,6 +67,9 @@ export class SessionHeuristicController {
       this.evaluateGeneric(quietMs);
       return;
     }
+    if (!hasWorkingHooks) {
+      if (this.evaluateScreenPermissionPrompt()) return;
+    }
     if (this.options.getNeedsStartupKick()) {
       this.evaluateAiStartupKick(quietMs);
     } else {
@@ -79,10 +86,21 @@ export class SessionHeuristicController {
   private evaluateAiNoStartupKick(quietMs: number, hasWorkingHooks: boolean): void {
     if (hasWorkingHooks) return;
     if (this.options.getInputBoxDirty()) return;
+    if (this.hasScreenPermissionPrompt()) return;
     if (this.options.getStatus() === "busy" && quietMs >= AI_NO_HOOKS_IDLE_QUIET_MS) {
       this.options.setIdle();
       this.options.maybeFireOnIdle(`no-hooks-quiet (${quietMs}ms)`);
     }
+  }
+
+  private evaluateScreenPermissionPrompt(): boolean {
+    const active = this.hasScreenPermissionPrompt();
+    this.options.setScreenPermissionPrompt(active, active ? "screen-permission" : "screen-permission-cleared");
+    return active;
+  }
+
+  private hasScreenPermissionPrompt(): boolean {
+    return COPILOT_PERMISSION_RE.test(this.options.getPermissionScanBuffer().slice(-PERMISSION_SCAN_TAIL_BYTES));
   }
 
   private evaluateAiStartupKick(quietMs: number): void {

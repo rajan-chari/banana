@@ -1274,6 +1274,7 @@ html, body {
   border: 2px solid #aaa;
   margin: 2px;
   background: #1a1a1a;
+  position: relative;
 }
 
 .pane.focused {
@@ -1342,6 +1343,109 @@ body.pane-dragging, body.pane-dragging .pane-topbar { cursor: grabbing !importan
   padding: 1px 4px;
   margin-right: 4px;
   display: inline-flex;
+}
+
+button.pane-action {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  line-height: 1;
+}
+
+button.pane-action:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.pane-state-popover {
+  position: absolute;
+  top: 30px;
+  right: 8px;
+  z-index: 30;
+  width: min(520px, calc(100% - 16px));
+  max-height: min(520px, calc(100% - 48px));
+  overflow: auto;
+  padding: 10px;
+  background: #181818;
+  color: var(--text);
+  border: 1px solid var(--instance-accent);
+  box-shadow: 0 8px 24px #000a;
+  font-size: 11px;
+  cursor: default;
+}
+
+.pane-state-title {
+  color: var(--instance-accent);
+  font-weight: 700;
+  margin-bottom: 8px;
+  padding-right: 22px;
+}
+
+.pane-state-actions {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.pane-state-close,
+.pane-state-refresh {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.pane-state-close:hover,
+.pane-state-refresh:hover {
+  color: var(--badge-unread);
+}
+
+.pane-state-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 10px;
+  margin: 0 0 10px;
+}
+
+.pane-state-grid dt {
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.pane-state-grid dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pane-state-section {
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pane-state-events {
+  margin: 6px 0 0;
+  padding: 8px;
+  background: #101010;
+  border: 1px solid var(--border);
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.pane-state-empty {
+  color: var(--text-muted);
+  margin-top: 6px;
 }
 
 .pane-close {

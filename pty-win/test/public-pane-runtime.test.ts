@@ -124,11 +124,49 @@ describe("createPaneRuntime - createPane", () => {
     expect(pane.querySelector(".pane-name")?.textContent).toBe("a");
   });
 
-  it("renders the close button and code button in the topbar", () => {
+  it("renders the close, code, and diagnostics buttons in the topbar", () => {
     const { rt } = mkRuntime();
     const pane = rt.createPane("a");
     expect(pane.querySelector(".pane-close")).toBeTruthy();
     expect(pane.querySelector(".pane-action.code")).toBeTruthy();
+    expect(pane.querySelector(".pane-action.state")).toBeTruthy();
+    expect(pane.querySelector(".pane-action.state")?.textContent).toBe("ⓘ");
+  });
+
+  it("opens a diagnostics popover from the topbar diagnostics button", async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: "idle", command: "agency cp", quietMs: 1234, stateEventHistory: [{ event: "status-change", detail: "busy -> idle" }] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ injections: [{ time: Date.now(), type: "emcom" }] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ ticks: [{ action: "idle", reason: "hook:stop" }] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: "busy", command: "agency cp", pendingPermission: true, quietMs: 42 }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ injections: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ ticks: [] }) });
+    const setTimeoutFn = vi.fn((_cb: () => void, _ms: number) => 1 as any);
+    const { rt } = mkRuntime({}, {}, { fetch: fetchFn, setTimeout: setTimeoutFn });
+    const pane = rt.createPane("a");
+
+    (pane.querySelector(".pane-action.state") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(fetchFn).toHaveBeenCalledWith("/api/debug/sessions/a");
+    expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("Diagnostics");
+    expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("agency cp");
+    expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("status-change");
+    expect(pane.querySelector(".pane-state-close")).toBeTruthy();
+    expect(pane.querySelector(".pane-state-refresh")).toBeTruthy();
+
+    (pane.querySelector(".pane-state-refresh") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(fetchFn).toHaveBeenCalledTimes(6);
+    expect(setTimeoutFn).toHaveBeenCalledWith(expect.any(Function), 1000);
+    expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("permission");
+    expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("busy");
+
+    (pane.querySelector(".pane-state-close") as HTMLElement).click();
+    expect(pane.querySelector(".pane-state-popover")).toBeFalsy();
   });
 
   it("includes the claude/pwsh toggle ONLY when both sub-sessions exist", () => {
@@ -162,6 +200,16 @@ describe("createPaneRuntime - createPane", () => {
     });
     const pane = rt.createPane("a");
     expect(pane.classList.contains("dead")).toBe(true);
+  });
+
+  it("marks the pane as pending-permission on initial render", () => {
+    const { rt } = mkRuntime({
+      sessions: new Map([["a", { status: "busy", pendingPermission: true }]]),
+    });
+    const pane = rt.createPane("a");
+
+    expect(pane.classList.contains("pending-permission")).toBe(true);
+    expect(pane.querySelector(".pane-status-label")?.textContent).toBe("permission");
   });
 });
 

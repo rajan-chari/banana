@@ -125,12 +125,8 @@ export class SessionHookController {
   }
 
   markUserInput(data: string): void {
-    const isFocusEvent = data === "\x1b[I" || data === "\x1b[O";
-    if (!isFocusEvent) {
-      this.clearPendingPermission("user-input");
-    }
-
     if (!data.startsWith("\x1b") && /[\x20-\x7e]/.test(data)) {
+      this.clearPendingPermission("user-input");
       this.inputBoxDirty = true;
       return;
     }
@@ -144,6 +140,15 @@ export class SessionHookController {
       const hex = Buffer.from(data).toString("hex");
       const label = known[data] ?? hex;
       this.log(`[${this.sessionName}] input: ignored escape (${label} ${hex})`);
+      return;
+    }
+
+    if (data === "\r" || data === "\n") {
+      this.clearPendingPermission("user-submit");
+      if (this.inputBoxDirty) {
+        this.inputBoxDirty = false;
+        this.log(`[${this.sessionName}] input box cleared by submit`);
+      }
     }
   }
 
@@ -152,6 +157,17 @@ export class SessionHookController {
     this.inputBoxDirty = false;
     this.log(`[${this.sessionName}] input box cleared by user`);
     this.maybeFireOnIdle("user-cleared-input");
+  }
+
+  setScreenPermissionPrompt(active: boolean, reason: string): void {
+    if (active) {
+      if (this.pendingPermission) return;
+      this.pendingPermission = true;
+      this.log(`[${this.sessionName}] screen permission detected (${reason})`);
+      this.emitStatusChange();
+      return;
+    }
+    this.clearPendingPermission(reason);
   }
 
   hookNotify(type: string): void {

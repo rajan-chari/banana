@@ -27,6 +27,20 @@ function normaliseStatusDot(status) {
 }
 
 /**
+ * @param {string} groupName
+ * @param {string | null | undefined} focusedPane
+ * @param {any} info
+ * @returns {string}
+ */
+function paneClassName(groupName, focusedPane, info) {
+  const classes = ["pane"];
+  if (groupName === focusedPane) classes.push("focused");
+  if (info?.status === "dead") classes.push("dead");
+  if (info?.pendingPermission) classes.push("pending-permission");
+  return classes.join(" ");
+}
+
+/**
  * @typedef {Object} PaneRuntimeDeps
  * @property {any} state            Shared state (sessions/activePaneTypes/terminals/ws/focusedPane/workspaces/activeWorkspaceId).
  * @property {{ byName: (name: string) => any }} sessions
@@ -83,6 +97,7 @@ export function createPaneRuntime(deps) {
   const navi = env.navigator || (typeof navigator !== "undefined" ? navigator : null);
   const storage = env.localStorage || (typeof localStorage !== "undefined" ? localStorage : null);
   const win = env.win || (typeof window !== "undefined" ? window : null);
+  let paneStateRefreshSeq = 0;
 
   // Per-session paste guard: when the Ctrl+V handler reads the clipboard and
   // sends the payload via WS, the terminal's own onData also fires for the
@@ -207,6 +222,7 @@ export function createPaneRuntime(deps) {
       <span class="pane-name">${escapeHtml(groupName)}</span>
       ${toggleHtml}
       ${presetBadge}
+      <button class="pane-action state" title="Diagnostics" type="button">ⓘ</button>
       <span class="pane-action cmd-tag code" title="Open in VS Code">&lt;/&gt;</span>
       ${identityHtml}
       <span class="pane-cwd" title="${escapeHtml(wd)}">${escapeHtml(truncatePath(wd))}</span>
@@ -236,6 +252,12 @@ export function createPaneRuntime(deps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: info?.workingDir || "" }),
       });
+    };
+
+    const stateBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-action.state"));
+    if (stateBtn) stateBtn.onclick = (e) => {
+      e.stopPropagation();
+      showPaneStatePopover(topbar, activeSessionName);
     };
 
     const closeBtn = /** @type {HTMLElement | null} */ (topbar.querySelector(".pane-close"));
@@ -268,6 +290,191 @@ export function createPaneRuntime(deps) {
       if (e.button !== 0) return;
       deps.actions.startPaneDrag(e, groupName);
     });
+  }
+
+  /**
+   * @param {HTMLElement} topbar
+   * @param {string} sessionName
+   */
+  function showPaneStatePopover(topbar, sessionName) {
+    if (!doc) return;
+    doc.querySelectorAll(".pane-state-popover").forEach((el) => el.remove());
+    const pane = topbar.closest(".pane");
+    if (!pane) return;
+    const pop = doc.createElement("div");
+    pop.className = "pane-state-popover";
+    pop.innerHTML = buildPaneStateShell("Loading session state...");
+    attachPaneStateActions(pop, sessionName);
+    pane.appendChild(pop);
+    if (!fetchFn) {
+      pop.innerHTML = buildPaneStateShell("Debug state unavailable: fetch is not available.");
+      attachPaneStateActions(pop, sessionName);
+      return;
+    }
+    startPaneStateRefresh(pop, sessionName);
+  }
+
+  /**
+   * @param {string} bodyHtml
+   * @returns {string}
+   */
+  function buildPaneStateShell(bodyHtml) {
+    return `
+      <div class="pane-state-actions">
+        <button class="pane-state-refresh" type="button" title="Refresh state panel">↻</button>
+        <button class="pane-state-close" type="button" title="Close state panel">&times;</button>
+      </div>
+      <div class="pane-state-body">${bodyHtml}</div>
+    `;
+  }
+
+  /**
+   * @param {HTMLElement} pop
+   * @param {string} sessionName
+   */
+  function attachPaneStateActions(pop, sessionName) {
+    const refresh = /** @type {HTMLElement | null} */ (pop.querySelector(".pane-state-refresh"));
+    if (refresh) refresh.onclick = (e) => {
+      e.stopPropagation();
+      startPaneStateRefresh(pop, sessionName);
+    };
+    const close = /** @type {HTMLElement | null} */ (pop.querySelector(".pane-state-close"));
+    if (close) close.onclick = (e) => {
+      e.stopPropagation();
+      pop.dataset["refreshToken"] = "";
+      pop.remove();
+    };
+  }
+
+  /**
+   * @param {HTMLElement} pop
+   * @param {string} sessionName
+   */
+  function startPaneStateRefresh(pop, sessionName) {
+    const token = String(++paneStateRefreshSeq);
+    pop.dataset["refreshToken"] = token;
+    refreshPaneStatePopover(pop, sessionName, token);
+  }
+
+  /**
+   * @param {HTMLElement} pop
+   * @param {string} sessionName
+   * @param {string} token
+   */
+  function refreshPaneStatePopover(pop, sessionName, token) {
+    if (!fetchFn) return;
+    const body = pop.querySelector(".pane-state-body");
+    if (body) body.textContent = "Refreshing session state...";
+    fetchPaneState(sessionName)
+      .then((data) => {
+        if (!isCurrentPaneStatePopover(pop, token)) return;
+        pop.innerHTML = buildPaneStateShell(buildPaneStateHtml(sessionName, data));
+        attachPaneStateActions(pop, sessionName);
+        schedulePaneStateRefresh(pop, sessionName, token);
+      })
+      .catch((err) => {
+        if (!isCurrentPaneStatePopover(pop, token)) return;
+        pop.innerHTML = buildPaneStateShell(`Debug state unavailable: ${escapeHtml(err instanceof Error ? err.message : String(err))}`);
+        attachPaneStateActions(pop, sessionName);
+        schedulePaneStateRefresh(pop, sessionName, token);
+      });
+  }
+
+  /**
+   * @param {HTMLElement} pop
+   * @param {string} token
+   * @returns {boolean}
+   */
+  function isCurrentPaneStatePopover(pop, token) {
+    return !!pop.parentElement && pop.dataset["refreshToken"] === token;
+  }
+
+  /**
+   * @param {HTMLElement} pop
+   * @param {string} sessionName
+   * @param {string} token
+   */
+  function schedulePaneStateRefresh(pop, sessionName, token) {
+    setTimeoutFn(() => {
+      if (isCurrentPaneStatePopover(pop, token)) refreshPaneStatePopover(pop, sessionName, token);
+    }, 1000);
+  }
+
+  /**
+   * @param {string} sessionName
+   */
+  async function fetchPaneState(sessionName) {
+    if (!fetchFn) throw new Error("fetch is not available");
+    const name = encodeURIComponent(sessionName);
+    const [stateRes, injectionRes, detectionRes] = await Promise.all([
+      fetchFn(`/api/debug/sessions/${name}`),
+      fetchFn(`/api/debug/sessions/${name}/injections`),
+      fetchFn(`/api/debug/sessions/${name}/detection/history`),
+    ]);
+    if (!stateRes.ok) throw new Error(`debug endpoint returned ${stateRes.status}`);
+    return {
+      state: await stateRes.json(),
+      injections: injectionRes.ok ? await injectionRes.json() : null,
+      detection: detectionRes.ok ? await detectionRes.json() : null,
+    };
+  }
+
+  /**
+   * @param {string} sessionName
+   * @param {{ state: any, injections: any, detection: any }} data
+   * @returns {string}
+   */
+  function buildPaneStateHtml(sessionName, data) {
+    const s = data.state || {};
+    const injections = (data.injections?.injections || s.injectionHistory || []).slice(-5).reverse();
+    const stateEvents = (s.stateEventHistory || data.detection?.ticks || s.detectionHistory || []).slice(-8).reverse();
+    return `
+      <div class="pane-state-title">Diagnostics — ${escapeHtml(sessionName)}</div>
+      <dl class="pane-state-grid">
+        <dt>effective state</dt><dd>${escapeHtml(s.pendingPermission ? "permission" : (s.status || "?"))}</dd>
+        <dt>raw status</dt><dd>${escapeHtml(s.status || "?")}</dd>
+        <dt>command</dt><dd>${escapeHtml(s.command || "?")}</dd>
+        <dt>pending messages</dt><dd>${escapeHtml(String(!!s.pendingMessages))}</dd>
+        <dt>unread</dt><dd>${escapeHtml(String(s.unreadCount ?? 0))}</dd>
+        <dt>input dirty</dt><dd>${escapeHtml(String(!!s.inputBoxDirty))}</dd>
+        <dt>permission</dt><dd>${escapeHtml(String(!!s.pendingPermission))}</dd>
+        <dt>quiet</dt><dd>${escapeHtml(formatMs(s.quietMs))}</dd>
+        <dt>heuristic timer</dt><dd>${escapeHtml(String(!!s.heuristicTimerActive))}</dd>
+      </dl>
+      <div class="pane-state-section">Recent injections</div>
+      ${formatPaneStateEvents(injections, "No injections recorded.")}
+      <div class="pane-state-section">Recent state events</div>
+      ${formatPaneStateEvents(stateEvents, "No state events recorded.")}
+    `;
+  }
+
+  /**
+   * @param {any[]} events
+   * @param {string} empty
+   * @returns {string}
+   */
+  function formatPaneStateEvents(events, empty) {
+    if (!events.length) return `<div class="pane-state-empty">${escapeHtml(empty)}</div>`;
+    return `<pre class="pane-state-events">${escapeHtml(events.map(formatStateEvent).join("\n\n"))}</pre>`;
+  }
+
+  /**
+   * @param {any} event
+   * @returns {string}
+   */
+  function formatStateEvent(event) {
+    const t = typeof event.time === "number" ? new Date(event.time).toLocaleTimeString() : "";
+    const details = { ...event };
+    delete details.prompt;
+    return `${t ? `${t} ` : ""}${JSON.stringify(details, null, 2)}`;
+  }
+
+  /**
+   * @param {unknown} ms
+   * @returns {string}
+   */
+  function formatMs(ms) {
+    return typeof ms === "number" ? `${Math.round(ms)}ms` : "?";
   }
 
   /**
@@ -364,7 +571,7 @@ export function createPaneRuntime(deps) {
     const hasBoth = !!(pg?.claude && pg?.pwsh);
 
     const pane = doc.createElement("div");
-    pane.className = `pane ${groupName === deps.state.focusedPane ? "focused" : ""} ${info?.status === "dead" ? "dead" : ""}`;
+    pane.className = paneClassName(groupName, deps.state.focusedPane, info);
     pane.dataset["session"] = groupName;
     pane.addEventListener("mousedown", () => focusPane(groupName));
 

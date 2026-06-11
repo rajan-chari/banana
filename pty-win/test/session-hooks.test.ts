@@ -100,6 +100,12 @@ describe("SessionHookController", () => {
     harness.controller.markUserInput("a");
     expect(harness.controller.getInputBoxDirty()).toBe(true);
 
+    harness.controller.markUserInput("\r");
+    expect(harness.controller.getInputBoxDirty()).toBe(false);
+
+    harness.controller.markUserInput("b");
+    expect(harness.controller.getInputBoxDirty()).toBe(true);
+
     harness.controller.clearInputDirty();
     expect(harness.controller.getInputBoxDirty()).toBe(false);
     expect(harness.idleReasons).toContain("user-cleared-input");
@@ -113,6 +119,9 @@ describe("SessionHookController", () => {
     expect(harness.emittedStatusChanges).toHaveLength(1);
 
     harness.controller.markUserInput("\x1b[I");
+    expect(harness.controller.getPendingPermission()).toBe(true);
+
+    harness.controller.markUserInput("\x1b]4;0;rgb:0000/0000/0000\x1b\\");
     expect(harness.controller.getPendingPermission()).toBe(true);
 
     harness.controller.markUserInput("1");
@@ -130,6 +139,21 @@ describe("SessionHookController", () => {
     expect(harness.controller.getPendingPermission()).toBe(false);
     expect(harness.controller.getLastHookNotifyType()).toBe("idle_prompt");
     expect(harness.idleReasons).toContain("hook:notify(idle)");
+  });
+
+  it("screen permission detection toggles pending permission", () => {
+    const harness = makeController("busy");
+
+    harness.controller.setScreenPermissionPrompt(true, "screen");
+    expect(harness.controller.getPendingPermission()).toBe(true);
+    expect(harness.emittedStatusChanges).toHaveLength(1);
+
+    harness.controller.setScreenPermissionPrompt(true, "screen");
+    expect(harness.emittedStatusChanges).toHaveLength(1);
+
+    harness.controller.setScreenPermissionPrompt(false, "cleared");
+    expect(harness.controller.getPendingPermission()).toBe(false);
+    expect(harness.emittedStatusChanges).toHaveLength(2);
   });
 
   it("ignores hook events once dead", () => {

@@ -14,6 +14,8 @@ interface VerifyInjectionOptions {
   log: (message: string) => void;
   onRecoveredByResend?: (snapshot: InjectionSnapshot, source: string) => void;
   onGiveUp?: (snapshot: InjectionSnapshot, source: string) => void;
+  onUnverified?: (snapshot: InjectionSnapshot, source: string) => void;
+  retryOnMissingPromptSubmit?: boolean;
   attempt?: number;
 }
 
@@ -30,6 +32,8 @@ export function verifyInjectionAfter({
   log,
   onRecoveredByResend,
   onGiveUp,
+  onUnverified,
+  retryOnMissingPromptSubmit = true,
   attempt = 0,
 }: VerifyInjectionOptions): void {
   const injectAt = Date.now();
@@ -40,6 +44,14 @@ export function verifyInjectionAfter({
       const recoveredTag = attempt > 0 ? ` [recovered after ${attempt} retry]` : "";
       log(`[${sessionName}] [verify] inject submitted (source=${source})${recoveredTag}`);
       if (attempt > 0) onRecoveredByResend?.(snapshot, source);
+      return;
+    }
+
+    if (!retryOnMissingPromptSubmit) {
+      log(
+        `[${sessionName}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) — not re-sending SUBMIT (prompt-submit hook not reliable for this command)`,
+      );
+      onUnverified?.(snapshot, source);
       return;
     }
 
@@ -58,6 +70,7 @@ export function verifyInjectionAfter({
         log,
         onRecoveredByResend,
         onGiveUp,
+        retryOnMissingPromptSubmit,
         attempt: attempt + 1,
       });
       return;
