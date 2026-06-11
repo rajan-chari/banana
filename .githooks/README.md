@@ -2,13 +2,17 @@
 
 Committed git hooks for the banana monorepo. Plain bash scripts — no husky or other dep.
 
-## Activate (one-time per clone)
+## Activation
+
+Auto-activated when you run `npm install` in `pty-win/` — the `prepare` script in `pty-win/package.json` sets `core.hooksPath` to this directory.
+
+If you've never run `npm install` (e.g., you only touch `chat/` or `python/`), activate manually:
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-This points git at this directory instead of the default `.git/hooks/`.
+**On `git pull`:** nothing to do. `core.hooksPath` lives in `.git/config` and persists across pulls; updated hook scripts in this directory come through with the pull (executable bit is tracked).
 
 ## Hooks
 
@@ -28,4 +32,4 @@ git push --no-verify
 
 CI catches everything in `.github/workflows/pty-win-check.yml`, but it runs ~50s after the push. The pre-push hook gives faster feedback locally and prevents pushing broken commits in the first place. They compound — they don't replace each other.
 
-Each clone activates the hook explicitly so it's never invisible to a contributor.
+The `pty-win/package.json` `prepare` script auto-activates `core.hooksPath` on `npm install` so contributors don't have to remember a one-time step. It's still visible (one line in `scripts`) — not magic — and falls back silently in non-git contexts (`|| true`).

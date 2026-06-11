@@ -15,6 +15,7 @@
     "node": ">=18"
   },
   "scripts": {
+    "prepare": "node scripts/setup-hooks.mjs",
     "build": "tsc && node scripts/write-build-info.mjs",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
