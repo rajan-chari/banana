@@ -8,7 +8,7 @@ const STARTUP_FALLBACK_QUIET_MS = 30_000;
 const AI_NO_HOOKS_IDLE_QUIET_MS = 5_000;
 const GENERIC_IDLE_QUIET_MS = 3_000;
 const PROMPT_GLYPH = "❯";
-const COPILOT_PERMISSION_RE = /(?:Do you want to run this command\?|Session in use|Resume anyway)/;
+const COPILOT_PERMISSION_RE = /(?:Do you want to run this command\?|Session in use|Resume anyway|Yes, and don't ask again|No, and tell Copilot what to do differently)/;
 const PERMISSION_SCAN_TAIL_BYTES = 2_000;
 
 /**

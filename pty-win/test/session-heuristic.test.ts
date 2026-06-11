@@ -60,6 +60,7 @@ describe("SessionHeuristicController permission prompt fallback", () => {
   it.each([
     "Do you want to run this command?",
     "Session in use\n❯ 1. Resume anyway",
+    "1. Yes\n❯ 2. Yes, and don't ask again for file operations\n3. No, and tell Copilot what to do differently",
   ])("marks non-hook Copilot prompt '%s' as pending permission and does not force idle", (rawBuffer) => {
     vi.useFakeTimers();
     let status: "starting" | "busy" | "idle" | "dead" = "busy";

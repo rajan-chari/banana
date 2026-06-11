@@ -107,6 +107,7 @@ export class PtySession extends EventEmitter {
   private status: SessionStatus = "starting";
   private pendingMessages = false;
   private unreadCount = 0;
+  private screenPermissionActive = false;
   private lastOutputTime = Date.now();
   private dirtyOnExit = false;
   private busyStartTime = 0;
@@ -636,7 +637,13 @@ export class PtySession extends EventEmitter {
   }
 
   private setScreenPermissionPrompt(active: boolean, reason: string): void {
+    if (!active && !this.screenPermissionActive) return;
     const wasPending = this.hookController.getPendingPermission();
+    if (!active && this.hookController.getLastHookNotifyType() === "permission_prompt") {
+      this.screenPermissionActive = false;
+      return;
+    }
+    this.screenPermissionActive = active;
     this.hookController.setScreenPermissionPrompt(active, reason);
     const isPending = this.hookController.getPendingPermission();
     if (wasPending !== isPending) {
