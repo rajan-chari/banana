@@ -10,7 +10,8 @@ interface VerifyInjectionOptions {
   sessionName: string;
   submitKey: string;
   getLastHookPromptSubmitTime: () => number;
-  relayWrite: (text: string, source?: string) => void;
+  writeSubmit: (submitKey: string, source: string) => void;
+  getCurrentScreen?: () => string;
   log: (message: string) => void;
   onRecoveredByResend?: (snapshot: InjectionSnapshot, source: string) => void;
   onGiveUp?: (snapshot: InjectionSnapshot, source: string) => void;
@@ -21,6 +22,21 @@ interface VerifyInjectionOptions {
 
 const VERIFY_WINDOW_MS = 5_000;
 const MAX_RETRIES = 2;
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
+
+function screenContainsInjectedText(screen: string, injectText: string): boolean {
+  if (!screen || !injectText) return false;
+  if (screen.includes(injectText)) return true;
+
+  const plain = screen.replace(ANSI_RE, "");
+  if (plain.includes(injectText)) return true;
+
+  // Long prompts can be wrapped/repainted by TUIs; the stable prefix is enough
+  // to identify the just-injected text in the current input box.
+  const prefix = injectText.slice(0, Math.min(80, injectText.length));
+  return prefix.length >= 16 && plain.includes(prefix);
+}
 
 export function verifyInjectionAfter({
   source,
@@ -28,7 +44,8 @@ export function verifyInjectionAfter({
   sessionName,
   submitKey,
   getLastHookPromptSubmitTime,
-  relayWrite,
+  writeSubmit,
+  getCurrentScreen,
   log,
   onRecoveredByResend,
   onGiveUp,
@@ -48,8 +65,32 @@ export function verifyInjectionAfter({
     }
 
     if (!retryOnMissingPromptSubmit) {
+      const currentScreen = getCurrentScreen?.() ?? "";
+      if (attempt < MAX_RETRIES && screenContainsInjectedText(currentScreen, snapshot.injectText)) {
+        log(
+          `[${sessionName}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) but injected text is still visible — re-sending SUBMIT (retry ${attempt + 1}/${MAX_RETRIES})`,
+        );
+        writeSubmit(submitKey, `recover:${source}`);
+        verifyInjectionAfter({
+          source,
+          snapshot: { ...snapshot, screen: currentScreen },
+          sessionName,
+          submitKey,
+          getLastHookPromptSubmitTime,
+          writeSubmit,
+          getCurrentScreen,
+          log,
+          onRecoveredByResend,
+          onGiveUp,
+          onUnverified,
+          retryOnMissingPromptSubmit,
+          attempt: attempt + 1,
+        });
+        return;
+      }
+
       log(
-        `[${sessionName}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) — not re-sending SUBMIT (prompt-submit hook not reliable for this command)`,
+        `[${sessionName}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) — not re-sending SUBMIT (prompt-submit hook not reliable and injected text is not visible)`,
       );
       onUnverified?.(snapshot, source);
       return;
@@ -59,17 +100,19 @@ export function verifyInjectionAfter({
       log(
         `[${sessionName}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) — re-sending SUBMIT (retry ${attempt + 1}/${MAX_RETRIES})`,
       );
-      relayWrite(submitKey, `recover:${source}`);
+      writeSubmit(submitKey, `recover:${source}`);
       verifyInjectionAfter({
         source,
         snapshot,
         sessionName,
         submitKey,
         getLastHookPromptSubmitTime,
-        relayWrite,
+        writeSubmit,
+        getCurrentScreen,
         log,
         onRecoveredByResend,
         onGiveUp,
+        onUnverified,
         retryOnMissingPromptSubmit,
         attempt: attempt + 1,
       });

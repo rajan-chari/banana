@@ -14,7 +14,7 @@ afterEach(() => {
 describe("verifyInjectionAfter", () => {
   it("re-sends submit when prompt-submit hook is missing for hook-backed commands", () => {
     vi.useFakeTimers();
-    const relayWrite = vi.fn();
+    const writeSubmit = vi.fn();
     const log = vi.fn();
 
     verifyInjectionAfter({
@@ -23,20 +23,20 @@ describe("verifyInjectionAfter", () => {
       sessionName: "claude-session",
       submitKey: "\r",
       getLastHookPromptSubmitTime: () => 0,
-      relayWrite,
+      writeSubmit,
       log,
       retryOnMissingPromptSubmit: true,
     });
 
     vi.advanceTimersByTime(5_000);
 
-    expect(relayWrite).toHaveBeenCalledWith("\r", "recover:startup-kick");
+    expect(writeSubmit).toHaveBeenCalledWith("\r", "recover:startup-kick");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("re-sending SUBMIT (retry 1/2)"));
   });
 
   it("does not re-send submit when prompt-submit hooks are unreliable for the command", () => {
     vi.useFakeTimers();
-    const relayWrite = vi.fn();
+    const writeSubmit = vi.fn();
     const log = vi.fn();
     const onGiveUp = vi.fn();
     const onUnverified = vi.fn();
@@ -47,7 +47,7 @@ describe("verifyInjectionAfter", () => {
       sessionName: "agency-cp-session",
       submitKey: "\r",
       getLastHookPromptSubmitTime: () => 0,
-      relayWrite,
+      writeSubmit,
       log,
       onGiveUp,
       onUnverified,
@@ -56,9 +56,35 @@ describe("verifyInjectionAfter", () => {
 
     vi.advanceTimersByTime(5_000);
 
-    expect(relayWrite).not.toHaveBeenCalled();
+    expect(writeSubmit).not.toHaveBeenCalled();
     expect(onGiveUp).not.toHaveBeenCalled();
     expect(onUnverified).toHaveBeenCalledWith(snapshot, "startup-kick");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("not re-sending SUBMIT"));
+  });
+
+  it("re-sends submit for unreliable hooks when injected text is still visible", () => {
+    vi.useFakeTimers();
+    const writeSubmit = vi.fn();
+    const log = vi.fn();
+    const onUnverified = vi.fn();
+
+    verifyInjectionAfter({
+      source: "startup-kick",
+      snapshot,
+      sessionName: "agency-cp-session",
+      submitKey: "\r",
+      getLastHookPromptSubmitTime: () => 0,
+      writeSubmit,
+      getCurrentScreen: () => `prompt area still contains ${snapshot.injectText}`,
+      log,
+      onUnverified,
+      retryOnMissingPromptSubmit: false,
+    });
+
+    vi.advanceTimersByTime(5_000);
+
+    expect(writeSubmit).toHaveBeenCalledWith("\r", "recover:startup-kick");
+    expect(onUnverified).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("injected text is still visible"));
   });
 });

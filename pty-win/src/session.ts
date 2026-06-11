@@ -674,7 +674,8 @@ export class PtySession extends EventEmitter {
       sessionName: this.name,
       submitKey: SUBMIT,
       getLastHookPromptSubmitTime: () => this.hookController.getLastHookPromptSubmitTime(),
-      relayWrite: (text, relaySource) => this.relayWrite(text, relaySource),
+      writeSubmit: (submitKey) => this.write(submitKey),
+      getCurrentScreen: () => this.getRawTail(8 * 1024),
       log: (message) => clog(message),
       retryOnMissingPromptSubmit,
       onUnverified: (unverifiedSnapshot, unverifiedSource) => {
