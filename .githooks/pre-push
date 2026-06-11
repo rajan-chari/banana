@@ -26,8 +26,8 @@ if [ -z "$changed" ]; then
 fi
 
 if echo "$changed" | grep -qE '^pty-win/'; then
-  echo "[pre-push] pty-win changes detected — running npm run check + npm test"
-  (cd pty-win && npm run check && npm test)
+  echo "[pre-push] pty-win changes detected — running npm run check + npm test + npm run test:coverage"
+  (cd pty-win && npm run check && npm test && npm run test:coverage)
 fi
 
 echo "[pre-push] OK"

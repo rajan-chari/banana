@@ -18,7 +18,7 @@ git config core.hooksPath .githooks
 
 ### `pre-push`
 Runs subproject checks for any subproject whose files are in the push range:
-- **pty-win**: `npm run check` + `npm test` (run from `pty-win/`)
+- **pty-win**: `npm run check` + `npm test` + `npm run test:coverage` (run from `pty-win/`)
 
 The hook diffs against `@{u}` (upstream tracking ref), falling back to `origin/main`.
 
