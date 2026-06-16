@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildTraceSummary, showTraceCaptureModal } from "../public/lib/trace-capture.js";
+import { buildTraceSummary, showTraceCaptureModal, traceFetchErrorMessage } from "../public/lib/trace-capture.js";
 
 beforeEach(() => {
   document.body.innerHTML = "";
@@ -37,6 +37,17 @@ describe("buildTraceSummary", () => {
     expect(summary).toContain("unreadCount: 2");
     expect(summary).toContain("rawIncluded: true");
     expect(summary).not.toContain("secret");
+  });
+
+  describe("traceFetchErrorMessage", () => {
+    it("turns 404 into wrong-port/build guidance with session and URL", () => {
+      const msg = traceFetchErrorMessage(404, "coder", "http://127.0.0.1:3658/");
+
+      expect(msg).toContain("Trace endpoint missing");
+      expect(msg).toContain("build >= daf196b");
+      expect(msg).toContain("http://127.0.0.1:3658/");
+      expect(msg).toContain("coder");
+    });
   });
 });
 
@@ -83,5 +94,22 @@ describe("showTraceCaptureModal", () => {
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("session: a"));
     expect(fetchFn).toHaveBeenCalledTimes(1);
     expect(fetchFn.mock.calls[0][0]).toBe("/api/debug/sessions/a/trace");
+  });
+
+  it("shows actionable guidance when the trace endpoint is missing", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+
+    showTraceCaptureModal({
+      sessionName: "coder",
+      doc: document,
+      fetchFn: fetchFn as any,
+      location: { href: "http://127.0.0.1:3658/" },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const status = document.querySelector(".trace-status")?.textContent || "";
+    expect(status).toContain("Trace endpoint missing");
+    expect(status).toContain("coder");
+    expect(status).toContain("127.0.0.1:3658");
   });
 });

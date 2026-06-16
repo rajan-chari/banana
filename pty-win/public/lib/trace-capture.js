@@ -8,6 +8,7 @@ import { escapeHtml } from "./format.js";
  * @property {Document} [doc]
  * @property {typeof fetch} [fetchFn]
  * @property {{ clipboard?: { writeText?: (text: string) => Promise<void> } }} [navigator]
+ * @property {{ href?: string }} [location]
  */
 
 /**
@@ -91,18 +92,37 @@ function buildTraceModalHtml(sessionName) {
 }
 
 /**
+ * @param {number} status
+ * @param {string} sessionName
+ * @param {string} pageUrl
+ * @returns {string}
+ */
+export function traceFetchErrorMessage(status, sessionName, pageUrl) {
+  if (status === 404) {
+    return [
+      "Trace endpoint missing on this pty-win server (404).",
+      "Refresh the page, verify the URL/port, or restart pty-win with build >= daf196b.",
+      `Page: ${pageUrl || "unknown"}`,
+      `Session: ${sessionName}`,
+    ].join(" ");
+  }
+  return `trace endpoint returned ${status}`;
+}
+
+/**
  * @param {typeof fetch} fetchFn
  * @param {string} sessionName
  * @param {string} note
  * @param {boolean} includeRaw
+ * @param {string} pageUrl
  */
-async function fetchTrace(fetchFn, sessionName, note, includeRaw) {
+async function fetchTrace(fetchFn, sessionName, note, includeRaw, pageUrl) {
   const res = await fetchFn(`/api/debug/sessions/${encodeURIComponent(sessionName)}/trace`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ note, includeRaw }),
   });
-  if (!res.ok) throw new Error(`trace endpoint returned ${res.status}`);
+  if (!res.ok) throw new Error(traceFetchErrorMessage(res.status, sessionName, pageUrl));
   return res.json();
 }
 
@@ -145,10 +165,11 @@ function wireTraceModal(deps) {
   /** @type {any} */
   let latestTrace = null;
   const close = () => deps.overlay.remove();
+  const pageUrl = deps.location?.href || deps.doc.defaultView?.location?.href || "";
   const refresh = async () => {
     try {
       if (status) status.textContent = "Refreshing trace preview...";
-      latestTrace = await fetchTrace(deps.fetchFn, deps.sessionName, note?.value || "", !!raw?.checked);
+      latestTrace = await fetchTrace(deps.fetchFn, deps.sessionName, note?.value || "", !!raw?.checked, pageUrl);
       if (preview) preview.textContent = buildTraceSummary(latestTrace);
       if (status) status.textContent = latestTrace?.privacy?.rawIncluded ? "Preview includes raw terminal tail." : "Redacted preview. Raw terminal tail omitted.";
     } catch (err) {
