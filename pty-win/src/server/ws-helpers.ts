@@ -7,6 +7,7 @@ import { WebSocket } from "ws";
  */
 export interface WsSessionLike {
   markUserInput(data: string): void;
+  recordClientInput?(data: string, source: string): void;
   write(data: string): void;
   resize(cols: number, rows: number): void;
   clearInputDirty(): void;
@@ -40,6 +41,7 @@ export function dispatchClientMessage<S extends WsSessionLike>(
     case "input":
       if (session && typeof parsed.payload === "string") {
         session.markUserInput(parsed.payload);
+        session.recordClientInput?.(parsed.payload, "ws-input");
         session.write(parsed.payload);
       }
       break;
@@ -154,4 +156,3 @@ export function buildSessionListMessage<S extends { getInfo(): unknown }>(
     payload: [...sessions.values()].map((s) => s.getInfo()),
   });
 }
-

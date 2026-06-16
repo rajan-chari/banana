@@ -62,10 +62,12 @@ describe("broadcastToClients", () => {
 
 class FakeSession implements WsSessionLike {
   public marks: string[] = [];
+  public clientInputs: Array<{ data: string; source: string }> = [];
   public writes: string[] = [];
   public resizes: Array<{ cols: number; rows: number }> = [];
   public cleared = 0;
   markUserInput(d: string): void { this.marks.push(d); }
+  recordClientInput(d: string, source: string): void { this.clientInputs.push({ data: d, source }); }
   write(d: string): void { this.writes.push(d); }
   resize(cols: number, rows: number): void { this.resizes.push({ cols, rows }); }
   clearInputDirty(): void { this.cleared++; }
@@ -84,6 +86,7 @@ describe("dispatchClientMessage", () => {
   it("routes 'input' to markUserInput + write", () => {
     dispatchClientMessage({ type: "input", session: "s1", payload: "abc" }, sessions);
     expect(s1.marks).toEqual(["abc"]);
+    expect(s1.clientInputs).toEqual([{ data: "abc", source: "ws-input" }]);
     expect(s1.writes).toEqual(["abc"]);
   });
 

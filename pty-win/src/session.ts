@@ -137,6 +137,7 @@ export class PtySession extends EventEmitter {
   private injectionHistory: Array<{ time: number; type: string; prompt: string; statusBefore: string }> = [];
   private stateEventHistory: Array<{ time: number; event: string; status: string; pendingPermission: boolean; detail?: string }> = [];
   private detectionHistory: Array<{ time: number; quietMs: number; promptType: string; mlResult: string | null; statusBefore: string; statusAfter: string; action: string; reason: string }> = [];
+  private inputHistory: Array<{ time: number; source: string; bytes: number; submit: boolean; controlChars: string[] }> = [];
   // Retained for debug-endpoint compatibility; no longer written to since
   // hook-driven idle detection replaced the LLM escalation path.
   private llmHistory: Array<{ time: number; trigger: string; ready: boolean | null; why: string; latencyMs: number }> = [];
@@ -265,7 +266,12 @@ export class PtySession extends EventEmitter {
   }
 
   write(data: string): void {
+    this.recordInput("pty-write", data);
     this.ptyProcess.write(data);
+  }
+
+  recordClientInput(data: string, source: string): void {
+    this.recordInput(source, data);
   }
 
   /** Relay a prompt injection via MessageChannel.
@@ -467,6 +473,20 @@ export class PtySession extends EventEmitter {
     if (this.detectionHistory.length > 100) this.detectionHistory.shift();
   }
 
+  private recordInput(source: string, data: string): void {
+    this.inputHistory.push({
+      time: Date.now(),
+      source,
+      bytes: data.length,
+      submit: data.includes(SUBMIT),
+      controlChars: [
+        ...(data.includes("\r") ? ["\\r"] : []),
+        ...(data.includes("\n") ? ["\\n"] : []),
+      ],
+    });
+    if (this.inputHistory.length > 100) this.inputHistory.shift();
+  }
+
   getDebugState(): Record<string, unknown> {
     const now = Date.now();
     const checkpoint = this.checkpointController.getState();
@@ -503,6 +523,7 @@ export class PtySession extends EventEmitter {
       injectionHistory: this.injectionHistory,
       stateEventHistory: this.stateEventHistory,
       detectionHistory: this.detectionHistory,
+      inputHistory: this.inputHistory,
     };
   }
 
