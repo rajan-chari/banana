@@ -48,6 +48,14 @@ describe("buildTraceSummary", () => {
       expect(msg).toContain("http://127.0.0.1:3658/");
       expect(msg).toContain("coder");
     });
+
+    it("turns session-not-found 404 into missing-pane guidance", () => {
+      const msg = traceFetchErrorMessage(404, "coder", "http://127.0.0.1:3658/", "session not found");
+
+      expect(msg).toContain("Trace session not found");
+      expect(msg).toContain("Open or focus a live pane");
+      expect(msg).toContain("coder");
+    });
   });
 });
 
@@ -111,5 +119,26 @@ describe("showTraceCaptureModal", () => {
     expect(status).toContain("Trace endpoint missing");
     expect(status).toContain("coder");
     expect(status).toContain("127.0.0.1:3658");
+  });
+
+  it("shows missing-session guidance when the server reports session not found", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      clone: () => ({ json: () => Promise.resolve({ error: "session not found" }) }),
+      text: () => Promise.resolve(""),
+    });
+
+    showTraceCaptureModal({
+      sessionName: "coder",
+      doc: document,
+      fetchFn: fetchFn as any,
+      location: { href: "http://127.0.0.1:3658/" },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const status = document.querySelector(".trace-status")?.textContent || "";
+    expect(status).toContain("Trace session not found");
+    expect(status).toContain("Open or focus a live pane");
   });
 });

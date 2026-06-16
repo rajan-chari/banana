@@ -95,10 +95,19 @@ function buildTraceModalHtml(sessionName) {
  * @param {number} status
  * @param {string} sessionName
  * @param {string} pageUrl
+ * @param {string} [serverMessage]
  * @returns {string}
  */
-export function traceFetchErrorMessage(status, sessionName, pageUrl) {
+export function traceFetchErrorMessage(status, sessionName, pageUrl, serverMessage = "") {
   if (status === 404) {
+    if (serverMessage.toLowerCase().includes("session not found")) {
+      return [
+        "Trace session not found on this pty-win server (404).",
+        "Open or focus a live pane on this same URL/port, then capture again.",
+        `Page: ${pageUrl || "unknown"}`,
+        `Session: ${sessionName}`,
+      ].join(" ");
+    }
     return [
       "Trace endpoint missing on this pty-win server (404).",
       "Refresh the page, verify the URL/port, or restart pty-win with build >= daf196b.",
@@ -107,6 +116,19 @@ export function traceFetchErrorMessage(status, sessionName, pageUrl) {
     ].join(" ");
   }
   return `trace endpoint returned ${status}`;
+}
+
+/**
+ * @param {Response} res
+ * @returns {Promise<string>}
+ */
+async function readTraceErrorMessage(res) {
+  try {
+    const body = await res.clone().json();
+    return typeof body?.error === "string" ? body.error : "";
+  } catch {
+    try { return await res.text(); } catch { return ""; }
+  }
 }
 
 /**
@@ -122,7 +144,7 @@ async function fetchTrace(fetchFn, sessionName, note, includeRaw, pageUrl) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ note, includeRaw }),
   });
-  if (!res.ok) throw new Error(traceFetchErrorMessage(res.status, sessionName, pageUrl));
+  if (!res.ok) throw new Error(traceFetchErrorMessage(res.status, sessionName, pageUrl, await readTraceErrorMessage(res)));
   return res.json();
 }
 
