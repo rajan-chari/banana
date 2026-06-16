@@ -46,6 +46,7 @@ import {
   findParentSplit,
 } from "./lib/tiling.js";
 import { reconcilePaneActiveTypes, getPaneGroups, getPaneGroup } from "./lib/pane-groups.js";
+import { resolveInstanceBadgeText } from "./lib/instance-badge.js";
 import { isDashboardMode } from "./lib/navigation.js";
 import { createWorkspaceTabs } from "./lib/workspace-tabs.js";
 import { createSessionDrop } from "./lib/session-drop.js";
@@ -120,6 +121,9 @@ import { createQuickMessage } from "./lib/quick-message.js";
 // .style/.classList/.dataset without TS18047/2339 noise. It throws if the
 // element is missing, which matches the existing implicit-crash behavior
 // when `document.getElementById("x").foo` hit null at runtime.
+
+/** @type {{ name?: string, port?: number, host?: string }} */
+let instanceBadgeConfig = {};
 
 /**
  * @param {string} id
@@ -557,8 +561,9 @@ function connect() {
 
 /**
  * @param {string} name
+ * @param {string} [badgeText]
  */
-function applyInstanceName(name) {
+function applyInstanceName(name, badgeText = resolveInstanceBadgeText({ ...instanceBadgeConfig, name }, { location })) {
   const r = document.documentElement.style;
   if (name) {
     document.title = `pty-win \u2014 ${name}`;
@@ -582,7 +587,7 @@ function applyInstanceName(name) {
   }
   // Update name badge in sidebar header
   const badge = byId("instance-name-badge");
-  if (badge) badge.textContent = name || "";
+  if (badge) badge.textContent = badgeText;
 }
 
 /**
@@ -625,11 +630,12 @@ async function initApp() {
   try {
     const res = await fetch("/api/config");
     const config = await res.json();
+    instanceBadgeConfig = config;
     for (const root of config.rootDirs || []) {
       favorites.add(root);
     }
 
-    if (config.name) applyInstanceName(config.name);
+    applyInstanceName(config.name || "", resolveInstanceBadgeText(config, { location }));
     applyBuildInfo(config.build);
   } catch {}
 

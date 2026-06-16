@@ -65,7 +65,7 @@ function registerConfigRoutes(
   onNameChange: () => void,
 ): void {
   app.get("/api/config", (_req, res) => {
-    res.json({ rootDirs: config.rootDirs, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name, build: buildInfo });
+    res.json({ rootDirs: config.rootDirs, port: config.port, platform: process.platform, defaultShell: DEFAULTS.defaultShell, name: config.name, build: buildInfo });
   });
 
   app.get("/api/preferences/schema", (_req, res) => {

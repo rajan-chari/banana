@@ -91,7 +91,6 @@ html, body {
 #sidebar-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   border-top: 2px solid var(--instance-accent);
   height: 35px;
   padding: 0 12px;
@@ -131,9 +130,13 @@ html, body {
   cursor: pointer;
   margin-left: 6px;
   opacity: 0.8;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 #instance-name-badge:hover { opacity: 1; }
-#instance-name-badge:empty { display: none; }
 
 #version-badge {
   color: var(--text-secondary, #888);
@@ -143,6 +146,10 @@ html, body {
   opacity: 0.55;
   cursor: pointer;
   user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 #version-badge:hover { opacity: 1; }
 #version-badge:empty { display: none; }

@@ -56,6 +56,17 @@ describe("admin preferences routes", () => {
   beforeEach(async () => { h = await setup(); });
   afterEach(async () => { await h.teardown(); });
 
+  describe("GET /api/config", () => {
+    it("includes server port for instance badge fallback", async () => {
+      const resp = await fetch(url(h.port, "/api/config"));
+      expect(resp.status).toBe(200);
+      const body = await resp.json();
+      expect(body.port).toBe(0);
+      expect(body.name).toBe("test");
+      expect(body.build.version).toBe("test");
+    });
+  });
+
   describe("GET /api/preferences/schema", () => {
     it("returns the KEY_SCHEMAS descriptor", async () => {
       const resp = await fetch(url(h.port, "/api/preferences/schema"));

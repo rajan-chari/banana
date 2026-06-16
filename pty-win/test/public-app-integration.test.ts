@@ -43,13 +43,14 @@ function loadBodyHtml(): string {
 }
 
 class FakeWebSocket {
+  static instances: FakeWebSocket[] = [];
   url: string;
   readyState = 0;
   onopen: (() => void) | null = null;
   onclose: (() => void) | null = null;
   onmessage: ((e: { data: string }) => void) | null = null;
   onerror: (() => void) | null = null;
-  constructor(url: string) { this.url = url; }
+  constructor(url: string) { this.url = url; FakeWebSocket.instances.push(this); }
   send(_data: string) {}
   close() {}
 }
@@ -107,7 +108,7 @@ describe("public/app.js integration", () => {
     window.WebLinksAddon = FakeWebLinksAddon;
     // @ts-expect-error - fetch
     globalThis.fetch = vi.fn(async () => ({
-      ok: true, status: 200, json: async () => ({}), text: async () => "",
+      ok: true, status: 200, json: async () => ({ port: 3600 }), text: async () => "",
     }));
     window.requestAnimationFrame = () => 0;
     globalThis.requestAnimationFrame = () => 0;
@@ -118,6 +119,8 @@ describe("public/app.js integration", () => {
     vi.stubGlobal("confirm", () => false);
     localStorage.clear();
     await import("../public/app.js");
+    FakeWebSocket.instances.at(-1)?.onopen?.();
+    await new Promise((r) => setTimeout(r, 0));
   });
 
   afterEach(() => {
@@ -131,6 +134,22 @@ describe("public/app.js integration", () => {
   });
 
   describe("store initialization on load", () => {
+    it("always renders an instance badge, falling back to the server port", async () => {
+      await new Promise((r) => setTimeout(r, 0));
+      const badge = document.getElementById("instance-name-badge");
+      expect(badge?.textContent).toBe("PORT-3600");
+      expect(badge?.textContent).not.toBe("");
+    });
+
+    it("keeps the port fallback visible after a live config name clear", async () => {
+      const ws = FakeWebSocket.instances.at(-1);
+      ws?.onmessage?.({ data: JSON.stringify({ type: "config", name: "DEBUG-TEST" }) });
+      expect(document.getElementById("instance-name-badge")?.textContent).toBe("DEBUG-TEST");
+
+      ws?.onmessage?.({ data: JSON.stringify({ type: "config", name: "" }) });
+      expect(document.getElementById("instance-name-badge")?.textContent).toBe("PORT-3600");
+    });
+
     it("favorites store seeded its default entry ('C:\\') into state.favorites", async () => {
       const state = await getState();
       // We CANNOT reset before this test — we want to observe the init
