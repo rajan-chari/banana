@@ -28,6 +28,7 @@ public sealed class WorkItem
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
     [JsonPropertyName("created_at")] public string CreatedAt { get; set; } = "";
     [JsonPropertyName("updated_at")] public string UpdatedAt { get; set; } = "";
+    [JsonPropertyName("assignment_notification_warning")] public string? AssignmentNotificationWarning { get; set; }
     [JsonPropertyName("history")] public List<HistoryEntry>? History { get; set; }
     [JsonPropertyName("links")] public List<LinkEntry>? Links { get; set; }
 

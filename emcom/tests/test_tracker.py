@@ -136,6 +136,83 @@ class TestUpdate:
         assert r.json()["status"] == "triaged"
 
 
+class TestAssignmentNotifications:
+    def test_create_with_assignee_notifies_registered_agent(self, client):
+        r = client.post("/tracker", json={
+            "repo": "teams.py", "title": "Notify create", "assigned_to": "spark-py",
+            "opened_by": "Rajan",
+        }, headers=H_SCOUT)
+        assert r.status_code == 200
+        item = r.json()
+        assert "assignment_notification_warning" not in item
+
+        inbox = client.get("/email/inbox", headers=H_SPARK)
+        assert inbox.status_code == 200
+        messages = inbox.json()
+        assert len(messages) == 1
+        assert messages[0]["sender"] == "scout"
+        assert messages[0]["to"] == ["spark-py"]
+        assert messages[0]["subject"] == "Tracker assigned: teams.py: Notify create"
+        assert item["id"][:8] in messages[0]["body"]
+        assert "tracker view" in messages[0]["body"]
+
+    def test_reassign_notifies_new_assignee(self, client):
+        r = client.post("/tracker", json={
+            "repo": "teams.py", "title": "Notify reassign", "assigned_to": "spark-py",
+        }, headers=H_SCOUT)
+        item_id = r.json()["id"][:8]
+
+        r2 = client.patch(f"/tracker/{item_id}", json={
+            "assigned_to": "bolt",
+        }, headers=H_SCOUT)
+        assert r2.status_code == 200
+        assert "assignment_notification_warning" not in r2.json()
+
+        inbox = client.get("/email/inbox", headers=H_BOLT)
+        assert inbox.status_code == 200
+        messages = inbox.json()
+        assert len(messages) == 1
+        assert messages[0]["to"] == ["bolt"]
+        assert "Notify reassign" in messages[0]["subject"]
+        assert "reassignment" in messages[0]["body"]
+
+    def test_unchanged_assignment_does_not_duplicate_notification(self, client):
+        r = client.post("/tracker", json={
+            "repo": "teams.py", "title": "No duplicate", "assigned_to": "spark-py",
+        }, headers=H_SCOUT)
+        item_id = r.json()["id"][:8]
+
+        r2 = client.patch(f"/tracker/{item_id}", json={
+            "assigned_to": "spark-py",
+            "status": "triaged",
+        }, headers=H_SCOUT)
+        assert r2.status_code == 200
+
+        inbox = client.get("/email/inbox", headers=H_SPARK)
+        assert inbox.status_code == 200
+        assert len(inbox.json()) == 1
+
+    def test_self_assignment_does_not_notify(self, client):
+        r = client.post("/tracker", json={
+            "repo": "teams.py", "title": "Self assignment", "assigned_to": "scout",
+        }, headers=H_SCOUT)
+        assert r.status_code == 200
+        assert "assignment_notification_warning" not in r.json()
+
+        inbox = client.get("/email/inbox", headers=H_SCOUT)
+        assert inbox.status_code == 200
+        assert inbox.json() == []
+
+    def test_unregistered_assignee_returns_warning(self, client):
+        r = client.post("/tracker", json={
+            "repo": "teams.py", "title": "Unknown assignment", "assigned_to": "ghost",
+        }, headers=H_SCOUT)
+        assert r.status_code == 200
+        assert r.json()["assignment_notification_warning"] == (
+            "Assignment notification not sent: assignee 'ghost' is not registered in emcom"
+        )
+
+
 class TestView:
     def test_view_with_history_and_links(self, client):
         r1 = client.post("/tracker", json={

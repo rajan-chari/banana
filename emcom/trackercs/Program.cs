@@ -176,6 +176,12 @@ public static class Program
         }
     }
 
+    private static void PrintAssignmentNotificationWarning(WorkItem item)
+    {
+        if (!string.IsNullOrEmpty(item.AssignmentNotificationWarning))
+            Console.Error.WriteLine($"Warning: {item.AssignmentNotificationWarning}");
+    }
+
     private static int Dispatch(List<string> args, string server, string identity)
     {
         var cmd = args[0];
@@ -240,6 +246,7 @@ public static class Program
                 if (notes != null) req.Notes = notes;
                 var item = c.Create(req);
                 Console.WriteLine($"Created [{Fmt.ShortId(item.Id)}] {item.ExternalId}: {item.Title}");
+                PrintAssignmentNotificationWarning(item);
                 break;
             }
             case "update":
@@ -276,6 +283,7 @@ public static class Program
                 }
                 var item = c.Update(itemRef, req);
                 Console.WriteLine($"Updated [{Fmt.ShortId(item.Id)}] {item.ExternalId} → {item.Status}");
+                PrintAssignmentNotificationWarning(item);
                 break;
             }
             case "comment":

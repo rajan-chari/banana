@@ -60,6 +60,52 @@ def _get_caller(request: Request) -> str:
     return name
 
 
+def _short_id(item: dict) -> str:
+    return item["id"][:8]
+
+
+def _assignment_notification_body(item: dict, actor: str, action: str) -> str:
+    opened_by = item.get("opened_by") or "(not set)"
+    notes_hint = "Run tracker view {short_id} for full notes/history.".format(short_id=_short_id(item))
+    return "\n".join([
+        f"You were assigned tracker item {_short_id(item)}.",
+        "",
+        f"Repo: {item['repo']}",
+        f"Title: {item['title']}",
+        f"Status: {item['status']}",
+        f"Opened by: {opened_by}",
+        f"Created by: {item['created_by']}",
+        f"Assigned by: {actor}",
+        f"Action: {action}",
+        "",
+        notes_hint,
+    ])
+
+
+def _notify_assignment(db, item: dict, assignee: str | None, actor: str, action: str) -> str | None:
+    """Send an emcom notification for a real assignment change.
+
+    Returns a user-facing warning string when no notification was sent.
+    """
+    if not assignee:
+        return None
+    if assignee.casefold() == actor.casefold():
+        return None
+
+    canonical = db.resolve_identity_name(assignee)
+    if not canonical:
+        return f"Assignment notification not sent: assignee '{assignee}' is not registered in emcom"
+
+    db.create_email(
+        sender=actor,
+        recipients=[canonical],
+        cc=[],
+        subject=f"Tracker assigned: {item['repo']}: {item['title']}",
+        body=_assignment_notification_body(item, actor, action),
+    )
+    return None
+
+
 # --- Request models ---
 
 class CreateWorkItemRequest(BaseModel):
@@ -122,6 +168,7 @@ def create_work_item(req: CreateWorkItemRequest, request: Request):
         raise HTTPException(400, f"Invalid severity '{req.severity}'.\nValid severities: {', '.join(sorted(VALID_SEVERITIES))}")
     if req.status not in VALID_STATUSES:
         raise HTTPException(400, f"Invalid status '{req.status}'.\nValid statuses: {', '.join(sorted(VALID_STATUSES))}")
+    existing_id = db.resolve_work_item_id(f"{req.repo}#{req.number}") if req.number is not None else None
     try:
         item = db.create_work_item(
             repo=req.repo, title=req.title, created_by=caller,
@@ -134,6 +181,10 @@ def create_work_item(req: CreateWorkItemRequest, request: Request):
         raise HTTPException(409, f"Item {req.repo}#{req.number} already exists (id={e.existing_id}). "
                                   f"These fields would be silently dropped: {e.conflicts}. "
                                   f"Use 'tracker update {req.repo}#{req.number}' with --append-notes or the appropriate flags instead.")
+    if not existing_id:
+        warning = _notify_assignment(db, item, req.assigned_to, caller, "initial assignment")
+        if warning:
+            item["assignment_notification_warning"] = warning
     _broadcast("create", item)
     return item
 
@@ -277,9 +328,16 @@ def update_work_item(item_ref: str, req: UpdateWorkItemRequest, request: Request
     if req.severity and req.severity not in VALID_SEVERITIES:
         raise HTTPException(400, f"Invalid severity '{req.severity}'.\nValid severities: {', '.join(sorted(VALID_SEVERITIES))}")
 
+    before = db.get_work_item(item_id)
     updates = {k: v for k, v in req.model_dump().items() if v is not None and k != "comment"}
     try:
         item = db.update_work_item(item_id, caller, comment=req.comment, **updates)
+        old_assignee = (before or {}).get("assigned_to")
+        new_assignee = item.get("assigned_to")
+        if "assigned_to" in updates and new_assignee and new_assignee != old_assignee:
+            warning = _notify_assignment(db, item, new_assignee, caller, "reassignment")
+            if warning:
+                item["assignment_notification_warning"] = warning
         _broadcast("update", item)
         return item
     except ValueError as e:
