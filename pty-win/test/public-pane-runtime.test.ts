@@ -276,6 +276,46 @@ describe("createPaneRuntime - createPane", () => {
     expect(pane.classList.contains("pending-permission")).toBe(true);
     expect(pane.querySelector(".pane-status-label")?.textContent).toBe("permission");
   });
+
+  it("forwards wheel events to agency cp as SGR mouse wheel input", () => {
+    const { rt, state } = mkRuntime({
+      sessions: new Map([["a", { status: "idle", group: "a", command: "agency cp" }]]),
+    });
+    const pane = rt.createPane("a");
+    const termArea = pane.querySelector(".pane-terminal") as HTMLElement;
+    const xtermChild = document.createElement("div");
+    termArea.appendChild(xtermChild);
+    Object.defineProperty(termArea, "getBoundingClientRect", {
+      value: () => ({ left: 0, top: 0, width: 80, height: 24, right: 80, bottom: 24, x: 0, y: 0, toJSON: () => {} }),
+    });
+    (state.ws.send as any).mockClear();
+
+    const ev: any = new Event("wheel", { bubbles: true, cancelable: true });
+    ev.deltaX = 0; ev.deltaY = 100; ev.clientX = 10; ev.clientY = 5;
+    xtermChild.dispatchEvent(ev);
+
+    expect(state.ws.send).toHaveBeenCalledWith(JSON.stringify({
+      type: "input",
+      session: "a",
+      payload: "\x1b[<65;11;6M",
+    }));
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("does not forward wheel events for normal shell panes", () => {
+    const { rt, state } = mkRuntime({
+      sessions: new Map([["a", { status: "idle", group: "a", command: "pwsh" }]]),
+    });
+    const pane = rt.createPane("a");
+    (state.ws.send as any).mockClear();
+
+    const ev: any = new Event("wheel", { bubbles: true, cancelable: true });
+    ev.deltaY = 100; ev.clientX = 1; ev.clientY = 1;
+    (pane.querySelector(".pane-terminal") as HTMLElement).dispatchEvent(ev);
+
+    expect(state.ws.send).not.toHaveBeenCalled();
+    expect(ev.defaultPrevented).toBe(false);
+  });
 });
 
 describe("createPaneRuntime - ensureTerminal wiring", () => {

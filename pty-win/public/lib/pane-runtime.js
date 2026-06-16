@@ -18,6 +18,7 @@ import { getPaneGroup } from "./pane-groups.js";
 import { showTraceCaptureModal } from "./trace-capture.js";
 
 const ALLOWED_STATUS_DOT = new Set(["starting", "busy", "idle", "dead"]);
+const TUI_WHEEL_COMMAND_RE = /\b(agency\s+cp|copilot)\b/i;
 
 /**
  * @param {string | undefined} status
@@ -39,6 +40,43 @@ function paneClassName(groupName, focusedPane, info) {
   if (info?.status === "dead") classes.push("dead");
   if (info?.pendingPermission) classes.push("pending-permission");
   return classes.join(" ");
+}
+
+/**
+ * @param {any} info
+ * @returns {boolean}
+ */
+function shouldForwardWheelToTui(info) {
+  return TUI_WHEEL_COMMAND_RE.test(String(info?.command || ""));
+}
+
+/**
+ * @param {number} n
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+/**
+ * @param {WheelEvent} e
+ * @param {HTMLElement} termArea
+ * @param {{ cols?: number, rows?: number }} term
+ * @returns {string}
+ */
+function buildSgrWheelPayload(e, termArea, term) {
+  const rect = termArea.getBoundingClientRect();
+  const cols = term.cols || 80;
+  const rows = term.rows || 24;
+  const cellW = rect.width > 0 ? rect.width / cols : 0;
+  const cellH = rect.height > 0 ? rect.height / rows : 0;
+  const col = cellW > 0 ? clamp(Math.floor((e.clientX - rect.left) / cellW) + 1, 1, cols) : 1;
+  const row = cellH > 0 ? clamp(Math.floor((e.clientY - rect.top) / cellH) + 1, 1, rows) : 1;
+  const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+  const button = horizontal ? (e.deltaX < 0 ? 66 : 67) : (e.deltaY < 0 ? 64 : 65);
+  return `\x1b[<${button};${col};${row}M`;
 }
 
 /**
@@ -521,6 +559,25 @@ export function createPaneRuntime(deps) {
   }
 
   /**
+   * @param {HTMLElement} termArea
+   * @param {any} entry
+   * @param {string} activeSessionName
+   * @param {any} info
+   */
+  function attachTerminalWheelForwarding(termArea, entry, activeSessionName, info) {
+    if (!shouldForwardWheelToTui(info)) return;
+    termArea.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      deps.state.ws?.send(JSON.stringify({
+        type: "input",
+        session: activeSessionName,
+        payload: buildSgrWheelPayload(e, termArea, entry.term),
+      }));
+    }, { passive: false, capture: true });
+  }
+
+  /**
    * Set up the xterm fit/resize lifecycle for the terminal entry inside
    * the pane's terminal area.
    * @param {any} entry
@@ -608,6 +665,7 @@ export function createPaneRuntime(deps) {
     pane.appendChild(statusbar);
 
     const entry = ensureTerminal(activeSessionName);
+    attachTerminalWheelForwarding(termArea, entry, activeSessionName, info);
     setupPaneFitLifecycle(entry, termArea, activeSessionName);
 
     return pane;
@@ -734,6 +792,8 @@ export function createPaneRuntime(deps) {
     _buildPaneTopbar: buildPaneTopbar,
     _buildPaneStatusbar: buildPaneStatusbar,
     _normaliseStatusDot: normaliseStatusDot,
+    _buildSgrWheelPayload: buildSgrWheelPayload,
+    _shouldForwardWheelToTui: shouldForwardWheelToTui,
     _pasteGuards: pasteGuards,
   };
 }
