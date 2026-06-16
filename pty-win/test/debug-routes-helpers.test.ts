@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPromptsResponse,
   buildServerDebugInfo,
+  buildTraceBundle,
   buildTimersInfo,
   groupSessionsByRepoRoot,
 } from "../src/debug-routes-helpers.js";
@@ -11,7 +12,14 @@ import type { ServerConfig } from "../src/config.js";
 
 /** Minimal PtySession-shaped fake. */
 function fakeSession(state: Record<string, unknown>): PtySession {
-  return { getDebugState: () => state } as unknown as PtySession;
+  return {
+    getDebugState: () => state,
+    getInfo: () => ({ name: state["name"] || "s1", command: state["command"] || "claude", workingDir: "/repo", status: state["status"] || "idle" }),
+    getInjectionHistory: () => state["injectionHistory"] || [],
+    getDetectionHistory: () => state["detectionHistory"] || [],
+    getLlmHistory: () => state["llmHistory"] || [],
+    getRawTail: () => "secret raw tail",
+  } as unknown as PtySession;
 }
 
 const config: ServerConfig = {
@@ -142,6 +150,7 @@ describe("buildTimersInfo", () => {
       sessionRepoRoots: new Map(),
       nowMs: 100,
     });
+
     expect(out).toEqual({ serverTime: 100, sessions: {} });
   });
 
@@ -173,6 +182,60 @@ describe("buildTimersInfo", () => {
       checkpointLightTimerActive: true,
       checkpointFullTimerActive: false,
       heuristicTimerActive: true,
+    });
+  });
+
+  describe("buildTraceBundle", () => {
+    it("builds a redacted local trace bundle by default", () => {
+      const session = fakeSession({
+        name: "s1",
+        status: "idle",
+        pendingMessages: true,
+        unreadCount: 2,
+        injectionHistory: [{ time: 1, type: "emcom" }],
+        stateEventHistory: [{ time: 2, event: "status-change" }],
+        detectionHistory: [{ time: 3, action: "idle" }],
+      });
+
+      const out = buildTraceBundle({
+        session,
+        config,
+        buildInfo: { version: "0.2.0", commit: "abc123", startedAt: "2026-01-01T00:00:00.000Z", fellowAgentsRelease: "dev" },
+        sessionRepoRoot: "/repo",
+        note: "enter did not submit",
+        nowMs: 1_000,
+      });
+
+      expect(out.traceVersion).toBe(1);
+      expect(out.capturedAt).toBe("1970-01-01T00:00:01.000Z");
+      expect(out.session["unreadCount"]).toBe(2);
+      expect(out.server.repoRoot).toBe("/repo");
+      expect(out.server.build.version).toBe("0.2.0");
+      expect(out.user.note).toBe("enter did not submit");
+      expect(out.histories.injections).toEqual([{ time: 1, type: "emcom" }]);
+      expect(out.privacy.rawIncluded).toBe(false);
+      expect(out.rawTerminal).toBeUndefined();
+    });
+
+    it("includes raw terminal tail only when explicitly requested", () => {
+      const session = fakeSession({ name: "s1" });
+
+      const redacted = buildTraceBundle({
+        session,
+        config,
+        buildInfo: { version: "0.2.0", commit: "abc123", startedAt: "start" },
+      });
+      const raw = buildTraceBundle({
+        session,
+        config,
+        buildInfo: { version: "0.2.0", commit: "abc123", startedAt: "start" },
+        includeRaw: true,
+        rawMaxBytes: 1024,
+      });
+
+      expect(redacted.rawTerminal).toBeUndefined();
+      expect(raw.privacy.rawIncluded).toBe(true);
+      expect(raw.rawTerminal).toEqual({ maxBytes: 1024, tail: "secret raw tail" });
     });
   });
 

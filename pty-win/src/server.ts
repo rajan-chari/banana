@@ -130,7 +130,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
   // --- Debug routes (conditional) ---
 
   if (config.debug) {
-    registerDebugRoutes(app, sessions, sessionRepoRoots, config, costHistory, () => wsRuntime.getClientCount());
+    registerDebugRoutes(app, sessions, sessionRepoRoots, config, buildInfo, costHistory, () => wsRuntime.getClientCount());
     clog("Debug mode enabled — /api/debug/* routes active, /debug dashboard available");
   }
 

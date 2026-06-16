@@ -1391,18 +1391,20 @@ button.pane-action:hover {
 }
 
 .pane-state-close,
-.pane-state-refresh {
+.pane-state-refresh,
+.pane-state-trace {
   border: 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 11px;
   line-height: 1;
   padding: 2px 4px;
 }
 
 .pane-state-close:hover,
-.pane-state-refresh:hover {
+.pane-state-refresh:hover,
+.pane-state-trace:hover {
   color: var(--badge-unread);
 }
 
@@ -1546,8 +1548,12 @@ button.pane-action:hover {
 }
 
 .pane-unread {
+  border: 0;
+  border-radius: 7px;
   background: var(--badge-unread);
   color: #fff;
+  cursor: pointer;
+  font-family: var(--font-mono);
   padding: 0 5px;
   line-height: 14px;
   font-size: 9px;
@@ -1557,6 +1563,100 @@ button.pane-action:hover {
 }
 
 .pane-unread.show { display: inline; }
+
+.trace-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.trace-modal-panel {
+  width: min(760px, calc(100vw - 40px));
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  padding: 14px;
+  background: #181818;
+  border: 1px solid var(--instance-accent);
+  box-shadow: 0 12px 36px #000c;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.trace-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.trace-modal-title {
+  color: var(--instance-accent);
+  font-weight: 700;
+}
+
+.trace-modal-subtitle,
+.trace-status {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.trace-close,
+.trace-actions button {
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.trace-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.trace-close:hover,
+.trace-actions button:hover {
+  color: var(--badge-unread);
+}
+
+.trace-label,
+.trace-raw-row {
+  display: block;
+  margin: 8px 0;
+}
+
+.trace-note {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px;
+  background: #101010;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+}
+
+.trace-actions {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.trace-preview {
+  margin-top: 8px;
+  padding: 10px;
+  max-height: 340px;
+  overflow: auto;
+  background: #101010;
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+}
 
 /* --- Dashboard --- */
 

@@ -17,6 +17,42 @@ export interface DebugServerInfo {
   costHistoryLength: number;
 }
 
+export interface DebugBuildInfo {
+  version: string;
+  commit: string;
+  startedAt: string;
+  fellowAgentsRelease?: string;
+}
+
+export interface TraceBundle {
+  traceVersion: 1;
+  capturedAt: string;
+  session: Record<string, unknown>;
+  server: {
+    config: DebugServerConfig;
+    build: DebugBuildInfo;
+    repoRoot: string | null;
+  };
+  user: {
+    note: string;
+  };
+  privacy: {
+    rawIncluded: boolean;
+    redactedByDefault: boolean;
+    warnings: string[];
+  };
+  histories: {
+    injections: unknown;
+    stateEvents: unknown;
+    detection: unknown;
+    llm: unknown;
+  };
+  rawTerminal?: {
+    maxBytes: number;
+    tail: string;
+  };
+}
+
 /**
  * Aggregate session names by their repository root. Pure helper extracted
  * from registerInspectionRoutes so it can be tested without an Express
@@ -117,4 +153,72 @@ export function buildTimersInfo(args: {
     };
   }
   return { serverTime: nowMs ?? Date.now(), sessions: result };
+}
+
+function debugServerConfig(config: ServerConfig): DebugServerConfig {
+  return {
+    port: config.port,
+    host: config.host,
+    debug: config.debug,
+    emcomServer: config.emcomServer,
+    rootDirs: config.rootDirs,
+  };
+}
+
+/**
+ * Build a portable pty-win trace bundle for emcom/idle/injection debugging.
+ * Raw terminal bytes are omitted by default because they may contain private
+ * conversation content; callers must explicitly opt in with `includeRaw`.
+ */
+export function buildTraceBundle(args: {
+  session: PtySession;
+  config: ServerConfig;
+  buildInfo: DebugBuildInfo;
+  sessionRepoRoot?: string | null;
+  note?: string;
+  includeRaw?: boolean;
+  rawMaxBytes?: number;
+  nowMs?: number;
+}): TraceBundle {
+  const { session, config, buildInfo, sessionRepoRoot, note, includeRaw, nowMs } = args;
+  const rawMaxBytes = args.rawMaxBytes ?? 32_768;
+  const state = session.getDebugState();
+  const bundle: TraceBundle = {
+    traceVersion: 1,
+    capturedAt: new Date(nowMs ?? Date.now()).toISOString(),
+    session: {
+      ...state,
+      info: session.getInfo(),
+    },
+    server: {
+      config: debugServerConfig(config),
+      build: buildInfo,
+      repoRoot: sessionRepoRoot ?? null,
+    },
+    user: {
+      note: note || "",
+    },
+    privacy: {
+      rawIncluded: !!includeRaw,
+      redactedByDefault: true,
+      warnings: [
+        "Raw terminal output and message bodies may contain sensitive content.",
+        "Default trace export omits raw terminal bytes; include raw only after preview.",
+        "Trace export is local-only; pty-win does not upload this bundle automatically.",
+      ],
+    },
+    histories: {
+      injections: session.getInjectionHistory(),
+      stateEvents: state["stateEventHistory"] ?? [],
+      detection: session.getDetectionHistory(),
+      llm: session.getLlmHistory(),
+    },
+  };
+  if (includeRaw) {
+    bundle.rawTerminal = {
+      maxBytes: rawMaxBytes,
+      tail: session.getRawTail(rawMaxBytes),
+    };
+  }
+  return bundle;
 }

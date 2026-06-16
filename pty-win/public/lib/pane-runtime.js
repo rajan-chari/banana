@@ -15,6 +15,7 @@
 import { escapeHtml, truncatePath } from "./format.js";
 import { resolveCtrlShiftKeyAction } from "./key-shortcuts.js";
 import { getPaneGroup } from "./pane-groups.js";
+import { showTraceCaptureModal } from "./trace-capture.js";
 
 const ALLOWED_STATUS_DOT = new Set(["starting", "busy", "idle", "dead"]);
 
@@ -52,7 +53,7 @@ function paneClassName(groupName, focusedPane, info) {
  *   setTimeout?: (cb: () => void, ms: number) => any,
  *   ResizeObserver?: typeof ResizeObserver,
  *   fetch?: typeof fetch,
- *   navigator?: { clipboard?: { readText: () => Promise<string> } },
+ *   navigator?: { clipboard?: { readText?: () => Promise<string>, writeText?: (text: string) => Promise<void> } },
  *   localStorage?: { setItem: (k: string, v: string) => void },
  *   win?: Window,
  * }} [env]
@@ -149,7 +150,7 @@ export function createPaneRuntime(deps) {
     }
     if (e.key === "v") {
       pasteGuards.add(sessionName);
-      const read = navi?.clipboard?.readText();
+      const read = navi?.clipboard?.readText?.();
       if (read && typeof read.then === "function") {
         read.then((text) => {
           if (text) deps.state.ws?.send(JSON.stringify({ type: "input", session: sessionName, payload: text }));
@@ -321,6 +322,7 @@ export function createPaneRuntime(deps) {
   function buildPaneStateShell(bodyHtml) {
     return `
       <div class="pane-state-actions">
+        <button class="pane-state-trace" type="button" title="Capture emcom/idle trace">trace</button>
         <button class="pane-state-refresh" type="button" title="Refresh state panel">↻</button>
         <button class="pane-state-close" type="button" title="Close state panel">&times;</button>
       </div>
@@ -337,6 +339,11 @@ export function createPaneRuntime(deps) {
     if (refresh) refresh.onclick = (e) => {
       e.stopPropagation();
       startPaneStateRefresh(pop, sessionName);
+    };
+    const trace = /** @type {HTMLElement | null} */ (pop.querySelector(".pane-state-trace"));
+    if (trace) trace.onclick = (e) => {
+      e.stopPropagation();
+      showTraceCaptureModal({ sessionName, doc: doc || undefined, fetchFn: fetchFn || undefined, navigator: navi || undefined });
     };
     const close = /** @type {HTMLElement | null} */ (pop.querySelector(".pane-state-close"));
     if (close) close.onclick = (e) => {
@@ -495,9 +502,22 @@ export function createPaneRuntime(deps) {
     statusbar.innerHTML = `
       <span class="status-dot ${escapeHtml(dotClass)}"></span>
       <span class="pane-status-label">${escapeHtml(label)}</span>
-      <span class="pane-unread ${unread > 0 ? "show" : ""}">${unread}</span>
+      <button class="pane-unread ${unread > 0 ? "show" : ""}" type="button" title="Capture emcom/idle trace">${unread}</button>
     `;
     return statusbar;
+  }
+
+  /**
+   * @param {HTMLElement} statusbar
+   * @param {string} sessionName
+   */
+  function attachPaneStatusbarActions(statusbar, sessionName) {
+    const unread = /** @type {HTMLElement | null} */ (statusbar.querySelector(".pane-unread"));
+    if (!unread) return;
+    unread.onclick = (e) => {
+      e.stopPropagation();
+      showTraceCaptureModal({ sessionName, doc: doc || undefined, fetchFn: fetchFn || undefined, navigator: navi || undefined });
+    };
   }
 
   /**
@@ -583,7 +603,9 @@ export function createPaneRuntime(deps) {
     termArea.className = "pane-terminal";
     pane.appendChild(termArea);
 
-    pane.appendChild(buildPaneStatusbar(info));
+    const statusbar = buildPaneStatusbar(info);
+    attachPaneStatusbarActions(statusbar, activeSessionName);
+    pane.appendChild(statusbar);
 
     const entry = ensureTerminal(activeSessionName);
     setupPaneFitLifecycle(entry, termArea, activeSessionName);

@@ -155,6 +155,7 @@ describe("createPaneRuntime - createPane", () => {
     expect(pane.querySelector(".pane-state-popover")?.textContent).toContain("status-change");
     expect(pane.querySelector(".pane-state-close")).toBeTruthy();
     expect(pane.querySelector(".pane-state-refresh")).toBeTruthy();
+    expect(pane.querySelector(".pane-state-trace")).toBeTruthy();
 
     (pane.querySelector(".pane-state-refresh") as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 0));
@@ -169,6 +170,68 @@ describe("createPaneRuntime - createPane", () => {
 
     (pane.querySelector(".pane-state-close") as HTMLElement).click();
     expect(pane.querySelector(".pane-state-popover")).toBeFalsy();
+  });
+
+  it("opens trace capture from the unread badge", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        traceVersion: 1,
+        capturedAt: "now",
+        session: { name: "a", unreadCount: 2 },
+        privacy: { rawIncluded: false },
+        histories: { injections: [], stateEvents: [], detection: [] },
+        server: { build: { version: "0.2.0", commit: "abc" } },
+        user: { note: "" },
+      }),
+    });
+    const { rt } = mkRuntime({
+      sessions: new Map([["a", { status: "idle", group: "a", unreadCount: 2 }]]),
+    }, {}, { fetch: fetchFn });
+    const pane = rt.createPane("a");
+    document.body.appendChild(pane);
+
+    (pane.querySelector(".pane-unread") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(document.querySelector(".trace-modal-overlay")).toBeTruthy();
+    expect(fetchFn).toHaveBeenCalledWith("/api/debug/sessions/a/trace", expect.objectContaining({
+      method: "POST",
+    }));
+  });
+
+  it("opens trace capture from the Diagnostics popover", async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: "idle", command: "agency cp" }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ injections: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ ticks: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          traceVersion: 1,
+          capturedAt: "now",
+          session: { name: "a" },
+          privacy: { rawIncluded: false },
+          histories: { injections: [], stateEvents: [], detection: [] },
+          server: { build: { version: "0.2.0", commit: "abc" } },
+          user: { note: "" },
+        }),
+      });
+    const setTimeoutFn = vi.fn((_cb: () => void, _ms: number) => 1 as any);
+    const { rt } = mkRuntime({}, {}, { fetch: fetchFn, setTimeout: setTimeoutFn });
+    const pane = rt.createPane("a");
+    document.body.appendChild(pane);
+    (pane.querySelector(".pane-action.state") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    (pane.querySelector(".pane-state-trace") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(document.querySelector(".trace-modal-overlay")).toBeTruthy();
+    expect(fetchFn).toHaveBeenLastCalledWith("/api/debug/sessions/a/trace", expect.objectContaining({
+      method: "POST",
+    }));
   });
 
   it("includes the claude/pwsh toggle ONLY when both sub-sessions exist", () => {

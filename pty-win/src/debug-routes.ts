@@ -6,7 +6,7 @@ import { PtySession, SUBMIT, STARTUP_KICK, RESUME_KICK } from "./session.js";
 import { setDebugLog, getDebugLogState, addDebugLogListener } from "./log.js";
 import { checkReadiness, checkStuckInput } from "./llm-detector.js";
 import { recentForFewShot } from "./llm-corrections.js";
-import { buildPromptsResponse, buildServerDebugInfo, buildTimersInfo } from "./debug-routes-helpers.js";
+import { buildPromptsResponse, buildServerDebugInfo, buildTimersInfo, buildTraceBundle, type DebugBuildInfo } from "./debug-routes-helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -110,6 +110,41 @@ function registerInspectionRoutes(
   });
 }
 
+function registerTraceRoutes(
+  app: Express,
+  sessionRepoRoots: Map<string, string>,
+  config: ServerConfig,
+  buildInfo: DebugBuildInfo,
+  getSession: GetSession,
+): void {
+  app.get("/api/debug/sessions/:name/trace", (req, res) => {
+    const session = getSession(req, res);
+    if (!session) return;
+    res.json(buildTraceBundle({
+      session,
+      config,
+      buildInfo,
+      sessionRepoRoot: sessionRepoRoots.get(req.params.name),
+      includeRaw: req.query["includeRaw"] === "1",
+      rawMaxBytes: parseInt(req.query["rawBytes"] as string) || undefined,
+    }));
+  });
+
+  app.post("/api/debug/sessions/:name/trace", (req, res) => {
+    const session = getSession(req, res);
+    if (!session) return;
+    res.json(buildTraceBundle({
+      session,
+      config,
+      buildInfo,
+      sessionRepoRoot: sessionRepoRoots.get(req.params.name),
+      note: typeof req.body?.note === "string" ? req.body.note : "",
+      includeRaw: req.body?.includeRaw === true,
+      rawMaxBytes: typeof req.body?.rawMaxBytes === "number" ? req.body.rawMaxBytes : undefined,
+    }));
+  });
+}
+
 function registerActionRoutes(app: Express, getSession: GetSession): void {
   app.post("/api/debug/sessions/:name/inject", (req, res) => {
     const session = getSession(req, res);
@@ -205,11 +240,13 @@ export function registerDebugRoutes(
   sessions: Map<string, PtySession>,
   sessionRepoRoots: Map<string, string>,
   config: ServerConfig,
+  buildInfo: DebugBuildInfo,
   costHistory: unknown[],
   wsClientCount: () => number,
 ): void {
   const getSession = makeGetSession(sessions);
   registerInspectionRoutes(app, sessions, sessionRepoRoots, config, costHistory, wsClientCount, getSession);
+  registerTraceRoutes(app, sessionRepoRoots, config, buildInfo, getSession);
   registerActionRoutes(app, getSession);
   registerLogStreamRoute(app);
   registerDebugPageRoute(app);
