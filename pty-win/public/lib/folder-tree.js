@@ -251,6 +251,7 @@ function appendRootFolder(rootPath, tree, deps, onToggle, onLoadChildren, fetche
   const label = doc.createElement("div");
   label.className = "tree-root-label";
   label.dataset["path"] = helpers.normPath(rootPath);
+  label.dataset["rawPath"] = rootPath;
   const expanded = state.expandedPaths.has(rootPath);
 
   const arrow = doc.createElement("span");
@@ -322,6 +323,10 @@ function appendChildFolder(entry, depth, container, deps, onToggle, onLoadChildr
   const isExpanded = state.expandedPaths.has(entry.path);
   const isRunning = helpers.isFolderRunning(state.sessions, entry.path, helpers.normPath);
   const row = helpers.buildChildTreeRow(entry, depth, isExpanded, isRunning, helpers.normPath);
+  row.dataset["rawPath"] = entry.path;
+  row.dataset["identityName"] = entry.identityName || "";
+  row.dataset["hasIdentity"] = entry.hasIdentity ? "1" : "0";
+  row.dataset["isClaudeReady"] = entry.isClaudeReady ? "1" : "0";
   const resolution = helpers.resolveFolderSessions(state.sessions, entry.name, entry.path, helpers.normPath);
   actions.appendRowActions(row, helpers.buildChildRowActionsOpts(entry, resolution));
   /** @type {any} */ (row).onclick = () => onToggle(entry.path);
@@ -341,6 +346,16 @@ function appendChildFolder(entry, depth, container, deps, onToggle, onLoadChildr
   node.appendChild(childContainer);
   container.appendChild(node);
   if (isExpanded) onLoadChildren(entry.path, childContainer, depth + 1);
+}
+
+/**
+ * @param {HTMLElement} row
+ * @param {any} opts
+ * @param {{ appendRowActions: (container: HTMLElement, opts: any) => void }} actions
+ */
+function replaceRowActions(row, opts, actions) {
+  row.querySelectorAll(".identity-tag, .unread-badge, .cmd-tag, .indicator-slot, .kill-btn").forEach((el) => el.remove());
+  actions.appendRowActions(row, opts);
 }
 
 /**
@@ -395,7 +410,7 @@ function appendChildFolder(entry, depth, container, deps, onToggle, onLoadChildr
  * @param {FolderTreeDeps} deps
  */
 export function createFolderTree(deps) {
-  const { state, byId, doc, env, helpers } = deps;
+  const { state, byId, doc, env, helpers, actions } = deps;
   const fetcher = env.fetchFn || fetch.bind(window);
 
   /** @param {string} path */
@@ -457,6 +472,16 @@ export function createFolderTree(deps) {
     doc.querySelectorAll(".tree-node[data-path]").forEach(/** @param {Element} n */ (n) => {
       if (!(n instanceof HTMLElement)) return;
       const path = n.dataset["path"] ?? "";
+      const rawPath = n.dataset["rawPath"] || path;
+      const folderName = n.querySelector(".folder-name")?.textContent || path.split(/[/\\]/).filter(Boolean).pop() || path;
+      const resolution = helpers.resolveFolderSessions(state.sessions, folderName, rawPath, helpers.normPath);
+      replaceRowActions(n, helpers.buildChildRowActionsOpts({
+        name: folderName,
+        path: rawPath,
+        hasIdentity: n.dataset["hasIdentity"] === "1",
+        identityName: n.dataset["identityName"] || null,
+        isClaudeReady: n.dataset["isClaudeReady"] === "1",
+      }, resolution), actions);
       n.classList.toggle("running", running.has(path));
       const dot = n.querySelector(".unread-dot");
       if (dot) dot.classList.toggle("show", unread.has(path));
@@ -464,6 +489,19 @@ export function createFolderTree(deps) {
     doc.querySelectorAll(".tree-root-label[data-path]").forEach(/** @param {Element} n */ (n) => {
       if (!(n instanceof HTMLElement)) return;
       const path = n.dataset["path"] ?? "";
+      const rawPath = n.dataset["rawPath"] || path;
+      const folderName = n.querySelector(".root-name")?.textContent || path.split(/[/\\]/).filter(Boolean).pop() || path;
+      const resolution = helpers.resolveFolderSessions(state.sessions, folderName, rawPath, helpers.normPath);
+      const cached = state.folderInfoCache.get(path);
+      replaceRowActions(n, helpers.buildTreeRowActionsOpts({
+        workingDir: rawPath,
+        folderName,
+        cached,
+        sessionInfo: resolution.sessionInfo,
+        sessionMatchesPath: resolution.sessionMatchesPath,
+        pwshInfo: resolution.pwshInfo,
+        pwshMatchesPath: resolution.pwshMatchesPath,
+      }), actions);
       const nameSpan = n.querySelector(".root-name");
       if (nameSpan) nameSpan.classList.toggle("running", running.has(path));
       const dot = n.querySelector(".unread-dot");

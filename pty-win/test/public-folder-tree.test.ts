@@ -861,4 +861,75 @@ describe("createFolderTree - refreshTreeRunningState", () => {
     expect(document.querySelector(".root-name")!.classList.contains("running")).toBe(true);
     expect(document.querySelector(".unread-dot")!.classList.contains("show")).toBe(true);
   });
+
+  it("refreshes root row PowerShell action state after a pwsh session appears", () => {
+    const appendRowActions = vi.fn((row: HTMLElement, opts: any) => {
+      const tag = document.createElement("span");
+      tag.className = `cmd-tag pwsh ${opts.pwshAlive ? "alive" : "absent"}`;
+      tag.title = opts.pwshAlive ? "PowerShell: running" : "Start PowerShell";
+      row.appendChild(tag);
+    });
+    const { ft, state } = mk({
+      state: {
+        favorites: ["C:/root"],
+        sessions: new Map([["root~pwsh", { name: "root~pwsh", status: "starting", workingDir: "C:/root", command: "pwsh" }]]),
+      },
+      actions: { appendRowActions },
+      helpers: {
+        isFolderRunning: vi.fn(() => true),
+        resolveFolderSessions,
+        buildTreeRowActionsOpts,
+        buildRunningUnreadSets: vi.fn(() => ({ running: new Set(["c:/root"]), unread: new Set<string>() })),
+      },
+    });
+    ft.renderTree();
+    const tag = document.querySelector(".tree-root-label .cmd-tag.pwsh") as HTMLElement;
+    tag.className = "cmd-tag pwsh absent";
+    tag.title = "Start PowerShell";
+
+    ft.refreshTreeRunningState();
+
+    expect(state.sessions.has("root~pwsh")).toBe(true);
+    const refreshed = document.querySelector(".tree-root-label .cmd-tag.pwsh") as HTMLElement;
+    expect(refreshed.classList.contains("alive")).toBe(true);
+    expect(refreshed.title).toBe("PowerShell: running");
+  });
+
+  it("preserves child identity and CLAUDE indicators when refreshing actions", async () => {
+    const appendRowActions = vi.fn((row: HTMLElement, opts: any) => {
+      const id = document.createElement("span");
+      id.className = "identity-tag";
+      id.textContent = opts.identityName || "@";
+      const slot = document.createElement("span");
+      slot.className = "indicator-slot";
+      const claude = document.createElement("span");
+      claude.className = `indicator claude-ready ${opts.isClaudeReady ? "" : "hidden-placeholder"}`;
+      const identity = document.createElement("span");
+      identity.className = `indicator identity ${opts.hasIdentity ? "" : "hidden-placeholder"}`;
+      slot.append(claude, identity);
+      row.append(id, slot);
+    });
+    const { ft } = mk({
+      state: { favorites: ["C:/a"], expandedPaths: new Set(["C:/a"]) },
+      children: [{ name: "sub", path: "C:/a/sub", isDir: true, hasIdentity: true, identityName: "alice", isClaudeReady: true }],
+      actions: { appendRowActions },
+      helpers: {
+        buildChildRowActionsOpts: vi.fn((entry: any) => ({
+          identityName: entry.hasIdentity ? entry.identityName : null,
+          hasIdentity: !!entry.hasIdentity,
+          isClaudeReady: !!entry.isClaudeReady,
+        })),
+      },
+    });
+    ft.renderTree();
+    await flush();
+    const row = document.querySelector(".tree-node[data-path='c:/a/sub']") as HTMLElement;
+    expect(row.querySelector(".identity-tag")?.textContent).toBe("alice");
+
+    ft.refreshTreeRunningState();
+
+    expect(row.querySelector(".identity-tag")?.textContent).toBe("alice");
+    expect(row.querySelector(".indicator.identity")?.classList.contains("hidden-placeholder")).toBe(false);
+    expect(row.querySelector(".indicator.claude-ready")?.classList.contains("hidden-placeholder")).toBe(false);
+  });
 });

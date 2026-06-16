@@ -863,6 +863,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
       folderPath,
       newWorkspace,
     });
+    refreshTreeRunningState();
   } catch {
     alert("Failed to create session");
   }
