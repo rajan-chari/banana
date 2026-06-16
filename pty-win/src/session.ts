@@ -487,6 +487,9 @@ export class PtySession extends EventEmitter {
       pendingMessages: this.pendingMessages,
       unreadCount: this.unreadCount,
       pollerActive: this.poller !== null,
+      emcomIdentity: this.config.emcomIdentity ?? null,
+      emcomServer: this.config.emcomServer ?? null,
+      emcomPoller: this.poller?.getDebugState() ?? null,
       pendingCheckpoint: checkpoint.pendingCheckpoint,
       checkpointInFlight: checkpoint.checkpointInFlight,
       lastCheckpointTime: checkpoint.lastCheckpointTime,
@@ -610,6 +613,7 @@ export class PtySession extends EventEmitter {
       sessionName: this.name,
       onNewMessages: (emails) => this.handleEmcomMessages(emails),
       onUnreadCount: (count) => this.handleUnreadCount(count),
+      onAuthError: () => this.handleEmcomAuthError(),
     });
   }
 
@@ -627,6 +631,16 @@ export class PtySession extends EventEmitter {
     this.pendingMessages = count > 0;
     this.emit("status-change");
     if (count > 0 && wasZero && this.status === "idle") this.inject();
+  }
+
+  private handleEmcomAuthError(): void {
+    const hadState = this.pendingMessages || this.unreadCount !== 0;
+    this.pendingMessages = false;
+    this.unreadCount = 0;
+    if (hadState) {
+      this.recordStateEvent("emcom-auth-error", "cleared pending/unread after 401");
+      this.emit("status-change");
+    }
   }
 
   private setStatus(s: SessionStatus): void {

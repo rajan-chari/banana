@@ -18,6 +18,16 @@ export interface EmcomIdentity {
   active: boolean;
 }
 
+export class EmcomHttpError extends Error {
+  constructor(
+    public path: string,
+    public status: number,
+    public statusText: string,
+  ) {
+    super(`emcom ${path}: ${status} ${statusText}`);
+  }
+}
+
 export class EmcomClient {
   constructor(
     private server: string,
@@ -28,7 +38,7 @@ export class EmcomClient {
     const res = await fetch(`${this.server}${path}`, {
       headers: { "X-Emcom-Name": this.identity },
     });
-    if (!res.ok) throw new Error(`emcom ${path}: ${res.status} ${res.statusText}`);
+    if (!res.ok) throw new EmcomHttpError(path, res.status, res.statusText);
     return res.json() as Promise<T>;
   }
 

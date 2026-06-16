@@ -9,6 +9,7 @@ export interface EmcomPollerOptions {
   sessionName: string;
   onNewMessages: (emails: EmcomEmail[]) => void;
   onUnreadCount: (count: number) => void;
+  onAuthError: () => void;
 }
 
 export function createEmcomPoller({
@@ -18,6 +19,7 @@ export function createEmcomPoller({
   sessionName,
   onNewMessages,
   onUnreadCount,
+  onAuthError,
 }: EmcomPollerOptions): EmcomPoller {
   const client = new EmcomClient(server, identity);
   const poller = new EmcomPoller(client, intervalMs, sessionName);
@@ -31,6 +33,7 @@ export function createEmcomPoller({
   poller.onUnreadCount((count) => {
     onUnreadCount(count);
   });
+  poller.onAuthError(onAuthError);
 
   return poller;
 }
