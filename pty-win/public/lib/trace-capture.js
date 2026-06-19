@@ -194,8 +194,10 @@ function wireTraceModal(deps) {
       latestTrace = await fetchTrace(deps.fetchFn, deps.sessionName, note?.value || "", !!raw?.checked, pageUrl);
       if (preview) preview.textContent = buildTraceSummary(latestTrace);
       if (status) status.textContent = latestTrace?.privacy?.rawIncluded ? "Preview includes raw terminal tail." : "Redacted preview. Raw terminal tail omitted.";
+      return latestTrace;
     } catch (err) {
       if (status) status.textContent = `Trace unavailable: ${err instanceof Error ? err.message : String(err)}`;
+      return null;
     }
   };
   deps.overlay.querySelector(".trace-close")?.addEventListener("click", close);
@@ -205,7 +207,9 @@ function wireTraceModal(deps) {
     void deps.navigator?.clipboard?.writeText?.(text);
   });
   deps.overlay.querySelector(".trace-download")?.addEventListener("click", () => {
-    if (latestTrace) downloadTrace(deps.doc, latestTrace, deps.sessionName);
+    void refresh().then((trace) => {
+      if (trace) downloadTrace(deps.doc, trace, deps.sessionName);
+    });
   });
   deps.overlay.addEventListener("mousedown", (e) => { if (e.target === deps.overlay) close(); });
   void refresh();
