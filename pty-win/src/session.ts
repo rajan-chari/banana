@@ -61,7 +61,7 @@ export interface SessionInfo {
 }
 
 export const SUBMIT = process.platform === "win32" ? "\r" : "\n";
-export const SUBMIT_DELAY_MS = 200;
+export const SUBMIT_DELAY_MS = 1000;
 
 export function INJECTION_PROMPT() {
   return `[${fmtNow()} pty-win:emcom:normal:normal] Check emcom inbox, read and handle new messages, and collaborate with others as needed. Use bare \`emcom\` command (it's in PATH).`;
