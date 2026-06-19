@@ -100,8 +100,33 @@ describe("showTraceCaptureModal", () => {
     (document.querySelector(".trace-download") as HTMLElement).click();
 
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("session: a"));
-    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
     expect(fetchFn.mock.calls[0][0]).toBe("/api/debug/sessions/a/trace");
+    expect(fetchFn.mock.calls[1][0]).toBe("/api/debug/sessions/a/trace");
+  });
+
+  it("refreshes with the current note before downloading JSON", async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(trace(false)) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({
+        ...trace(false),
+        user: { note: "typed after preview" },
+      }) });
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    showTraceCaptureModal({ sessionName: "a", doc: document, fetchFn: fetchFn as any });
+    await new Promise((r) => setTimeout(r, 0));
+
+    (document.querySelector(".trace-note") as HTMLTextAreaElement).value = "typed after preview";
+    (document.querySelector(".trace-download") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(fetchFn).toHaveBeenLastCalledWith("/api/debug/sessions/a/trace", expect.objectContaining({
+      method: "POST",
+      body: expect.stringContaining('"note":"typed after preview"'),
+    }));
+    expect(clicked).toHaveBeenCalledTimes(1);
   });
 
   it("shows actionable guidance when the trace endpoint is missing", async () => {

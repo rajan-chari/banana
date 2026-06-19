@@ -205,7 +205,9 @@ function wireTraceModal(deps) {
     void deps.navigator?.clipboard?.writeText?.(text);
   });
   deps.overlay.querySelector(".trace-download")?.addEventListener("click", () => {
-    if (latestTrace) downloadTrace(deps.doc, latestTrace, deps.sessionName);
+    void refresh().then(() => {
+      if (latestTrace) downloadTrace(deps.doc, latestTrace, deps.sessionName);
+    });
   });
   deps.overlay.addEventListener("mousedown", (e) => { if (e.target === deps.overlay) close(); });
   void refresh();
