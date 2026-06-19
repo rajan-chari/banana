@@ -12,6 +12,35 @@ export interface EmcomPollerOptions {
   onAuthError: () => void;
 }
 
+export interface EmcomSessionMessageState {
+  pendingMessages: boolean;
+  unreadCount: number;
+}
+
+export function applyUnreadCount(
+  state: EmcomSessionMessageState,
+  count: number,
+): { state: EmcomSessionMessageState; changed: boolean } {
+  if (count === state.unreadCount) {
+    return { state, changed: false };
+  }
+
+  return {
+    state: {
+      unreadCount: count,
+      pendingMessages: count === 0 ? false : state.pendingMessages,
+    },
+    changed: true,
+  };
+}
+
+export function markEmcomInjectionSent(state: EmcomSessionMessageState): EmcomSessionMessageState {
+  return {
+    ...state,
+    pendingMessages: false,
+  };
+}
+
 export function createEmcomPoller({
   server,
   identity,

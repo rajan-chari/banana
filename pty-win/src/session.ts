@@ -8,7 +8,7 @@ import type { SessionConfig } from "./config.js";
 import { DEFAULTS } from "./config.js";
 import { log, clog } from "./log.js";
 import { appendCorrection } from "./llm-corrections.js";
-import { createEmcomPoller } from "./session-emcom.js";
+import { applyUnreadCount, createEmcomPoller, markEmcomInjectionSent } from "./session-emcom.js";
 import { SessionHookController } from "./session-hooks.js";
 import { SessionHeuristicController } from "./session-heuristic.js";
 import { verifyInjectionAfter } from "./session-injection-verifier.js";
@@ -646,12 +646,14 @@ export class PtySession extends EventEmitter {
   }
 
   private handleUnreadCount(count: number): void {
-    if (count === this.unreadCount) return;
-    const wasZero = this.unreadCount === 0;
-    this.unreadCount = count;
-    this.pendingMessages = count > 0;
+    const next = applyUnreadCount(
+      { pendingMessages: this.pendingMessages, unreadCount: this.unreadCount },
+      count,
+    );
+    if (!next.changed) return;
+    this.unreadCount = next.state.unreadCount;
+    this.pendingMessages = next.state.pendingMessages;
     this.emit("status-change");
-    if (count > 0 && wasZero && this.status === "idle") this.inject();
   }
 
   private handleEmcomAuthError(): void {
@@ -755,8 +757,12 @@ export class PtySession extends EventEmitter {
       clog(`[${this.name}] inject skipped — input box dirty (source: ${source})`);
       return;
     }
-    this.pendingMessages = false;
-    this.unreadCount = 0;
+    const next = markEmcomInjectionSent({
+      pendingMessages: this.pendingMessages,
+      unreadCount: this.unreadCount,
+    });
+    this.pendingMessages = next.pendingMessages;
+    this.unreadCount = next.unreadCount;
     const identity = this.config.emcomIdentity;
     const label = identity ? `${this.name} (@${identity})` : this.name;
     const prompt = INJECTION_PROMPT();
