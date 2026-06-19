@@ -62,7 +62,33 @@ describe("verifyInjectionAfter", () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining("not re-sending SUBMIT"));
   });
 
-  it("re-sends submit for unreliable hooks when injected text is still visible", () => {
+  it("does not re-send visible text for unreliable hooks unless recovery is enabled", () => {
+    vi.useFakeTimers();
+    const writeSubmit = vi.fn();
+    const log = vi.fn();
+    const onUnverified = vi.fn();
+
+    verifyInjectionAfter({
+      source: "emcom-auto",
+      snapshot,
+      sessionName: "agency-cp-session",
+      submitKey: "\r",
+      getLastHookPromptSubmitTime: () => 0,
+      writeSubmit,
+      getCurrentScreen: () => `prompt area still contains ${snapshot.injectText}`,
+      log,
+      onUnverified,
+      retryOnMissingPromptSubmit: false,
+    });
+
+    vi.advanceTimersByTime(5_000);
+
+    expect(writeSubmit).not.toHaveBeenCalled();
+    expect(onUnverified).toHaveBeenCalledWith(snapshot, "emcom-auto");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("not re-sending SUBMIT"));
+  });
+
+  it("re-sends submit for unreliable hooks when visible-text recovery is enabled", () => {
     vi.useFakeTimers();
     const writeSubmit = vi.fn();
     const log = vi.fn();
@@ -79,6 +105,7 @@ describe("verifyInjectionAfter", () => {
       log,
       onUnverified,
       retryOnMissingPromptSubmit: false,
+      retryVisibleTextOnMissingPromptSubmit: true,
     });
 
     vi.advanceTimersByTime(5_000);

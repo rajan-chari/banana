@@ -705,6 +705,7 @@ export class PtySession extends EventEmitter {
     source: string,
   ): void {
     const retryOnMissingPromptSubmit = (HOOKS_WORKING_COMMANDS as readonly string[]).includes(this.config.command);
+    const retryVisibleTextOnMissingPromptSubmit = source === "startup-kick" || source === "resume-kick";
     verifyInjectionAfter({
       source,
       snapshot,
@@ -715,6 +716,7 @@ export class PtySession extends EventEmitter {
       getCurrentScreen: () => this.getRawTail(8 * 1024),
       log: (message) => clog(message),
       retryOnMissingPromptSubmit,
+      retryVisibleTextOnMissingPromptSubmit,
       onUnverified: (unverifiedSnapshot, unverifiedSource) => {
         void appendCorrection({
           time: new Date().toISOString(),

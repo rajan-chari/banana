@@ -17,6 +17,7 @@ interface VerifyInjectionOptions {
   onGiveUp?: (snapshot: InjectionSnapshot, source: string) => void;
   onUnverified?: (snapshot: InjectionSnapshot, source: string) => void;
   retryOnMissingPromptSubmit?: boolean;
+  retryVisibleTextOnMissingPromptSubmit?: boolean;
   attempt?: number;
 }
 
@@ -51,6 +52,7 @@ export function verifyInjectionAfter({
   onGiveUp,
   onUnverified,
   retryOnMissingPromptSubmit = true,
+  retryVisibleTextOnMissingPromptSubmit = false,
   attempt = 0,
 }: VerifyInjectionOptions): void {
   const injectAt = Date.now();
@@ -66,7 +68,11 @@ export function verifyInjectionAfter({
 
     if (!retryOnMissingPromptSubmit) {
       const currentScreen = getCurrentScreen?.() ?? "";
-      if (attempt < MAX_RETRIES && screenContainsInjectedText(currentScreen, snapshot.injectText)) {
+      if (
+        retryVisibleTextOnMissingPromptSubmit
+        && attempt < MAX_RETRIES
+        && screenContainsInjectedText(currentScreen, snapshot.injectText)
+      ) {
         log(
           `[${sessionName}] [verify] no hook:prompt-submit within ${VERIFY_WINDOW_MS}ms (source=${source}) but injected text is still visible — re-sending SUBMIT (retry ${attempt + 1}/${MAX_RETRIES})`,
         );
@@ -84,6 +90,7 @@ export function verifyInjectionAfter({
           onGiveUp,
           onUnverified,
           retryOnMissingPromptSubmit,
+          retryVisibleTextOnMissingPromptSubmit,
           attempt: attempt + 1,
         });
         return;
