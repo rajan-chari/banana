@@ -1,10 +1,14 @@
 // @vitest-environment happy-dom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildTraceSummary, showTraceCaptureModal, traceFetchErrorMessage } from "../public/lib/trace-capture.js";
 
 beforeEach(() => {
   document.body.innerHTML = "";
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 function trace(rawIncluded = false) {
@@ -127,6 +131,24 @@ describe("showTraceCaptureModal", () => {
       body: expect.stringContaining('"note":"typed after preview"'),
     }));
     expect(clicked).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not download a stale trace if the pre-download refresh fails", async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(trace(false)) })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    showTraceCaptureModal({ sessionName: "a", doc: document, fetchFn: fetchFn as any });
+    await new Promise((r) => setTimeout(r, 0));
+
+    (document.querySelector(".trace-note") as HTMLTextAreaElement).value = "new note";
+    (document.querySelector(".trace-download") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(clicked).not.toHaveBeenCalled();
+    expect(document.querySelector(".trace-status")?.textContent).toContain("Trace unavailable");
   });
 
   it("shows actionable guidance when the trace endpoint is missing", async () => {
