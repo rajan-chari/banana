@@ -72,6 +72,15 @@ export function buildCreateSessionRequest(args) {
 }
 
 /**
+ * @param {{ error?: unknown, detail?: unknown } | null | undefined} err
+ */
+export function formatCreateSessionError(err) {
+  const error = typeof err?.error === "string" ? err.error : "Failed to create session";
+  const detail = typeof err?.detail === "string" && err.detail.trim() ? err.detail.trim() : "";
+  return detail ? `${error}: ${detail}` : error;
+}
+
+/**
  * Build the POST /api/sessions body used when restoring an orphaned workspace
  * pane after a pty-win server restart.
  *
