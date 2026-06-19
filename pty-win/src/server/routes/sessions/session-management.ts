@@ -1,4 +1,5 @@
 import { basename, resolve } from "path";
+import { stat } from "fs/promises";
 import { readIdentity } from "../../../folders.js";
 import { DEFAULTS } from "../../../config.js";
 import type { SessionConfig } from "../../../config.js";
@@ -59,6 +60,37 @@ function buildSessionConfig(opts: BuildSessionConfigOpts): SessionConfig {
   };
 }
 
+export async function isExistingDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isShellCommand(command: string | undefined): boolean {
+  return command === "pwsh" || command === "bash" || command === "shell";
+}
+
+function buildSessionTarget(resolvedDir: string, command: string | undefined): { isShell: boolean; name: string; command: string | undefined } {
+  const isShell = isShellCommand(command);
+  return {
+    isShell,
+    name: basename(resolvedDir) + (isShell ? "~pwsh" : ""),
+    command: isShell ? DEFAULTS.defaultShell : command,
+  };
+}
+
+function createPtySession(sessionConfig: SessionConfig, resolvedDir: string): { session?: PtySession; error?: string } {
+  try {
+    return { session: new PtySession(sessionConfig) };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(`[server] Failed to create session ${sessionConfig.name} (${sessionConfig.command}) in ${resolvedDir}: ${message}`);
+    return { error: message };
+  }
+}
+
 export function registerSessionManagementRoutes({
   app,
   config,
@@ -82,22 +114,23 @@ export function registerSessionManagementRoutes({
     }
 
     const resolvedDir = resolve(workingDir);
-    const isShell = command === "pwsh" || command === "bash" || command === "shell";
-    const suffix = isShell ? "~pwsh" : "";
-    const name = basename(resolvedDir) + suffix;
+    if (!(await isExistingDirectory(resolvedDir))) {
+      return res.status(400).json({ error: "workingDir must be an existing directory", workingDir: resolvedDir });
+    }
 
-    if (sessions.has(name)) {
+    const target = buildSessionTarget(resolvedDir, command);
+
+    if (sessions.has(target.name)) {
       return res.status(409).json({ error: "Session already exists" });
     }
 
-    const resolvedCommand = isShell ? DEFAULTS.defaultShell : command;
-    const identity = isShell ? null : readIdentity(resolvedDir);
-    const checkpointOffsetMs = await registerRepoRoot(name, resolvedDir, sessions, sessionRepoRoots, checkpointStaggerMs);
+    const identity = target.isShell ? null : readIdentity(resolvedDir);
+    const checkpointOffsetMs = await registerRepoRoot(target.name, resolvedDir, sessions, sessionRepoRoots, checkpointStaggerMs);
 
     const sessionConfig = buildSessionConfig({
-      name,
+      name: target.name,
       resolvedDir,
-      command: resolvedCommand,
+      command: target.command,
       args,
       cols,
       rows,
@@ -106,14 +139,15 @@ export function registerSessionManagementRoutes({
       injectionSender,
     });
 
-    const session = new PtySession(sessionConfig);
-    if (savedCosts.has(name)) session.costUsd = savedCosts.get(name)!;
-    if (!isShell) writeSessionHooks(resolvedDir, config.port);
+    const { session, error } = createPtySession(sessionConfig, resolvedDir);
+    if (!session) return res.status(500).json({ error: "failed to create PTY session", detail: error, command: sessionConfig.command });
+    if (savedCosts.has(target.name)) session.costUsd = savedCosts.get(target.name)!;
+    if (!target.isShell) writeSessionHooks(resolvedDir, config.port);
     addSession(session);
     session.start();
 
-    log(`[server] Created session: ${name} (${sessionConfig.command})${identity ? ` identity=${identity.name}` : ""}${sessionRepoRoots.get(name) ? ` repo=${sessionRepoRoots.get(name)}` : ""}`);
-    res.json({ ok: true, name, pid: session.getPid(), identity: identity?.name });
+    log(`[server] Created session: ${target.name} (${sessionConfig.command})${identity ? ` identity=${identity.name}` : ""}${sessionRepoRoots.get(target.name) ? ` repo=${sessionRepoRoots.get(target.name)}` : ""}`);
+    res.json({ ok: true, name: target.name, pid: session.getPid(), identity: identity?.name });
   });
 
   app.delete("/api/sessions/:name", (req, res) => {

@@ -58,6 +58,7 @@ import {
   computeSessionNames,
   estimatePtyDims,
   buildCreateSessionRequest,
+  formatCreateSessionError,
   buildRecreateSessionRequest,
   cleanupDeadSession,
   attachToSiblingWorkspace,
@@ -850,7 +851,7 @@ async function openFolder(folderPath, folderName, command, newWorkspace = false,
     });
     if (!res.ok) {
       const err = await res.json();
-      alert(err.error || "Failed to create session");
+      alert(formatCreateSessionError(err));
       return;
     }
     await res.json();

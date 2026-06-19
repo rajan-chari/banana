@@ -4,6 +4,7 @@ import {
   computeSessionNames,
   estimatePtyDims,
   buildCreateSessionRequest,
+  formatCreateSessionError,
   buildRecreateSessionRequest,
   cleanupDeadSession,
   attachToSiblingWorkspace,
@@ -118,6 +119,21 @@ describe("buildCreateSessionRequest", () => {
       folderPath: "/x", cols: 100, rows: 30, command: "claude", getDefaultAiCommand,
     });
     expect("args" in body).toBe(false);
+  });
+});
+
+describe("formatCreateSessionError", () => {
+  it("includes diagnostic detail when the server provides it", () => {
+    expect(formatCreateSessionError({
+      error: "failed to create PTY session",
+      detail: "posix_spawnp failed",
+    })).toBe("failed to create PTY session: posix_spawnp failed");
+  });
+
+  it("falls back to the generic error when detail is absent", () => {
+    expect(formatCreateSessionError({ error: "workingDir must be an existing directory" }))
+      .toBe("workingDir must be an existing directory");
+    expect(formatCreateSessionError(null)).toBe("Failed to create session");
   });
 });
 
