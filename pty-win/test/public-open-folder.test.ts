@@ -128,13 +128,13 @@ describe("buildRecreateSessionRequest", () => {
     });
   });
 
-  it("resumes agency cp and copilot sessions after restart", () => {
-    expect(buildRecreateSessionRequest({ workingDir: "/x", command: "agency cp" }, 100, 30)).toEqual({
-      workingDir: "/x", cols: 100, rows: 30, command: "agency cp", args: ["--continue"],
-    });
-    expect(buildRecreateSessionRequest({ workingDir: "/x", command: "copilot" }, 100, 30)).toEqual({
-      workingDir: "/x", cols: 100, rows: 30, command: "copilot", args: ["--continue"],
-    });
+  it("resumes explicit AI-command sessions after restart", () => {
+    for (const command of ["claude", "agency cc", "agency cp", "copilot", "pi"]) {
+      const expected = { workingDir: "/x", cols: 100, rows: 30, args: ["--continue"] };
+      expect(buildRecreateSessionRequest({ workingDir: "/x", command }, 100, 30)).toEqual(
+        command === "claude" ? expected : { ...expected, command },
+      );
+    }
   });
 
   it("does not add resume args to shell sessions", () => {
