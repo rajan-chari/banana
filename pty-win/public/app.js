@@ -58,6 +58,7 @@ import {
   computeSessionNames,
   estimatePtyDims,
   buildCreateSessionRequest,
+  buildRecreateSessionRequest,
   cleanupDeadSession,
   attachToSiblingWorkspace,
   tileNewSessionIntoWorkspace,
@@ -759,11 +760,7 @@ async function recreateOrphanedSessions(names) {
       const meta = state.sessionMeta.get(name);
       if (!meta) continue;
       try {
-        const isClaude = !meta.command || meta.command === "claude";
-        /** @type {{workingDir: string | undefined, cols: number, rows: number, command?: string, args?: string[]}} */
-        const body = { workingDir: meta.workingDir, cols, rows };
-        if (meta.command && meta.command !== "claude") body.command = meta.command;
-        if (isClaude) body.args = ["--continue"];
+        const body = buildRecreateSessionRequest(meta, cols, rows);
         const res = await fetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -4,6 +4,7 @@ import {
   computeSessionNames,
   estimatePtyDims,
   buildCreateSessionRequest,
+  buildRecreateSessionRequest,
   cleanupDeadSession,
   attachToSiblingWorkspace,
   tileNewSessionIntoWorkspace,
@@ -117,6 +118,29 @@ describe("buildCreateSessionRequest", () => {
       folderPath: "/x", cols: 100, rows: 30, command: "claude", getDefaultAiCommand,
     });
     expect("args" in body).toBe(false);
+  });
+});
+
+describe("buildRecreateSessionRequest", () => {
+  it("resumes legacy/default Claude metadata without adding command", () => {
+    expect(buildRecreateSessionRequest({ workingDir: "/x" }, 100, 30)).toEqual({
+      workingDir: "/x", cols: 100, rows: 30, args: ["--continue"],
+    });
+  });
+
+  it("resumes agency cp and copilot sessions after restart", () => {
+    expect(buildRecreateSessionRequest({ workingDir: "/x", command: "agency cp" }, 100, 30)).toEqual({
+      workingDir: "/x", cols: 100, rows: 30, command: "agency cp", args: ["--continue"],
+    });
+    expect(buildRecreateSessionRequest({ workingDir: "/x", command: "copilot" }, 100, 30)).toEqual({
+      workingDir: "/x", cols: 100, rows: 30, command: "copilot", args: ["--continue"],
+    });
+  });
+
+  it("does not add resume args to shell sessions", () => {
+    expect(buildRecreateSessionRequest({ workingDir: "/x", command: "pwsh" }, 100, 30)).toEqual({
+      workingDir: "/x", cols: 100, rows: 30, command: "pwsh",
+    });
   });
 });
 

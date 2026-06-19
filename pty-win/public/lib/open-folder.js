@@ -14,6 +14,7 @@ const STATUSBAR_HEIGHT = 22;
 const BORDER_SLACK = 4;
 const MIN_COLS = 80;
 const MIN_ROWS = 24;
+const RESUME_ON_RESTART_COMMANDS = new Set(["claude", "agency cc", "agency cp", "copilot", "pi"]);
 
 /**
  * Compute the display name and the canonical session name for an open
@@ -67,6 +68,25 @@ export function buildCreateSessionRequest(args) {
   const body = { workingDir: args.folderPath, cols: args.cols, rows: args.rows };
   body.command = args.command || args.getDefaultAiCommand();
   if (args.args && args.args.length) body.args = args.args;
+  return body;
+}
+
+/**
+ * Build the POST /api/sessions body used when restoring an orphaned workspace
+ * pane after a pty-win server restart.
+ *
+ * @param {{ workingDir?: string, command?: string|null }} meta
+ * @param {number} cols
+ * @param {number} rows
+ * @returns {{ workingDir: string | undefined, cols: number, rows: number, command?: string, args?: string[] }}
+ */
+export function buildRecreateSessionRequest(meta, cols, rows) {
+  /** @type {{ workingDir: string | undefined, cols: number, rows: number, command?: string, args?: string[] }} */
+  const body = { workingDir: meta.workingDir, cols, rows };
+  if (meta.command && meta.command !== "claude") body.command = meta.command;
+  if (!meta.command || RESUME_ON_RESTART_COMMANDS.has(meta.command)) {
+    body.args = ["--continue"];
+  }
   return body;
 }
 
